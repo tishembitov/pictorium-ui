@@ -3,7 +3,7 @@
  */
 
 import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosError } from 'axios'
-import { keycloak, refreshToken } from '@/plugins/keycloak'
+import { getKeycloak, refreshToken, login, getToken, isAuthenticated } from '@/plugins/keycloak'
 import router from '@/router'
 
 // ============================================================================
@@ -33,19 +33,26 @@ function createApiClient(baseURL: string): AxiosInstance {
 
   client.interceptors.request.use(
     async (config) => {
+      const keycloak = getKeycloak()
+
+      if (!keycloak) {
+        console.warn('[API] Keycloak is not initialized')
+        return config
+      }
+
       // Проверяем, нужно ли обновить токен (за 30 секунд до истечения)
-      if (keycloak.authenticated) {
+      if (isAuthenticated()) {
         try {
           await keycloak.updateToken(30)
         } catch (error) {
           console.error('[Keycloak] Token update failed:', error)
-          keycloak.login()
+          login()
           return Promise.reject(error)
         }
       }
 
       // Добавляем токен в заголовок
-      const token = keycloak.token
+      const token = getToken()
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
       }
@@ -73,22 +80,23 @@ function createApiClient(baseURL: string): AxiosInstance {
         try {
           // Пытаемся обновить токен через Keycloak
           const refreshed = await refreshToken(5)
+          const token = getToken()
 
-          if (refreshed && keycloak.token) {
+          if (refreshed && token) {
             // Повторяем оригинальный запрос с новым токеном
             if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${keycloak.token}`
+              originalRequest.headers.Authorization = `Bearer ${token}`
             }
             return client(originalRequest)
           } else {
             // Не удалось обновить токен - редирект на login
-            keycloak.login()
+            login()
             return Promise.reject(error)
           }
         } catch (refreshError) {
           // Ошибка обновления токена - редирект на login
           console.error('[Keycloak] Token refresh failed:', refreshError)
-          keycloak.login()
+          login()
           return Promise.reject(refreshError)
         }
       }
@@ -97,6 +105,11 @@ function createApiClient(baseURL: string): AxiosInstance {
       if (error.response?.status === 403) {
         console.error('[API] Access denied (403)')
         router.push('/forbidden')
+      }
+
+      // Обработка 500+ Server Errors
+      if (error.response?.status && error.response.status >= 500) {
+        console.error('[API] Server error:', error.response.status)
       }
 
       return Promise.reject(error)
@@ -118,14 +131,63 @@ export const storageServiceClient = createApiClient(STORAGE_SERVICE_URL)
 // HELPER FUNCTIONS
 // ============================================================================
 
+/**
+ * Обработка API ошибок с детальным сообщением
+ */
 export function handleApiError(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const message = error.response?.data?.message || error.message
+    // Приоритет: message из response.data, потом общее сообщение ошибки
+    const message =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.message ||
+      'An unexpected error occurred'
+
     return message
   }
+
+  if (error instanceof Error) {
+    return error.message
+  }
+
   return 'An unexpected error occurred'
 }
 
+/**
+ * Проверка, является ли ошибка Axios ошибкой
+ */
 export function isAxiosError(error: unknown): error is AxiosError {
   return axios.isAxiosError(error)
+}
+
+/**
+ * Получить статус код ошибки
+ */
+export function getErrorStatus(error: unknown): number | null {
+  if (axios.isAxiosError(error)) {
+    return error.response?.status ?? null
+  }
+  return null
+}
+
+/**
+ * Проверить, является ли ошибка ошибкой авторизации
+ */
+export function isUnauthorizedError(error: unknown): boolean {
+  return getErrorStatus(error) === 401
+}
+
+/**
+ * Проверить, является ли ошибка ошибкой доступа
+ */
+export function isForbiddenError(error: unknown): boolean {
+  return getErrorStatus(error) === 403
+}
+
+/**
+ * Проверить, является ли ошибка серверной ошибкой
+ */
+export function isServerError(error: unknown): boolean {
+  const status = getErrorStatus(error)
+  return status !== null && status >= 500
 }

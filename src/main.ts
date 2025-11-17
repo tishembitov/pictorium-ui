@@ -6,7 +6,7 @@ import { setupPlugins } from './plugins'
 import { setupDirectives } from './directives'
 
 // Styles
-import './assets/styles/main.css'
+import './assets/main.css'
 
 async function bootstrap() {
   const app = createApp(App)

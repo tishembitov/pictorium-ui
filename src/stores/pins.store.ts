@@ -240,7 +240,7 @@ export const usePinsStore = defineStore('pins', () => {
    */
   async function deletePin(pinId: string) {
     try {
-      await pinsApi.deletePin(pinId)
+      await pinsApi.delete(pinId)
 
       // Удаляем из кэша
       const cached = pinsCache.value.get(pinId)

@@ -20,6 +20,8 @@ import type {
   PageTag,
   Pageable,
   PinFilter,
+  Like,
+  Page,
 } from './models.types'
 
 // ============================================================================
@@ -361,6 +363,24 @@ export interface GetImageMetadataParams {
 export interface ListImagesParams {
   category?: string
 }
+
+// ============================================================================
+// RESPONSE TYPE ALIASES (для удобства в stores)
+// ============================================================================
+
+export type PinResponse = Pin
+export type BoardResponse = Board
+export type CommentResponse = Comment
+export type TagResponse = Tag
+export type UserResponse = User
+export type LikeResponse = Like
+
+export type PagePinResponse = PagePin
+export type PageBoardResponse = Page<Board>
+export type PageCommentResponse = PageComment
+export type PageTagResponse = PageTag
+export type PageUserResponse = PageUser
+export type PageLikeResponse = PageLike
 
 export type UploadImageResponse = ImageUploadResponse
 export type GetImageUrlResponse = string

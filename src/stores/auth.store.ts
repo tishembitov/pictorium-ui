@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type Keycloak from 'keycloak-js'
-import type { UserResponse } from '@/types/api.types'
+import type { User } from '@/types'
 import { usersApi } from '@/api/users.api'
 import { storageApi } from '@/api/storage.api'
 
@@ -13,12 +13,12 @@ export const useAuthStore = defineStore('auth', () => {
   const isInitialized = ref(false)
 
   // User data
-  const user = ref<UserResponse | null>(null)
+  const user = ref<User | null>(null)
   const userImage = ref<string | null>(null)
   const bannerImage = ref<string | null>(null)
 
   // Loading states
-  const isLoading = ref(false)
+  const loading = ref(false)
   const isLoadingProfile = ref(true)
 
   // ============ GETTERS ============
@@ -35,7 +35,7 @@ export const useAuthStore = defineStore('auth', () => {
   // ============ ACTIONS ============
 
   /**
-   * Инициализация Keycloak
+   * Инициализация Keycloak и загрузка профиля
    */
   async function initKeycloak(keycloakInstance: Keycloak) {
     try {
@@ -64,7 +64,10 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = userData
 
       // Загружаем изображения параллельно
-      await Promise.allSettled([loadUserImage(userData.id), loadBannerImage(userData.id)])
+      await Promise.allSettled([
+        loadUserImage(userData.imageUrl),
+        loadBannerImage(userData.bannerImageUrl),
+      ])
     } catch (error) {
       console.error('Failed to load user profile:', error)
       throw error
@@ -76,11 +79,11 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Загрузка аватара пользователя
    */
-  async function loadUserImage(userId: string) {
+  async function loadUserImage(imageId: string | null) {
     try {
-      if (!user.value?.imageUrl) return
+      if (!imageId) return
 
-      const blob = await storageApi.downloadImage(user.value.imageUrl)
+      const blob = await storageApi.downloadImage(imageId)
       userImage.value = URL.createObjectURL(blob)
     } catch (error) {
       console.error('Failed to load user image:', error)
@@ -91,11 +94,11 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Загрузка баннера пользователя
    */
-  async function loadBannerImage(userId: string) {
+  async function loadBannerImage(imageId: string | null) {
     try {
-      if (!user.value?.bannerImageUrl) return
+      if (!imageId) return
 
-      const blob = await storageApi.downloadImage(user.value.bannerImageUrl)
+      const blob = await storageApi.downloadImage(imageId)
       bannerImage.value = URL.createObjectURL(blob)
     } catch (error) {
       console.error('Failed to load banner image:', error)
@@ -115,15 +118,15 @@ export const useAuthStore = defineStore('auth', () => {
     pinterest?: string
   }) {
     try {
-      isLoading.value = true
-      const updated = await usersApi.updateCurrentUser(data)
+      loading.value = true
+      const updated = await usersApi.updateUser(data)
       user.value = updated
       return updated
     } catch (error) {
       console.error('Failed to update profile:', error)
       throw error
     } finally {
-      isLoading.value = false
+      loading.value = false
     }
   }
 
@@ -132,7 +135,7 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function uploadAvatar(file: File) {
     try {
-      isLoading.value = true
+      loading.value = true
 
       // 1. Загружаем в Storage Service
       const uploadResponse = await storageApi.uploadImage({
@@ -144,13 +147,16 @@ export const useAuthStore = defineStore('auth', () => {
       })
 
       // 2. Обновляем профиль с новым imageUrl
-      const updated = await usersApi.updateCurrentUser({
+      const updated = await usersApi.updateUser({
         imageUrl: uploadResponse.imageId,
       })
 
       user.value = updated
 
       // 3. Обновляем локальный blob
+      if (userImage.value) {
+        URL.revokeObjectURL(userImage.value)
+      }
       userImage.value = URL.createObjectURL(file)
 
       return uploadResponse
@@ -158,7 +164,7 @@ export const useAuthStore = defineStore('auth', () => {
       console.error('Failed to upload avatar:', error)
       throw error
     } finally {
-      isLoading.value = false
+      loading.value = false
     }
   }
 
@@ -167,7 +173,7 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function uploadBanner(file: File) {
     try {
-      isLoading.value = true
+      loading.value = true
 
       const uploadResponse = await storageApi.uploadImage({
         file,
@@ -175,11 +181,15 @@ export const useAuthStore = defineStore('auth', () => {
         generateThumbnail: false,
       })
 
-      const updated = await usersApi.updateCurrentUser({
+      const updated = await usersApi.updateUser({
         bannerImageUrl: uploadResponse.imageId,
       })
 
       user.value = updated
+
+      if (bannerImage.value) {
+        URL.revokeObjectURL(bannerImage.value)
+      }
       bannerImage.value = URL.createObjectURL(file)
 
       return uploadResponse
@@ -187,7 +197,7 @@ export const useAuthStore = defineStore('auth', () => {
       console.error('Failed to upload banner:', error)
       throw error
     } finally {
-      isLoading.value = false
+      loading.value = false
     }
   }
 
@@ -241,6 +251,15 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * Проверка авторизации (для guards)
+   */
+  async function checkAuth() {
+    if (isAuthenticated.value && !user.value) {
+      await loadUserProfile()
+    }
+  }
+
+  /**
    * Сброс store (для тестов)
    */
   function $reset() {
@@ -250,7 +269,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     userImage.value = null
     bannerImage.value = null
-    isLoading.value = false
+    loading.value = false
     isLoadingProfile.value = true
   }
 
@@ -262,7 +281,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     userImage,
     bannerImage,
-    isLoading,
+    loading,
     isLoadingProfile,
 
     // Getters
@@ -283,6 +302,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     logout,
     updateToken,
+    checkAuth,
     $reset,
   }
 })

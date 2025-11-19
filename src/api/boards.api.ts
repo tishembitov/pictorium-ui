@@ -103,3 +103,10 @@ export const boardsApi = {
     await contentServiceClient.delete(`${BASE_PATH}/${boardId}`)
   },
 }
+
+// Export selected board API separately
+export const selectedBoardApi = {
+  getSelectedBoard: boardsApi.getSelectedBoard,
+  selectBoard: boardsApi.selectBoard,
+  deselectBoard: boardsApi.deselectBoard,
+}

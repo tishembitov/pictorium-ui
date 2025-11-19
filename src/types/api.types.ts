@@ -79,22 +79,18 @@ export interface PinCreateRequest {
   title?: string
   description?: string
   href?: string
-  imageUrl: string
+  imageUrl?: string // Сделаем optional
   videoPreviewUrl?: string
   rgb?: string
   height?: string
-  tags?: string[]
+  tags?: Set<string> // Исправим на Set
 }
 
 export interface PinUpdateRequest {
   title?: string
   description?: string
   href?: string
-  imageUrl?: string
-  videoPreviewUrl?: string
-  rgb?: string
-  height?: string
-  tags?: string[]
+  tags?: Set<string> // Исправим на Set
 }
 
 export interface GetPinsParams {

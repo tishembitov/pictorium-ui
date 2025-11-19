@@ -36,7 +36,7 @@ export function setupGuards(router: Router) {
 
       // Загружаем данные пользователя, если еще не загружены
       if (!authStore.user && keycloak.authenticated) {
-        await authStore.setKeycloakUser(keycloak)
+        await authStore.initKeycloak(keycloak) // Исправлено
       }
     }
 
@@ -52,6 +52,5 @@ export function setupGuards(router: Router) {
   // Global after guard
   router.afterEach((to, from) => {
     // Analytics, logging и т.д.
-    // console.log(`Navigated from ${from.name} to ${to.name}`)
   })
 }

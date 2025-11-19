@@ -67,14 +67,14 @@ export enum PinScope {
 
 export interface PinFilter {
   q?: string
-  tags?: string[]
+  tags?: Set<string> // Исправлено с string[] на Set<string>
   authorId?: string
   savedBy?: string
   likedBy?: string
   relatedTo?: string
   createdFrom?: string
   createdTo?: string
-  scope?: PinScope
+  scope?: PinScope | string
 }
 
 // ============================================================================

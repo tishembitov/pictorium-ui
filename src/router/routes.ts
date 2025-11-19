@@ -9,6 +9,7 @@
 //     meta: {
 //       requiresAuth: false,
 //       layout: 'guest',
+//       title: 'Welcome',
 //     },
 //   },
 
@@ -20,6 +21,7 @@
 //     meta: {
 //       requiresAuth: false,
 //       layout: 'guest',
+//       title: 'Portfolio',
 //     },
 //   },
 
@@ -32,6 +34,7 @@
 //       requiresAuth: true,
 //       layout: 'auth',
 //       keepAlive: true,
+//       title: 'Home',
 //     },
 //   },
 
@@ -44,6 +47,7 @@
 //       requiresAuth: true,
 //       layout: 'auth',
 //       keepAlive: true,
+//       title: 'Pin',
 //     },
 //   },
 
@@ -55,6 +59,7 @@
 //     meta: {
 //       requiresAuth: true,
 //       layout: 'auth',
+//       title: 'Create Pin',
 //     },
 //   },
 
@@ -67,6 +72,7 @@
 //       requiresAuth: true,
 //       layout: 'auth',
 //       keepAlive: true,
+//       title: 'Profile',
 //     },
 //   },
 
@@ -78,6 +84,7 @@
 //     meta: {
 //       requiresAuth: true,
 //       layout: 'auth',
+//       title: 'Edit Profile',
 //     },
 //   },
 
@@ -89,6 +96,7 @@
 //     meta: {
 //       requiresAuth: true,
 //       layout: 'auth',
+//       title: 'Board',
 //     },
 //   },
 
@@ -100,6 +108,7 @@
 //     meta: {
 //       requiresAuth: true,
 //       layout: 'auth',
+//       title: 'Search',
 //     },
 //   },
 
@@ -111,6 +120,7 @@
 //     meta: {
 //       requiresAuth: true,
 //       layout: 'auth',
+//       title: 'Tag',
 //     },
 //   },
 
@@ -122,6 +132,7 @@
 //     meta: {
 //       requiresAuth: true,
 //       layout: 'auth',
+//       title: 'Categories',
 //     },
 //   },
 
@@ -133,6 +144,7 @@
 //     meta: {
 //       requiresAuth: true,
 //       layout: 'auth',
+//       title: 'Saved',
 //     },
 //   },
 
@@ -144,6 +156,7 @@
 //     meta: {
 //       requiresAuth: true,
 //       layout: 'auth',
+//       title: 'Messages',
 //     },
 //   },
 
@@ -155,6 +168,7 @@
 //     meta: {
 //       requiresAuth: true,
 //       layout: 'auth',
+//       title: 'Notifications',
 //     },
 //   },
 
@@ -167,6 +181,7 @@
 //       requiresAuth: true,
 //       layout: 'auth',
 //       keepAlive: true,
+//       title: 'Recommendations',
 //     },
 //   },
 
@@ -178,6 +193,7 @@
 //     meta: {
 //       requiresAuth: false,
 //       layout: 'guest',
+//       title: 'Unauthorized',
 //     },
 //   },
 //   {
@@ -187,6 +203,7 @@
 //     meta: {
 //       requiresAuth: false,
 //       layout: 'guest',
+//       title: 'Forbidden',
 //     },
 //   },
 //   {
@@ -196,6 +213,7 @@
 //     meta: {
 //       requiresAuth: false,
 //       layout: 'guest',
+//       title: 'Not Found',
 //     },
 //   },
 // ]

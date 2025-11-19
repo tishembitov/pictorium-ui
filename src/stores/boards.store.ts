@@ -183,7 +183,7 @@ export const useBoardsStore = defineStore('boards', () => {
   async function createBoard(title: string) {
     try {
       isLoading.value = true
-      const board = await boardsApi.createBoard({ title })
+      const board = await boardsApi.create({ title }) // Исправлено
 
       // Добавляем в начало списка
       myBoards.value.unshift({

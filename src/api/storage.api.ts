@@ -8,6 +8,7 @@ import type {
   GetImageUrlResponse,
   GetImageMetadataResponse,
   ListImagesResponse,
+  ImageUploadRequest,
 } from '@/types'
 
 const BASE_PATH = '/api/v1/images'
@@ -16,7 +17,17 @@ export const storageApi = {
   /**
    * Загрузить изображение
    */
-  uploadImage: async (formData: FormData): Promise<UploadImageResponse> => {
+  uploadImage: async (params: ImageUploadRequest): Promise<UploadImageResponse> => {
+    const formData = new FormData()
+    formData.append('file', params.file)
+
+    if (params.category) formData.append('category', params.category)
+    if (params.generateThumbnail !== undefined) {
+      formData.append('generateThumbnail', String(params.generateThumbnail))
+    }
+    if (params.thumbnailWidth) formData.append('thumbnailWidth', String(params.thumbnailWidth))
+    if (params.thumbnailHeight) formData.append('thumbnailHeight', String(params.thumbnailHeight))
+
     const { data } = await storageServiceClient.post(`${BASE_PATH}/upload`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',

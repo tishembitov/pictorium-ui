@@ -25,7 +25,7 @@ export async function setupKeycloak(app: App) {
 
     if (authenticated) {
       const authStore = useAuthStore()
-      await authStore.setKeycloakUser(keycloak)
+      await authStore.initKeycloak(keycloak) // Исправлено
     }
 
     // Обновление токена каждые 30 секунд
@@ -45,6 +45,8 @@ export async function setupKeycloak(app: App) {
 export function getKeycloak(): Keycloak | null {
   return keycloak
 }
+
+// ... остальной код без изменений
 
 // ============================================================================
 // HELPER FUNCTIONS

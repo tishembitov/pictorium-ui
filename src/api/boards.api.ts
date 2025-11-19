@@ -83,6 +83,13 @@ export const boardsApi = {
   },
 
   /**
+   * Удалить доску
+   */
+  delete: async (boardId: string): Promise<void> => {
+    await contentServiceClient.delete(`${BASE_PATH}/${boardId}`)
+  },
+
+  /**
    * Добавить пин в доску
    */
   addPin: async (boardId: string, pinId: string): Promise<void> => {
@@ -94,13 +101,6 @@ export const boardsApi = {
    */
   removePin: async (boardId: string, pinId: string): Promise<void> => {
     await contentServiceClient.delete(`${BASE_PATH}/${boardId}/pins/${pinId}`)
-  },
-
-  /**
-   * Удалить доску
-   */
-  delete: async (boardId: string): Promise<void> => {
-    await contentServiceClient.delete(`${BASE_PATH}/${boardId}`)
   },
 }
 

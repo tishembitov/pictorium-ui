@@ -6,6 +6,7 @@ import { pinsApi } from '@/api/pins.api'
 import { savedPinsApi } from '@/api/saved-pins.api'
 import { likesApi } from '@/api/likes.api'
 import { storageApi } from '@/api/storage.api'
+import { isVideo, getImageDimensions } from '@/utils/media' // ДОБАВИТЬ ИМПОРТ
 
 interface PinWithBlob extends PinResponse {
   imageBlobUrl?: string
@@ -133,12 +134,26 @@ export const usePinsStore = defineStore('pins', () => {
     href?: string
     tags?: string[]
     rgb?: string
-    height?: string
   }) {
     try {
       isLoading.value = true
 
-      // 1. Загружаем медиа в Storage Service
+      // 1. Получаем размеры изображения/видео
+      const isVideoFile = isVideo(data.file)
+      let width: number | undefined
+      let height: number | undefined
+
+      if (!isVideoFile) {
+        try {
+          const dimensions = await getImageDimensions(data.file)
+          width = dimensions.width
+          height = dimensions.height
+        } catch (error) {
+          console.warn('Failed to get image dimensions:', error)
+        }
+      }
+
+      // 2. Загружаем медиа в Storage Service
       const uploadResponse = await storageApi.uploadImage({
         file: data.file,
         category: 'pins',
@@ -147,24 +162,30 @@ export const usePinsStore = defineStore('pins', () => {
         thumbnailHeight: 400,
       })
 
-      // 2. Создаем пин в Content Service
-      const isVideo = data.file.type.startsWith('video/')
-      const pin = await pinsApi.createPin({
+      // 3. Создаем пин в Content Service
+      const pin = await pinsApi.create({
+        imageId: uploadResponse.imageId,
+        imageUrl: uploadResponse.imageUrl,
+        thumbnailId: uploadResponse.thumbnailUrl ? uploadResponse.imageId : undefined,
+        thumbnailUrl: uploadResponse.thumbnailUrl || undefined,
+        videoPreviewId: isVideoFile ? uploadResponse.imageId : undefined,
+        videoPreviewUrl: isVideoFile ? uploadResponse.imageUrl : undefined,
         title: data.title,
         description: data.description,
         href: data.href,
-        imageUrl: isVideo ? undefined : uploadResponse.imageId,
-        videoPreviewUrl: isVideo ? uploadResponse.imageId : undefined,
         rgb: data.rgb,
-        height: data.height,
-        tags: data.tags ? new Set(data.tags) : undefined,
+        width,
+        height,
+        fileSize: uploadResponse.size,
+        contentType: uploadResponse.contentType,
+        tags: data.tags && data.tags.length > 0 ? new Set(data.tags) : undefined,
       })
 
-      // 3. Кэшируем
+      // 4. Кэшируем
       const [pinWithBlob] = await loadPinBlobs([pin])
       pinsCache.value.set(pin.id, pinWithBlob)
 
-      // 4. Добавляем в начало feed (если это текущий пользователь)
+      // 5. Добавляем в начало feed
       feedPins.value.unshift(pinWithBlob)
 
       return pinWithBlob
@@ -175,7 +196,6 @@ export const usePinsStore = defineStore('pins', () => {
       isLoading.value = false
     }
   }
-
   /**
    * Обновление пина
    */
@@ -189,7 +209,7 @@ export const usePinsStore = defineStore('pins', () => {
     },
   ) {
     try {
-      const updated = await pinsApi.updatePin(pinId, {
+      const updated = await pinsApi.update(pinId, {
         title: data.title,
         description: data.description,
         href: data.href,

@@ -200,13 +200,12 @@ export const useBoardsStore = defineStore('boards', () => {
       isLoading.value = false
     }
   }
-
   /**
    * Удаление доски
    */
   async function deleteBoard(boardId: string) {
     try {
-      await boardsApi.deleteBoard(boardId)
+      await boardsApi.delete(boardId) // ИСПРАВЛЕНО (было deleteBoard)
 
       // Удаляем из списка
       myBoards.value = myBoards.value.filter((b) => b.id !== boardId)
@@ -227,7 +226,7 @@ export const useBoardsStore = defineStore('boards', () => {
    */
   async function addPinToBoard(boardId: string, pinId: string) {
     try {
-      await boardsApi.addPinToBoard(boardId, pinId)
+      await boardsApi.addPin(boardId, pinId) // ИСПРАВЛЕНО
 
       // Увеличиваем счетчик
       const board = myBoards.value.find((b) => b.id === boardId)
@@ -250,7 +249,7 @@ export const useBoardsStore = defineStore('boards', () => {
    */
   async function removePinFromBoard(boardId: string, pinId: string) {
     try {
-      await boardsApi.removePinFromBoard(boardId, pinId)
+      await boardsApi.removePin(boardId, pinId) // ИСПРАВЛЕНО
 
       // Уменьшаем счетчик
       const board = myBoards.value.find((b) => b.id === boardId)

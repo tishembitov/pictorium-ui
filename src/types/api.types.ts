@@ -29,6 +29,10 @@ import type {
 export interface UserUpdateRequest {
   username?: string
   description?: string
+  imageId?: string // ДОБАВЛЕНО
+  imageUrl?: string
+  bannerImageId?: string // ДОБАВЛЕНО
+  bannerImageUrl?: string
   instagram?: string
   tiktok?: string
   telegram?: string
@@ -76,21 +80,37 @@ export type CheckFollowResponse = FollowCheckResponse
 // ============================================================================
 
 export interface PinCreateRequest {
+  imageId: string // REQUIRED (был optional)
+  imageUrl?: string
+  thumbnailId?: string // ДОБАВЛЕНО
+  thumbnailUrl?: string // ДОБАВЛЕНО
+  videoPreviewId?: string // ДОБАВЛЕНО
+  videoPreviewUrl?: string // ДОБАВЛЕНО
   title?: string
   description?: string
   href?: string
-  imageUrl?: string // Сделаем optional
-  videoPreviewUrl?: string
   rgb?: string
-  height?: string
-  tags?: Set<string> // Исправим на Set
+  width?: number // ДОБАВЛЕНО
+  height?: number // ИЗМЕНЕНО с string на number
+  fileSize?: number // ДОБАВЛЕНО
+  contentType?: string // ДОБАВЛЕНО
+  tags?: Set<string>
 }
 
 export interface PinUpdateRequest {
+  imageId?: string
+  imageUrl?: string
+  thumbnailId?: string // ДОБАВЛЕНО
+  thumbnailUrl?: string // ДОБАВЛЕНО
+  videoPreviewId?: string // ДОБАВЛЕНО
+  videoPreviewUrl?: string // ДОБАВЛЕНО
   title?: string
   description?: string
   href?: string
-  tags?: Set<string> // Исправим на Set
+  rgb?: string
+  width?: number // ДОБАВЛЕНО
+  height?: number // ИЗМЕНЕНО
+  tags?: Set<string>
 }
 
 export interface GetPinsParams {
@@ -174,12 +194,14 @@ export type GetSelectedBoardResponse = Board
 // ============================================================================
 
 export interface CommentCreateRequest {
-  content: string
+  content?: string // Теперь optional по OpenAPI
+  imageId?: string // ДОБАВЛЕНО
   imageUrl?: string
 }
 
 export interface CommentUpdateRequest {
   content?: string
+  imageId?: string // ДОБАВЛЕНО
   imageUrl?: string
 }
 

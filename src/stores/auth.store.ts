@@ -146,9 +146,10 @@ export const useAuthStore = defineStore('auth', () => {
         thumbnailHeight: 200,
       })
 
-      // 2. Обновляем профиль с новым imageUrl
+      // 2. Обновляем профиль с новым imageId и imageUrl
       const updated = await usersApi.updateUser({
-        imageUrl: uploadResponse.imageId,
+        imageId: uploadResponse.imageId, // ДОБАВЛЕНО
+        imageUrl: uploadResponse.imageUrl, // Уже было
       })
 
       user.value = updated
@@ -182,7 +183,8 @@ export const useAuthStore = defineStore('auth', () => {
       })
 
       const updated = await usersApi.updateUser({
-        bannerImageUrl: uploadResponse.imageId,
+        bannerImageId: uploadResponse.imageId, // ДОБАВЛЕНО
+        bannerImageUrl: uploadResponse.imageUrl, // Уже было
       })
 
       user.value = updated
@@ -200,7 +202,6 @@ export const useAuthStore = defineStore('auth', () => {
       loading.value = false
     }
   }
-
   /**
    * Login через Keycloak
    */

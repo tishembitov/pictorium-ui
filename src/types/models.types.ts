@@ -31,16 +31,24 @@ export interface UserStats {
 // PIN MODELS
 // ============================================================================
 
+// ============================================================================
+// PIN MODELS
+// ============================================================================
+
 export interface Pin {
   id: string
   userId: string
   title: string | null
   description: string | null
   href: string | null
-  imageUrl: string
+  imageUrl: string | null // Теперь может быть null
+  thumbnailUrl: string | null // ДОБАВЛЕНО
   videoPreviewUrl: string | null
   rgb: string | null
-  height: string | null
+  width: number | null // ДОБАВЛЕНО
+  height: number | null // ИЗМЕНЕНО на number
+  fileSize: number | null // ДОБАВЛЕНО
+  contentType: string | null // ДОБАВЛЕНО
   createdAt: string
   updatedAt: string
   tags: string[]
@@ -49,6 +57,7 @@ export interface Pin {
   saveCount: number
   commentCount: number
   likeCount: number
+  viewCount: number // ДОБАВЛЕНО
 }
 
 export interface PinPreview {

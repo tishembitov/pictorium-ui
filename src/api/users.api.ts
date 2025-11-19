@@ -26,7 +26,7 @@ export const usersApi = {
    * Получить пользователя по username
    */
   getUserByUsername: async (username: string): Promise<GetUserByUsernameResponse> => {
-    const { data } = await userServiceClient.get(`${BASE_PATH}/username/${username}`)
+    const { data } = await userServiceClient.get(`${BASE_PATH}/user/username/${username}`) // ИСПРАВЛЕНО
     return data
   },
 
@@ -34,7 +34,7 @@ export const usersApi = {
    * Получить пользователя по ID
    */
   getUserById: async (userId: string): Promise<GetUserByIdResponse> => {
-    const { data } = await userServiceClient.get(`${BASE_PATH}/${userId}`)
+    const { data } = await userServiceClient.get(`${BASE_PATH}/user/id/${userId}`) // ИСПРАВЛЕНО
     return data
   },
 

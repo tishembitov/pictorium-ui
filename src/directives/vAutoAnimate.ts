@@ -1,4 +1,4 @@
-import { DirectiveBinding } from 'vue'
+import type { DirectiveBinding } from 'vue'
 import autoAnimate from '@formkit/auto-animate'
 
 interface AutoAnimateElement extends HTMLElement {

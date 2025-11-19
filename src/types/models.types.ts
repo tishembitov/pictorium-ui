@@ -17,7 +17,7 @@ export interface User {
   tiktok: string | null
   telegram: string | null
   pinterest: string | null
-  selectedBoardId: string | null
+  selectedBoardId?: string | null // Опционально, не всегда возвращается
 }
 
 export interface UserStats {
@@ -37,28 +37,28 @@ export interface Pin {
   title: string | null
   description: string | null
   href: string | null
-  imageUrl: string | null // Теперь может быть null
-  thumbnailUrl: string | null // ДОБАВЛЕНО
+  imageUrl: string | null
+  thumbnailUrl: string | null
   videoPreviewUrl: string | null
   rgb: string | null
-  width: number | null // ДОБАВЛЕНО
-  height: number | null // ИЗМЕНЕНО на number
-  fileSize: number | null // ДОБАВЛЕНО
-  contentType: string | null // ДОБАВЛЕНО
+  width: number | null
+  height: number | null
+  fileSize: number | null
+  contentType: string | null
   createdAt: string
   updatedAt: string
-  tags: string[]
+  tags: string[] // Массив от сервера
   isLiked: boolean
   isSaved: boolean
   saveCount: number
   commentCount: number
   likeCount: number
-  viewCount: number // ДОБАВЛЕНО
+  viewCount: number
 }
 
 export interface PinPreview {
   id: string
-  imageUrl: string
+  imageUrl: string | null
   videoPreviewUrl: string | null
 }
 
@@ -72,7 +72,7 @@ export enum PinScope {
 
 export interface PinFilter {
   q?: string
-  tags?: Set<string> // Исправлено с string[] на Set<string>
+  tags?: string[] // Массив для отправки на сервер
   authorId?: string
   savedBy?: string
   likedBy?: string
@@ -103,7 +103,7 @@ export interface Comment {
   pinId: string
   userId: string
   parentCommentId: string | null
-  content: string
+  content: string | null // Может быть null если только картинка
   imageUrl: string | null
   isLiked: boolean
   likeCount: number

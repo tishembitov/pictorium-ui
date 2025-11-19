@@ -1,7 +1,7 @@
-import { App } from 'vue'
+import type { App } from 'vue'
 import Keycloak from 'keycloak-js'
-import { useAuthStore } from '@/stores/auth.store'
 
+// Экспортируем переменную, но инициализируем её внутри setup
 export let keycloak: Keycloak | null = null
 
 export async function setupKeycloak(app: App) {
@@ -23,11 +23,6 @@ export async function setupKeycloak(app: App) {
     app.config.globalProperties.$keycloak = keycloak
     app.provide('keycloak', keycloak)
 
-    if (authenticated) {
-      const authStore = useAuthStore()
-      await authStore.initKeycloak(keycloak) // Исправлено
-    }
-
     // Обновление токена каждые 30 секунд
     setInterval(() => {
       keycloak?.updateToken(70).catch(() => {
@@ -46,11 +41,7 @@ export function getKeycloak(): Keycloak | null {
   return keycloak
 }
 
-// ... остальной код без изменений
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
+// ... (Остальные helper functions: getToken, login, logout и т.д. оставляем без изменений)
 
 /**
  * Получить access token
@@ -59,107 +50,49 @@ export function getToken(): string | undefined {
   return keycloak?.token
 }
 
-/**
- * Получить refresh token
- */
 export function getRefreshToken(): string | undefined {
   return keycloak?.refreshToken
 }
 
-/**
- * Получить ID token
- */
 export function getIdToken(): string | undefined {
   return keycloak?.idToken
 }
 
-/**
- * Проверить аутентификацию
- */
 export function isAuthenticated(): boolean {
   return keycloak?.authenticated ?? false
 }
 
-/**
- * Войти
- */
 export function login(redirectUri?: string): void {
-  if (!keycloak) {
-    console.error('[Keycloak] Keycloak is not initialized')
-    return
-  }
-
+  if (!keycloak) return
   keycloak.login({
-    redirectUri: redirectUri || import.meta.env.VITE_KEYCLOAK_REDIRECT_URI,
+    redirectUri:
+      redirectUri || import.meta.env.VITE_KEYCLOAK_REDIRECT_URI || window.location.origin,
   })
 }
 
-/**
- * Выйти
- */
 export function logout(redirectUri?: string): void {
-  if (!keycloak) {
-    console.error('[Keycloak] Keycloak is not initialized')
-    return
-  }
-
+  if (!keycloak) return
   keycloak.logout({
-    redirectUri: redirectUri || import.meta.env.VITE_KEYCLOAK_REDIRECT_URI,
+    redirectUri:
+      redirectUri || import.meta.env.VITE_KEYCLOAK_REDIRECT_URI || window.location.origin,
   })
 }
 
-/**
- * Обновить токен
- */
 export async function refreshToken(minValidity: number = 5): Promise<boolean> {
-  if (!keycloak) {
-    console.error('[Keycloak] Keycloak is not initialized')
-    return false
-  }
-
+  if (!keycloak) return false
   try {
     return await keycloak.updateToken(minValidity)
   } catch (error) {
-    console.error('[Keycloak] Token refresh failed:', error)
     return false
   }
 }
 
-/**
- * Получить информацию о пользователе
- */
 export async function loadUserProfile() {
-  if (!keycloak) {
-    console.error('[Keycloak] Keycloak is not initialized')
-    return null
-  }
-
-  try {
-    return await keycloak.loadUserProfile()
-  } catch (error) {
-    console.error('[Keycloak] Failed to load user profile:', error)
-    return null
-  }
+  if (!keycloak) return null
+  return await keycloak.loadUserProfile()
 }
 
-/**
- * Проверить роль
- */
 export function hasRole(role: string): boolean {
-  if (!keycloak) {
-    console.warn('[Keycloak] Keycloak is not initialized')
-    return false
-  }
+  if (!keycloak) return false
   return keycloak.hasRealmRole(role)
-}
-
-/**
- * Проверить роли
- */
-export function hasRoles(roles: string[]): boolean {
-  if (!keycloak) {
-    console.warn('[Keycloak] Keycloak is not initialized')
-    return false
-  }
-  return roles.every((role) => keycloak!.hasRealmRole(role))
 }

@@ -1,5 +1,6 @@
 // API URLs (из .env)
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+
 export const USER_SERVICE_URL = import.meta.env.VITE_USER_SERVICE_URL || 'http://localhost:8010'
 export const CONTENT_SERVICE_URL =
   import.meta.env.VITE_CONTENT_SERVICE_URL || 'http://localhost:8020'

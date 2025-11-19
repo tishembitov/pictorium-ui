@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import NotificationBadge from './NotificationBadge.vue'

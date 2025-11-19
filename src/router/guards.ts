@@ -1,4 +1,4 @@
-import { Router } from 'vue-router'
+import type { Router } from 'vue-router'
 import { getKeycloak } from '@/plugins/keycloak'
 import { useAuthStore } from '@/stores/auth.store'
 
@@ -50,7 +50,7 @@ export function setupGuards(router: Router) {
   })
 
   // Global after guard
-  router.afterEach((to, from) => {
+  router.afterEach(() => {
     // Analytics, logging и т.д.
   })
 }

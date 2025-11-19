@@ -26,10 +26,10 @@ const props = withDefaults(defineProps<EmojiPickerWrapperProps>(), {
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'select', emoji: any): void
+  (e: 'select', emoji: unknown): void
 }>()
 
-const handleSelect = (emoji: any) => {
+const handleSelect = (emoji: unknown) => {
   emit('select', emoji)
 }
 

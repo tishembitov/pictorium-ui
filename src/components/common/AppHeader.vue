@@ -1,20 +1,13 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 export interface AppHeaderProps {
   showSearch?: boolean
 }
 
-const props = withDefaults(defineProps<AppHeaderProps>(), {
-  showSearch: true,
-})
+const emit = defineEmits<(e: 'search', value: string) => void>()
 
-const emit = defineEmits<{
-  (e: 'search', value: string): void
-}>()
-
-const route = useRoute()
 const router = useRouter()
 
 const searchValue = ref('')
@@ -47,7 +40,7 @@ const clearSearch = () => {
   >
     <div class="flex items-center justify-between px-6 py-2">
       <!-- Search bar -->
-      <div v-if="showSearch" class="relative flex-1 mr-20">
+      <div v-if="onSearch" class="relative flex-1 mr-20">
         <input
           v-model="searchValue"
           type="text"

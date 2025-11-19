@@ -5,7 +5,6 @@
 import { storageServiceClient } from './client'
 import type {
   UploadImageResponse,
-  GetImageUrlResponse,
   GetImageMetadataResponse,
   ListImagesResponse,
   ImageUploadRequest,
@@ -49,7 +48,7 @@ export const storageApi = {
   /**
    * Получить URL изображения
    */
-  getImageUrl: async (imageId: string, expiry?: number): Promise<GetImageUrlResponse> => {
+  getImageUrl: async (imageId: string, expiry?: number): Promise<string> => {
     const { data } = await storageServiceClient.get(`${BASE_PATH}/${imageId}/url`, {
       params: { expiry },
     })

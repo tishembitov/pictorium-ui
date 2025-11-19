@@ -3,7 +3,7 @@ import { TAG_COLORS } from './constants'
 // Random tag color (из старого кода)
 export function randomTagColor(): string {
   const randomIndex = Math.floor(Math.random() * TAG_COLORS.length)
-  return TAG_COLORS[randomIndex]
+  return TAG_COLORS[randomIndex] ?? '#808080' // Fallback на случай undefined
 }
 
 // Extract dominant color from image (для pin.rgb)
@@ -34,9 +34,9 @@ export function extractDominantColor(imageUrl: string): Promise<string> {
         b = 0
 
       for (let i = 0; i < data.length; i += 4) {
-        r += data[i]
-        g += data[i + 1]
-        b += data[i + 2]
+        r += data[i] ?? 0
+        g += data[i + 1] ?? 0
+        b += data[i + 2] ?? 0
       }
 
       const pixelCount = data.length / 4
@@ -73,9 +73,9 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } | nul
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   return result
     ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16),
+        r: Number.parseInt(result[1]!, 16),
+        g: Number.parseInt(result[2]!, 16),
+        b: Number.parseInt(result[3]!, 16),
       }
     : null
 }

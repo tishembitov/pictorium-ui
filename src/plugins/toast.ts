@@ -1,5 +1,5 @@
-import { App } from 'vue'
-import Toast, { PluginOptions, POSITION } from 'vue-toastification'
+import type { App } from 'vue'
+import Toast, { type PluginOptions, POSITION } from 'vue-toastification'
 import 'vue-toastification/dist/index.css'
 
 const options: PluginOptions = {

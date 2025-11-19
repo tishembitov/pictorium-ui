@@ -3,7 +3,7 @@
  */
 
 import type { Ref } from 'vue'
-import type { Pin, User, Comment, Board } from './models.types'
+import type { User, Comment } from './models.types'
 
 // ============================================================================
 // useAuth

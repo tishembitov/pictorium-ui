@@ -5,9 +5,7 @@
 import { userServiceClient } from './client'
 import type {
   FollowUserResponse,
-  GetFollowersParams,
   GetFollowersResponse,
-  GetFollowingParams,
   GetFollowingResponse,
   CheckFollowResponse,
   Pageable,

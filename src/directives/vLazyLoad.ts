@@ -1,37 +1,63 @@
-import { DirectiveBinding } from 'vue'
+import type { DirectiveBinding } from 'vue'
 
 interface LazyLoadElement extends HTMLElement {
   lazyLoadObserver?: IntersectionObserver
+  _lazyLoadUrl?: string // Храним текущий URL
+}
+
+// Функция загрузки
+const loadImage = (el: LazyLoadElement, imageUrl: string) => {
+  if (el.tagName === 'IMG') {
+    el.setAttribute('src', imageUrl)
+  } else {
+    el.style.backgroundImage = `url(${imageUrl})`
+  }
+  // Добавляем класс для анимации появления (опционально)
+  el.classList.add('loaded')
 }
 
 export default {
   mounted(el: LazyLoadElement, binding: DirectiveBinding) {
-    const imageUrl = binding.value
+    el._lazyLoadUrl = binding.value
 
-    const loadImage = () => {
-      if (el.tagName === 'IMG') {
-        el.setAttribute('src', imageUrl)
-      } else {
-        el.style.backgroundImage = `url(${imageUrl})`
-      }
-    }
+    // Изначально скрываем или ставим placeholder
+    // el.style.opacity = '0'
+    // el.style.transition = 'opacity 0.3s'
 
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            loadImage()
+            // Загружаем текущий URL
+            if (el._lazyLoadUrl) {
+              loadImage(el, el._lazyLoadUrl)
+              // el.style.opacity = '1'
+            }
             observer.disconnect()
           }
         })
       },
       {
-        rootMargin: '50px', // Загружаем за 50px до появления
+        rootMargin: '50px',
       },
     )
 
     el.lazyLoadObserver = observer
     observer.observe(el)
+  },
+
+  // Добавляем updated для реактивности
+  updated(el: LazyLoadElement, binding: DirectiveBinding) {
+    if (binding.value !== binding.oldValue) {
+      el._lazyLoadUrl = binding.value
+
+      // Если элемент уже был загружен (наблюдатель отключен), обновляем сразу
+      if (!el.lazyLoadObserver || !el.lazyLoadObserver.takeRecords) {
+        loadImage(el, binding.value)
+      } else {
+        // Если еще не загружен, наблюдатель сработает сам с новым _lazyLoadUrl
+      }
+    }
   },
 
   beforeUnmount(el: LazyLoadElement) {

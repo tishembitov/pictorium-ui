@@ -4,8 +4,8 @@ import { ref, computed } from 'vue'
 
 interface Modal {
   id: string
-  component?: any
-  props?: Record<string, any>
+  component?: unknown
+  props?: Record<string, unknown>
   isOpen: boolean
 }
 
@@ -54,7 +54,7 @@ export const useUIStore = defineStore('ui', () => {
   /**
    * Открыть модалку
    */
-  function openModal(id: string, component?: any, props?: Record<string, any>) {
+  function openModal(id: string, component?: unknown, props?: Record<string, unknown>) {
     modals.value.set(id, {
       id,
       component,

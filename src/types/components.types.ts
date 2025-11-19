@@ -2,7 +2,7 @@
  * Типы для компонентов (Props/Emits)
  */
 
-import type { Pin, User, Board, Comment, Tag } from './models.types'
+import type { Pin, User, Board, Comment } from './models.types'
 
 // ============================================================================
 // PIN COMPONENTS
@@ -75,9 +75,7 @@ export interface CommentInputProps {
   placeholder?: string
 }
 
-export interface CommentInputEmits {
-  (e: 'submit', content: string, imageUrl?: string): void
-}
+export type CommentInputEmits = (e: 'submit', content: string, imageUrl?: string) => void
 
 // ============================================================================
 // USER COMPONENTS
@@ -126,10 +124,7 @@ export interface BaseInputProps {
   required?: boolean
 }
 
-export interface BaseInputEmits {
-  (e: 'update:modelValue', value: string): void
-}
-
+export type BaseInputEmits = (e: 'update:modelValue', value: string) => void
 export interface BaseModalProps {
   modelValue: boolean
   title?: string

@@ -7,7 +7,6 @@ import type {
   BoardCreateRequest,
   CreateBoardResponse,
   GetBoardResponse,
-  GetBoardPinsParams,
   GetBoardPinsResponse,
   GetUserBoardsResponse,
   GetMyBoardsResponse,

@@ -10,14 +10,14 @@ export type Nullable<T> = T | null
 export type Optional<T> = T | undefined
 export type Maybe<T> = T | null | undefined
 
-export type AsyncFunction<T = void> = (...args: any[]) => Promise<T>
+export type AsyncFunction<T = void> = (...args: unknown[]) => Promise<T>
 export type VoidFunction = () => void
 
 // ============================================================================
 // API TYPES
 // ============================================================================
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data: T
   message?: string
   success: boolean
@@ -50,14 +50,14 @@ export interface PaginatedResponse<T> {
 // FORM TYPES
 // ============================================================================
 
-export interface FormField<T = any> {
+export interface FormField<T = unknown> {
   value: T
   error: string | null
   touched: boolean
   dirty: boolean
 }
 
-export interface FormState<T extends Record<string, any>> {
+export interface FormState<T extends Record<string, unknown>> {
   fields: {
     [K in keyof T]: FormField<T[K]>
   }
@@ -84,9 +84,9 @@ export interface UploadProgress {
 // VALIDATION TYPES
 // ============================================================================
 
-export type ValidationRule<T = any> = (value: T) => string | null | Promise<string | null>
+export type ValidationRule<T = unknown> = (value: T) => string | null | Promise<string | null>
 
-export interface ValidationRules<T extends Record<string, any>> {
+export interface ValidationRules {
   [K: string]: ValidationRule | ValidationRule[]
 }
 

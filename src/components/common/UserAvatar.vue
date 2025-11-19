@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import BaseAvatar from '@/components/ui/BaseAvatar.vue'
-import BaseBadge from '@/components/ui/BaseBadge.vue'
 
 export interface UserAvatarProps {
   user: {
@@ -23,9 +22,7 @@ const props = withDefaults(defineProps<UserAvatarProps>(), {
   clickable: true,
 })
 
-const emit = defineEmits<{
-  (e: 'click'): void
-}>()
+const emit = defineEmits<(e: 'click') => void>()
 
 const handleClick = () => {
   if (props.clickable) {

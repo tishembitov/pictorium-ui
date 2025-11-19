@@ -2,7 +2,7 @@
  * Типы для Pinia stores
  */
 
-import type { User, Pin, Board, Comment, Tag } from './models.types'
+import type { Pin, Board } from './models.types'
 
 // ============================================================================
 // PINS STORE

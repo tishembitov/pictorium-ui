@@ -1,4 +1,4 @@
-import { App } from 'vue'
+import type { App } from 'vue'
 import * as lucideIcons from 'lucide-vue-next'
 
 export function setupLucideIcons(app: App) {

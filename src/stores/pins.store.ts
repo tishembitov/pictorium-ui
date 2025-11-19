@@ -6,7 +6,7 @@ import { pinsApi } from '@/api/pins.api'
 import { savedPinsApi } from '@/api/saved-pins.api'
 import { likesApi } from '@/api/likes.api'
 import { storageApi } from '@/api/storage.api'
-import { isVideo, getImageDimensions } from '@/utils/media' // ДОБАВИТЬ ИМПОРТ
+import { isVideo, getImageDimensions } from '@/utils/media'
 
 interface PinWithBlob extends PinResponse {
   imageBlobUrl?: string
@@ -95,26 +95,14 @@ export const usePinsStore = defineStore('pins', () => {
     }
   }
 
-  /**
-   * Загрузка следующей страницы
-   */
-  async function loadMore() {
-    if (!hasMore.value || isLoadingMore.value) return
-    await fetchPins(currentFilter.value, currentPage.value + 1, pageSize.value)
-  }
-
-  /**
-   * Загрузка одного пина
-   */
   async function fetchPinById(pinId: string, forceReload = false) {
     try {
-      // Проверяем кэш
       if (!forceReload && pinsCache.value.has(pinId)) {
         return pinsCache.value.get(pinId)!
       }
 
-      const pin = await pinsApi.getPinById(pinId)
-      const [pinWithBlob] = await loadPinBlobs([pin])
+      const pin = await pinsApi.getById(pinId)
+      const pinWithBlob = await loadPinBlob(pin)
 
       pinsCache.value.set(pinId, pinWithBlob)
       return pinWithBlob
@@ -178,11 +166,11 @@ export const usePinsStore = defineStore('pins', () => {
         height,
         fileSize: uploadResponse.size,
         contentType: uploadResponse.contentType,
-        tags: data.tags && data.tags.length > 0 ? new Set(data.tags) : undefined,
+        tags: data.tags, // Передаем массив напрямую
       })
 
       // 4. Кэшируем
-      const [pinWithBlob] = await loadPinBlobs([pin])
+      const pinWithBlob = await loadPinBlob(pin)
       pinsCache.value.set(pin.id, pinWithBlob)
 
       // 5. Добавляем в начало feed
@@ -196,6 +184,7 @@ export const usePinsStore = defineStore('pins', () => {
       isLoading.value = false
     }
   }
+
   /**
    * Обновление пина
    */
@@ -213,7 +202,7 @@ export const usePinsStore = defineStore('pins', () => {
         title: data.title,
         description: data.description,
         href: data.href,
-        tags: data.tags ? new Set(data.tags) : undefined,
+        tags: data.tags, // Передаем массив напрямую
       })
 
       // Обновляем кэш
@@ -311,7 +300,7 @@ export const usePinsStore = defineStore('pins', () => {
    */
   async function savePin(pinId: string) {
     try {
-      await savedPinsApi.savePin(pinId)
+      await savedPinsApi.save(pinId)
 
       updatePinInCache(pinId, (pin) => ({
         ...pin,
@@ -334,7 +323,7 @@ export const usePinsStore = defineStore('pins', () => {
    */
   async function unsavePin(pinId: string) {
     try {
-      await savedPinsApi.unsavePin(pinId)
+      await savedPinsApi.unsave(pinId)
 
       updatePinInCache(pinId, (pin) => ({
         ...pin,
@@ -356,7 +345,7 @@ export const usePinsStore = defineStore('pins', () => {
    * Поиск по тегу
    */
   async function searchByTag(tagName: string, page = 0) {
-    return fetchPins({ tags: new Set([tagName]), scope: 'ALL' }, page)
+    return fetchPins({ tags: [tagName], scope: 'ALL' }, page)
   }
 
   /**
@@ -386,37 +375,40 @@ export const usePinsStore = defineStore('pins', () => {
   // ============ HELPERS ============
 
   /**
-   * Загрузка blob URLs для медиа
+   * Загрузка blob URL для одного пина
+   */
+  async function loadPinBlob(pin: PinResponse): Promise<PinWithBlob> {
+    const pinWithBlob: PinWithBlob = { ...pin }
+
+    try {
+      if (pin.imageUrl) {
+        const blob = await storageApi.downloadImage(pin.imageUrl)
+        const contentType = blob.type
+
+        pinWithBlob.imageBlobUrl = URL.createObjectURL(blob)
+        pinWithBlob.isImage = true
+        pinWithBlob.isGif = contentType === 'image/gif'
+      } else if (pin.videoPreviewUrl) {
+        const blob = await storageApi.downloadImage(pin.videoPreviewUrl)
+        pinWithBlob.videoBlobUrl = URL.createObjectURL(blob)
+        pinWithBlob.isVideo = true
+      }
+    } catch (error) {
+      console.error(`Failed to load media for pin ${pin.id}:`, error)
+      // Fallback image
+      pinWithBlob.imageBlobUrl =
+        'https://i.pinimg.com/736x/6c/a8/05/6ca805efcc51ff2366298781aecde4ae.jpg'
+      pinWithBlob.isImage = true
+    }
+
+    return pinWithBlob
+  }
+
+  /**
+   * Загрузка blob URLs для нескольких пинов
    */
   async function loadPinBlobs(pins: PinResponse[]): Promise<PinWithBlob[]> {
-    return Promise.all(
-      pins.map(async (pin) => {
-        const pinWithBlob: PinWithBlob = { ...pin }
-
-        try {
-          if (pin.imageUrl) {
-            const blob = await storageApi.downloadImage(pin.imageUrl)
-            const contentType = blob.type
-
-            pinWithBlob.imageBlobUrl = URL.createObjectURL(blob)
-            pinWithBlob.isImage = true
-            pinWithBlob.isGif = contentType === 'image/gif'
-          } else if (pin.videoPreviewUrl) {
-            const blob = await storageApi.downloadImage(pin.videoPreviewUrl)
-            pinWithBlob.videoBlobUrl = URL.createObjectURL(blob)
-            pinWithBlob.isVideo = true
-          }
-        } catch (error) {
-          console.error(`Failed to load media for pin ${pin.id}:`, error)
-          // Fallback image
-          pinWithBlob.imageBlobUrl =
-            'https://i.pinimg.com/736x/6c/a8/05/6ca805efcc51ff2366298781aecde4ae.jpg'
-          pinWithBlob.isImage = true
-        }
-
-        return pinWithBlob
-      }),
-    )
+    return Promise.all(pins.map(loadPinBlob))
   }
 
   /**
@@ -432,7 +424,10 @@ export const usePinsStore = defineStore('pins', () => {
     // Обновляем feed
     const index = feedPins.value.findIndex((p) => p.id === pinId)
     if (index !== -1) {
-      feedPins.value[index] = updater(feedPins.value[index])
+      const pin = feedPins.value[index]
+      if (pin) {
+        feedPins.value[index] = updater(pin)
+      }
     }
   }
 
@@ -465,7 +460,6 @@ export const usePinsStore = defineStore('pins', () => {
 
     // Actions
     fetchPins,
-    loadMore,
     fetchPinById,
     createPin,
     updatePin,

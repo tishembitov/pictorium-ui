@@ -1,4 +1,4 @@
-import { DirectiveBinding } from 'vue'
+import type { DirectiveBinding } from 'vue'
 
 interface TooltipElement extends HTMLElement {
   tooltipElement?: HTMLElement

@@ -6,7 +6,6 @@ import { contentServiceClient } from './client'
 import type {
   PinCreateRequest,
   CreatePinResponse,
-  GetPinsParams,
   GetPinsResponse,
   GetPinByIdResponse,
   PinUpdateRequest,
@@ -16,6 +15,7 @@ import type {
 } from '@/types'
 
 const BASE_PATH = '/api/v1/pins'
+
 export const pinsApi = {
   /**
    * Создать пин
@@ -29,20 +29,12 @@ export const pinsApi = {
    * Получить список пинов с фильтрацией и пагинацией
    */
   getPins: async (filter: PinFilter, pageable: Pageable): Promise<GetPinsResponse> => {
-    const params: any = { ...pageable }
-
-    // Добавляем фильтры
-    if (filter.q) params.q = filter.q
-    if (filter.tags && filter.tags.size > 0) params.tags = Array.from(filter.tags).join(',')
-    if (filter.authorId) params.authorId = filter.authorId
-    if (filter.savedBy) params.savedBy = filter.savedBy
-    if (filter.likedBy) params.likedBy = filter.likedBy
-    if (filter.relatedTo) params.relatedTo = filter.relatedTo
-    if (filter.createdFrom) params.createdFrom = filter.createdFrom
-    if (filter.createdTo) params.createdTo = filter.createdTo
-    if (filter.scope) params.scope = filter.scope
-
-    const { data } = await contentServiceClient.get(BASE_PATH, { params })
+    const { data } = await contentServiceClient.get(BASE_PATH, {
+      params: {
+        ...filter,
+        ...pageable,
+      },
+    })
     return data
   },
 

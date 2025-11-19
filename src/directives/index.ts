@@ -1,4 +1,4 @@
-import { App } from 'vue'
+import type { App } from 'vue'
 import vClickOutside from './vClickOutside'
 import vLazyLoad from './vLazyLoad'
 import vTooltip from './vTooltip'

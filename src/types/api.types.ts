@@ -31,9 +31,9 @@ import type {
 export interface UserUpdateRequest {
   username?: string
   description?: string
-  imageId?: string // ДОБАВЛЕНО
+  imageId?: string
   imageUrl?: string
-  bannerImageId?: string // ДОБАВЛЕНО
+  bannerImageId?: string
   bannerImageUrl?: string
   instagram?: string
   tiktok?: string
@@ -82,37 +82,37 @@ export type CheckFollowResponse = FollowCheckResponse
 // ============================================================================
 
 export interface PinCreateRequest {
-  imageId: string // REQUIRED (был optional)
+  imageId: string // REQUIRED
   imageUrl?: string
-  thumbnailId?: string // ДОБАВЛЕНО
-  thumbnailUrl?: string // ДОБАВЛЕНО
-  videoPreviewId?: string // ДОБАВЛЕНО
-  videoPreviewUrl?: string // ДОБАВЛЕНО
+  thumbnailId?: string
+  thumbnailUrl?: string
+  videoPreviewId?: string
+  videoPreviewUrl?: string
   title?: string
   description?: string
   href?: string
   rgb?: string
-  width?: number // ДОБАВЛЕНО
-  height?: number // ИЗМЕНЕНО с string на number
-  fileSize?: number // ДОБАВЛЕНО
-  contentType?: string // ДОБАВЛЕНО
-  tags?: Set<string>
+  width?: number
+  height?: number
+  fileSize?: number
+  contentType?: string
+  tags?: string[] // Массив для отправки на сервер
 }
 
 export interface PinUpdateRequest {
   imageId?: string
   imageUrl?: string
-  thumbnailId?: string // ДОБАВЛЕНО
-  thumbnailUrl?: string // ДОБАВЛЕНО
-  videoPreviewId?: string // ДОБАВЛЕНО
-  videoPreviewUrl?: string // ДОБАВЛЕНО
+  thumbnailId?: string
+  thumbnailUrl?: string
+  videoPreviewId?: string
+  videoPreviewUrl?: string
   title?: string
   description?: string
   href?: string
   rgb?: string
-  width?: number // ДОБАВЛЕНО
-  height?: number // ИЗМЕНЕНО
-  tags?: Set<string>
+  width?: number
+  height?: number
+  tags?: string[] // Массив для отправки на сервер
 }
 
 export interface GetPinsParams {
@@ -196,14 +196,14 @@ export type GetSelectedBoardResponse = Board
 // ============================================================================
 
 export interface CommentCreateRequest {
-  content?: string // Теперь optional по OpenAPI
-  imageId?: string // ДОБАВЛЕНО
+  content?: string
+  imageId?: string
   imageUrl?: string
 }
 
 export interface CommentUpdateRequest {
   content?: string
-  imageId?: string // ДОБАВЛЕНО
+  imageId?: string
   imageUrl?: string
 }
 
@@ -383,6 +383,17 @@ export type PageUserResponse = PageUser
 export type PageLikeResponse = PageLike
 
 export type UploadImageResponse = ImageUploadResponse
-export type GetImageUrlResponse = string
 export type GetImageMetadataResponse = ImageMetadata
 export type ListImagesResponse = ImageMetadata[]
+
+export type {
+  PinFilter,
+  Pageable,
+  User,
+  Pin,
+  Board,
+  Comment,
+  Tag,
+  Like,
+  Page,
+} from './models.types'

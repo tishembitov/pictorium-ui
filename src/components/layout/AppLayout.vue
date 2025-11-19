@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import Navigation from '@/components/common/Navigation.vue'
 import ScrollToTop from '@/components/common/ScrollToTop.vue'

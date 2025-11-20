@@ -113,6 +113,40 @@ export const ROUTES = {
   NOT_FOUND: '/:pathMatch(.*)*',
 } as const
 
+/**
+ * Карта разрешений к ролям
+ */
+export const PERMISSIONS = {
+  // Pins
+  CREATE_PIN: 'create:pin',
+  EDIT_PIN: 'edit:pin',
+  DELETE_PIN: 'delete:pin',
+
+  // Boards
+  CREATE_BOARD: 'create:board',
+  EDIT_BOARD: 'edit:board',
+  DELETE_BOARD: 'delete:board',
+
+  // Comments
+  DELETE_COMMENT: 'delete:comment',
+
+  // Admin
+  BAN_USER: 'ban:user',
+  VIEW_ANALYTICS: 'view:analytics',
+} as const
+
+export const PERMISSION_ROLE_MAP: Record<string, string[]> = {
+  [PERMISSIONS.CREATE_PIN]: ['user', 'moderator', 'admin'],
+  [PERMISSIONS.EDIT_PIN]: ['user', 'moderator', 'admin'],
+  [PERMISSIONS.DELETE_PIN]: ['moderator', 'admin'],
+  [PERMISSIONS.CREATE_BOARD]: ['user', 'moderator', 'admin'],
+  [PERMISSIONS.EDIT_BOARD]: ['user', 'moderator', 'admin'],
+  [PERMISSIONS.DELETE_BOARD]: ['moderator', 'admin'],
+  [PERMISSIONS.DELETE_COMMENT]: ['moderator', 'admin'],
+  [PERMISSIONS.BAN_USER]: ['admin'],
+  [PERMISSIONS.VIEW_ANALYTICS]: ['admin'],
+}
+
 // Error messages
 export const ERROR_MESSAGES = {
   FILE_TOO_LARGE: 'File is too large',

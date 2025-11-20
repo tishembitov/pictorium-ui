@@ -66,9 +66,9 @@ export function useLikes(): UseLikesReturn {
         pinId: pinId,
       })
 
-      // Extract users from likes (если Like содержит user)
-      // В вашем случае нужно доработать API response
-      return [] // TODO: extract users from response
+      return response.content.map((like) => ({
+        id: like.userId,
+      })) as User[]
     } catch (error) {
       console.error('[useLikes] Fetch pin likes failed:', error)
       showToast('Failed to load likes', 'error')
@@ -104,7 +104,9 @@ export function useLikes(): UseLikesReturn {
         commentId: commentId,
       })
 
-      return [] // TODO: extract users from response
+      return response.content.map((like) => ({
+        id: like.userId,
+      })) as User[]
     } catch (error) {
       console.error('[useLikes] Fetch comment likes failed:', error)
       showToast('Failed to load likes', 'error')

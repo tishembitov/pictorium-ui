@@ -17,7 +17,6 @@ export interface User {
   tiktok: string | null
   telegram: string | null
   pinterest: string | null
-  selectedBoardId?: string | null // Опционально, не всегда возвращается
 }
 
 export interface UserStats {

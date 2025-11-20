@@ -56,19 +56,29 @@ export function useClickOutside(
     handler(event)
   }
 
+  let cleanup: (() => void) | undefined
+
   onMounted(() => {
-    window.addEventListener('click', listener, capture)
+    // ИСПРАВЛЕНО: задержка чтобы избежать срабатывания на клик открытия
+    setTimeout(() => {
+      window.addEventListener('click', listener, capture)
+
+      cleanup = () => {
+        window.removeEventListener('click', listener, capture)
+      }
+    }, 0)
   })
 
   onUnmounted(() => {
-    window.removeEventListener('click', listener, capture)
+    cleanup?.()
   })
 
   return {
-    stop: () => window.removeEventListener('click', listener, capture),
+    stop: () => {
+      cleanup?.()
+    },
   }
 }
-
 /**
  * useClickAway
  *
@@ -150,7 +160,7 @@ export function useFocusTrap(
     if (!enabled.value || event.key !== 'Tab') return
 
     const container = unref(target)
-    if (!container) return
+    if (!container) return // ДОБАВЛЕНО: проверка
 
     const focusableElements = getFocusableElements(container)
     if (focusableElements.length === 0) return
@@ -158,31 +168,39 @@ export function useFocusTrap(
     const firstElement = focusableElements[0]
     const lastElement = focusableElements[focusableElements.length - 1]
 
+    if (!firstElement || !lastElement) return // ДОБАВЛЕНО: проверка
+
     // Shift + Tab на первом элементе -> переход на последний
     if (event.shiftKey && document.activeElement === firstElement) {
       event.preventDefault()
-      lastElement?.focus()
+      lastElement.focus()
     }
     // Tab на последнем элементе -> переход на первый
     else if (!event.shiftKey && document.activeElement === lastElement) {
       event.preventDefault()
-      firstElement?.focus()
+      firstElement.focus()
     }
   }
 
-  watch(enabled, (isEnabled) => {
-    if (isEnabled) {
-      const container = unref(target)
-      const initial = unref(initialFocus)
+  watch(
+    enabled,
+    (isEnabled) => {
+      if (isEnabled) {
+        const container = unref(target)
+        if (!container) return // ДОБАВЛЕНО: проверка
 
-      if (initial) {
-        initial.focus()
-      } else if (container) {
-        const focusableElements = getFocusableElements(container)
-        focusableElements[0]?.focus()
+        const initial = unref(initialFocus)
+
+        if (initial) {
+          initial.focus()
+        } else {
+          const focusableElements = getFocusableElements(container)
+          focusableElements[0]?.focus()
+        }
       }
-    }
-  })
+    },
+    { immediate: true }, // ДОБАВЛЕНО: immediate для автофокуса при монтировании
+  )
 
   onMounted(() => {
     window.addEventListener('keydown', handleKeyDown)
@@ -191,4 +209,8 @@ export function useFocusTrap(
   onUnmounted(() => {
     window.removeEventListener('keydown', handleKeyDown)
   })
+
+  return {
+    stop: () => window.removeEventListener('keydown', handleKeyDown),
+  }
 }

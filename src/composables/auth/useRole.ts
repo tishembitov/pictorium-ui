@@ -4,11 +4,13 @@
  * Composable для работы с Keycloak ролями
  */
 
-import { computed, type ComputedRef } from 'vue'
+import { computed, type ComputedRef, type Ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth.store'
 import { getKeycloak } from '@/plugins/keycloak'
+import { PERMISSION_ROLE_MAP } from '@/utils/constants'
 import { getUserRoles, hasRole as jwtHasRole } from '@/utils/jwt'
+import { useAuth } from './useAuth'
 
 export interface UseRolesReturn {
   // Getters
@@ -43,13 +45,15 @@ export interface UseRolesReturn {
  */
 export function useRoles(): UseRolesReturn {
   const authStore = useAuthStore()
-  const { token } = storeToRefs(authStore)
+  const { token, isAuthenticated } = storeToRefs(authStore)
   const keycloak = getKeycloak()
 
   /**
    * Проверка наличия роли
    */
   const hasRole = (role: string): boolean => {
+    if (!isAuthenticated.value) return false
+
     // Через Keycloak instance (приоритет)
     if (keycloak && keycloak.hasRealmRole) {
       return keycloak.hasRealmRole(role)
@@ -169,6 +173,45 @@ export function useRoleGuard(role: string | string[]) {
 }
 
 /**
+ * useOwnershipCheck
+ *
+ * Проверка владения ресурсом
+ *
+ * @example
+ * ```ts
+ * const { canEdit, canDelete } = useOwnershipCheck(pin.userId)
+ *
+ * if (canEdit.value) {
+ *   // Показать кнопку редактирования
+ * }
+ * ```
+ */
+export function useOwnershipCheck(ownerId: Ref<string> | string) {
+  const { userId } = useAuth()
+  const { isAdmin, isModerator } = useRoles()
+
+  const id = computed(() => (typeof ownerId === 'string' ? ownerId : ownerId.value))
+
+  const isOwner = computed(() => {
+    return userId.value === id.value
+  })
+
+  const canEdit = computed(() => {
+    return isOwner.value || isAdmin.value
+  })
+
+  const canDelete = computed(() => {
+    return isOwner.value || isModerator.value || isAdmin.value
+  })
+
+  return {
+    isOwner,
+    canEdit,
+    canDelete,
+  }
+}
+
+/**
  * useAdminGuard
  *
  * Shortcut для проверки admin роли
@@ -203,28 +246,10 @@ export function useAdminGuard() {
  * ```
  */
 export function usePermissions() {
-  const { hasRole, hasAnyRole } = useRoles()
+  const { hasAnyRole } = useRoles()
 
-  /**
-   * Карта разрешений к ролям
-   */
-  const permissionMap: Record<string, string[]> = {
-    'create:pin': ['user', 'moderator', 'admin'],
-    'edit:pin': ['user', 'moderator', 'admin'],
-    'delete:pin': ['moderator', 'admin'],
-    'create:board': ['user', 'moderator', 'admin'],
-    'edit:board': ['user', 'moderator', 'admin'],
-    'delete:board': ['moderator', 'admin'],
-    'delete:comment': ['moderator', 'admin'],
-    'ban:user': ['admin'],
-    'view:analytics': ['admin'],
-  }
-
-  /**
-   * Проверка permission
-   */
   const can = (permission: string): boolean => {
-    const roles = permissionMap[permission]
+    const roles = PERMISSION_ROLE_MAP[permission]
     if (!roles) return false
     return hasAnyRole(roles)
   }

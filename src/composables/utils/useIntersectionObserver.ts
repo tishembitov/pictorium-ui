@@ -109,18 +109,20 @@ export function useInfiniteScroll(
 
   const isLoading = ref(false)
 
+  const handleIntersect = async () => {
+    if (disabled.value || isLoading.value) return
+
+    isLoading.value = true
+    try {
+      await onLoadMore()
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   const { isIntersecting, stop } = useIntersectionObserver(target, {
     rootMargin: `${distance}px`,
-    onIntersect: async () => {
-      if (disabled.value || isLoading.value) return
-
-      isLoading.value = true
-      try {
-        await onLoadMore()
-      } finally {
-        isLoading.value = false
-      }
-    },
+    onIntersect: handleIntersect,
   })
 
   if (!immediate) {

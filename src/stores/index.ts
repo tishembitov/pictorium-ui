@@ -21,16 +21,3 @@ export { useUIStore } from './ui.store'
 // export { useChatsStore } from './chats.store'
 // export { useNotificationsStore } from './notifications.store'
 // export { useSearchStore } from './search.store'
-
-// Helper для сброса всех stores (для тестов)
-export function resetAllStores() {
-  const authStore = useAuthStore()
-  const pinsStore = usePinsStore()
-  const boardsStore = useBoardsStore()
-  const selectedBoardStore = useSelectedBoardStore()
-  const uiStore = useUIStore()
-
-  authStore.$reset()
-  pinsStore.cleanup()
-  uiStore.closeAllModals()
-}

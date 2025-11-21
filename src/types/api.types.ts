@@ -385,15 +385,3 @@ export type PageLikeResponse = PageLike
 export type UploadImageResponse = ImageUploadResponse
 export type GetImageMetadataResponse = ImageMetadata
 export type ListImagesResponse = ImageMetadata[]
-
-export type {
-  PinFilter,
-  Pageable,
-  User,
-  Pin,
-  Board,
-  Comment,
-  Tag,
-  Like,
-  Page,
-} from './models.types'

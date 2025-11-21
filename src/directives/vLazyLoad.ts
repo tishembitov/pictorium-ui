@@ -51,12 +51,11 @@ export default {
     if (binding.value !== binding.oldValue) {
       el._lazyLoadUrl = binding.value
 
-      // Если элемент уже был загружен (наблюдатель отключен), обновляем сразу
-      if (!el.lazyLoadObserver || !el.lazyLoadObserver.takeRecords) {
+      if (!el.lazyLoadObserver) {
+        // Наблюдатель отключен, обновляем сразу
         loadImage(el, binding.value)
-      } else {
-        // Если еще не загружен, наблюдатель сработает сам с новым _lazyLoadUrl
       }
+      // Если наблюдатель активен, он сработает сам с новым _lazyLoadUrl
     }
   },
 

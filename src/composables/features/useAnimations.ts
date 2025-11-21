@@ -4,7 +4,7 @@
  * Like/Dislike animations для пинов и комментариев
  */
 
-import { ref, type Ref } from 'vue'
+import { ref, computed, watch, onUnmounted, unref, type Ref } from 'vue' // ДОБАВИТЬ unref
 import {
   flashAnimation,
   glowEffect,

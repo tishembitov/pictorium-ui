@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import CommentActions from './CommentActions.vue'
 import CommentInput from './CommentInput.vue'

@@ -4,7 +4,7 @@
  * Custom video player controls
  */
 
-import { ref, computed, watch, onUnmounted, type Ref } from 'vue'
+import { ref, computed, watch, onUnmounted, type Ref, unref } from 'vue'
 import { formatDuration } from '@/utils/formatters'
 
 export interface UseVideoPlayerOptions {

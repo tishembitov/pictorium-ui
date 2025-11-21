@@ -5,7 +5,6 @@ import { setupMasonry } from './masonry'
 import { setupAutoAnimate } from './autoAnimate'
 import { setupLucideIcons } from './lucideIcons'
 import { setupAxios } from './axios'
-import { useAuthStore } from '@/stores/auth.store'
 
 export async function setupPlugins(app: App) {
   // 1. Сначала настраиваем Keycloak
@@ -18,13 +17,6 @@ export async function setupPlugins(app: App) {
   setupAutoAnimate(app)
   setupLucideIcons(app)
 
-  // 3. Инициализируем Auth Store (Pinia уже подключена в main.ts)
-  // Это безопасно делать здесь, так как все файлы уже загружены
-  if (authenticated) {
-    const keycloak = getKeycloak()
-    if (keycloak) {
-      const authStore = useAuthStore()
-      await authStore.initKeycloak(keycloak)
-    }
-  }
+  // 3. Возвращаем статус аутентификации для использования в main.ts
+  return { authenticated }
 }

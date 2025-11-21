@@ -1,3 +1,5 @@
+import { MIN_IMAGE_WIDTH, MIN_IMAGE_HEIGHT, MAX_VIDEO_DURATION } from './constants'
+
 /**
  * Media utilities
  */
@@ -128,4 +130,69 @@ export function getVideoThumbnail(file: File, seekTo = 0.0): Promise<Blob> {
 
     video.src = url
   })
+}
+
+/**
+ * Валидация размеров изображения
+ */
+export async function validateImageDimensions(
+  file: File,
+): Promise<{ valid: boolean; error?: string }> {
+  try {
+    const dimensions = await getImageDimensions(file)
+
+    if (dimensions.width < MIN_IMAGE_WIDTH || dimensions.height < MIN_IMAGE_HEIGHT) {
+      return {
+        valid: false,
+        error: `Image must be at least ${MIN_IMAGE_WIDTH}x${MIN_IMAGE_HEIGHT}`,
+      }
+    }
+
+    return { valid: true }
+  } catch (error) {
+    return {
+      valid: false,
+      error: 'Failed to read image dimensions',
+    }
+  }
+}
+
+/**
+ * Валидация длительности видео
+ */
+export async function validateVideoDuration(
+  file: File,
+): Promise<{ valid: boolean; error?: string }> {
+  try {
+    const video = document.createElement('video')
+    const url = URL.createObjectURL(file)
+
+    const duration = await new Promise<number>((resolve, reject) => {
+      video.onloadedmetadata = () => {
+        resolve(video.duration)
+        URL.revokeObjectURL(url)
+      }
+
+      video.onerror = () => {
+        URL.revokeObjectURL(url)
+        reject(new Error('Failed to load video'))
+      }
+
+      video.src = url
+    })
+
+    if (duration > MAX_VIDEO_DURATION) {
+      return {
+        valid: false,
+        error: `Video must be ${MAX_VIDEO_DURATION} seconds or less`,
+      }
+    }
+
+    return { valid: true }
+  } catch (error) {
+    return {
+      valid: false,
+      error: 'Failed to read video duration',
+    }
+  }
 }

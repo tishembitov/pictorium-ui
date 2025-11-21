@@ -4,19 +4,19 @@
  * Управление состоянием форм
  */
 
-import { ref, reactive, computed, watch, type Ref, type UnwrapRef } from 'vue'
+import { ref, reactive, computed, watch, onMounted, type Ref, type UnwrapRef } from 'vue'
 import { useFormValidation } from './useFormValidation'
 import { useFormErrors } from './useFormErrors'
 import type { ValidationRule } from '@/types/utils.types'
 
-export interface FormField<T = any> {
+export interface FormField<T = unknown> {
   value: T
   error: string | null
   touched: boolean
   dirty: boolean
 }
 
-export interface UseFormOptions<T extends Record<string, any>> {
+export interface UseFormOptions<T extends Record<string, unknown>> {
   /**
    * Начальные значения
    */
@@ -86,7 +86,7 @@ export interface UseFormOptions<T extends Record<string, any>> {
  * })
  * ```
  */
-export function useForm<T extends Record<string, any>>(options: UseFormOptions<T>) {
+export function useForm<T extends Record<string, unknown>>(options: UseFormOptions<T>) {
   const {
     initialValues,
     validationRules = {},
@@ -266,7 +266,7 @@ export function useForm<T extends Record<string, any>>(options: UseFormOptions<T
  * insert(1, 'landscape')
  * ```
  */
-export function useFieldArray<T = any>(options: { name: string; defaultValue?: T[] }) {
+export function useFieldArray<T = unknown>(options: { name: string; defaultValue?: T[] }) {
   const { name, defaultValue = [] } = options
 
   const fields = ref<T[]>([...defaultValue]) as Ref<T[]>
@@ -336,7 +336,7 @@ export function useFieldArray<T = any>(options: { name: string; defaultValue?: T
  * useFormPersist(form, 'create-pin-form')
  * ```
  */
-export function useFormPersist<T extends Record<string, any>>(
+export function useFormPersist<T extends Record<string, unknown>>(
   form: ReturnType<typeof useForm<T>>,
   storageKey: string,
   options: {

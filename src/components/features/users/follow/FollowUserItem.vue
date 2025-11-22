@@ -2,25 +2,24 @@
 import { ref, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import UserAvatar from '@/components/common/UserAvatar.vue'
+import FollowButton from './FollowButton.vue'
+import { useAuthStore } from '@/stores/auth.store'
 import { storageApi } from '@/api/storage.api'
 import type { User } from '@/types'
 
 export interface FollowUserItemProps {
   user: User
-  size?: 'sm' | 'md' | 'lg'
+  showFollowButton?: boolean
 }
 
 const props = withDefaults(defineProps<FollowUserItemProps>(), {
-  size: 'lg',
+  showFollowButton: true,
 })
 
+const authStore = useAuthStore()
 const userImage = ref<string | null>(null)
 
-const sizeClasses = {
-  sm: 'text-sm',
-  md: 'text-base',
-  lg: 'text-2xl',
-}
+const isMe = computed(() => authStore.userId === props.user.id)
 
 onMounted(async () => {
   if (props.user.imageUrl) {
@@ -28,27 +27,31 @@ onMounted(async () => {
       const blob = await storageApi.downloadImage(props.user.imageUrl)
       userImage.value = URL.createObjectURL(blob)
     } catch (error) {
-      console.error('[FollowUserItem] Load avatar failed:', error)
+      console.error('[FollowUserItem] Avatar load failed:', error)
     }
   }
 })
 </script>
 
 <template>
-  <RouterLink
-    :to="`/user/${user.username}`"
-    :class="[
-      'flex items-center gap-4 p-2 rounded-lg hover:bg-gray-100 transition',
-      sizeClasses[size],
-    ]"
-  >
-    <UserAvatar :user="user" :image-url="userImage" :size="size" />
+  <div class="flex items-center justify-between py-3 px-4 hover:bg-gray-50 rounded-2xl transition">
+    <RouterLink
+      :to="`/user/${user.username}`"
+      class="flex items-center gap-3 flex-1 hover:opacity-80 transition"
+    >
+      <UserAvatar :user="user" :image-url="userImage" size="md" />
 
-    <div class="flex-1 truncate">
-      <p class="font-medium truncate">{{ user.username }}</p>
-      <p v-if="user.description" class="text-sm text-gray-500 truncate">
-        {{ user.description }}
-      </p>
-    </div>
-  </RouterLink>
+      <div class="flex flex-col">
+        <div class="flex items-center gap-2">
+          <span class="font-semibold text-gray-900 truncate">{{ user.username }}</span>
+          <i v-if="user.verified" class="pi pi-verified text-blue-500 text-sm"></i>
+        </div>
+        <p v-if="user.description" class="text-sm text-gray-500 truncate max-w-xs">
+          {{ user.description }}
+        </p>
+      </div>
+    </RouterLink>
+
+    <FollowButton v-if="showFollowButton && !isMe" :user-id="user.id" size="sm" />
+  </div>
 </template>

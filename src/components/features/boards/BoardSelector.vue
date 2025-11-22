@@ -69,7 +69,6 @@ const selectProfile = async () => {
 
 const selectBoard = async (board: Board) => {
   try {
-    // ✅ FIX: добавляем пин на доску через API
     await addPinToBoard(board.id, props.pinId)
 
     selectedBoardStore.setBoard(board)

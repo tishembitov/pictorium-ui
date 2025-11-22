@@ -14,9 +14,7 @@ export interface FollowingModalProps {
 
 const props = defineProps<FollowingModalProps>()
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-}>()
+const emit = defineEmits<(e: 'update:modelValue', value: boolean) => void>()
 
 const { fetchFollowing } = useUsers()
 

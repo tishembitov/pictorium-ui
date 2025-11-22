@@ -18,7 +18,6 @@ const props = withDefaults(defineProps<BoardPinsProps>(), {
 
 const emit = defineEmits<(e: 'pinDeleted', pinId: string) => void>()
 
-// ✅ FIX: используем useBoards вместо несуществующего useBoardDetail
 const { currentBoardPins, isLoadingPins, hasBoardPinsMore, fetchBoardById, loadMoreBoardPins } =
   useBoards()
 

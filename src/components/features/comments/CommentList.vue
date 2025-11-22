@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import BaseSpinner from '@/components/ui/BaseSpinner.vue'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'

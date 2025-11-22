@@ -16,9 +16,7 @@ const props = withDefaults(defineProps<CommentLikesPopoverProps>(), {
   maxUsers: 5,
 })
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-}>()
+const emit = defineEmits<(e: 'update:modelValue', value: boolean) => void>()
 
 const { likes, isLoading, fetchLikes } = useCommentLikes(props.commentId)
 

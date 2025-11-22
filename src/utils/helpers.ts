@@ -175,3 +175,68 @@ export function buildQueryString(params: Record<string, any>): string {
   })
   return searchParams.toString()
 }
+
+// ... существующий код ...
+
+/**
+ * Get file extension from URL or filename
+ */
+export function getFileExtension(url: string): string {
+  const match = url.match(/\.([^.?#]+)(?:[?#]|$)/)
+  return match ? match[1] : ''
+}
+
+/**
+ * Check if URL is video by extension
+ */
+export function isVideoUrl(url: string): boolean {
+  const ext = getFileExtension(url).toLowerCase()
+  return ['mp4', 'webm', 'mov', 'avi'].includes(ext)
+}
+
+/**
+ * Check if URL is image by extension
+ */
+export function isImageUrl(url: string): boolean {
+  const ext = getFileExtension(url).toLowerCase()
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
+}
+
+/**
+ * Safe JSON parse
+ */
+export function safeJsonParse<T>(json: string, defaultValue: T): T {
+  try {
+    return JSON.parse(json) as T
+  } catch {
+    return defaultValue
+  }
+}
+
+/**
+ * Omit keys from object
+ */
+export function omit<T extends Record<string, any>, K extends keyof T>(
+  obj: T,
+  keys: K[],
+): Omit<T, K> {
+  const result = { ...obj }
+  keys.forEach((key) => delete result[key])
+  return result as Omit<T, K>
+}
+
+/**
+ * Pick keys from object
+ */
+export function pick<T extends Record<string, any>, K extends keyof T>(
+  obj: T,
+  keys: K[],
+): Pick<T, K> {
+  const result = {} as Pick<T, K>
+  keys.forEach((key) => {
+    if (key in obj) {
+      result[key] = obj[key]
+    }
+  })
+  return result
+}

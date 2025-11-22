@@ -7,15 +7,18 @@ import CommentReplies from './CommentReplies.vue'
 import ErrorMessage from '@/components/common/ErrorMessage.vue'
 import { useComments } from '@/composables/api/useComments'
 import { useToast } from '@/composables/ui/useToast'
+import { isImageUrl, isVideoUrl } from '@/utils/helpers'
 import type { Comment } from '@/types'
 
 export interface CommentItemProps {
   comment: Comment
   canDelete?: boolean
+  isReply?: boolean // ← ДОБАВЛЕНО для унификации
 }
 
 const props = withDefaults(defineProps<CommentItemProps>(), {
   canDelete: false,
+  isReply: false, // ← ДОБАВЛЕНО
 })
 
 const emit = defineEmits<{
@@ -33,14 +36,20 @@ const replyMediaFile = ref<File | null>(null)
 const isSubmitting = ref(false)
 const submitError = ref<string | null>(null)
 
-// Computed
+// Computed - ИСПРАВЛЕНИЕ: используем utils
 const isImage = computed(() => {
-  return props.comment.imageUrl && !props.comment.imageUrl.includes('.mp4')
+  return props.comment.imageUrl ? isImageUrl(props.comment.imageUrl) : false
 })
 
 const isVideo = computed(() => {
-  return props.comment.imageUrl && props.comment.imageUrl.includes('.mp4')
+  return props.comment.imageUrl ? isVideoUrl(props.comment.imageUrl) : false
 })
+
+// Стили в зависимости от типа (комментарий или ответ)
+const marginLeft = computed(() => (props.isReply ? 'ml-10' : 'ml-12'))
+const avatarSize = computed(() => (props.isReply ? 'sm' : 'md'))
+const mediaSize = computed(() => (props.isReply ? 'h-24 w-24' : 'h-32 w-32'))
+const showReplyButton = computed(() => !props.isReply)
 
 const hasReplyContent = computed(
   () => replyContent.value.trim() !== '' || replyMediaFile.value !== null,
@@ -48,6 +57,7 @@ const hasReplyContent = computed(
 
 // Handlers
 const handleReply = () => {
+  if (!showReplyButton.value) return
   showReplyInput.value = !showReplyInput.value
 }
 
@@ -70,7 +80,6 @@ const handleSubmitReply = async () => {
       imageUrl: replyMediaFile.value ? 'temp' : undefined,
     })
 
-    // Success
     showToast('Reply added!', 'success')
     replyContent.value = ''
     replyMediaFile.value = null
@@ -112,27 +121,30 @@ const toggleReplies = () => {
       :to="`/user/${comment.userId}`"
       class="flex items-center gap-2 hover:underline cursor-pointer"
     >
-      <UserAvatar :user="{ id: comment.userId, username: comment.userId }" size="md" />
-      <span class="font-bold">{{ comment.userId }}</span>
+      <UserAvatar :user="{ id: comment.userId, username: comment.userId }" :size="avatarSize" />
+      <span :class="['font-bold', isReply ? 'text-sm' : 'text-base']">{{ comment.userId }}</span>
     </RouterLink>
 
     <!-- Content -->
-    <p v-if="comment.content" class="font-medium ml-12 mr-12 text-wrap break-words mt-1">
+    <p
+      v-if="comment.content"
+      :class="['font-medium mr-12 text-wrap break-words mt-1', marginLeft, isReply && 'text-sm']"
+    >
       {{ comment.content }}
     </p>
 
     <!-- Media -->
-    <div v-if="comment.imageUrl" class="flex flex-row ml-12 mt-2">
+    <div v-if="comment.imageUrl" :class="['flex flex-row mt-2', marginLeft]">
       <img
         v-if="isImage"
         :src="comment.imageUrl"
         alt="Comment media"
-        class="h-32 w-32 object-cover rounded-lg"
+        :class="['object-cover rounded-lg', mediaSize]"
       />
       <video
         v-if="isVideo"
         :src="comment.imageUrl"
-        class="h-32 w-32 object-cover rounded-lg"
+        :class="['object-cover rounded-lg', mediaSize]"
         autoplay
         loop
         muted
@@ -146,13 +158,13 @@ const toggleReplies = () => {
       :isLiked="comment.isLiked"
       :likeCount="comment.likeCount"
       :canDelete="canDelete"
-      :showReply="true"
+      :showReply="showReplyButton"
       @reply="handleReply"
       @delete="handleDelete"
     />
 
-    <!-- Reply Input -->
-    <div v-if="showReplyInput" class="ml-12 mt-2">
+    <!-- Reply Input (только для главных комментариев) -->
+    <div v-if="showReplyInput && !isReply" :class="['mt-2', marginLeft]">
       <ErrorMessage v-if="submitError" :error="submitError" variant="inline" :closable="true" />
 
       <CommentInput
@@ -168,11 +180,14 @@ const toggleReplies = () => {
       />
     </div>
 
-    <!-- Replies toggle -->
+    <!-- Replies toggle (только для главных комментариев) -->
     <div
-      v-if="comment.replyCount > 0"
+      v-if="comment.replyCount > 0 && !isReply"
       @click="toggleReplies"
-      class="ml-12 text-gray-700 text-sm mt-4 italic cursor-pointer mb-2 flex items-center justify-between"
+      :class="[
+        'text-gray-700 text-sm mt-4 italic cursor-pointer mb-2 flex items-center justify-between',
+        marginLeft,
+      ]"
     >
       <h1 v-if="!showReplies">⎯⎯ View {{ comment.replyCount }} replies</h1>
       <h1 v-else>⎯⎯ Hide replies</h1>
@@ -182,8 +197,8 @@ const toggleReplies = () => {
       </span>
     </div>
 
-    <!-- Replies -->
-    <div v-if="comment.replyCount > 0" class="ml-12">
+    <!-- Replies (только для главных комментариев) -->
+    <div v-if="comment.replyCount > 0 && !isReply" :class="marginLeft">
       <CommentReplies :commentId="comment.id" v-model="showReplies" />
     </div>
   </div>

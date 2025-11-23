@@ -31,3 +31,13 @@ export * from './utils/useDocumentTitle'
 export * from './utils/useEventListener'
 export * from './utils/useLocalStorage'
 export * from './utils/useKeyboardShortcuts'
+
+//Features
+export * from './features/useAnimations'
+export * from './features/useFileUpload'
+export * from './features/useFileValidation'
+export * from './features/useHover'
+export * from './features/useInfiniteScroll'
+export * from './features/useMasonry'
+export * from './features/usePagination'
+export * from './features/useVideoPlayer'

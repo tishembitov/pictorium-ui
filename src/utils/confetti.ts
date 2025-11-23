@@ -4,9 +4,7 @@ let confettiInstance: JSConfetti | null = null
 
 // Get or create confetti instance
 function getConfettiInstance(): JSConfetti {
-  if (!confettiInstance) {
-    confettiInstance = new JSConfetti()
-  }
+  confettiInstance ??= new JSConfetti()
   return confettiInstance
 }
 

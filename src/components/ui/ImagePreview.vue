@@ -11,9 +11,7 @@ const props = withDefaults(defineProps<ImagePreviewProps>(), {
   alt: 'Image preview',
 })
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-}>()
+const emit = defineEmits<(e: 'update:modelValue', value: boolean) => void>()
 
 const zoom = ref(1)
 

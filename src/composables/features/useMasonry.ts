@@ -5,7 +5,7 @@
  */
 
 import { ref, computed, watch, onMounted, onUnmounted, type Ref } from 'vue'
-import { useWindowSize } from '@/composables/utils'
+import { useWindowSize } from '@/composables'
 import {
   calculateColumnsCount,
   distributeItems,

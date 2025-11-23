@@ -6,7 +6,7 @@
 
 import { ref, computed, watch, type Ref } from 'vue'
 import { usePins } from '../api/usePins'
-import { useDebounce } from '@/composables/utils'
+import { useDebounce } from '@/composables'
 import type { PinFilter, Pin, PinScope, Tag } from '@/types'
 import { useTags } from '../api/useTags'
 import { useLocalStorage } from '../utils/useLocalStorage'

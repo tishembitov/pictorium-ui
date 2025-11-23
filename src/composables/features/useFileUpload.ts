@@ -7,7 +7,7 @@
 import { ref, computed, type Ref } from 'vue'
 import { storageApi } from '@/api/storage.api'
 import { useFileValidation } from './useFileValidation'
-import { useProgress, useToast } from '@/composables/ui'
+import { useProgress, useToast } from '@/composables'
 import type { ImageUploadRequest } from '@/types'
 
 export interface UseFileUploadOptions {
@@ -39,7 +39,7 @@ export interface UseFileUploadOptions {
   /**
    * Callback при успехе
    */
-  onSuccess?: (response: any) => void
+  onSuccess?: (response: unknown) => void
 
   /**
    * Callback при ошибке

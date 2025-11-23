@@ -5,7 +5,7 @@
  */
 
 import { ref, type Ref } from 'vue'
-import { useEventListener } from '@/composables/utils'
+import { useEventListener } from '@/composables'
 
 export interface UseHoverOptions {
   /**

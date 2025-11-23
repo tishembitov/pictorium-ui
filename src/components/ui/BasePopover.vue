@@ -18,9 +18,7 @@ const props = withDefaults(defineProps<BasePopoverProps>(), {
   closeOnClickOutside: true,
 })
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-}>()
+const emit = defineEmits<(e: 'update:modelValue', value: boolean) => void>()
 
 const triggerRef = ref<HTMLElement | null>(null)
 const popoverRef = ref<HTMLElement | null>(null)

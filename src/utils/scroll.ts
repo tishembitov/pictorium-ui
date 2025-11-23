@@ -13,7 +13,7 @@ export function scrollToElement(
   let startTime: number | null = null
 
   function animation(currentTime: number) {
-    if (startTime === null) startTime = currentTime
+    startTime ??= currentTime
     const timeElapsed = currentTime - startTime
     const run = easeInOutCubic(timeElapsed, startPosition, distance, duration)
     window.scrollTo(0, run)

@@ -21,9 +21,7 @@ const props = withDefaults(defineProps<BaseButtonProps>(), {
   type: 'button',
 })
 
-const emit = defineEmits<{
-  (e: 'click', event: MouseEvent): void
-}>()
+const emit = defineEmits<(e: 'click', event: MouseEvent) => void>()
 
 const classes = computed(() => {
   const baseClasses = [

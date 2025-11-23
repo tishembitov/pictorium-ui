@@ -5,7 +5,7 @@
  */
 
 import { ref, computed, type Ref } from 'vue'
-import { useInfiniteScroll as useInfiniteScrollBase } from '@/composables/utils'
+import { useInfiniteScroll as useInfiniteScrollBase } from '@/composables'
 import type { MaybeElementRef } from '@/composables/utils/useIntersectionObserver'
 
 export interface UseInfiniteScrollOptions<T> {
@@ -29,7 +29,7 @@ export interface UseInfiniteScrollOptions<T> {
   /**
    * Сброс при изменении зависимостей
    */
-  resetOn?: Ref<any>
+  resetOn?: Ref<unknown>
 
   /**
    * Callback при успешной загрузке

@@ -34,11 +34,11 @@ export async function retry<T>(
 
 // Deep clone
 export function deepClone<T>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj))
+  return structuredClone(obj)
 }
 
 // Check if object is empty
-export function isEmpty(obj: any): boolean {
+export function isEmpty(obj: unknown): boolean {
   if (obj == null) return true
   if (Array.isArray(obj)) return obj.length === 0
   if (typeof obj === 'object') return Object.keys(obj).length === 0
@@ -55,9 +55,7 @@ export function groupBy<T>(arr: T[], key: keyof T): Record<string, T[]> {
   return arr.reduce(
     (result, item) => {
       const groupKey = String(item[key])
-      if (!result[groupKey]) {
-        result[groupKey] = []
-      }
+      result[groupKey] ??= []
       result[groupKey].push(item)
       return result
     },
@@ -106,7 +104,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 // Download JSON
-export function downloadJSON(data: any, filename: string = 'data.json'): void {
+export function downloadJSON(data: unknown, filename: string = 'data.json'): void {
   const json = JSON.stringify(data, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -118,12 +116,12 @@ export function downloadJSON(data: any, filename: string = 'data.json'): void {
 }
 
 // Throttle function
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: unknown[]) => unknown>(
   func: T,
   limit: number,
 ): (...args: Parameters<T>) => void {
   let inThrottle: boolean
-  return function (this: any, ...args: Parameters<T>) {
+  return function (this: unknown, ...args: Parameters<T>) {
     if (!inThrottle) {
       func.apply(this, args)
       inThrottle = true
@@ -133,12 +131,12 @@ export function throttle<T extends (...args: any[]) => any>(
 }
 
 // Debounce function (более правильная версия)
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   delay: number,
 ): (...args: Parameters<T>) => void {
   let timeoutId: ReturnType<typeof setTimeout> | undefined
-  return function (this: any, ...args: Parameters<T>) {
+  return function (this: unknown, ...args: Parameters<T>) {
     if (timeoutId) clearTimeout(timeoutId)
     timeoutId = setTimeout(() => func.apply(this, args), delay)
   }
@@ -146,13 +144,13 @@ export function debounce<T extends (...args: any[]) => any>(
 
 // Check if running in browser
 export function isBrowser(): boolean {
-  return typeof window !== 'undefined'
+  return typeof globalThis.window !== 'undefined'
 }
 
 // Get base URL
 export function getBaseURL(): string {
   if (!isBrowser()) return ''
-  return window.location.origin
+  return globalThis.location.origin
 }
 
 // Parse query string
@@ -166,7 +164,7 @@ export function parseQueryString(queryString: string): Record<string, string> {
 }
 
 // Build query string
-export function buildQueryString(params: Record<string, any>): string {
+export function buildQueryString(params: Record<string, unknown>): string {
   const searchParams = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
     if (value !== null && value !== undefined) {
@@ -216,7 +214,7 @@ export function safeJsonParse<T>(json: string, defaultValue: T): T {
 /**
  * Omit keys from object
  */
-export function omit<T extends Record<string, any>, K extends keyof T>(
+export function omit<T extends Record<string, unknown>, K extends keyof T>(
   obj: T,
   keys: K[],
 ): Omit<T, K> {
@@ -228,7 +226,7 @@ export function omit<T extends Record<string, any>, K extends keyof T>(
 /**
  * Pick keys from object
  */
-export function pick<T extends Record<string, any>, K extends keyof T>(
+export function pick<T extends Record<string, unknown>, K extends keyof T>(
   obj: T,
   keys: K[],
 ): Pick<T, K> {

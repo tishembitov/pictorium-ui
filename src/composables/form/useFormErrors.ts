@@ -27,7 +27,7 @@ import { ref, computed, type Ref } from 'vue'
  * clearAllErrors()
  * ```
  */
-export function useFormErrors<T extends Record<string, any>>() {
+export function useFormErrors<T extends Record<string, unknown>>() {
   const errors = ref<Partial<Record<keyof T, string>>>({}) as Ref<Partial<Record<keyof T, string>>>
 
   const hasErrors = computed(() => Object.keys(errors.value).length > 0)

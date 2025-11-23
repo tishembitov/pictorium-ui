@@ -16,7 +16,7 @@ export interface JWTPayload {
   exp: number
   iat: number
   iss: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 // Decode JWT token (из старого кода)
@@ -47,7 +47,7 @@ export function getUserIdFromToken(token: string): string | null {
 // Check if token is expired
 export function isTokenExpired(token: string): boolean {
   const payload = decodeJWT(token)
-  if (!payload || !payload.exp) return true
+  if (!payload?.exp) return true
 
   const now = Math.floor(Date.now() / 1000)
   return payload.exp < now
@@ -56,7 +56,7 @@ export function isTokenExpired(token: string): boolean {
 // Get token expiration time
 export function getTokenExpiration(token: string): Date | null {
   const payload = decodeJWT(token)
-  if (!payload || !payload.exp) return null
+  if (!payload?.exp) return null
 
   return new Date(payload.exp * 1000)
 }

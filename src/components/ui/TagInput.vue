@@ -23,9 +23,7 @@ const props = withDefaults(defineProps<TagInputProps>(), {
   allowCustom: true,
 })
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: string[]): void
-}>()
+const emit = defineEmits<(e: 'update:modelValue', value: string[]) => void>()
 
 const inputValue = ref('')
 const inputError = ref<string | null>(null)

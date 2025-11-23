@@ -93,7 +93,7 @@ export function validateFileSize(file: File, maxSizeInMB: number): boolean {
 /**
  * Получить превью видео
  */
-export function getVideoThumbnail(file: File, seekTo = 0.0): Promise<Blob> {
+export function getVideoThumbnail(file: File, seekTo = 0): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video')
     const canvas = document.createElement('canvas')

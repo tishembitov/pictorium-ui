@@ -61,7 +61,7 @@ export interface UsePaginationOptions<T> {
  * })
  * ```
  */
-export function usePagination<T = any>(options: UsePaginationOptions<T>) {
+export function usePagination<T = unknown>(options: UsePaginationOptions<T>) {
   const { fetchPage, pageSize = 10, initialPage = 0, onPageChange } = options
 
   const items = ref<T[]>([]) as Ref<T[]>

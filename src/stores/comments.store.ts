@@ -1,14 +1,10 @@
 // src/stores/comments.store.ts
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Comment, Pageable } from '@/types'
+import type { Comment, CommentWithBlob, Pageable } from '@/types'
 import { commentsApi } from '@/api/comments.api'
 import { likesApi } from '@/api/likes.api'
 import { storageApi } from '@/api/storage.api'
-
-interface CommentWithBlob extends Comment {
-  imageBlobUrl?: string
-}
 
 export const useCommentsStore = defineStore('comments', () => {
   // ============ STATE ============

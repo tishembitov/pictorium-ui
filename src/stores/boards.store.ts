@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { BoardResponse, PinResponse, PagePinResponse, BoardWithPins } from '@/types'
 import { boardsApi, selectedBoardApi } from '@/api/boards.api'
-import { usePinMediaLoader } from '@/composables/usePinMediaLoader'
+import { usePinMediaLoader } from '@/composables/features/usePinMediaLoader'
 
 export const useBoardsStore = defineStore('boards', () => {
   // Используем composable для загрузки медиа

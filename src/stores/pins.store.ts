@@ -1,29 +1,13 @@
 // src/stores/pins.store.ts
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { PinResponse, PinFilter, PagePinResponse } from '@/types/api.types'
+import type { PinResponse, PinFeed, PinWithBlob, PinFilter, PagePinResponse } from '@/types'
 import { pinsApi } from '@/api/pins.api'
 import { savedPinsApi } from '@/api/saved-pins.api'
 import { likesApi } from '@/api/likes.api'
 import { storageApi } from '@/api/storage.api'
 import { isVideo, getImageDimensions } from '@/utils/media'
-
-interface PinWithBlob extends PinResponse {
-  imageBlobUrl?: string
-  videoBlobUrl?: string
-  isImage?: boolean
-  isVideo?: boolean
-  isGif?: boolean
-}
-
-interface PinFeed {
-  pins: PinWithBlob[]
-  page: number
-  totalPages: number
-  totalElements: number
-  hasMore: boolean
-  isLoading: boolean
-}
+import { usePinMediaLoader } from '@/composables/features/usePinMediaLoader'
 
 type FeedType = 'all' | 'created' | 'saved' | 'liked'
 
@@ -32,6 +16,8 @@ export const usePinsStore = defineStore('pins', () => {
 
   // Кэш пинов по ID (единый источник правды)
   const pinsCache = ref<Map<string, PinWithBlob>>(new Map())
+
+  const { loadPinBlob, loadPinsBlobs } = usePinMediaLoader()
 
   // Feeds для разных scope
   const feeds = ref<Map<FeedType, PinFeed>>(
@@ -84,7 +70,7 @@ export const usePinsStore = defineStore('pins', () => {
       })
 
       // Загружаем blob URLs
-      const pinsWithBlobs = await loadPinsBlobsParallel(response.content)
+      const pinsWithBlobs = await loadPinsBlobs(response.content)
 
       // Кэшируем пины
       pinsWithBlobs.forEach((pin) => {
@@ -425,41 +411,7 @@ export const usePinsStore = defineStore('pins', () => {
   // ============ HELPERS ============
 
   /**
-   * Загрузка blob URL для пина
-   */
-  async function loadPinBlob(pin: PinResponse): Promise<PinWithBlob> {
-    const pinWithBlob: PinWithBlob = { ...pin }
-
-    try {
-      if (pin.imageUrl) {
-        const blob = await storageApi.downloadImage(pin.imageUrl)
-        const contentType = blob.type
-
-        pinWithBlob.imageBlobUrl = URL.createObjectURL(blob)
-        pinWithBlob.isImage = true
-        pinWithBlob.isGif = contentType === 'image/gif'
-      } else if (pin.videoPreviewUrl) {
-        const blob = await storageApi.downloadImage(pin.videoPreviewUrl)
-        pinWithBlob.videoBlobUrl = URL.createObjectURL(blob)
-        pinWithBlob.isVideo = true
-      }
-    } catch (error) {
-      console.error(`[Pins] Failed to load media for pin ${pin.id}:`, error)
-      // Не используем fallback - просто возвращаем пин без blob
-    }
-
-    return pinWithBlob
-  }
-
-  /**
-   * Загрузка blob URLs параллельно
-   */
-  async function loadPinsBlobsParallel(pins: PinResponse[]): Promise<PinWithBlob[]> {
-    return Promise.all(pins.map(loadPinBlob))
-  }
-
-  /**
-   * Очистка blob URLs пина
+   * Очистка blob URLs
    */
   function cleanupPinBlobs(pin: PinWithBlob) {
     if (pin.imageBlobUrl) {

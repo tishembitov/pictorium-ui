@@ -55,6 +55,23 @@ export interface Pin {
   viewCount: number
 }
 
+export interface PinWithBlob extends Pin {
+  imageBlobUrl?: string
+  videoBlobUrl?: string
+  isImage?: boolean
+  isVideo?: boolean
+  isGif?: boolean
+}
+
+export interface PinFeed {
+  pins: PinWithBlob[]
+  page: number
+  totalPages: number
+  totalElements: number
+  hasMore: boolean
+  isLoading: boolean
+}
+
 export interface PinPreview {
   id: string
   imageUrl: string | null
@@ -93,6 +110,11 @@ export interface Board {
   updatedAt: string
 }
 
+export interface BoardWithPins extends Board {
+  pins?: Pin[]
+  pinsCount?: number
+}
+
 // ============================================================================
 // COMMENT MODELS
 // ============================================================================
@@ -109,6 +131,10 @@ export interface Comment {
   replyCount: number
   createdAt: string
   updatedAt: string
+}
+
+export interface CommentWithBlob extends Comment {
+  imageBlobUrl?: string
 }
 
 // ============================================================================

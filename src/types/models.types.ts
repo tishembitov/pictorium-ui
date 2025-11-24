@@ -1,6 +1,4 @@
-/**
- * Модели данных приложения
- */
+// src/types/models.types.ts
 
 // ============================================================================
 // USER MODELS
@@ -46,7 +44,7 @@ export interface Pin {
   contentType: string | null
   createdAt: string
   updatedAt: string
-  tags: string[] // Массив от сервера
+  tags: string[]
   isLiked: boolean
   isSaved: boolean
   saveCount: number
@@ -55,12 +53,25 @@ export interface Pin {
   viewCount: number
 }
 
+/**
+ * Pin с загруженными blob URLs (для UI)
+ */
 export interface PinWithBlob extends Pin {
   imageBlobUrl?: string
   videoBlobUrl?: string
   isImage?: boolean
   isVideo?: boolean
   isGif?: boolean
+}
+
+/**
+ * Упрощенный Pin для превью (используется в досках)
+ */
+export interface PinPreview {
+  id: string
+  imageUrl: string | null
+  videoPreviewUrl: string | null
+  thumbnailUrl: string | null
 }
 
 export interface PinFeed {
@@ -70,12 +81,6 @@ export interface PinFeed {
   totalElements: number
   hasMore: boolean
   isLoading: boolean
-}
-
-export interface PinPreview {
-  id: string
-  imageUrl: string | null
-  videoPreviewUrl: string | null
 }
 
 export enum PinScope {
@@ -88,7 +93,7 @@ export enum PinScope {
 
 export interface PinFilter {
   q?: string
-  tags?: string[] // Массив для отправки на сервер
+  tags?: string[]
   authorId?: string
   savedBy?: string
   likedBy?: string
@@ -110,8 +115,11 @@ export interface Board {
   updatedAt: string
 }
 
+/**
+ * Board с превью пинов
+ */
 export interface BoardWithPins extends Board {
-  pins?: Pin[]
+  pins?: PinWithBlob[]
   pinsCount?: number
 }
 
@@ -124,7 +132,7 @@ export interface Comment {
   pinId: string
   userId: string
   parentCommentId: string | null
-  content: string | null // Может быть null если только картинка
+  content: string | null
   imageUrl: string | null
   isLiked: boolean
   likeCount: number
@@ -133,6 +141,9 @@ export interface Comment {
   updatedAt: string
 }
 
+/**
+ * Comment с загруженным blob URL
+ */
 export interface CommentWithBlob extends Comment {
   imageBlobUrl?: string
 }
@@ -158,6 +169,9 @@ export interface Tag {
   name: string
 }
 
+/**
+ * Категория с превью пина
+ */
 export interface Category {
   tagId: string
   tagName: string
@@ -225,6 +239,9 @@ export interface PageableObject {
   unpaged: boolean
 }
 
+/**
+ * Generic Page response
+ */
 export interface Page<T> {
   totalPages: number
   totalElements: number
@@ -239,8 +256,13 @@ export interface Page<T> {
   empty: boolean
 }
 
+// ============================================================================
+// TYPE ALIASES (для удобства)
+// ============================================================================
+
 export type PageUser = Page<User>
 export type PagePin = Page<Pin>
 export type PageComment = Page<Comment>
 export type PageLike = Page<Like>
 export type PageTag = Page<Tag>
+export type PageBoard = Page<Board>

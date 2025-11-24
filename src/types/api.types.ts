@@ -1,5 +1,10 @@
+// src/types/api.types.ts
+
 /**
  * API Request/Response типы
+ *
+ * NOTE: Убраны type aliases типа PinResponse = Pin,
+ * так как они избыточны. Используйте напрямую Pin, Board и т.д.
  */
 
 import type {
@@ -31,10 +36,10 @@ import type {
 export interface UserUpdateRequest {
   username?: string
   description?: string
-  imageId?: string
-  imageUrl?: string
-  bannerImageId?: string
-  bannerImageUrl?: string
+  imageId?: string | null
+  imageUrl?: string | null
+  bannerImageId?: string | null
+  bannerImageUrl?: string | null
   instagram?: string
   tiktok?: string
   telegram?: string
@@ -49,28 +54,6 @@ export type UpdateUserResponse = User
 // ============================================================================
 // SUBSCRIPTION API
 // ============================================================================
-
-export interface FollowUserParams {
-  userIdToFollow: string
-}
-
-export interface UnfollowUserParams {
-  userIdToUnfollow: string
-}
-
-export interface GetFollowersParams {
-  userId: string
-  pageable: Pageable
-}
-
-export interface GetFollowingParams {
-  userId: string
-  pageable: Pageable
-}
-
-export interface CheckFollowParams {
-  userIdToCheck: string
-}
 
 export type FollowUserResponse = Subscription
 export type GetFollowersResponse = PageUser
@@ -96,41 +79,14 @@ export interface PinCreateRequest {
   height?: number
   fileSize?: number
   contentType?: string
-  tags?: string[] // Массив для отправки на сервер
+  tags?: string[]
 }
 
 export interface PinUpdateRequest {
-  imageId?: string
-  imageUrl?: string
-  thumbnailId?: string
-  thumbnailUrl?: string
-  videoPreviewId?: string
-  videoPreviewUrl?: string
   title?: string
   description?: string
   href?: string
-  rgb?: string
-  width?: number
-  height?: number
-  tags?: string[] // Массив для отправки на сервер
-}
-
-export interface GetPinsParams {
-  filter: PinFilter
-  pageable: Pageable
-}
-
-export interface GetPinByIdParams {
-  pinId: string
-}
-
-export interface UpdatePinParams {
-  pinId: string
-  data: PinUpdateRequest
-}
-
-export interface DeletePinParams {
-  pinId: string
+  tags?: string[]
 }
 
 export type CreatePinResponse = Pin
@@ -152,37 +108,6 @@ export interface CreateBoardResponse {
   title: string
   createdAt: string
   updatedAt: string
-}
-
-export interface GetBoardParams {
-  boardId: string
-}
-
-export interface GetBoardPinsParams {
-  boardId: string
-  pageable: Pageable
-}
-
-export interface GetUserBoardsParams {
-  userId: string
-}
-
-export interface AddPinToBoardParams {
-  boardId: string
-  pinId: string
-}
-
-export interface RemovePinFromBoardParams {
-  boardId: string
-  pinId: string
-}
-
-export interface DeleteBoardParams {
-  boardId: string
-}
-
-export interface SelectBoardParams {
-  boardId: string
 }
 
 export type GetBoardResponse = Board
@@ -212,32 +137,9 @@ export interface GetCommentsParams {
   pageable: Pageable
 }
 
-export interface CreateCommentParams {
-  pinId: string
-  data: CommentCreateRequest
-}
-
-export interface GetCommentParams {
-  commentId: string
-}
-
-export interface UpdateCommentParams {
-  commentId: string
-  data: CommentUpdateRequest
-}
-
-export interface DeleteCommentParams {
-  commentId: string
-}
-
 export interface GetRepliesParams {
   commentId: string
   pageable: Pageable
-}
-
-export interface CreateReplyParams {
-  commentId: string
-  data: CommentCreateRequest
 }
 
 export type GetCommentsResponse = PageComment
@@ -251,25 +153,9 @@ export type CreateReplyResponse = Comment
 // LIKE API
 // ============================================================================
 
-export interface LikePinParams {
-  pinId: string
-}
-
-export interface UnlikePinParams {
-  pinId: string
-}
-
 export interface GetPinLikesParams {
   pinId: string
   pageable: Pageable
-}
-
-export interface LikeCommentParams {
-  commentId: string
-}
-
-export interface UnlikeCommentParams {
-  commentId: string
 }
 
 export interface GetCommentLikesParams {
@@ -286,14 +172,6 @@ export type GetCommentLikesResponse = PageLike
 // SAVED PIN API
 // ============================================================================
 
-export interface SavePinParams {
-  pinId: string
-}
-
-export interface UnsavePinParams {
-  pinId: string
-}
-
 export type SavePinResponse = Pin
 
 // ============================================================================
@@ -304,17 +182,9 @@ export interface GetAllTagsParams {
   pageable: Pageable
 }
 
-export interface GetTagByIdParams {
-  tagId: string
-}
-
 export interface SearchTagsParams {
   q: string
   limit?: number
-}
-
-export interface GetPinTagsParams {
-  pinId: string
 }
 
 export interface GetCategoriesParams {
@@ -338,49 +208,6 @@ export interface ImageUploadRequest {
   thumbnailWidth?: number
   thumbnailHeight?: number
 }
-
-export interface UploadImageParams {
-  formData: FormData
-}
-
-export interface GetImageParams {
-  imageId: string
-}
-
-export interface DeleteImageParams {
-  imageId: string
-}
-
-export interface GetImageUrlParams {
-  imageId: string
-  expiry?: number
-}
-
-export interface GetImageMetadataParams {
-  imageId: string
-}
-
-export interface ListImagesParams {
-  category?: string
-}
-
-// ============================================================================
-// RESPONSE TYPE ALIASES (для удобства в stores)
-// ============================================================================
-
-export type PinResponse = Pin
-export type BoardResponse = Board
-export type CommentResponse = Comment
-export type TagResponse = Tag
-export type UserResponse = User
-export type LikeResponse = Like
-
-export type PagePinResponse = PagePin
-export type PageBoardResponse = Page<Board>
-export type PageCommentResponse = PageComment
-export type PageTagResponse = PageTag
-export type PageUserResponse = PageUser
-export type PageLikeResponse = PageLike
 
 export type UploadImageResponse = ImageUploadResponse
 export type GetImageMetadataResponse = ImageMetadata

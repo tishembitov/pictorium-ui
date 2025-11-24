@@ -1,24 +1,20 @@
+// src/types/index.ts
+
 /**
  * Re-export всех типов
  */
 
-// Models
+// Models (основные типы данных)
 export * from './models.types'
 
-// API
+// API (request/response типы)
 export * from './api.types'
-
-// Store
-export * from './store.types'
-
-// Components
-export * from './components.types'
-
-// Composables
-export * from './composables.types'
-
-// Utils
-export * from './utils.types'
 
 // Auth (Keycloak)
 export * from './auth.types'
+
+// Components (props/emits)
+export * from './components.types'
+
+// Utils
+export * from './utils.types'

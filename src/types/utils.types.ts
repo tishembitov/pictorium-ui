@@ -1,3 +1,5 @@
+// src/types/utils.types.ts
+
 /**
  * Утилиты типов
  */
@@ -86,8 +88,8 @@ export interface UploadProgress {
 
 export type ValidationRule<T = unknown> = (value: T) => string | null | Promise<string | null>
 
-export interface ValidationRules {
-  [K: string]: ValidationRule | ValidationRule[]
+export interface ValidationRules<T = unknown> {
+  [K: string]: ValidationRule<T> | ValidationRule<T>[]
 }
 
 // ============================================================================
@@ -99,6 +101,8 @@ export interface RouteMeta {
   requiresGuest?: boolean
   title?: string
   layout?: 'default' | 'auth' | 'guest'
+  roles?: string[]
+  permissions?: string[]
 }
 
 // ============================================================================
@@ -120,3 +124,51 @@ export type PickByType<T, U> = {
 export type OmitByType<T, U> = {
   [P in keyof T as T[P] extends U ? never : P]: T[P]
 }
+
+// ✅ ДОБАВЛЕНО: Полезные утилиты
+
+/**
+ * Делает указанные ключи обязательными
+ */
+export type RequireKeys<T, K extends keyof T> = T & Required<Pick<T, K>>
+
+/**
+ * Делает указанные ключи опциональными
+ */
+export type OptionalKeys<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
+
+/**
+ * Readonly для вложенных объектов
+ */
+export type DeepReadonly<T> = {
+  readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P]
+}
+
+/**
+ * Извлекает тип элемента массива
+ */
+export type ArrayElement<T> = T extends (infer U)[] ? U : never
+
+/**
+ * Извлекает тип Promise
+ */
+export type Awaited<T> = T extends Promise<infer U> ? U : T
+
+/**
+ * Union to Intersection
+ */
+export type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (
+  k: infer I,
+) => void
+  ? I
+  : never
+
+/**
+ * Strict Omit (ошибка если ключ не существует)
+ */
+export type StrictOmit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>
+
+/**
+ * Strict Pick (ошибка если ключ не существует)
+ */
+export type StrictPick<T, K extends keyof T> = Pick<T, K>

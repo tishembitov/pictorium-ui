@@ -1,7 +1,4 @@
-/**
- * Axios instance с Keycloak interceptors
- */
-
+// src/api/client.ts
 import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosError } from 'axios'
 import { getKeycloak, refreshToken, login, getToken, isAuthenticated } from '@/plugins/keycloak'
 import router from '@/router'
@@ -28,7 +25,7 @@ function createApiClient(baseURL: string): AxiosInstance {
   })
 
   // ============================================================================
-  // REQUEST INTERCEPTOR - Добавление Keycloak токена
+  // REQUEST INTERCEPTOR
   // ============================================================================
 
   client.interceptors.request.use(
@@ -40,18 +37,18 @@ function createApiClient(baseURL: string): AxiosInstance {
         return config
       }
 
-      // Проверяем, нужно ли обновить токен (за 30 секунд до истечения)
+      // Обновляем токен если нужно (за 30 сек до истечения)
       if (isAuthenticated()) {
         try {
           await keycloak.updateToken(30)
         } catch (error) {
-          console.error('[Keycloak] Token update failed:', error)
+          console.error('[API] Token update failed:', error)
           login()
           return Promise.reject(error)
         }
       }
 
-      // Добавляем токен в заголовок
+      // Добавляем токен
       const token = getToken()
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
@@ -65,51 +62,59 @@ function createApiClient(baseURL: string): AxiosInstance {
   )
 
   // ============================================================================
-  // RESPONSE INTERCEPTOR - Обработка ошибок
+  // RESPONSE INTERCEPTOR
   // ============================================================================
 
   client.interceptors.response.use(
-    (response) => response,
+    (response) => {
+      // ✅ ДОБАВЛЕНО: Проверка пустых данных
+      if (response.data === null || response.data === undefined) {
+        console.warn('[API] Empty response data:', response.config.url)
+      }
+      return response
+    },
     async (error: AxiosError) => {
       const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean }
 
-      // Обработка 401 Unauthorized
+      // 401 Unauthorized
       if (error.response?.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true
 
         try {
-          // Пытаемся обновить токен через Keycloak
           const refreshed = await refreshToken(5)
           const token = getToken()
 
           if (refreshed && token) {
-            // Повторяем оригинальный запрос с новым токеном
             if (originalRequest.headers) {
               originalRequest.headers.Authorization = `Bearer ${token}`
             }
             return client(originalRequest)
           } else {
-            // Не удалось обновить токен - редирект на login
+            console.warn('[API] Token refresh failed, redirecting to login')
             login()
             return Promise.reject(error)
           }
         } catch (refreshError) {
-          // Ошибка обновления токена - редирект на login
-          console.error('[Keycloak] Token refresh failed:', refreshError)
+          console.error('[API] Token refresh error:', refreshError)
           login()
           return Promise.reject(refreshError)
         }
       }
 
-      // Обработка 403 Forbidden
+      // 403 Forbidden
       if (error.response?.status === 403) {
-        console.error('[API] Access denied (403)')
+        console.error('[API] Access denied (403):', error.config?.url)
         router.push('/forbidden')
       }
 
-      // Обработка 500+ Server Errors
+      // 404 Not Found
+      if (error.response?.status === 404) {
+        console.warn('[API] Resource not found (404):', error.config?.url)
+      }
+
+      // 500+ Server Errors
       if (error.response?.status && error.response.status >= 500) {
-        console.error('[API] Server error:', error.response.status)
+        console.error('[API] Server error:', error.response.status, error.config?.url)
       }
 
       return Promise.reject(error)
@@ -128,7 +133,7 @@ export const contentServiceClient = createApiClient(CONTENT_SERVICE_URL)
 export const storageServiceClient = createApiClient(STORAGE_SERVICE_URL)
 
 // ============================================================================
-// HELPER FUNCTIONS
+// ERROR HELPERS
 // ============================================================================
 
 /**
@@ -136,12 +141,22 @@ export const storageServiceClient = createApiClient(STORAGE_SERVICE_URL)
  */
 export function handleApiError(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    // Приоритет: message из response.data, потом общее сообщение ошибки
     const message =
       error.response?.data?.message ||
       error.response?.data?.error ||
       error.message ||
       'An unexpected error occurred'
+
+    // ✅ ДОБАВЛЕНО: Логирование для debugging
+    if (import.meta.env.DEV) {
+      console.error('[API Error]', {
+        url: error.config?.url,
+        method: error.config?.method,
+        status: error.response?.status,
+        message,
+        data: error.response?.data,
+      })
+    }
 
     return message
   }
@@ -185,9 +200,46 @@ export function isForbiddenError(error: unknown): boolean {
 }
 
 /**
+ * Проверить, является ли ошибка Not Found
+ */
+export function isNotFoundError(error: unknown): boolean {
+  return getErrorStatus(error) === 404
+}
+
+/**
  * Проверить, является ли ошибка серверной ошибкой
  */
 export function isServerError(error: unknown): boolean {
   const status = getErrorStatus(error)
   return status !== null && status >= 500
+}
+
+/**
+ * Получить валидационные ошибки (если есть)
+ */
+export function getValidationErrors(error: unknown): Record<string, string[]> | null {
+  if (axios.isAxiosError(error)) {
+    return error.response?.data?.errors || null
+  }
+  return null
+}
+
+/**
+ * Проверить, является ли ошибка сетевой
+ */
+export function isNetworkError(error: unknown): boolean {
+  if (axios.isAxiosError(error)) {
+    return !error.response && error.message === 'Network Error'
+  }
+  return false
+}
+
+/**
+ * Проверить, была ли ошибка timeout
+ */
+export function isTimeoutError(error: unknown): boolean {
+  if (axios.isAxiosError(error)) {
+    return error.code === 'ECONNABORTED'
+  }
+  return false
 }

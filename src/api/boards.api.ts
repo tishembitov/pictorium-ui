@@ -1,7 +1,4 @@
-/**
- * Boards API
- */
-
+// src/api/boards.api.ts
 import { contentServiceClient } from './client'
 import type {
   BoardCreateRequest,
@@ -103,9 +100,8 @@ export const boardsApi = {
   },
 }
 
-// Export selected board API separately
 export const selectedBoardApi = {
   getSelectedBoard: boardsApi.getSelectedBoard,
   selectBoard: boardsApi.selectBoard,
   deselectBoard: boardsApi.deselectBoard,
-}
+} as const

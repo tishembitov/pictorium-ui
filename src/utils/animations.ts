@@ -56,6 +56,35 @@ export function fadeIn(element: HTMLElement, duration: number = 300): Promise<vo
   })
 }
 
+/**
+ * Animation cleanup helper
+ */
+export function cleanupAnimation(element: HTMLElement, animationClass: string): void {
+  element.classList.remove(animationClass)
+  element.removeEventListener('animationend', () => {})
+}
+
+/**
+ * Remove all animation classes
+ */
+export function removeAllAnimations(element: HTMLElement): void {
+  const animationClasses = [
+    'flash-animation',
+    'glowing-icon',
+    'pulse-scale',
+    'shake-animation',
+    'bounce-animation',
+  ]
+
+  animationClasses.forEach((className) => {
+    element.classList.remove(className)
+  })
+
+  element.style.transition = ''
+  element.style.transform = ''
+  element.style.opacity = ''
+}
+
 export function fadeOut(element: HTMLElement, duration: number = 300): Promise<void> {
   return new Promise((resolve) => {
     element.style.transition = `opacity ${duration}ms ease-in-out`

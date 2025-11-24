@@ -3,6 +3,10 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type Keycloak from 'keycloak-js'
 
+/**
+ * Auth Store - только для СОСТОЯНИЯ Keycloak
+ * Всю логику работы с Keycloak оставляем в plugins/keycloak.ts
+ */
 export const useAuthStore = defineStore('auth', () => {
   // ============ STATE ============
 
@@ -63,9 +67,9 @@ export const useAuthStore = defineStore('auth', () => {
   // ============ ACTIONS ============
 
   /**
-   * Инициализация Keycloak
+   * Инициализация Keycloak (вызывается из plugin)
    */
-  async function initKeycloak(keycloakInstance: Keycloak) {
+  function initKeycloak(keycloakInstance: Keycloak) {
     try {
       isInitializing.value = true
       keycloak.value = keycloakInstance
@@ -86,128 +90,10 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * Login через Keycloak
+   * Обновление состояния аутентификации
    */
-  async function login(redirectUri?: string) {
-    try {
-      if (!keycloak.value) {
-        throw new Error('Keycloak not initialized')
-      }
-
-      await keycloak.value.login({
-        redirectUri: redirectUri || window.location.origin,
-      })
-    } catch (error) {
-      console.error('[Auth] Login failed:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Logout
-   */
-  async function logout(redirectUri?: string) {
-    try {
-      if (!keycloak.value) {
-        throw new Error('Keycloak not initialized')
-      }
-
-      // Сбрасываем state
-      isAuthenticated.value = false
-
-      // Выходим из Keycloak
-      await keycloak.value.logout({
-        redirectUri: redirectUri || window.location.origin,
-      })
-    } catch (error) {
-      console.error('[Auth] Logout failed:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Обновление токена
-   */
-  async function updateToken(minValidity = 5): Promise<boolean> {
-    try {
-      if (!keycloak.value) {
-        console.warn('[Auth] Keycloak not initialized')
-        return false
-      }
-
-      const refreshed = await keycloak.value.updateToken(minValidity)
-
-      if (refreshed) {
-        console.log('[Auth] Token refreshed successfully')
-      }
-
-      return refreshed
-    } catch (error) {
-      console.error('[Auth] Token update failed:', error)
-      // Если не удалось обновить токен - разлогиниваем
-      await logout()
-      throw error
-    }
-  }
-
-  /**
-   * Проверка валидности токена
-   */
-  function isTokenExpired(): boolean {
-    if (!keycloak.value) return true
-    return keycloak.value.isTokenExpired()
-  }
-
-  /**
-   * Загрузка профиля из Keycloak
-   */
-  async function loadKeycloakProfile() {
-    try {
-      if (!keycloak.value) {
-        throw new Error('Keycloak not initialized')
-      }
-
-      const profile = await keycloak.value.loadUserProfile()
-      console.log('[Auth] Keycloak profile loaded:', profile)
-      return profile
-    } catch (error) {
-      console.error('[Auth] Failed to load Keycloak profile:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Регистрация нового пользователя
-   */
-  async function register(redirectUri?: string) {
-    try {
-      if (!keycloak.value) {
-        throw new Error('Keycloak not initialized')
-      }
-
-      await keycloak.value.register({
-        redirectUri: redirectUri || window.location.origin,
-      })
-    } catch (error) {
-      console.error('[Auth] Registration failed:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Управление аккаунтом Keycloak
-   */
-  async function accountManagement() {
-    try {
-      if (!keycloak.value) {
-        throw new Error('Keycloak not initialized')
-      }
-
-      await keycloak.value.accountManagement()
-    } catch (error) {
-      console.error('[Auth] Account management failed:', error)
-      throw error
-    }
+  function updateAuthState(authenticated: boolean) {
+    isAuthenticated.value = authenticated
   }
 
   /**
@@ -226,8 +112,6 @@ export const useAuthStore = defineStore('auth', () => {
    * Проверка разрешения (permission-based)
    */
   function hasPermission(permission: string): boolean {
-    // Можно расширить логику проверки разрешений
-    // Например, через mapping ролей на разрешения
     return allRoles.value.includes(permission)
   }
 
@@ -251,7 +135,15 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * Сброс store (для тестов)
+   * Проверка валидности токена
+   */
+  function isTokenExpired(): boolean {
+    if (!keycloak.value) return true
+    return keycloak.value.isTokenExpired()
+  }
+
+  /**
+   * Сброс store (для тестов и logout)
    */
   function $reset() {
     keycloak.value = null
@@ -286,17 +178,12 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Actions
     initKeycloak,
-    login,
-    logout,
-    register,
-    updateToken,
-    isTokenExpired,
-    loadKeycloakProfile,
-    accountManagement,
+    updateAuthState,
     checkAuth,
     hasPermission,
     getTokenExpirationTime,
     getTimeToExpiration,
+    isTokenExpired,
     $reset,
   }
 })

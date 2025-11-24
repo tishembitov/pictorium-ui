@@ -1,6 +1,6 @@
 // src/stores/subscriptions.store.ts
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import type { User, Pageable } from '@/types'
 import { subscriptionsApi } from '@/api/subscriptions.api'
 
@@ -8,19 +8,19 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
   // ============ STATE ============
 
   // Подписчики пользователя (key: userId)
-  const followersCache = ref<Map<string, User[]>>(new Map())
+  const followersCache = reactive(new Map<string, User[]>())
 
   // Подписки пользователя (key: userId)
-  const followingCache = ref<Map<string, User[]>>(new Map())
+  const followingCache = reactive(new Map<string, User[]>())
 
   // Пагинация подписчиков (key: userId)
-  const followersPagination = ref<Map<string, { page: number; hasMore: boolean }>>(new Map())
+  const followersPagination = reactive(new Map<string, { page: number; hasMore: boolean }>())
 
   // Пагинация подписок (key: userId)
-  const followingPagination = ref<Map<string, { page: number; hasMore: boolean }>>(new Map())
+  const followingPagination = reactive(new Map<string, { page: number; hasMore: boolean }>())
 
   // Кэш проверок подписки (key: userId, value: isFollowing)
-  const followStatusCache = ref<Map<string, boolean>>(new Map())
+  const followStatusCache = reactive(new Map<string, boolean>())
 
   // Loading states
   const isFollowing = ref(false)
@@ -30,23 +30,23 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
   // ============ GETTERS ============
 
   const getFollowers = computed(() => (userId: string) => {
-    return followersCache.value.get(userId) || []
+    return followersCache.get(userId) || []
   })
 
   const getFollowing = computed(() => (userId: string) => {
-    return followingCache.value.get(userId) || []
+    return followingCache.get(userId) || []
   })
 
   const hasMoreFollowers = computed(() => (userId: string) => {
-    return followersPagination.value.get(userId)?.hasMore ?? true
+    return followersPagination.get(userId)?.hasMore ?? true
   })
 
   const hasMoreFollowing = computed(() => (userId: string) => {
-    return followingPagination.value.get(userId)?.hasMore ?? true
+    return followingPagination.get(userId)?.hasMore ?? true
   })
 
   const isFollowingUser = computed(() => (userId: string) => {
-    return followStatusCache.value.get(userId) ?? false
+    return followStatusCache.get(userId) ?? false
   })
 
   // ============ ACTIONS ============
@@ -57,7 +57,7 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
   async function fetchFollowers(userId: string, page = 0, size = 20, reset = false) {
     try {
       if (reset) {
-        followersPagination.value.set(userId, { page: 0, hasMore: true })
+        followersPagination.set(userId, { page: 0, hasMore: true })
       }
 
       isLoadingFollowers.value = true
@@ -65,20 +65,20 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
       const response = await subscriptionsApi.getFollowers(userId, { page, size, sort: [] })
 
       if (page === 0 || reset) {
-        followersCache.value.set(userId, response.content)
+        followersCache.set(userId, response.content)
       } else {
-        const existing = followersCache.value.get(userId) || []
-        followersCache.value.set(userId, [...existing, ...response.content])
+        const existing = followersCache.get(userId) || []
+        followersCache.set(userId, [...existing, ...response.content])
       }
 
-      followersPagination.value.set(userId, {
+      followersPagination.set(userId, {
         page: response.number,
         hasMore: !response.last,
       })
 
       return response.content
     } catch (error) {
-      console.error('Failed to fetch followers:', error)
+      console.error('[Subscriptions] Failed to fetch followers:', error)
       throw error
     } finally {
       isLoadingFollowers.value = false
@@ -91,7 +91,7 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
   async function fetchFollowing(userId: string, page = 0, size = 20, reset = false) {
     try {
       if (reset) {
-        followingPagination.value.set(userId, { page: 0, hasMore: true })
+        followingPagination.set(userId, { page: 0, hasMore: true })
       }
 
       isLoadingFollowing.value = true
@@ -99,20 +99,20 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
       const response = await subscriptionsApi.getFollowing(userId, { page, size, sort: [] })
 
       if (page === 0 || reset) {
-        followingCache.value.set(userId, response.content)
+        followingCache.set(userId, response.content)
       } else {
-        const existing = followingCache.value.get(userId) || []
-        followingCache.value.set(userId, [...existing, ...response.content])
+        const existing = followingCache.get(userId) || []
+        followingCache.set(userId, [...existing, ...response.content])
       }
 
-      followingPagination.value.set(userId, {
+      followingPagination.set(userId, {
         page: response.number,
         hasMore: !response.last,
       })
 
       return response.content
     } catch (error) {
-      console.error('Failed to fetch following:', error)
+      console.error('[Subscriptions] Failed to fetch following:', error)
       throw error
     } finally {
       isLoadingFollowing.value = false
@@ -127,15 +127,13 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
       isFollowing.value = true
 
       // Оптимистичное обновление
-      followStatusCache.value.set(userId, true)
+      followStatusCache.set(userId, true)
 
       await subscriptionsApi.followUser(userId)
-
-      // Можно обновить счетчики в auth store или user profile store
     } catch (error) {
-      console.error('Failed to follow user:', error)
+      console.error('[Subscriptions] Failed to follow user:', error)
       // Откат
-      followStatusCache.value.set(userId, false)
+      followStatusCache.set(userId, false)
       throw error
     } finally {
       isFollowing.value = false
@@ -150,13 +148,13 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
       isFollowing.value = true
 
       // Оптимистичное обновление
-      followStatusCache.value.set(userId, false)
+      followStatusCache.set(userId, false)
 
       await subscriptionsApi.unfollowUser(userId)
     } catch (error) {
-      console.error('Failed to unfollow user:', error)
+      console.error('[Subscriptions] Failed to unfollow user:', error)
       // Откат
-      followStatusCache.value.set(userId, true)
+      followStatusCache.set(userId, true)
       throw error
     } finally {
       isFollowing.value = false
@@ -169,16 +167,16 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
   async function checkFollow(userId: string, forceReload = false) {
     try {
       // Проверяем кэш
-      if (!forceReload && followStatusCache.value.has(userId)) {
-        return followStatusCache.value.get(userId)!
+      if (!forceReload && followStatusCache.has(userId)) {
+        return followStatusCache.get(userId)!
       }
 
       const response = await subscriptionsApi.checkFollow(userId)
-      followStatusCache.value.set(userId, response.isFollowing)
+      followStatusCache.set(userId, response.isFollowing)
 
       return response.isFollowing
     } catch (error) {
-      console.error('Failed to check follow status:', error)
+      console.error('[Subscriptions] Failed to check follow status:', error)
       throw error
     }
   }
@@ -187,7 +185,7 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
    * Загрузка следующей страницы подписчиков
    */
   async function loadMoreFollowers(userId: string) {
-    const pagination = followersPagination.value.get(userId)
+    const pagination = followersPagination.get(userId)
     if (!pagination || !pagination.hasMore) return
 
     await fetchFollowers(userId, pagination.page + 1, 20, false)
@@ -197,7 +195,7 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
    * Загрузка следующей страницы подписок
    */
   async function loadMoreFollowing(userId: string) {
-    const pagination = followingPagination.value.get(userId)
+    const pagination = followingPagination.get(userId)
     if (!pagination || !pagination.hasMore) return
 
     await fetchFollowing(userId, pagination.page + 1, 20, false)
@@ -207,21 +205,21 @@ export const useSubscriptionsStore = defineStore('subscriptions', () => {
    * Очистить кэш пользователя
    */
   function clearUserCache(userId: string) {
-    followersCache.value.delete(userId)
-    followingCache.value.delete(userId)
-    followersPagination.value.delete(userId)
-    followingPagination.value.delete(userId)
+    followersCache.delete(userId)
+    followingCache.delete(userId)
+    followersPagination.delete(userId)
+    followingPagination.delete(userId)
   }
 
   /**
    * Очистить все
    */
   function clearAll() {
-    followersCache.value.clear()
-    followingCache.value.clear()
-    followersPagination.value.clear()
-    followingPagination.value.clear()
-    followStatusCache.value.clear()
+    followersCache.clear()
+    followingCache.clear()
+    followersPagination.clear()
+    followingPagination.clear()
+    followStatusCache.clear()
   }
 
   return {

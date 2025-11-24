@@ -1,6 +1,6 @@
 // src/stores/tags.store.ts
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import type { Tag, Category } from '@/types'
 import { tagsApi } from '@/api/tags.api'
 
@@ -11,10 +11,10 @@ export const useTagsStore = defineStore('tags', () => {
   const allTags = ref<Tag[]>([])
 
   // Кэш тегов по ID
-  const tagsCache = ref<Map<string, Tag>>(new Map())
+  const tagsCache = reactive(new Map<string, Tag>())
 
   // Теги пина (key: pinId)
-  const pinTagsCache = ref<Map<string, Tag[]>>(new Map())
+  const pinTagsCache = reactive(new Map<string, Tag[]>())
 
   // Категории (для главной страницы)
   const categories = ref<Category[]>([])
@@ -34,11 +34,11 @@ export const useTagsStore = defineStore('tags', () => {
   // ============ GETTERS ============
 
   const getTagById = computed(() => (tagId: string) => {
-    return tagsCache.value.get(tagId)
+    return tagsCache.get(tagId)
   })
 
   const getPinTags = computed(() => (pinId: string) => {
-    return pinTagsCache.value.get(pinId) || []
+    return pinTagsCache.get(pinId) || []
   })
 
   // ============ ACTIONS ============
@@ -56,7 +56,7 @@ export const useTagsStore = defineStore('tags', () => {
 
       // Кэшируем теги
       response.content.forEach((tag) => {
-        tagsCache.value.set(tag.id, tag)
+        tagsCache.set(tag.id, tag)
       })
 
       if (page === 0 || reset) {
@@ -71,7 +71,7 @@ export const useTagsStore = defineStore('tags', () => {
 
       return response.content
     } catch (error) {
-      console.error('Failed to fetch tags:', error)
+      console.error('[Tags] Failed to fetch tags:', error)
       throw error
     } finally {
       isLoading.value = false
@@ -84,16 +84,16 @@ export const useTagsStore = defineStore('tags', () => {
   async function fetchTagById(tagId: string, forceReload = false) {
     try {
       // Проверяем кэш
-      if (!forceReload && tagsCache.value.has(tagId)) {
-        return tagsCache.value.get(tagId)!
+      if (!forceReload && tagsCache.has(tagId)) {
+        return tagsCache.get(tagId)!
       }
 
       const tag = await tagsApi.getById(tagId)
-      tagsCache.value.set(tagId, tag)
+      tagsCache.set(tagId, tag)
 
       return tag
     } catch (error) {
-      console.error('Failed to fetch tag:', error)
+      console.error('[Tags] Failed to fetch tag:', error)
       throw error
     }
   }
@@ -114,13 +114,13 @@ export const useTagsStore = defineStore('tags', () => {
 
       // Кэшируем результаты
       results.forEach((tag) => {
-        tagsCache.value.set(tag.id, tag)
+        tagsCache.set(tag.id, tag)
       })
 
       searchResults.value = results
       return results
     } catch (error) {
-      console.error('Failed to search tags:', error)
+      console.error('[Tags] Failed to search tags:', error)
       throw error
     } finally {
       isSearching.value = false
@@ -133,21 +133,21 @@ export const useTagsStore = defineStore('tags', () => {
   async function fetchPinTags(pinId: string, forceReload = false) {
     try {
       // Проверяем кэш
-      if (!forceReload && pinTagsCache.value.has(pinId)) {
-        return pinTagsCache.value.get(pinId)!
+      if (!forceReload && pinTagsCache.has(pinId)) {
+        return pinTagsCache.get(pinId)!
       }
 
       const tags = await tagsApi.getPinTags(pinId)
 
       // Кэшируем теги
       tags.forEach((tag) => {
-        tagsCache.value.set(tag.id, tag)
+        tagsCache.set(tag.id, tag)
       })
 
-      pinTagsCache.value.set(pinId, tags)
+      pinTagsCache.set(pinId, tags)
       return tags
     } catch (error) {
-      console.error('Failed to fetch pin tags:', error)
+      console.error('[Tags] Failed to fetch pin tags:', error)
       throw error
     }
   }
@@ -168,7 +168,7 @@ export const useTagsStore = defineStore('tags', () => {
 
       return response
     } catch (error) {
-      console.error('Failed to fetch categories:', error)
+      console.error('[Tags] Failed to fetch categories:', error)
       throw error
     } finally {
       isLoading.value = false
@@ -179,7 +179,7 @@ export const useTagsStore = defineStore('tags', () => {
    * Загрузка следующей страницы тегов
    */
   async function loadMoreTags() {
-    if (!hasMore.value) return
+    if (!hasMore.value || isLoading.value) return
     await fetchAllTags(currentPage.value + 1, 50, false)
   }
 
@@ -194,7 +194,7 @@ export const useTagsStore = defineStore('tags', () => {
    * Очистить кэш тегов пина
    */
   function clearPinTags(pinId: string) {
-    pinTagsCache.value.delete(pinId)
+    pinTagsCache.delete(pinId)
   }
 
   /**
@@ -202,8 +202,8 @@ export const useTagsStore = defineStore('tags', () => {
    */
   function clearAll() {
     allTags.value = []
-    tagsCache.value.clear()
-    pinTagsCache.value.clear()
+    tagsCache.clear()
+    pinTagsCache.clear()
     categories.value = []
     searchResults.value = []
     currentPage.value = 0

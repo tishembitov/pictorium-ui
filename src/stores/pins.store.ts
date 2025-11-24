@@ -1,27 +1,24 @@
 // src/stores/pins.store.ts
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, reactive, onUnmounted } from 'vue'
 import type { PinResponse, PinFeed, PinWithBlob, PinFilter, PagePinResponse } from '@/types'
 import { pinsApi } from '@/api/pins.api'
 import { savedPinsApi } from '@/api/saved-pins.api'
 import { likesApi } from '@/api/likes.api'
 import { storageApi } from '@/api/storage.api'
 import { isVideo, getImageDimensions } from '@/utils/media'
-import { usePinMediaLoader } from '@/composables/features/usePinMediaLoader'
 
 type FeedType = 'all' | 'created' | 'saved' | 'liked'
 
 export const usePinsStore = defineStore('pins', () => {
   // ============ STATE ============
 
-  // Кэш пинов по ID (единый источник правды)
-  const pinsCache = ref<Map<string, PinWithBlob>>(new Map())
-
-  const { loadPinBlob, loadPinsBlobs } = usePinMediaLoader()
+  // Кэш пинов по ID (единый источник правды) - используем reactive для Map
+  const pinsCache = reactive(new Map<string, PinWithBlob>())
 
   // Feeds для разных scope
-  const feeds = ref<Map<FeedType, PinFeed>>(
-    new Map([
+  const feeds = reactive(
+    new Map<FeedType, PinFeed>([
       ['all', createEmptyFeed()],
       ['created', createEmptyFeed()],
       ['saved', createEmptyFeed()],
@@ -40,7 +37,7 @@ export const usePinsStore = defineStore('pins', () => {
 
   // ============ GETTERS ============
 
-  const activeFeed = computed(() => feeds.value.get(activeFeedType.value)!)
+  const activeFeed = computed(() => feeds.get(activeFeedType.value)!)
 
   const feedPins = computed(() => activeFeed.value.pins)
   const isLoading = computed(() => activeFeed.value.isLoading)
@@ -48,8 +45,63 @@ export const usePinsStore = defineStore('pins', () => {
   const currentPage = computed(() => activeFeed.value.page)
 
   const getPinById = computed(() => (pinId: string) => {
-    return pinsCache.value.get(pinId)
+    return pinsCache.get(pinId)
   })
+
+  // ============ BLOB LOADING (перенесено из composable) ============
+
+  /**
+   * Загрузка blob URL для одного пина
+   */
+  async function loadPinBlob(pin: PinResponse): Promise<PinWithBlob> {
+    if (!pin.imageUrl && !pin.videoPreviewUrl) return pin
+
+    try {
+      const pinWithBlob: PinWithBlob = { ...pin }
+
+      // Определяем тип медиа
+      const isVideoFile = pin.videoPreviewUrl ? true : pin.imageUrl ? isVideo(pin.imageUrl) : false
+      const isGifFile = pin.imageUrl?.toLowerCase().endsWith('.gif')
+
+      pinWithBlob.isVideo = isVideoFile
+      pinWithBlob.isGif = isGifFile
+      pinWithBlob.isImage = !isVideoFile && !isGifFile
+
+      // Загружаем blob URLs параллельно
+      const promises: Promise<void>[] = []
+
+      // Изображение (или thumbnail для видео)
+      if (pin.imageUrl && !isVideoFile) {
+        promises.push(
+          storageApi.downloadImage(pin.imageUrl).then((blob) => {
+            pinWithBlob.imageBlobUrl = URL.createObjectURL(blob)
+          }),
+        )
+      }
+
+      // Видео превью
+      if (pin.videoPreviewUrl) {
+        promises.push(
+          storageApi.downloadImage(pin.videoPreviewUrl).then((blob) => {
+            pinWithBlob.videoBlobUrl = URL.createObjectURL(blob)
+          }),
+        )
+      }
+
+      await Promise.allSettled(promises)
+      return pinWithBlob
+    } catch (error) {
+      console.error('[Pins] Failed to load pin blob:', error)
+      return pin
+    }
+  }
+
+  /**
+   * Загрузка blob URLs для массива пинов
+   */
+  async function loadPinsBlobs(pins: PinResponse[]): Promise<PinWithBlob[]> {
+    return Promise.all(pins.map(loadPinBlob))
+  }
 
   // ============ ACTIONS ============
 
@@ -57,8 +109,15 @@ export const usePinsStore = defineStore('pins', () => {
    * Загрузка пинов с фильтром
    */
   async function fetchPins(filter?: PinFilter, page = 0, size = 15, feedType: FeedType = 'all') {
+    const feed = feeds.get(feedType)!
+
+    // Защита от двойной загрузки
+    if (feed.isLoading) {
+      console.warn('[Pins] Feed is already loading')
+      return []
+    }
+
     try {
-      const feed = feeds.value.get(feedType)!
       feed.isLoading = true
 
       if (filter) currentFilter.value = filter
@@ -74,7 +133,7 @@ export const usePinsStore = defineStore('pins', () => {
 
       // Кэшируем пины
       pinsWithBlobs.forEach((pin) => {
-        pinsCache.value.set(pin.id, pin)
+        pinsCache.set(pin.id, pin)
       })
 
       // Обновляем feed
@@ -96,7 +155,6 @@ export const usePinsStore = defineStore('pins', () => {
       console.error('[Pins] Failed to fetch pins:', error)
       throw error
     } finally {
-      const feed = feeds.value.get(feedType)!
       feed.isLoading = false
     }
   }
@@ -107,14 +165,14 @@ export const usePinsStore = defineStore('pins', () => {
   async function fetchPinById(pinId: string, forceReload = false) {
     try {
       // Проверяем кэш
-      if (!forceReload && pinsCache.value.has(pinId)) {
-        return pinsCache.value.get(pinId)!
+      if (!forceReload && pinsCache.has(pinId)) {
+        return pinsCache.get(pinId)!
       }
 
       const pin = await pinsApi.getById(pinId)
       const pinWithBlob = await loadPinBlob(pin)
 
-      pinsCache.value.set(pinId, pinWithBlob)
+      pinsCache.set(pinId, pinWithBlob)
       return pinWithBlob
     } catch (error) {
       console.error('[Pins] Failed to fetch pin:', error)
@@ -179,14 +237,16 @@ export const usePinsStore = defineStore('pins', () => {
 
       // 4. Кэшируем
       const pinWithBlob = await loadPinBlob(pin)
-      pinsCache.value.set(pin.id, pinWithBlob)
+      pinsCache.set(pin.id, pinWithBlob)
 
       // 5. Добавляем в feed "created" и "all"
-      const createdFeed = feeds.value.get('created')!
+      const createdFeed = feeds.get('created')!
       createdFeed.pins.unshift(pinWithBlob)
+      createdFeed.totalElements++
 
-      const allFeed = feeds.value.get('all')!
+      const allFeed = feeds.get('all')!
       allFeed.pins.unshift(pinWithBlob)
+      allFeed.totalElements++
 
       return pinWithBlob
     } catch (error) {
@@ -211,9 +271,9 @@ export const usePinsStore = defineStore('pins', () => {
       const updated = await pinsApi.update(pinId, data)
 
       // Обновляем кэш (сохраняем blob URLs)
-      const cached = pinsCache.value.get(pinId)
+      const cached = pinsCache.get(pinId)
       if (cached) {
-        pinsCache.value.set(pinId, {
+        pinsCache.set(pinId, {
           ...cached,
           ...updated,
         })
@@ -234,15 +294,19 @@ export const usePinsStore = defineStore('pins', () => {
       await pinsApi.delete(pinId)
 
       // Очищаем blob URLs
-      const cached = pinsCache.value.get(pinId)
+      const cached = pinsCache.get(pinId)
       if (cached) {
         cleanupPinBlobs(cached)
-        pinsCache.value.delete(pinId)
+        pinsCache.delete(pinId)
       }
 
       // Удаляем из всех feeds
-      feeds.value.forEach((feed) => {
-        feed.pins = feed.pins.filter((p) => p.id !== pinId)
+      feeds.forEach((feed) => {
+        const index = feed.pins.findIndex((p) => p.id === pinId)
+        if (index !== -1) {
+          feed.pins.splice(index, 1)
+          feed.totalElements = Math.max(0, feed.totalElements - 1)
+        }
       })
     } catch (error) {
       console.error('[Pins] Failed to delete pin:', error)
@@ -312,10 +376,11 @@ export const usePinsStore = defineStore('pins', () => {
       await savedPinsApi.save(pinId)
 
       // Добавляем в saved feed
-      const pin = pinsCache.value.get(pinId)
+      const pin = pinsCache.get(pinId)
       if (pin) {
-        const savedFeed = feeds.value.get('saved')!
+        const savedFeed = feeds.get('saved')!
         savedFeed.pins.unshift(pin)
+        savedFeed.totalElements++
       }
     } catch (error) {
       console.error('[Pins] Failed to save pin:', error)
@@ -342,8 +407,12 @@ export const usePinsStore = defineStore('pins', () => {
       await savedPinsApi.unsave(pinId)
 
       // Удаляем из saved feed
-      const savedFeed = feeds.value.get('saved')!
-      savedFeed.pins = savedFeed.pins.filter((p) => p.id !== pinId)
+      const savedFeed = feeds.get('saved')!
+      const index = savedFeed.pins.findIndex((p) => p.id === pinId)
+      if (index !== -1) {
+        savedFeed.pins.splice(index, 1)
+        savedFeed.totalElements = Math.max(0, savedFeed.totalElements - 1)
+      }
     } catch (error) {
       console.error('[Pins] Failed to unsave pin:', error)
       updatePinInCache(pinId, (pin) => ({
@@ -360,7 +429,7 @@ export const usePinsStore = defineStore('pins', () => {
    */
   async function loadMore() {
     const feed = activeFeed.value
-    if (!feed.hasMore) return
+    if (!feed.hasMore || feed.isLoading) return
 
     await fetchPins(currentFilter.value, feed.page + 1, pageSize.value, activeFeedType.value)
   }
@@ -369,9 +438,15 @@ export const usePinsStore = defineStore('pins', () => {
    * Переключение feed
    */
   async function switchFeed(feedType: FeedType, filter?: PinFilter) {
-    activeFeedType.value = feedType
+    const feed = feeds.get(feedType)!
 
-    const feed = feeds.value.get(feedType)!
+    // Защита от двойной загрузки
+    if (feed.isLoading) {
+      console.warn('[Pins] Feed is already loading')
+      return
+    }
+
+    activeFeedType.value = feedType
 
     // Если feed пустой - загружаем
     if (feed.pins.length === 0) {
@@ -385,11 +460,22 @@ export const usePinsStore = defineStore('pins', () => {
    */
   function resetFeed(feedType?: FeedType) {
     if (feedType) {
-      feeds.value.set(feedType, createEmptyFeed())
+      feeds.set(feedType, createEmptyFeed())
     } else {
-      feeds.value.forEach((feed, type) => {
-        feeds.value.set(type, createEmptyFeed())
+      feeds.forEach((feed, type) => {
+        feeds.set(type, createEmptyFeed())
       })
+    }
+  }
+
+  /**
+   * Очистка конкретного пина из кэша
+   */
+  function clearPin(pinId: string) {
+    const cached = pinsCache.get(pinId)
+    if (cached) {
+      cleanupPinBlobs(cached)
+      pinsCache.delete(pinId)
     }
   }
 
@@ -398,12 +484,12 @@ export const usePinsStore = defineStore('pins', () => {
    */
   function cleanup() {
     // Cleanup blob URLs
-    pinsCache.value.forEach((pin) => {
+    pinsCache.forEach((pin) => {
       cleanupPinBlobs(pin)
     })
 
-    pinsCache.value.clear()
-    feeds.value.forEach((feed) => {
+    pinsCache.clear()
+    feeds.forEach((feed) => {
       feed.pins = []
     })
   }
@@ -426,9 +512,9 @@ export const usePinsStore = defineStore('pins', () => {
    * Обновление пина в кэше
    */
   function updatePinInCache(pinId: string, updater: (pin: PinWithBlob) => PinWithBlob) {
-    const cached = pinsCache.value.get(pinId)
+    const cached = pinsCache.get(pinId)
     if (cached) {
-      pinsCache.value.set(pinId, updater(cached))
+      pinsCache.set(pinId, updater(cached))
     }
   }
 
@@ -493,6 +579,7 @@ export const usePinsStore = defineStore('pins', () => {
     loadMore,
     switchFeed,
     resetFeed,
+    clearPin,
     cleanup,
   }
 })

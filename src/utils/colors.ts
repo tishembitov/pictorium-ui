@@ -6,48 +6,62 @@ export function randomTagColor(): string {
   return TAG_COLORS[randomIndex] ?? '#808080' // Fallback на случай undefined
 }
 
-// Extract dominant color from image (для pin.rgb)
-// Simplified version - в старом коде не было реализации, только хранение
 export function extractDominantColor(imageUrl: string): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image()
-    img.crossOrigin = 'Anonymous'
+
+    // Если изображение с другого домена, нужен CORS
+    if (!imageUrl.startsWith(globalThis.location.origin)) {
+      img.crossOrigin = 'anonymous'
+    }
 
     img.onload = () => {
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
+      try {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
 
-      if (!ctx) {
+        if (!ctx) {
+          console.warn('[Colors] Canvas context not available')
+          resolve('#808080')
+          return
+        }
+
+        canvas.width = img.width
+        canvas.height = img.height
+
+        ctx.drawImage(img, 0, 0)
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const data = imageData.data
+
+        let r = 0,
+          g = 0,
+          b = 0
+
+        // Сэмплируем каждый 10-й пиксель для ускорения
+        const step = 10
+        let count = 0
+
+        for (let i = 0; i < data.length; i += 4 * step) {
+          r += data[i] ?? 0
+          g += data[i + 1] ?? 0
+          b += data[i + 2] ?? 0
+          count++
+        }
+
+        r = Math.floor(r / count)
+        g = Math.floor(g / count)
+        b = Math.floor(b / count)
+
+        resolve(rgbToHex(r, g, b))
+      } catch (error) {
+        console.warn('[Colors] Failed to extract color:', error)
         resolve('#808080')
-        return
       }
-
-      canvas.width = img.width
-      canvas.height = img.height
-      ctx.drawImage(img, 0, 0)
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const data = imageData.data
-
-      let r = 0,
-        g = 0,
-        b = 0
-
-      for (let i = 0; i < data.length; i += 4) {
-        r += data[i] ?? 0
-        g += data[i + 1] ?? 0
-        b += data[i + 2] ?? 0
-      }
-
-      const pixelCount = data.length / 4
-      r = Math.floor(r / pixelCount)
-      g = Math.floor(g / pixelCount)
-      b = Math.floor(b / pixelCount)
-
-      resolve(rgbToHex(r, g, b))
     }
 
     img.onerror = () => {
+      console.warn('[Colors] Failed to load image for color extraction')
       resolve('#808080')
     }
 
@@ -55,6 +69,24 @@ export function extractDominantColor(imageUrl: string): Promise<string> {
   })
 }
 
+/**
+ * Extract dominant color from Blob (безопаснее для локальных файлов)
+ */
+export function extractDominantColorFromBlob(blob: Blob): Promise<string> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(blob)
+
+    extractDominantColor(url)
+      .then((color) => {
+        URL.revokeObjectURL(url)
+        resolve(color)
+      })
+      .catch(() => {
+        URL.revokeObjectURL(url)
+        resolve('#808080')
+      })
+  })
+}
 // RGB to HEX converter
 export function rgbToHex(r: number, g: number, b: number): string {
   return (

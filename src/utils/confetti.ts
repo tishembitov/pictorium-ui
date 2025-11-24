@@ -1,14 +1,23 @@
+// src/utils/confetti.ts
 import JSConfetti from 'js-confetti'
 
-let confettiInstance: JSConfetti | null = null
+/**
+ * Singleton для confetti
+ * Использует замыкание вместо глобальной переменной
+ */
+let instance: JSConfetti | null = null
 
-// Get or create confetti instance
+/**
+ * Получить или создать экземпляр confetti
+ */
 function getConfettiInstance(): JSConfetti {
-  confettiInstance ??= new JSConfetti()
-  return confettiInstance
+  instance ??= new JSConfetti()
+  return instance
 }
 
-// Default confetti (для регистрации)
+/**
+ * Default confetti (для регистрации и успешных действий)
+ */
 export function showConfetti(): void {
   const confetti = getConfettiInstance()
 
@@ -17,12 +26,12 @@ export function showConfetti(): void {
     confettiColors: ['#ff0a54', '#ff477e', '#ff7096', '#ff85a1', '#fbb1bd', '#f9bec7'],
     confettiRadius: 6,
     confettiNumber: 100,
-    emojiSize: 40,
-    emojiNumber: 50,
   })
 }
 
-// Success confetti
+/**
+ * Success confetti
+ */
 export function showSuccessConfetti(): void {
   const confetti = getConfettiInstance()
 
@@ -30,31 +39,64 @@ export function showSuccessConfetti(): void {
     emojis: ['🎉', '🎊', '✨', '🌟', '⭐'],
     confettiColors: ['#10b981', '#34d399', '#6ee7b7', '#a7f3d0'],
     confettiNumber: 80,
-    emojiNumber: 30,
   })
 }
 
-// Custom confetti
+/**
+ * Error confetti (грустные эмоджи)
+ */
+export function showErrorConfetti(): void {
+  const confetti = getConfettiInstance()
+
+  confetti.addConfetti({
+    emojis: ['😢', '😞', '💔'],
+    confettiNumber: 30,
+  })
+}
+
+/**
+ * Custom confetti
+ */
 export interface ConfettiOptions {
   emojis?: string[]
   colors?: string[]
   count?: number
+  emojiSize?: number
 }
 
 export function showCustomConfetti(options: ConfettiOptions = {}): void {
   const confetti = getConfettiInstance()
 
   confetti.addConfetti({
-    emojis: options.emojis || ['🎉'],
-    confettiColors: options.colors || ['#ff0a54', '#ff477e'],
+    emojis: options.emojis,
+    confettiColors: options.colors,
     confettiNumber: options.count || 100,
+    emojiSize: options.emojiSize || 40,
   })
 }
 
-// Cleanup confetti instance
-export function destroyConfetti(): void {
-  if (confettiInstance) {
-    confettiInstance.clearCanvas()
-    confettiInstance = null
+/**
+ * Очистить canvas
+ */
+export function clearConfetti(): void {
+  if (instance) {
+    instance.clearCanvas()
   }
+}
+
+/**
+ * Уничтожить экземпляр (для cleanup)
+ */
+export function destroyConfetti(): void {
+  if (instance) {
+    instance.clearCanvas()
+    instance = null
+  }
+}
+
+/**
+ * Проверка, инициализирован ли confetti
+ */
+export function isConfettiInitialized(): boolean {
+  return instance !== null
 }

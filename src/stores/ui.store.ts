@@ -1,6 +1,6 @@
 // src/stores/ui.store.ts
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, reactive } from 'vue'
 
 interface Modal {
   id: string
@@ -19,8 +19,8 @@ interface Toast {
 export const useUIStore = defineStore('ui', () => {
   // ============ STATE ============
 
-  // Modals
-  const modals = ref<Map<string, Modal>>(new Map())
+  // Modals - используем reactive для Map
+  const modals = reactive(new Map<string, Modal>())
 
   // Toasts
   const toasts = ref<Toast[]>([])
@@ -28,17 +28,17 @@ export const useUIStore = defineStore('ui', () => {
   // Loading
   const globalLoading = ref(false)
   const loadingMessage = ref('')
-  const loadingOperations = ref<Set<string>>(new Set())
+  const loadingOperations = reactive(new Set<string>())
 
   // Sidebar
   const sidebarCollapsed = ref(false)
   const sidebarWidth = ref(280)
 
-  // Theme
+  // Theme (управляется через plugin, здесь только state)
   const theme = ref<'light' | 'dark'>('light')
 
   // Scroll positions (для KeepAlive)
-  const scrollPositions = ref<Map<string, number>>(new Map())
+  const scrollPositions = reactive(new Map<string, number>())
 
   // Mobile
   const isMobileMenuOpen = ref(false)
@@ -49,26 +49,26 @@ export const useUIStore = defineStore('ui', () => {
   // ============ GETTERS ============
 
   const isAnyModalOpen = computed(() => {
-    return Array.from(modals.value.values()).some((m) => m.isOpen)
+    return Array.from(modals.values()).some((m) => m.isOpen)
   })
 
   const getModalById = computed(() => (id: string) => {
-    return modals.value.get(id)
+    return modals.get(id)
   })
 
   const isLoading = computed(() => {
-    return globalLoading.value || loadingOperations.value.size > 0
+    return globalLoading.value || loadingOperations.size > 0
   })
 
   // ============ ACTIONS - MODALS ============
 
   function openModal(id: string, component?: unknown, props?: Record<string, unknown>) {
-    modals.value.set(id, { id, component, props, isOpen: true })
+    modals.set(id, { id, component, props, isOpen: true })
     document.body.style.overflow = 'hidden'
   }
 
   function closeModal(id: string) {
-    const modal = modals.value.get(id)
+    const modal = modals.get(id)
     if (modal) {
       modal.isOpen = false
     }
@@ -79,14 +79,14 @@ export const useUIStore = defineStore('ui', () => {
   }
 
   function closeAllModals() {
-    modals.value.forEach((modal) => {
+    modals.forEach((modal) => {
       modal.isOpen = false
     })
     document.body.style.overflow = ''
   }
 
   function toggleModal(id: string) {
-    const modal = modals.value.get(id)
+    const modal = modals.get(id)
     if (modal?.isOpen) {
       closeModal(id)
     } else {
@@ -107,11 +107,11 @@ export const useUIStore = defineStore('ui', () => {
   }
 
   function startOperation(operationId: string) {
-    loadingOperations.value.add(operationId)
+    loadingOperations.add(operationId)
   }
 
   function endOperation(operationId: string) {
-    loadingOperations.value.delete(operationId)
+    loadingOperations.delete(operationId)
   }
 
   // ============ ACTIONS - TOASTS ============
@@ -139,59 +139,61 @@ export const useUIStore = defineStore('ui', () => {
 
   function toggleSidebar() {
     sidebarCollapsed.value = !sidebarCollapsed.value
+    // Сохраняем в localStorage
+    localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed.value))
   }
 
   function setSidebarWidth(width: number) {
     sidebarWidth.value = Math.max(80, Math.min(800, width))
+    localStorage.setItem('sidebarWidth', String(sidebarWidth.value))
   }
 
   function openSidebar() {
     sidebarCollapsed.value = false
+    localStorage.setItem('sidebarCollapsed', 'false')
   }
 
   function closeSidebar() {
     sidebarCollapsed.value = true
+    localStorage.setItem('sidebarCollapsed', 'true')
+  }
+
+  function restoreSidebarState() {
+    const collapsed = localStorage.getItem('sidebarCollapsed')
+    if (collapsed !== null) {
+      sidebarCollapsed.value = collapsed === 'true'
+    }
+
+    const width = localStorage.getItem('sidebarWidth')
+    if (width) {
+      sidebarWidth.value = parseInt(width, 10)
+    }
   }
 
   // ============ ACTIONS - THEME ============
+  // Логика инициализации перенесена в plugin/theme.ts
+  // Здесь только сеттер
 
   function setTheme(newTheme: 'light' | 'dark') {
     theme.value = newTheme
-    document.documentElement.classList.toggle('dark', newTheme === 'dark')
-    localStorage.setItem('theme', newTheme)
-  }
-
-  function toggleTheme() {
-    setTheme(theme.value === 'light' ? 'dark' : 'light')
-  }
-
-  function initTheme() {
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null
-    if (savedTheme) {
-      setTheme(savedTheme)
-    } else {
-      // Detect system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      setTheme(prefersDark ? 'dark' : 'light')
-    }
   }
 
   // ============ ACTIONS - SCROLL ============
 
   function saveScrollPosition(key: string, position: number) {
-    scrollPositions.value.set(key, position)
+    scrollPositions.set(key, position)
   }
 
   function getScrollPosition(key: string): number {
-    return scrollPositions.value.get(key) || 0
+    return scrollPositions.get(key) || 0
   }
 
   function clearScrollPosition(key: string) {
-    scrollPositions.value.delete(key)
+    scrollPositions.delete(key)
   }
 
   function clearAllScrollPositions() {
-    scrollPositions.value.clear()
+    scrollPositions.clear()
   }
 
   // ============ ACTIONS - MOBILE ============
@@ -257,11 +259,10 @@ export const useUIStore = defineStore('ui', () => {
     setSidebarWidth,
     openSidebar,
     closeSidebar,
+    restoreSidebarState,
 
     // Actions - Theme
     setTheme,
-    toggleTheme,
-    initTheme,
 
     // Actions - Scroll
     saveScrollPosition,

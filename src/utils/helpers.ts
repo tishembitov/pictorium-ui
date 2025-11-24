@@ -130,15 +130,48 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
   }
 }
 
-// Debounce function (более правильная версия)
 export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   delay: number,
+  options: { leading?: boolean; trailing?: boolean } = {},
 ): (...args: Parameters<T>) => void {
+  const { leading = false, trailing = true } = options
+
   let timeoutId: ReturnType<typeof setTimeout> | undefined
+  let lastArgs: Parameters<T> | undefined
+
   return function (this: unknown, ...args: Parameters<T>) {
-    if (timeoutId) clearTimeout(timeoutId)
-    timeoutId = setTimeout(() => func.apply(this, args), delay)
+    const context = this
+
+    const later = () => {
+      timeoutId = undefined
+      if (trailing && lastArgs) {
+        func.apply(context, lastArgs)
+        lastArgs = undefined
+      }
+    }
+
+    const callNow = leading && !timeoutId
+
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+
+    lastArgs = args
+    timeoutId = setTimeout(later, delay)
+
+    if (callNow) {
+      func.apply(context, args)
+    }
+  }
+}
+
+/**
+ * Cancel debounced function
+ */
+export function cancelDebounce(debouncedFn: any): void {
+  if (debouncedFn && typeof debouncedFn.cancel === 'function') {
+    debouncedFn.cancel()
   }
 }
 

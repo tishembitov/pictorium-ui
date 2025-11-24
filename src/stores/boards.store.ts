@@ -1,30 +1,33 @@
 // src/stores/boards.store.ts
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import type { BoardResponse, PinResponse, PagePinResponse, BoardWithPins } from '@/types'
+import { ref, computed, reactive } from 'vue'
+import type {
+  BoardResponse,
+  PinResponse,
+  PagePinResponse,
+  BoardWithPins,
+  PinWithBlob,
+} from '@/types'
 import { boardsApi, selectedBoardApi } from '@/api/boards.api'
-import { usePinMediaLoader } from '@/composables/features/usePinMediaLoader'
+import { storageApi } from '@/api/storage.api'
 
 export const useBoardsStore = defineStore('boards', () => {
-  // Используем composable для загрузки медиа
-  const { loadPinBlob, loadPinsBlobs } = usePinMediaLoader()
-
   // ============ STATE ============
 
-  // Единый кэш досок по ID
-  const boardsCache = ref<Map<string, BoardWithPins>>(new Map())
+  // Единый кэш досок по ID - используем reactive для Map
+  const boardsCache = reactive(new Map<string, BoardWithPins>())
 
   // Мои доски (только ID)
   const myBoardIds = ref<string[]>([])
 
-  // Доски пользователей (key: userId, value: boardIds[])
-  const userBoardIds = ref<Map<string, string[]>>(new Map())
+  // Доски пользователей (key: userId, value: boardIds[]) - reactive для Map
+  const userBoardIds = reactive(new Map<string, string[]>())
 
   // Текущая просматриваемая доска
   const currentBoardId = ref<string | null>(null)
 
   // Пины текущей доски
-  const currentBoardPins = ref<PinResponse[]>([])
+  const currentBoardPins = ref<PinWithBlob[]>([])
 
   // Пагинация пинов доски
   const boardPinsPage = ref(0)
@@ -39,22 +42,22 @@ export const useBoardsStore = defineStore('boards', () => {
 
   const myBoards = computed(() => {
     return myBoardIds.value
-      .map((id) => boardsCache.value.get(id))
+      .map((id) => boardsCache.get(id))
       .filter((board): board is BoardWithPins => board !== undefined)
   })
 
   const currentBoard = computed(() => {
-    return currentBoardId.value ? boardsCache.value.get(currentBoardId.value) : null
+    return currentBoardId.value ? boardsCache.get(currentBoardId.value) : null
   })
 
   const getBoardById = computed(() => (boardId: string) => {
-    return boardsCache.value.get(boardId)
+    return boardsCache.get(boardId)
   })
 
   const getUserBoards = computed(() => (userId: string) => {
-    const boardIds = userBoardIds.value.get(userId) || []
+    const boardIds = userBoardIds.get(userId) || []
     return boardIds
-      .map((id) => boardsCache.value.get(id))
+      .map((id) => boardsCache.get(id))
       .filter((board): board is BoardWithPins => board !== undefined)
   })
 
@@ -94,7 +97,7 @@ export const useBoardsStore = defineStore('boards', () => {
             }
 
             // Кэшируем
-            boardsCache.value.set(board.id, boardWithPins)
+            boardsCache.set(board.id, boardWithPins)
 
             return boardWithPins
           } catch (error) {
@@ -104,7 +107,7 @@ export const useBoardsStore = defineStore('boards', () => {
               pins: [],
               pinsCount: 0,
             }
-            boardsCache.value.set(board.id, boardWithPins)
+            boardsCache.set(board.id, boardWithPins)
             return boardWithPins
           }
         }),
@@ -128,7 +131,7 @@ export const useBoardsStore = defineStore('boards', () => {
   async function fetchUserBoards(userId: string, forceReload = false) {
     try {
       // Проверяем кэш
-      if (!forceReload && userBoardIds.value.has(userId)) {
+      if (!forceReload && userBoardIds.has(userId)) {
         return getUserBoards.value(userId)
       }
 
@@ -154,7 +157,7 @@ export const useBoardsStore = defineStore('boards', () => {
               pinsCount: pinsResponse.totalElements,
             }
 
-            boardsCache.value.set(board.id, boardWithPins)
+            boardsCache.set(board.id, boardWithPins)
             return boardWithPins
           } catch (error) {
             const boardWithPins: BoardWithPins = {
@@ -162,14 +165,14 @@ export const useBoardsStore = defineStore('boards', () => {
               pins: [],
               pinsCount: 0,
             }
-            boardsCache.value.set(board.id, boardWithPins)
+            boardsCache.set(board.id, boardWithPins)
             return boardWithPins
           }
         }),
       )
 
       // Сохраняем ID досок
-      userBoardIds.value.set(
+      userBoardIds.set(
         userId,
         boardsWithPins.map((b) => b.id),
       )
@@ -189,8 +192,8 @@ export const useBoardsStore = defineStore('boards', () => {
   async function fetchBoardById(boardId: string, forceReload = false) {
     try {
       // Проверяем кэш
-      if (!forceReload && boardsCache.value.has(boardId)) {
-        return boardsCache.value.get(boardId)!
+      if (!forceReload && boardsCache.has(boardId)) {
+        return boardsCache.get(boardId)!
       }
 
       const board = await boardsApi.getById(boardId)
@@ -210,7 +213,7 @@ export const useBoardsStore = defineStore('boards', () => {
         pinsCount: pinsResponse.totalElements,
       }
 
-      boardsCache.value.set(boardId, boardWithPins)
+      boardsCache.set(boardId, boardWithPins)
       return boardWithPins
     } catch (error) {
       console.error('[Boards] Failed to fetch board:', error)
@@ -230,7 +233,7 @@ export const useBoardsStore = defineStore('boards', () => {
         currentBoardId.value = boardId
 
         // Загружаем инфо о доске если еще не в кэше
-        if (!boardsCache.value.has(boardId)) {
+        if (!boardsCache.has(boardId)) {
           await fetchBoardById(boardId)
         }
       }
@@ -249,6 +252,8 @@ export const useBoardsStore = defineStore('boards', () => {
       const pinsWithBlobs = await loadPinsBlobs(response.content)
 
       if (page === 0) {
+        // Очищаем старые blob URLs
+        cleanupPinsBlobs(currentBoardPins.value)
         currentBoardPins.value = pinsWithBlobs
       } else {
         currentBoardPins.value.push(...pinsWithBlobs)
@@ -267,7 +272,7 @@ export const useBoardsStore = defineStore('boards', () => {
    * Загрузка следующей страницы пинов
    */
   async function loadMoreBoardPins() {
-    if (!currentBoardId.value || !hasBoardPinsMore.value) return
+    if (!currentBoardId.value || !hasBoardPinsMore.value || isLoadingPins.value) return
     await fetchBoardPins(currentBoardId.value, boardPinsPage.value + 1, boardPinsSize.value)
   }
 
@@ -287,7 +292,7 @@ export const useBoardsStore = defineStore('boards', () => {
       }
 
       // Кэшируем
-      boardsCache.value.set(board.id, boardWithPins)
+      boardsCache.set(board.id, boardWithPins)
 
       // Добавляем в начало моих досок
       myBoardIds.value.unshift(board.id)
@@ -308,16 +313,25 @@ export const useBoardsStore = defineStore('boards', () => {
     try {
       await boardsApi.delete(boardId)
 
+      // Очищаем blob URLs пинов доски
+      const board = boardsCache.get(boardId)
+      if (board?.pins) {
+        cleanupPinsBlobs(board.pins)
+      }
+
       // Удаляем из кэша
-      boardsCache.value.delete(boardId)
+      boardsCache.delete(boardId)
 
       // Удаляем из списка моих досок
       myBoardIds.value = myBoardIds.value.filter((id) => id !== boardId)
 
       // Сбрасываем текущую доску если она удалена
       if (currentBoardId.value === boardId) {
+        cleanupPinsBlobs(currentBoardPins.value)
         currentBoardId.value = null
         currentBoardPins.value = []
+        boardPinsPage.value = 0
+        boardPinsTotal.value = 0
       }
     } catch (error) {
       console.error('[Boards] Failed to delete board:', error)
@@ -333,7 +347,7 @@ export const useBoardsStore = defineStore('boards', () => {
       await boardsApi.addPin(boardId, pinId)
 
       // Обновляем счетчик
-      const board = boardsCache.value.get(boardId)
+      const board = boardsCache.get(boardId)
       if (board && board.pinsCount !== undefined) {
         board.pinsCount += 1
       }
@@ -356,15 +370,30 @@ export const useBoardsStore = defineStore('boards', () => {
       await boardsApi.removePin(boardId, pinId)
 
       // Уменьшаем счетчик
-      const board = boardsCache.value.get(boardId)
+      const board = boardsCache.get(boardId)
       if (board && board.pinsCount !== undefined) {
         board.pinsCount = Math.max(0, board.pinsCount - 1)
       }
 
       // Удаляем из текущих пинов
       if (currentBoardId.value === boardId) {
+        // Находим и очищаем blob URLs удаляемого пина
+        const pinToRemove = currentBoardPins.value.find((p) => p.id === pinId)
+        if (pinToRemove) {
+          cleanupPinBlobs(pinToRemove)
+        }
+
         currentBoardPins.value = currentBoardPins.value.filter((p) => p.id !== pinId)
         boardPinsTotal.value = Math.max(0, boardPinsTotal.value - 1)
+      }
+
+      // Удаляем из превью доски
+      if (board?.pins) {
+        const pinToRemove = board.pins.find((p) => p.id === pinId)
+        if (pinToRemove) {
+          cleanupPinBlobs(pinToRemove)
+        }
+        board.pins = board.pins.filter((p) => p.id !== pinId)
       }
     } catch (error) {
       console.error('[Boards] Failed to remove pin from board:', error)
@@ -372,10 +401,83 @@ export const useBoardsStore = defineStore('boards', () => {
     }
   }
 
+  // ============ BLOB LOADING (из pins.store.ts) ============
+
+  /**
+   * Загрузка blob URL для одного пина
+   */
+  async function loadPinBlob(pin: PinResponse): Promise<PinWithBlob> {
+    const pinWithBlob: PinWithBlob = { ...pin }
+
+    try {
+      if (pin.imageUrl) {
+        const blob = await storageApi.downloadImage(pin.imageUrl)
+        const contentType = blob.type
+
+        pinWithBlob.imageBlobUrl = URL.createObjectURL(blob)
+        pinWithBlob.isImage = !contentType.startsWith('video/')
+        pinWithBlob.isGif = contentType === 'image/gif'
+        pinWithBlob.isVideo = contentType.startsWith('video/')
+      }
+
+      if (pin.videoPreviewUrl) {
+        const blob = await storageApi.downloadImage(pin.videoPreviewUrl)
+        pinWithBlob.videoBlobUrl = URL.createObjectURL(blob)
+        pinWithBlob.isVideo = true
+      }
+    } catch (error) {
+      console.error(`[Boards] Failed to load media for pin ${pin.id}:`, error)
+    }
+
+    return pinWithBlob
+  }
+
+  /**
+   * Загрузка blob URLs для массива пинов (параллельно)
+   */
+  async function loadPinsBlobs(pins: PinResponse[]): Promise<PinWithBlob[]> {
+    return Promise.all(pins.map(loadPinBlob))
+  }
+
+  // ============ CLEANUP HELPERS ============
+
+  /**
+   * Очистка blob URLs одного пина
+   */
+  function cleanupPinBlobs(pin: PinWithBlob) {
+    if (pin.imageBlobUrl) {
+      URL.revokeObjectURL(pin.imageBlobUrl)
+      pin.imageBlobUrl = undefined
+    }
+    if (pin.videoBlobUrl) {
+      URL.revokeObjectURL(pin.videoBlobUrl)
+      pin.videoBlobUrl = undefined
+    }
+  }
+
+  /**
+   * Очистка blob URLs массива пинов
+   */
+  function cleanupPinsBlobs(pins: PinWithBlob[]) {
+    pins.forEach((pin) => cleanupPinBlobs(pin))
+  }
+
+  /**
+   * Очистка blob URLs доски
+   */
+  function cleanupBoardBlobs(board: BoardWithPins) {
+    if (board.pins) {
+      cleanupPinsBlobs(board.pins)
+    }
+  }
+
   /**
    * Очистка текущей доски
    */
   function clearCurrentBoard() {
+    // Очищаем blob URLs
+    cleanupPinsBlobs(currentBoardPins.value)
+
     currentBoardId.value = null
     currentBoardPins.value = []
     boardPinsPage.value = 0
@@ -386,21 +488,39 @@ export const useBoardsStore = defineStore('boards', () => {
    * Очистка кэша пользователя
    */
   function clearUserCache(userId: string) {
-    const boardIds = userBoardIds.value.get(userId) || []
+    const boardIds = userBoardIds.get(userId) || []
+
+    // Очищаем blob URLs всех досок пользователя
     boardIds.forEach((id) => {
-      boardsCache.value.delete(id)
+      const board = boardsCache.get(id)
+      if (board) {
+        cleanupBoardBlobs(board)
+      }
+      boardsCache.delete(id)
     })
-    userBoardIds.value.delete(userId)
+
+    userBoardIds.delete(userId)
   }
 
   /**
    * Очистка всего
    */
   function clearAll() {
-    boardsCache.value.clear()
+    // Очищаем blob URLs всех досок
+    boardsCache.forEach((board) => {
+      cleanupBoardBlobs(board)
+    })
+
+    // Очищаем текущую доску
+    cleanupPinsBlobs(currentBoardPins.value)
+
+    boardsCache.clear()
     myBoardIds.value = []
-    userBoardIds.value.clear()
-    clearCurrentBoard()
+    userBoardIds.clear()
+    currentBoardId.value = null
+    currentBoardPins.value = []
+    boardPinsPage.value = 0
+    boardPinsTotal.value = 0
   }
 
   return {
@@ -438,6 +558,10 @@ export const useBoardsStore = defineStore('boards', () => {
   }
 })
 
+// ============================================================================
+// SELECTED BOARD STORE
+// ============================================================================
+
 export const useSelectedBoardStore = defineStore('selectedBoard', () => {
   // ============ STATE ============
 
@@ -458,11 +582,15 @@ export const useSelectedBoardStore = defineStore('selectedBoard', () => {
   async function fetchSelectedBoard() {
     try {
       isLoading.value = true
+
       const board = await selectedBoardApi.getSelectedBoard()
       selectedBoard.value = board
+
+      console.log('[SelectedBoard] Selected board loaded:', board)
       return board
     } catch (error) {
-      // Если доска не выбрана - это норма
+      // Если доска не выбрана - это нормально (404)
+      console.log('[SelectedBoard] No board selected (this is normal)')
       selectedBoard.value = null
       return null
     } finally {
@@ -476,13 +604,15 @@ export const useSelectedBoardStore = defineStore('selectedBoard', () => {
   async function selectBoard(boardId: string) {
     try {
       isLoading.value = true
+
       await selectedBoardApi.selectBoard(boardId)
 
       // Обновляем локальное состояние
-      // (можно загрузить полную инфу о доске)
       await fetchSelectedBoard()
+
+      console.log('[SelectedBoard] Board selected:', boardId)
     } catch (error) {
-      console.error('Failed to select board:', error)
+      console.error('[SelectedBoard] Failed to select board:', error)
       throw error
     } finally {
       isLoading.value = false
@@ -490,15 +620,18 @@ export const useSelectedBoardStore = defineStore('selectedBoard', () => {
   }
 
   /**
-   * Сброс выбранной доски
+   * Сброс выбранной доски (сохранение в Profile)
    */
   async function deselectBoard() {
     try {
       isLoading.value = true
+
       await selectedBoardApi.deselectBoard()
       selectedBoard.value = null
+
+      console.log('[SelectedBoard] Board deselected (saving to Profile)')
     } catch (error) {
-      console.error('Failed to deselect board:', error)
+      console.error('[SelectedBoard] Failed to deselect board:', error)
       throw error
     } finally {
       isLoading.value = false
@@ -506,7 +639,7 @@ export const useSelectedBoardStore = defineStore('selectedBoard', () => {
   }
 
   /**
-   * Установка доски (с выбором через API)
+   * Установка доски (универсальный метод)
    */
   async function setBoard(board: BoardResponse | null) {
     if (board === null) {
@@ -514,6 +647,13 @@ export const useSelectedBoardStore = defineStore('selectedBoard', () => {
     } else {
       await selectBoard(board.id)
     }
+  }
+
+  /**
+   * Очистка (для logout)
+   */
+  function clearSelectedBoard() {
+    selectedBoard.value = null
   }
 
   return {
@@ -531,5 +671,6 @@ export const useSelectedBoardStore = defineStore('selectedBoard', () => {
     selectBoard,
     deselectBoard,
     setBoard,
+    clearSelectedBoard,
   }
 })

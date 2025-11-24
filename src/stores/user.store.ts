@@ -1,10 +1,14 @@
 // src/stores/user.store.ts
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import type { User } from '@/types'
 import { usersApi } from '@/api/users.api'
 import { storageApi } from '@/api/storage.api'
 import { useAuthStore } from './auth.store'
+
+// Константы для LRU кэша
+const MAX_USERS_CACHE_SIZE = 100
+const MAX_AVATARS_CACHE_SIZE = 100
 
 export const useUserStore = defineStore('user', () => {
   // ============ STATE ============
@@ -16,11 +20,13 @@ export const useUserStore = defineStore('user', () => {
   const avatarBlobUrl = ref<string | null>(null)
   const bannerBlobUrl = ref<string | null>(null)
 
-  // Кэш пользователей (key: userId)
-  const usersCache = ref<Map<string, User>>(new Map())
+  // Кэш пользователей (key: userId) - LRU
+  const usersCache = reactive(new Map<string, User>())
+  const usersCacheOrder = reactive<string[]>([]) // Для LRU
 
-  // Кэш аватаров (key: userId)
-  const avatarsCache = ref<Map<string, string>>(new Map())
+  // Кэш аватаров (key: userId) - LRU
+  const avatarsCache = reactive(new Map<string, string>())
+  const avatarsCacheOrder = reactive<string[]>([]) // Для LRU
 
   // Loading states
   const isLoadingProfile = ref(true)
@@ -39,11 +45,11 @@ export const useUserStore = defineStore('user', () => {
   const hasProfile = computed(() => currentUser.value !== null)
 
   const getUserById = computed(() => (id: string) => {
-    return usersCache.value.get(id)
+    return usersCache.get(id)
   })
 
   const getAvatarUrl = computed(() => (userId: string) => {
-    return avatarsCache.value.get(userId)
+    return avatarsCache.get(userId)
   })
 
   // ============ ACTIONS ============
@@ -56,6 +62,7 @@ export const useUserStore = defineStore('user', () => {
 
     if (!authStore.isAuthenticated) {
       console.warn('[User] User not authenticated')
+      isLoadingProfile.value = false
       return null
     }
 
@@ -67,7 +74,7 @@ export const useUserStore = defineStore('user', () => {
       currentUser.value = userData
 
       // Кэшируем
-      usersCache.value.set(userData.id, userData)
+      cacheUser(userData)
 
       // Загружаем медиа параллельно
       await Promise.allSettled([
@@ -91,15 +98,17 @@ export const useUserStore = defineStore('user', () => {
   async function loadUserByUsername(username: string, forceReload = false) {
     try {
       // Проверяем кэш
-      const cached = Array.from(usersCache.value.values()).find((u) => u.username === username)
+      const cached = Array.from(usersCache.values()).find((u) => u.username === username)
       if (cached && !forceReload) {
+        // Обновляем LRU порядок
+        updateUserCacheOrder(cached.id)
         return cached
       }
 
       const user = await usersApi.getUserByUsername(username)
 
       // Кэшируем
-      usersCache.value.set(user.id, user)
+      cacheUser(user)
 
       // Загружаем аватар
       if (user.imageUrl) {
@@ -119,14 +128,15 @@ export const useUserStore = defineStore('user', () => {
   async function loadUserById(userId: string, forceReload = false) {
     try {
       // Проверяем кэш
-      if (!forceReload && usersCache.value.has(userId)) {
-        return usersCache.value.get(userId)!
+      if (!forceReload && usersCache.has(userId)) {
+        updateUserCacheOrder(userId)
+        return usersCache.get(userId)!
       }
 
       const user = await usersApi.getUserById(userId)
 
       // Кэшируем
-      usersCache.value.set(userId, user)
+      cacheUser(user)
 
       // Загружаем аватар
       if (user.imageUrl) {
@@ -158,7 +168,7 @@ export const useUserStore = defineStore('user', () => {
       currentUser.value = updated
 
       // Обновляем кэш
-      usersCache.value.set(updated.id, updated)
+      cacheUser(updated)
 
       console.log('[User] Profile updated:', updated)
       return updated
@@ -201,8 +211,8 @@ export const useUserStore = defineStore('user', () => {
       avatarBlobUrl.value = URL.createObjectURL(file)
 
       // Обновляем кэш
-      usersCache.value.set(updated.id, updated)
-      avatarsCache.value.set(updated.id, avatarBlobUrl.value)
+      cacheUser(updated)
+      cacheAvatar(updated.id, avatarBlobUrl.value)
 
       console.log('[User] Avatar uploaded:', uploadResponse)
       return uploadResponse
@@ -236,8 +246,12 @@ export const useUserStore = defineStore('user', () => {
 
       // Обновляем кэш
       if (updated.id) {
-        usersCache.value.set(updated.id, updated)
-        avatarsCache.value.delete(updated.id)
+        cacheUser(updated)
+        avatarsCache.delete(updated.id)
+        const index = avatarsCacheOrder.indexOf(updated.id)
+        if (index !== -1) {
+          avatarsCacheOrder.splice(index, 1)
+        }
       }
     } catch (error) {
       console.error('[User] Failed to remove avatar:', error)
@@ -273,7 +287,7 @@ export const useUserStore = defineStore('user', () => {
       bannerBlobUrl.value = URL.createObjectURL(file)
 
       // Обновляем кэш
-      usersCache.value.set(updated.id, updated)
+      cacheUser(updated)
 
       console.log('[User] Banner uploaded:', uploadResponse)
       return uploadResponse
@@ -305,7 +319,7 @@ export const useUserStore = defineStore('user', () => {
       }
 
       if (updated.id) {
-        usersCache.value.set(updated.id, updated)
+        cacheUser(updated)
       }
     } catch (error) {
       console.error('[User] Failed to remove banner:', error)
@@ -330,7 +344,7 @@ export const useUserStore = defineStore('user', () => {
 
       // Кэшируем
       if (currentUser.value?.id) {
-        avatarsCache.value.set(currentUser.value.id, avatarBlobUrl.value)
+        cacheAvatar(currentUser.value.id, avatarBlobUrl.value)
       }
     } catch (error) {
       console.error('[User] Failed to load avatar:', error)
@@ -362,14 +376,15 @@ export const useUserStore = defineStore('user', () => {
   async function loadUserAvatarById(userId: string, imageUrl: string) {
     try {
       // Проверяем кэш
-      if (avatarsCache.value.has(userId)) {
-        return avatarsCache.value.get(userId)!
+      if (avatarsCache.has(userId)) {
+        updateAvatarCacheOrder(userId)
+        return avatarsCache.get(userId)!
       }
 
       const blob = await storageApi.downloadImage(imageUrl)
       const blobUrl = URL.createObjectURL(blob)
 
-      avatarsCache.value.set(userId, blobUrl)
+      cacheAvatar(userId, blobUrl)
       return blobUrl
     } catch (error) {
       console.error(`[User] Failed to load avatar for user ${userId}:`, error)
@@ -382,7 +397,7 @@ export const useUserStore = defineStore('user', () => {
    */
   async function preloadAvatars(users: User[]) {
     const promises = users
-      .filter((user) => user.imageUrl && !avatarsCache.value.has(user.id))
+      .filter((user) => user.imageUrl && !avatarsCache.has(user.id))
       .map((user) => loadUserAvatarById(user.id, user.imageUrl!))
 
     await Promise.allSettled(promises)
@@ -392,12 +407,20 @@ export const useUserStore = defineStore('user', () => {
    * Очистка кэша пользователя
    */
   function clearUserCache(userId: string) {
-    usersCache.value.delete(userId)
+    usersCache.delete(userId)
+    const userIndex = usersCacheOrder.indexOf(userId)
+    if (userIndex !== -1) {
+      usersCacheOrder.splice(userIndex, 1)
+    }
 
-    const avatarUrl = avatarsCache.value.get(userId)
+    const avatarUrl = avatarsCache.get(userId)
     if (avatarUrl) {
       URL.revokeObjectURL(avatarUrl)
-      avatarsCache.value.delete(userId)
+      avatarsCache.delete(userId)
+      const avatarIndex = avatarsCacheOrder.indexOf(userId)
+      if (avatarIndex !== -1) {
+        avatarsCacheOrder.splice(avatarIndex, 1)
+      }
     }
   }
 
@@ -414,7 +437,7 @@ export const useUserStore = defineStore('user', () => {
     }
 
     // Очищаем кэш аватаров
-    avatarsCache.value.forEach((url) => {
+    avatarsCache.forEach((url) => {
       URL.revokeObjectURL(url)
     })
 
@@ -422,8 +445,10 @@ export const useUserStore = defineStore('user', () => {
     currentUser.value = null
     avatarBlobUrl.value = null
     bannerBlobUrl.value = null
-    usersCache.value.clear()
-    avatarsCache.value.clear()
+    usersCache.clear()
+    avatarsCache.clear()
+    usersCacheOrder.length = 0
+    avatarsCacheOrder.length = 0
     isLoadingProfile.value = true
   }
 
@@ -435,6 +460,81 @@ export const useUserStore = defineStore('user', () => {
     isUpdatingProfile.value = false
     isUploadingAvatar.value = false
     isUploadingBanner.value = false
+  }
+
+  // ============ LRU HELPERS ============
+
+  /**
+   * Кэшировать пользователя с LRU
+   */
+  function cacheUser(user: User) {
+    // Удаляем из порядка если уже есть
+    const existingIndex = usersCacheOrder.indexOf(user.id)
+    if (existingIndex !== -1) {
+      usersCacheOrder.splice(existingIndex, 1)
+    }
+
+    // Добавляем в конец (самый свежий)
+    usersCacheOrder.push(user.id)
+    usersCache.set(user.id, user)
+
+    // Если превышен лимит - удаляем самый старый
+    if (usersCache.size > MAX_USERS_CACHE_SIZE) {
+      const oldestUserId = usersCacheOrder.shift()!
+      usersCache.delete(oldestUserId)
+    }
+  }
+
+  /**
+   * Обновить порядок LRU для пользователя
+   */
+  function updateUserCacheOrder(userId: string) {
+    const index = usersCacheOrder.indexOf(userId)
+    if (index !== -1) {
+      usersCacheOrder.splice(index, 1)
+      usersCacheOrder.push(userId)
+    }
+  }
+
+  /**
+   * Кэшировать аватар с LRU
+   */
+  function cacheAvatar(userId: string, blobUrl: string) {
+    // Удаляем из порядка если уже есть
+    const existingIndex = avatarsCacheOrder.indexOf(userId)
+    if (existingIndex !== -1) {
+      avatarsCacheOrder.splice(existingIndex, 1)
+      // Очищаем старый blob URL
+      const oldUrl = avatarsCache.get(userId)
+      if (oldUrl) {
+        URL.revokeObjectURL(oldUrl)
+      }
+    }
+
+    // Добавляем в конец
+    avatarsCacheOrder.push(userId)
+    avatarsCache.set(userId, blobUrl)
+
+    // Если превышен лимит - удаляем самый старый
+    if (avatarsCache.size > MAX_AVATARS_CACHE_SIZE) {
+      const oldestUserId = avatarsCacheOrder.shift()!
+      const oldUrl = avatarsCache.get(oldestUserId)
+      if (oldUrl) {
+        URL.revokeObjectURL(oldUrl)
+      }
+      avatarsCache.delete(oldestUserId)
+    }
+  }
+
+  /**
+   * Обновить порядок LRU для аватара
+   */
+  function updateAvatarCacheOrder(userId: string) {
+    const index = avatarsCacheOrder.indexOf(userId)
+    if (index !== -1) {
+      avatarsCacheOrder.splice(index, 1)
+      avatarsCacheOrder.push(userId)
+    }
   }
 
   return {

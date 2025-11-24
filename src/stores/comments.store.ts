@@ -1,30 +1,17 @@
 // src/stores/comments.store.ts
 import { defineStore } from 'pinia'
 import { ref, computed, reactive } from 'vue'
-import type { Comment, CommentWithBlob, Pageable } from '@/types'
-import { commentsApi } from '@/api/comments.api'
-import { likesApi } from '@/api/likes.api'
-import { storageApi } from '@/api/storage.api'
+import type { Comment, CommentWithBlob } from '@/types'
+import { commentsApi, likesApi, storageApi } from '@/api'
 
 export const useCommentsStore = defineStore('comments', () => {
   // ============ STATE ============
 
-  // Комментарии по pinId (key: pinId, value: comments[])
   const pinCommentsCache = reactive(new Map<string, CommentWithBlob[]>())
-
-  // Ответы на комментарии (key: commentId, value: replies[])
   const repliesCache = reactive(new Map<string, CommentWithBlob[]>())
-
-  // Кэш комментариев по ID для быстрого поиска O(1)
   const commentsById = reactive(new Map<string, CommentWithBlob>())
-
-  // Пагинация комментариев пина (key: pinId)
   const paginationCache = reactive(new Map<string, { page: number; hasMore: boolean }>())
-
-  // Пагинация ответов (key: commentId)
   const repliesPaginationCache = reactive(new Map<string, { page: number; hasMore: boolean }>())
-
-  // Loading states
   const isLoading = ref(false)
   const isLoadingReplies = reactive(new Map<string, boolean>())
 
@@ -52,9 +39,6 @@ export const useCommentsStore = defineStore('comments', () => {
 
   // ============ ACTIONS ============
 
-  /**
-   * Загрузка комментариев пина
-   */
   async function fetchPinComments(pinId: string, page = 0, size = 20, reset = false) {
     try {
       if (reset) {
@@ -69,7 +53,6 @@ export const useCommentsStore = defineStore('comments', () => {
 
       const commentsWithBlobs = await loadCommentsBlobs(response.content)
 
-      // Кэшируем по ID
       commentsWithBlobs.forEach((comment) => {
         commentsById.set(comment.id, comment)
       })
@@ -95,24 +78,17 @@ export const useCommentsStore = defineStore('comments', () => {
     }
   }
 
-  /**
-   * Загрузка следующей страницы комментариев
-   */
   async function loadMoreComments(pinId: string) {
     const pagination = paginationCache.get(pinId)
-    if (!pagination || !pagination.hasMore) return
+    if (!pagination?.hasMore) return
 
     await fetchPinComments(pinId, pagination.page + 1, 20, false)
   }
 
-  /**
-   * Создание комментария
-   */
   async function createComment(pinId: string, content?: string, imageFile?: File) {
     try {
       let imageUrl: string | undefined
 
-      // Загружаем изображение если есть
       if (imageFile) {
         const uploadResponse = await storageApi.uploadImage({
           file: imageFile,
@@ -128,10 +104,8 @@ export const useCommentsStore = defineStore('comments', () => {
 
       const commentWithBlob = await loadCommentBlob(comment)
 
-      // Кэшируем по ID
       commentsById.set(commentWithBlob.id, commentWithBlob)
 
-      // Добавляем в начало списка
       const existing = pinCommentsCache.get(pinId) || []
       pinCommentsCache.set(pinId, [commentWithBlob, ...existing])
 
@@ -142,9 +116,6 @@ export const useCommentsStore = defineStore('comments', () => {
     }
   }
 
-  /**
-   * Обновление комментария
-   */
   async function updateComment(commentId: string, content?: string, imageFile?: File) {
     try {
       let imageUrl: string | undefined
@@ -162,7 +133,6 @@ export const useCommentsStore = defineStore('comments', () => {
         imageUrl,
       })
 
-      // Обновляем в кэше
       updateCommentInCache(commentId, updated)
 
       return updated
@@ -172,30 +142,23 @@ export const useCommentsStore = defineStore('comments', () => {
     }
   }
 
-  /**
-   * Удаление комментария
-   */
   async function deleteComment(commentId: string, pinId: string) {
     try {
       await commentsApi.delete(commentId)
 
-      // Очищаем blob URL
       const cached = commentsById.get(commentId)
       if (cached?.imageBlobUrl) {
         URL.revokeObjectURL(cached.imageBlobUrl)
       }
 
-      // Удаляем из кэша по ID
       commentsById.delete(commentId)
 
-      // Удаляем из списка комментариев пина
       const comments = pinCommentsCache.get(pinId) || []
       pinCommentsCache.set(
         pinId,
         comments.filter((c) => c.id !== commentId),
       )
 
-      // Удаляем ответы
       const replies = repliesCache.get(commentId)
       if (replies) {
         replies.forEach((reply) => {
@@ -212,9 +175,6 @@ export const useCommentsStore = defineStore('comments', () => {
     }
   }
 
-  /**
-   * Загрузка ответов на комментарий
-   */
   async function fetchReplies(commentId: string, page = 0, size = 10, reset = false) {
     try {
       if (reset) {
@@ -229,7 +189,6 @@ export const useCommentsStore = defineStore('comments', () => {
 
       const repliesWithBlobs = await loadCommentsBlobs(response.content)
 
-      // Кэшируем по ID
       repliesWithBlobs.forEach((reply) => {
         commentsById.set(reply.id, reply)
       })
@@ -255,9 +214,6 @@ export const useCommentsStore = defineStore('comments', () => {
     }
   }
 
-  /**
-   * Создание ответа
-   */
   async function createReply(commentId: string, content?: string, imageFile?: File) {
     try {
       let imageUrl: string | undefined
@@ -277,14 +233,11 @@ export const useCommentsStore = defineStore('comments', () => {
 
       const replyWithBlob = await loadCommentBlob(reply)
 
-      // Кэшируем по ID
       commentsById.set(replyWithBlob.id, replyWithBlob)
 
-      // Добавляем в конец списка ответов
       const existing = repliesCache.get(commentId) || []
       repliesCache.set(commentId, [...existing, replyWithBlob])
 
-      // Обновляем счетчик ответов в родительском комментарии
       updateCommentReplyCount(commentId, 1)
 
       return replyWithBlob
@@ -294,30 +247,20 @@ export const useCommentsStore = defineStore('comments', () => {
     }
   }
 
-  /**
-   * Лайк комментария
-   */
   async function likeComment(commentId: string) {
     try {
-      // Оптимистичное обновление
       updateCommentLikeStatus(commentId, true, 1)
-
       await likesApi.likeComment(commentId)
     } catch (error) {
       console.error('[Comments] Failed to like comment:', error)
-      // Откат
       updateCommentLikeStatus(commentId, false, -1)
       throw error
     }
   }
 
-  /**
-   * Убрать лайк с комментария
-   */
   async function unlikeComment(commentId: string) {
     try {
       updateCommentLikeStatus(commentId, false, -1)
-
       await likesApi.unlikeComment(commentId)
     } catch (error) {
       console.error('[Comments] Failed to unlike comment:', error)
@@ -326,9 +269,6 @@ export const useCommentsStore = defineStore('comments', () => {
     }
   }
 
-  /**
-   * Очистить комментарии пина
-   */
   function clearPinComments(pinId: string) {
     const comments = pinCommentsCache.get(pinId)
     if (comments) {
@@ -344,11 +284,7 @@ export const useCommentsStore = defineStore('comments', () => {
     paginationCache.delete(pinId)
   }
 
-  /**
-   * Очистить все
-   */
   function clearAll() {
-    // Cleanup blob URLs
     commentsById.forEach((comment) => {
       if (comment.imageBlobUrl) {
         URL.revokeObjectURL(comment.imageBlobUrl)
@@ -364,9 +300,6 @@ export const useCommentsStore = defineStore('comments', () => {
 
   // ============ HELPERS ============
 
-  /**
-   * Загрузка blob URL для комментария
-   */
   async function loadCommentBlob(comment: Comment): Promise<CommentWithBlob> {
     if (!comment.imageUrl) return comment
 
@@ -382,16 +315,10 @@ export const useCommentsStore = defineStore('comments', () => {
     }
   }
 
-  /**
-   * Загрузка blob URLs для массива комментариев
-   */
   async function loadCommentsBlobs(comments: Comment[]): Promise<CommentWithBlob[]> {
     return Promise.all(comments.map(loadCommentBlob))
   }
 
-  /**
-   * Обновление комментария в кэше
-   */
   function updateCommentInCache(commentId: string, updates: Partial<Comment>) {
     const cached = commentsById.get(commentId)
     if (!cached) return
@@ -399,7 +326,6 @@ export const useCommentsStore = defineStore('comments', () => {
     const updated = { ...cached, ...updates }
     commentsById.set(commentId, updated)
 
-    // Обновляем в pinCommentsCache
     pinCommentsCache.forEach((comments) => {
       const index = comments.findIndex((c) => c.id === commentId)
       if (index !== -1) {
@@ -407,7 +333,6 @@ export const useCommentsStore = defineStore('comments', () => {
       }
     })
 
-    // Обновляем в repliesCache
     repliesCache.forEach((replies) => {
       const index = replies.findIndex((r) => r.id === commentId)
       if (index !== -1) {
@@ -416,9 +341,6 @@ export const useCommentsStore = defineStore('comments', () => {
     })
   }
 
-  /**
-   * Обновление статуса лайка
-   */
   function updateCommentLikeStatus(commentId: string, isLiked: boolean, delta: number) {
     const comment = commentsById.get(commentId)
     if (!comment) return
@@ -429,9 +351,6 @@ export const useCommentsStore = defineStore('comments', () => {
     })
   }
 
-  /**
-   * Обновление счетчика ответов
-   */
   function updateCommentReplyCount(commentId: string, delta: number) {
     const comment = commentsById.get(commentId)
     if (!comment) return
@@ -442,21 +361,16 @@ export const useCommentsStore = defineStore('comments', () => {
   }
 
   return {
-    // State
     pinCommentsCache,
     repliesCache,
     commentsById,
     isLoading,
     isLoadingReplies,
-
-    // Getters
     getPinComments,
     getCommentReplies,
     getCommentById,
     hasMoreComments,
     hasMoreReplies,
-
-    // Actions
     fetchPinComments,
     loadMoreComments,
     createComment,

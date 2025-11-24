@@ -12,7 +12,7 @@ export function setupStores(app: App) {
 export { useAuthStore } from './auth.store'
 export { useUserStore } from './user.store'
 export { usePinsStore } from './pins.store'
-export { useBoardsStore } from './boards.store'
+export { useBoardsStore, useSelectedBoardStore } from './boards.store'
 export { useCommentsStore } from './comments.store'
 export { useSubscriptionsStore } from './subscriptions.store'
 export { useTagsStore } from './tags.store'

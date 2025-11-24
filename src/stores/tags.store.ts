@@ -2,32 +2,19 @@
 import { defineStore } from 'pinia'
 import { ref, computed, reactive } from 'vue'
 import type { Tag, Category } from '@/types'
-import { tagsApi } from '@/api/tags.api'
+import { tagsApi } from '@/api'
 
 export const useTagsStore = defineStore('tags', () => {
   // ============ STATE ============
 
-  // Все теги (для пагинации)
   const allTags = ref<Tag[]>([])
-
-  // Кэш тегов по ID
   const tagsCache = reactive(new Map<string, Tag>())
-
-  // Теги пина (key: pinId)
   const pinTagsCache = reactive(new Map<string, Tag[]>())
-
-  // Категории (для главной страницы)
   const categories = ref<Category[]>([])
-
-  // Результаты поиска
   const searchResults = ref<Tag[]>([])
-
-  // Пагинация всех тегов
   const currentPage = ref(0)
   const totalPages = ref(0)
   const hasMore = ref(true)
-
-  // Loading states
   const isLoading = ref(false)
   const isSearching = ref(false)
 
@@ -43,9 +30,6 @@ export const useTagsStore = defineStore('tags', () => {
 
   // ============ ACTIONS ============
 
-  /**
-   * Загрузка всех тегов с пагинацией
-   */
   async function fetchAllTags(page = 0, size = 50, reset = false) {
     try {
       isLoading.value = true
@@ -54,7 +38,6 @@ export const useTagsStore = defineStore('tags', () => {
         pageable: { page, size, sort: ['name,asc'] },
       })
 
-      // Кэшируем теги
       response.content.forEach((tag) => {
         tagsCache.set(tag.id, tag)
       })
@@ -78,12 +61,8 @@ export const useTagsStore = defineStore('tags', () => {
     }
   }
 
-  /**
-   * Загрузка тега по ID
-   */
   async function fetchTagById(tagId: string, forceReload = false) {
     try {
-      // Проверяем кэш
       if (!forceReload && tagsCache.has(tagId)) {
         return tagsCache.get(tagId)!
       }
@@ -98,9 +77,6 @@ export const useTagsStore = defineStore('tags', () => {
     }
   }
 
-  /**
-   * Поиск тегов
-   */
   async function searchTags(query: string, limit = 10) {
     try {
       if (!query.trim()) {
@@ -112,7 +88,6 @@ export const useTagsStore = defineStore('tags', () => {
 
       const results = await tagsApi.search({ q: query, limit })
 
-      // Кэшируем результаты
       results.forEach((tag) => {
         tagsCache.set(tag.id, tag)
       })
@@ -127,19 +102,14 @@ export const useTagsStore = defineStore('tags', () => {
     }
   }
 
-  /**
-   * Загрузка тегов пина
-   */
   async function fetchPinTags(pinId: string, forceReload = false) {
     try {
-      // Проверяем кэш
       if (!forceReload && pinTagsCache.has(pinId)) {
         return pinTagsCache.get(pinId)!
       }
 
       const tags = await tagsApi.getPinTags(pinId)
 
-      // Кэшируем теги
       tags.forEach((tag) => {
         tagsCache.set(tag.id, tag)
       })
@@ -152,9 +122,6 @@ export const useTagsStore = defineStore('tags', () => {
     }
   }
 
-  /**
-   * Загрузка категорий (для главной страницы)
-   */
   async function fetchCategories(limit = 12, forceReload = false) {
     try {
       if (!forceReload && categories.value.length > 0) {
@@ -175,31 +142,19 @@ export const useTagsStore = defineStore('tags', () => {
     }
   }
 
-  /**
-   * Загрузка следующей страницы тегов
-   */
   async function loadMoreTags() {
     if (!hasMore.value || isLoading.value) return
     await fetchAllTags(currentPage.value + 1, 50, false)
   }
 
-  /**
-   * Очистить результаты поиска
-   */
   function clearSearchResults() {
     searchResults.value = []
   }
 
-  /**
-   * Очистить кэш тегов пина
-   */
   function clearPinTags(pinId: string) {
     pinTagsCache.delete(pinId)
   }
 
-  /**
-   * Очистить все
-   */
   function clearAll() {
     allTags.value = []
     tagsCache.clear()
@@ -212,7 +167,6 @@ export const useTagsStore = defineStore('tags', () => {
   }
 
   return {
-    // State
     allTags,
     tagsCache,
     pinTagsCache,
@@ -223,12 +177,8 @@ export const useTagsStore = defineStore('tags', () => {
     hasMore,
     isLoading,
     isSearching,
-
-    // Getters
     getTagById,
     getPinTags,
-
-    // Actions
     fetchAllTags,
     fetchTagById,
     searchTags,

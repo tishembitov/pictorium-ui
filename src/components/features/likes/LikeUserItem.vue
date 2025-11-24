@@ -19,21 +19,24 @@ const props = withDefaults(defineProps<LikeUserItemProps>(), {
 })
 
 const avatarSizes = {
-  sm: 'sm',
-  md: 'md',
-  lg: 'lg',
+  sm: 'sm', // 40px
+  md: 'md', // 48px
+  lg: 'lg', // 64px
+  xl: 'xl', // 80px ✅
 }
 
 const textSizes = {
   sm: 'text-sm',
   md: 'text-base',
   lg: 'text-xl',
+  xl: 'text-2xl', // ✅ 1.5rem
 }
 
 const gaps = {
   sm: 'gap-2',
   md: 'gap-3',
   lg: 'gap-5',
+  xl: 'gap-5', // ✅ 1.25rem
 }
 </script>
 

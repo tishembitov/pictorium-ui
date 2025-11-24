@@ -5,7 +5,7 @@ import BaseSpinner from '@/components/ui/BaseSpinner.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LikeUserItem from './LikeUserItem.vue'
 import { usePinLikes } from '@/composables/api/useLikes'
-import { useIntersectionObserver } from '@/composables/utils'
+import { useIntersectionObserver } from '@/composables'
 
 export interface PinLikesModalProps {
   pinId: string
@@ -18,9 +18,7 @@ const props = withDefaults(defineProps<PinLikesModalProps>(), {
   likeCount: 0,
 })
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-}>()
+const emit = defineEmits<(e: 'update:modelValue', value: boolean) => void>()
 
 const { likes, isLoading, hasMore, fetchLikes, loadMore } = usePinLikes(props.pinId)
 
@@ -54,46 +52,59 @@ watch(
   <BaseModal
     :modelValue="modelValue"
     @update:modelValue="emit('update:modelValue', $event)"
-    size="md"
+    size="custom"
     :closable="true"
     :closeOnOverlay="true"
     :showHeader="false"
     :maxHeight="true"
+    class="pin-likes-modal"
   >
-    <!-- Custom header with likes count -->
-    <div class="flex flex-col items-center justify-center py-6 border-b border-gray-200">
-      <h1 class="text-6xl font-bold mb-2">{{ likeCount }} ❤️</h1>
-      <p class="text-gray-600">{{ likeCount === 1 ? 'Like' : 'Likes' }}</p>
+    <!-- Custom header -->
+    <div class="flex flex-col items-center justify-center py-6 border-b border-gray-700">
+      <h1 class="text-7xl font-bold mb-2 text-white">{{ likeCount }} ❤️</h1>
+      <p class="text-gray-400">{{ likeCount === 1 ? 'Like' : 'Likes' }}</p>
     </div>
 
-    <!-- Users list -->
     <div class="py-4">
-      <!-- Loading initial -->
       <div v-if="isLoading && likes.length === 0" class="flex justify-center py-8">
-        <BaseSpinner size="lg" color="red" />
+        <BaseSpinner size="lg" color="white" />
       </div>
 
-      <!-- Users -->
       <div v-else-if="likes.length > 0" class="space-y-4">
-        <LikeUserItem v-for="user in likes" :key="user.id" :user="user" size="lg" class="px-4" />
+        <LikeUserItem
+          v-for="user in likes"
+          :key="user.id"
+          :user="user"
+          size="xl"
+          class="px-6 text-white"
+        />
 
-        <!-- Load more trigger -->
         <div v-if="hasMore" ref="loadMoreRef" class="flex justify-center py-4">
-          <BaseSpinner size="md" color="red" />
+          <BaseSpinner size="md" color="white" />
         </div>
 
-        <!-- End of list -->
         <div v-else class="text-center text-gray-500 text-sm py-4">No more likes</div>
       </div>
 
-      <!-- Empty state -->
       <EmptyState
         v-else
         title="No likes yet"
         message="Be the first to like this pin!"
         icon="pi-heart"
         variant="minimal"
+        class="text-white"
       />
     </div>
   </BaseModal>
 </template>
+
+<style scoped>
+.pin-likes-modal :deep(.bg-white) {
+  background-color: #000 !important;
+  box-shadow:
+    0 0 15px rgba(255, 255, 255, 0.8),
+    0 0 30px rgba(255, 255, 255, 0.6);
+  max-width: 600px;
+  max-height: 600px;
+}
+</style>

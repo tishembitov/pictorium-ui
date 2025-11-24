@@ -1,155 +1,92 @@
 /**
- * useTags Composable
- *
- * Composable для работы с тегами
+ * useTags Composable (Refactored)
  */
 
-import { ref, type Ref } from 'vue'
+import { ref, computed } from 'vue'
 import { tagsApi } from '@/api/tags.api'
+import { useLoadMore } from '@/composables/core/useLoadMore'
+import { useApiCall } from '@/composables/core/useApiCall'
 import type { Tag, Category } from '@/types'
-import { useToast } from '@/composables/ui/useToast'
-
-export interface UseTagsReturn {
-  tags: Ref<Tag[]>
-  categories: Ref<Category[]>
-  isLoading: Ref<boolean>
-
-  fetchAllTags: (page?: number, size?: number) => Promise<Tag[]>
-  fetchTagById: (tagId: string) => Promise<Tag>
-  searchTags: (query: string, limit?: number) => Promise<Tag[]>
-  fetchPinTags: (pinId: string) => Promise<Tag[]>
-  fetchCategories: (limit?: number) => Promise<Category[]>
-}
 
 /**
- * useTags
- *
- * @example
- * ```ts
- * const { tags, searchTags, fetchCategories } = useTags()
- *
- * // Поиск тегов
- * const results = await searchTags('nature')
- *
- * // Загрузка категорий
- * await fetchCategories()
- * ```
+ * useTags - Работа с тегами
  */
-export function useTags(): UseTagsReturn {
-  const { showToast } = useToast()
-
-  const tags = ref<Tag[]>([])
+export function useTags() {
   const categories = ref<Category[]>([])
-  const isLoading = ref(false)
 
-  const fetchAllTags = async (page = 0, size = 50): Promise<Tag[]> => {
-    try {
-      isLoading.value = true
-      const response = await tagsApi.getAll({
+  // Fetch All Tags
+  const {
+    items: tags,
+    isLoading,
+    load: loadTags,
+    loadMore,
+  } = useLoadMore({
+    fetchFn: (page, size) =>
+      tagsApi.getAll({
         pageable: { page, size, sort: ['name,asc'] },
-      })
+      }),
+    pageSize: 50,
+  })
 
-      tags.value = response.content
-      return response.content
-    } catch (error) {
-      console.error('[useTags] Fetch all tags failed:', error)
-      showToast('Failed to load tags', 'error')
-      throw error
-    } finally {
-      isLoading.value = false
-    }
-  }
+  // Fetch Tag by ID
+  const { execute: fetchTagById } = useApiCall((tagId: string) => tagsApi.getById(tagId), {
+    showErrorToast: true,
+    errorMessage: 'Failed to load tag',
+  })
 
-  const fetchTagById = async (tagId: string): Promise<Tag> => {
-    try {
-      return await tagsApi.getById(tagId)
-    } catch (error) {
-      console.error('[useTags] Fetch tag by ID failed:', error)
-      showToast('Failed to load tag', 'error')
-      throw error
-    }
-  }
+  // Search Tags
+  const { execute: searchTags } = useApiCall(
+    (query: string, limit = 10) => tagsApi.search({ q: query, limit }),
+    { showErrorToast: true, errorMessage: 'Failed to search tags' },
+  )
 
-  const searchTags = async (query: string, limit = 10): Promise<Tag[]> => {
-    try {
-      const results = await tagsApi.search({ q: query, limit })
-      return results
-    } catch (error) {
-      console.error('[useTags] Search tags failed:', error)
-      showToast('Failed to search tags', 'error')
-      throw error
-    }
-  }
+  // Fetch Pin Tags
+  const { execute: fetchPinTags } = useApiCall((pinId: string) => tagsApi.getPinTags(pinId), {
+    showErrorToast: true,
+    errorMessage: 'Failed to load pin tags',
+  })
 
-  const fetchPinTags = async (pinId: string): Promise<Tag[]> => {
-    try {
-      return await tagsApi.getPinTags(pinId)
-    } catch (error) {
-      console.error('[useTags] Fetch pin tags failed:', error)
-      showToast('Failed to load pin tags', 'error')
-      throw error
-    }
-  }
-
-  const fetchCategories = async (limit = 20): Promise<Category[]> => {
-    try {
-      isLoading.value = true
+  // Fetch Categories
+  const { execute: fetchCategories, isLoading: isLoadingCategories } = useApiCall(
+    async (limit = 20) => {
       const cats = await tagsApi.getCategories({ limit })
       categories.value = cats
       return cats
-    } catch (error) {
-      console.error('[useTags] Fetch categories failed:', error)
-      showToast('Failed to load categories', 'error')
-      throw error
-    } finally {
-      isLoading.value = false
-    }
-  }
+    },
+    { showErrorToast: true, errorMessage: 'Failed to load categories' },
+  )
 
   return {
     tags,
-    categories,
+    categories: computed(() => categories.value),
     isLoading,
-    fetchAllTags,
-    fetchTagById,
-    searchTags,
-    fetchPinTags,
-    fetchCategories,
+    isLoadingCategories,
+    loadTags,
+    loadMore,
+    fetchTagById: async (tagId: string) => (await fetchTagById(tagId))!,
+    searchTags: async (query: string, limit = 10) => (await searchTags(query, limit)) || [],
+    fetchPinTags: async (pinId: string) => (await fetchPinTags(pinId)) || [],
+    fetchCategories: async (limit = 20) => (await fetchCategories(limit)) || [],
   }
 }
 
 /**
- * useTagSearch
- *
- * Для autocomplete тегов
- *
- * @example
- * ```ts
- * const { suggestions, search, isSearching } = useTagSearch()
- *
- * const results = await search('nat')
- * ```
+ * useTagSearch - Autocomplete для тегов
  */
 export function useTagSearch() {
   const { searchTags } = useTags()
-
   const suggestions = ref<Tag[]>([])
-  const isSearching = ref(false)
+  const { isLoading: isSearching, execute } = useApiCall(searchTags, { showErrorToast: false })
 
-  const search = async (query: string, limit = 8): Promise<Tag[]> => {
+  const search = async (query: string, limit = 8) => {
     if (!query.trim()) {
       suggestions.value = []
       return []
     }
 
-    try {
-      isSearching.value = true
-      const results = await searchTags(query, limit)
-      suggestions.value = results
-      return results
-    } finally {
-      isSearching.value = false
-    }
+    const results = await execute(query, limit)
+    suggestions.value = results || []
+    return suggestions.value
   }
 
   const clear = () => {
@@ -157,7 +94,7 @@ export function useTagSearch() {
   }
 
   return {
-    suggestions,
+    suggestions: computed(() => suggestions.value),
     isSearching,
     search,
     clear,

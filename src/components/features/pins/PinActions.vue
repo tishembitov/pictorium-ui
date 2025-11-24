@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useBoardSelector } from '@/composables/features/useBoardSelector'
-import BoardSelectorModal from '@/components/features/board/BoardSelectorModal.vue'
+import BoardSelector from '@/components/features/board/BoardSelector.vue'
 import { useSelectedBoard } from '@/stores/selectedBoard.store'
 
 export interface PinActionsProps {

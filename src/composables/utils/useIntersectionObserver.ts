@@ -5,8 +5,7 @@
  */
 
 import { ref, watch, unref, onUnmounted, type Ref } from 'vue'
-
-export type MaybeElementRef = Ref<HTMLElement | null | undefined> | HTMLElement | null | undefined
+import type { MaybeElementRef } from './useClickOutside'
 
 export interface UseIntersectionObserverOptions extends IntersectionObserverInit {
   /**

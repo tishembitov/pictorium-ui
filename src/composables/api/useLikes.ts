@@ -1,208 +1,120 @@
 /**
- * useLikes Composable
- *
- * Composable для работы с лайками (пины + комментарии)
+ * useLikes Composable (Refactored)
  */
 
-import { computed, ref, type Ref } from 'vue'
+import { computed } from 'vue'
 import { likesApi } from '@/api/likes.api'
-import type { Like, User, Pageable } from '@/types'
-import { useToast } from '@/composables/ui/useToast'
-
-export interface UseLikesReturn {
-  // Pin Likes
-  likePinAction: (pinId: string) => Promise<void>
-  unlikePinAction: (pinId: string) => Promise<void>
-  fetchPinLikes: (pinId: string, page?: number, size?: number) => Promise<User[]>
-
-  // Comment Likes
-  likeCommentAction: (commentId: string) => Promise<void>
-  unlikeCommentAction: (commentId: string) => Promise<void>
-  fetchCommentLikes: (commentId: string, page?: number, size?: number) => Promise<User[]>
-}
+import { useLoadMore } from '@/composables/core/useLoadMore'
+import { useApiCall } from '@/composables/core/useApiCall'
+import type { User } from '@/types'
 
 /**
- * useLikes
- *
- * @example
- * ```ts
- * const { likePinAction, unlikePinAction } = useLikes()
- *
- * // Лайк пина
- * await likePinAction(pinId)
- *
- * // Убрать лайк
- * await unlikePinAction(pinId)
- * ```
+ * useLikes - Базовые действия с лайками
  */
-export function useLikes(): UseLikesReturn {
-  const { showToast } = useToast()
-
+export function useLikes() {
   // Pin Likes
-  const likePinAction = async (pinId: string): Promise<void> => {
-    try {
-      await likesApi.likePin(pinId)
-    } catch (error) {
-      console.error('[useLikes] Like pin failed:', error)
-      showToast('Failed to like pin', 'error')
-      throw error
-    }
-  }
+  const { execute: likePinAction } = useApiCall((pinId: string) => likesApi.likePin(pinId), {
+    showErrorToast: true,
+    errorMessage: 'Failed to like pin',
+  })
 
-  const unlikePinAction = async (pinId: string): Promise<void> => {
-    try {
-      await likesApi.unlikePin(pinId)
-    } catch (error) {
-      console.error('[useLikes] Unlike pin failed:', error)
-      showToast('Failed to unlike pin', 'error')
-      throw error
-    }
-  }
-
-  const fetchPinLikes = async (pinId: string, page = 0, size = 20): Promise<User[]> => {
-    try {
-      const response = await likesApi.getPinLikes(pinId, {
-        pageable: { page, size, sort: ['createdAt,desc'] },
-        pinId: pinId,
-      })
-
-      return response.content.map((like) => ({
-        id: like.userId,
-      })) as User[]
-    } catch (error) {
-      console.error('[useLikes] Fetch pin likes failed:', error)
-      showToast('Failed to load likes', 'error')
-      throw error
-    }
-  }
+  const { execute: unlikePinAction } = useApiCall((pinId: string) => likesApi.unlikePin(pinId), {
+    showErrorToast: true,
+    errorMessage: 'Failed to unlike pin',
+  })
 
   // Comment Likes
-  const likeCommentAction = async (commentId: string): Promise<void> => {
-    try {
-      await likesApi.likeComment(commentId)
-    } catch (error) {
-      console.error('[useLikes] Like comment failed:', error)
-      showToast('Failed to like comment', 'error')
-      throw error
-    }
-  }
+  const { execute: likeCommentAction } = useApiCall(
+    (commentId: string) => likesApi.likeComment(commentId),
+    { showErrorToast: true, errorMessage: 'Failed to like comment' },
+  )
 
-  const unlikeCommentAction = async (commentId: string): Promise<void> => {
-    try {
-      await likesApi.unlikeComment(commentId)
-    } catch (error) {
-      console.error('[useLikes] Unlike comment failed:', error)
-      showToast('Failed to unlike comment', 'error')
-      throw error
-    }
-  }
-
-  const fetchCommentLikes = async (commentId: string, page = 0, size = 20): Promise<User[]> => {
-    try {
-      const response = await likesApi.getCommentLikes(commentId, {
-        pageable: { page, size, sort: ['createdAt,desc'] },
-        commentId: commentId,
-      })
-
-      return response.content.map((like) => ({
-        id: like.userId,
-      })) as User[]
-    } catch (error) {
-      console.error('[useLikes] Fetch comment likes failed:', error)
-      showToast('Failed to load likes', 'error')
-      throw error
-    }
-  }
+  const { execute: unlikeCommentAction } = useApiCall(
+    (commentId: string) => likesApi.unlikeComment(commentId),
+    { showErrorToast: true, errorMessage: 'Failed to unlike comment' },
+  )
 
   return {
-    likePinAction,
-    unlikePinAction,
-    fetchPinLikes,
-    likeCommentAction,
-    unlikeCommentAction,
-    fetchCommentLikes,
+    likePinAction: async (pinId: string) => {
+      await likePinAction(pinId)
+    },
+    unlikePinAction: async (pinId: string) => {
+      await unlikePinAction(pinId)
+    },
+    likeCommentAction: async (commentId: string) => {
+      await likeCommentAction(commentId)
+    },
+    unlikeCommentAction: async (commentId: string) => {
+      await unlikeCommentAction(commentId)
+    },
   }
 }
 
 /**
- * usePinLikes
- *
- * Для модалки лайков пина
- *
- * @example
- * ```ts
- * const { likes, isLoading, fetchLikes } = usePinLikes(pinId)
- *
- * await fetchLikes()
- * ```
+ * usePinLikes - Список лайков пина с пагинацией
  */
-export function usePinLikes(pinId: Ref<string> | string) {
-  const { fetchPinLikes } = useLikes()
+export function usePinLikes(pinId: string | (() => string)) {
+  const getId = () => (typeof pinId === 'string' ? pinId : pinId())
 
-  const likes = ref<User[]>([])
-  const isLoading = ref(false)
-  const hasMore = ref(true)
-  const currentPage = ref(0)
+  const {
+    items: likes,
+    isLoading,
+    hasMore,
+    load,
+    loadMore,
+  } = useLoadMore<User>({
+    fetchFn: async (page, size) => {
+      const response = await likesApi.getPinLikes(getId(), {
+        pageable: { page, size, sort: ['createdAt,desc'] },
+        pinId: getId(),
+      })
 
-  const id = computed(() => (typeof pinId === 'string' ? pinId : pinId.value))
-
-  const fetchLikes = async (page = 0, size = 20) => {
-    try {
-      isLoading.value = true
-      const newLikes = await fetchPinLikes(id.value, page, size)
-
-      if (page === 0) {
-        likes.value = newLikes
-      } else {
-        likes.value.push(...newLikes)
+      // Преобразуем Like[] в User[]
+      return {
+        ...response,
+        content: response.content.map((like) => ({ id: like.userId }) as User),
       }
-
-      currentPage.value = page
-      hasMore.value = newLikes.length === size
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  const loadMore = async () => {
-    if (!hasMore.value) return
-    await fetchLikes(currentPage.value + 1)
-  }
+    },
+    pageSize: 20,
+  })
 
   return {
     likes,
     isLoading,
     hasMore,
-    fetchLikes,
+    load,
     loadMore,
   }
 }
 
 /**
- * useCommentLikes
- *
- * Для popover лайков комментария
+ * useCommentLikes - Список лайков комментария
  */
-export function useCommentLikes(commentId: Ref<string> | string) {
-  const { fetchCommentLikes } = useLikes()
+export function useCommentLikes(commentId: string | (() => string)) {
+  const getId = () => (typeof commentId === 'string' ? commentId : commentId())
 
-  const likes = ref<User[]>([])
-  const isLoading = ref(false)
+  const {
+    items: likes,
+    isLoading,
+    load,
+  } = useLoadMore<User>({
+    fetchFn: async (page, size) => {
+      const response = await likesApi.getCommentLikes(getId(), {
+        pageable: { page, size, sort: ['createdAt,desc'] },
+        commentId: getId(),
+      })
 
-  const id = computed(() => (typeof commentId === 'string' ? commentId : commentId.value))
-
-  const fetchLikes = async (size = 10) => {
-    try {
-      isLoading.value = true
-      likes.value = await fetchCommentLikes(id.value, 0, size)
-    } finally {
-      isLoading.value = false
-    }
-  }
+      return {
+        ...response,
+        content: response.content.map((like) => ({ id: like.userId }) as User),
+      }
+    },
+    pageSize: 10,
+  })
 
   return {
     likes,
     isLoading,
-    fetchLikes,
+    load,
   }
 }

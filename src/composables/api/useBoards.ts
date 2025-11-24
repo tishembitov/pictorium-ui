@@ -1,161 +1,74 @@
 /**
- * useBoards Composable
- *
- * Composable для работы с досками
+ * useBoards Composable (Refactored)
  */
 
-import { computed, ref, type ComputedRef, type Ref } from 'vue'
+import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useBoardsStore } from '@/stores/boards.store'
 import { useSelectedBoardStore } from '@/stores/selectedBoard.store'
+import { useApiCall } from '@/composables/core/useApiCall'
 import type { Board, Pin } from '@/types'
-import { useToast } from '@/composables/ui/useToast'
-
-export interface UseBoardsReturn {
-  // State
-  myBoards: ComputedRef<Board[]>
-  currentBoard: ComputedRef<Board | null>
-  currentBoardPins: ComputedRef<Pin[]>
-  isLoading: ComputedRef<boolean>
-  isLoadingPins: ComputedRef<boolean>
-  hasBoardPinsMore: ComputedRef<boolean>
-
-  // Actions
-  fetchMyBoards: () => Promise<Board[]>
-  fetchUserBoards: (userId: string, forceReload?: boolean) => Promise<Board[]>
-  fetchBoardById: (boardId: string, page?: number, size?: number) => Promise<Pin[]>
-  loadMoreBoardPins: () => Promise<void>
-  createBoard: (title: string) => Promise<Board>
-  deleteBoard: (boardId: string) => Promise<void>
-  addPinToBoard: (boardId: string, pinId: string) => Promise<void>
-  removePinFromBoard: (boardId: string, pinId: string) => Promise<void>
-  clearCurrentBoard: () => void
-  getBoardById: (boardId: string) => Board | undefined
-}
 
 /**
- * useBoards
- *
- * @example
- * ```ts
- * const {
- *   myBoards,
- *   fetchMyBoards,
- *   createBoard,
- *   addPinToBoard
- * } = useBoards()
- *
- * // Загрузка досок
- * await fetchMyBoards()
- *
- * // Создание доски
- * const board = await createBoard('My Board')
- *
- * // Добавление пина на доску
- * await addPinToBoard(board.id, pinId)
- * ```
+ * useBoards - Работа с досками
  */
-export function useBoards(): UseBoardsReturn {
+export function useBoards() {
   const boardsStore = useBoardsStore()
-  const { showToast } = useToast()
 
-  // State
   const { myBoards, currentBoard, currentBoardPins, isLoading, isLoadingPins, hasBoardPinsMore } =
     storeToRefs(boardsStore)
 
-  // Actions
-  const fetchMyBoards = async (): Promise<Board[]> => {
-    try {
-      return await boardsStore.fetchMyBoards()
-    } catch (error) {
-      console.error('[useBoards] Fetch my boards failed:', error)
-      showToast('Failed to load boards', 'error')
-      throw error
-    }
-  }
+  // Fetch My Boards
+  const { execute: fetchMyBoards } = useApiCall(() => boardsStore.fetchMyBoards(), {
+    showErrorToast: true,
+    errorMessage: 'Failed to load boards',
+  })
 
-  const fetchUserBoards = async (userId: string, forceReload = false): Promise<Board[]> => {
-    try {
-      return await boardsStore.fetchUserBoards(userId, forceReload)
-    } catch (error) {
-      console.error('[useBoards] Fetch user boards failed:', error)
-      showToast('Failed to load user boards', 'error')
-      throw error
-    }
-  }
+  // Fetch User Boards
+  const { execute: fetchUserBoards } = useApiCall(
+    (userId: string, forceReload = false) => boardsStore.fetchUserBoards(userId, forceReload),
+    { showErrorToast: true, errorMessage: 'Failed to load user boards' },
+  )
 
-  const fetchBoardById = async (boardId: string, page = 0, size = 15): Promise<Pin[]> => {
-    try {
-      return await boardsStore.fetchBoardById(boardId, page, size)
-    } catch (error) {
-      console.error('[useBoards] Fetch board by ID failed:', error)
-      showToast('Failed to load board', 'error')
-      throw error
-    }
-  }
+  // Fetch Board by ID
+  const { execute: fetchBoardById } = useApiCall(
+    (boardId: string, page = 0, size = 15) => boardsStore.fetchBoardById(boardId, page, size),
+    { showErrorToast: true, errorMessage: 'Failed to load board' },
+  )
 
-  const loadMoreBoardPins = async (): Promise<void> => {
-    try {
-      await boardsStore.loadMoreBoardPins()
-    } catch (error) {
-      console.error('[useBoards] Load more board pins failed:', error)
-      showToast('Failed to load more pins', 'error')
-      throw error
-    }
-  }
+  // Load More Board Pins
+  const { execute: loadMoreBoardPins } = useApiCall(() => boardsStore.loadMoreBoardPins(), {
+    showErrorToast: true,
+    errorMessage: 'Failed to load more pins',
+  })
 
-  const createBoard = async (title: string): Promise<Board> => {
-    try {
-      const board = await boardsStore.createBoard(title)
-      showToast('Board created successfully!', 'success')
-      return board
-    } catch (error) {
-      console.error('[useBoards] Create board failed:', error)
-      showToast('Failed to create board', 'error')
-      throw error
-    }
-  }
+  // Create Board
+  const { execute: createBoard } = useApiCall((title: string) => boardsStore.createBoard(title), {
+    showSuccessToast: true,
+    successMessage: 'Board created!',
+    showErrorToast: true,
+  })
 
-  const deleteBoard = async (boardId: string): Promise<void> => {
-    try {
-      await boardsStore.deleteBoard(boardId)
-      showToast('Board deleted successfully!', 'success')
-    } catch (error) {
-      console.error('[useBoards] Delete board failed:', error)
-      showToast('Failed to delete board', 'error')
-      throw error
-    }
-  }
+  // Delete Board
+  const { execute: deleteBoard } = useApiCall(
+    (boardId: string) => boardsStore.deleteBoard(boardId),
+    { showSuccessToast: true, successMessage: 'Board deleted!', showErrorToast: true },
+  )
 
-  const addPinToBoard = async (boardId: string, pinId: string): Promise<void> => {
-    try {
-      await boardsStore.addPinToBoard(boardId, pinId)
-      showToast('Pin added to board!', 'success')
-    } catch (error) {
-      console.error('[useBoards] Add pin to board failed:', error)
-      showToast('Failed to add pin to board', 'error')
-      throw error
-    }
-  }
+  // Add Pin to Board
+  const { execute: addPinToBoard } = useApiCall(
+    (boardId: string, pinId: string) => boardsStore.addPinToBoard(boardId, pinId),
+    { showSuccessToast: true, successMessage: 'Pin added to board!', showErrorToast: true },
+  )
 
-  const removePinFromBoard = async (boardId: string, pinId: string): Promise<void> => {
-    try {
-      await boardsStore.removePinFromBoard(boardId, pinId)
-      showToast('Pin removed from board!', 'success')
-    } catch (error) {
-      console.error('[useBoards] Remove pin from board failed:', error)
-      showToast('Failed to remove pin from board', 'error')
-      throw error
-    }
-  }
+  // Remove Pin from Board
+  const { execute: removePinFromBoard } = useApiCall(
+    (boardId: string, pinId: string) => boardsStore.removePinFromBoard(boardId, pinId),
+    { showSuccessToast: true, successMessage: 'Pin removed from board!', showErrorToast: true },
+  )
 
-  const clearCurrentBoard = (): void => {
-    boardsStore.clearCurrentBoard()
-  }
-
-  const getBoardById = (boardId: string): Board | undefined => {
-    return boardsStore.getBoardById(boardId)
-  }
+  const clearCurrentBoard = () => boardsStore.clearCurrentBoard()
+  const getBoardById = (boardId: string) => boardsStore.getBoardById(boardId)
 
   return {
     // State
@@ -167,88 +80,58 @@ export function useBoards(): UseBoardsReturn {
     hasBoardPinsMore: computed(() => hasBoardPinsMore.value),
 
     // Actions
-    fetchMyBoards,
-    fetchUserBoards,
-    fetchBoardById,
-    loadMoreBoardPins,
-    createBoard,
-    deleteBoard,
-    addPinToBoard,
-    removePinFromBoard,
+    fetchMyBoards: async () => (await fetchMyBoards()) || [],
+    fetchUserBoards: async (userId: string, forceReload = false) =>
+      (await fetchUserBoards(userId, forceReload)) || [],
+    fetchBoardById: async (boardId: string, page = 0, size = 15) =>
+      (await fetchBoardById(boardId, page, size)) || [],
+    loadMoreBoardPins: async () => {
+      await loadMoreBoardPins()
+    },
+    createBoard: async (title: string) => (await createBoard(title))!,
+    deleteBoard: async (boardId: string) => {
+      await deleteBoard(boardId)
+    },
+    addPinToBoard: async (boardId: string, pinId: string) => {
+      await addPinToBoard(boardId, pinId)
+    },
+    removePinFromBoard: async (boardId: string, pinId: string) => {
+      await removePinFromBoard(boardId, pinId)
+    },
     clearCurrentBoard,
     getBoardById,
   }
 }
 
 /**
- * useSelectedBoard
- *
- * Работа с выбранной доской по умолчанию
- *
- * @example
- * ```ts
- * const {
- *   selectedBoard,
- *   hasSelectedBoard,
- *   selectBoard,
- *   deselectBoard
- * } = useSelectedBoard()
- *
- * // Выбрать доску
- * await selectBoard(boardId)
- *
- * // Сбросить выбор
- * await deselectBoard()
- * ```
+ * useSelectedBoard - Работа с выбранной доской
  */
 export function useSelectedBoard() {
   const selectedBoardStore = useSelectedBoardStore()
-  const { showToast } = useToast()
 
-  // State
   const { selectedBoard, hasSelectedBoard, selectedBoardId, selectedBoardTitle, isLoading } =
     storeToRefs(selectedBoardStore)
 
-  // Actions
-  const fetchSelectedBoard = async () => {
-    try {
-      return await selectedBoardStore.fetchSelectedBoard()
-    } catch (error) {
-      console.error('[useSelectedBoard] Fetch selected board failed:', error)
-      return null
-    }
-  }
+  const { execute: fetchSelectedBoard } = useApiCall(
+    () => selectedBoardStore.fetchSelectedBoard(),
+    { showErrorToast: false }, // Не показываем ошибку, если доска не выбрана
+  )
 
-  const selectBoard = async (boardId: string) => {
-    try {
-      await selectedBoardStore.selectBoard(boardId)
-      showToast('Board selected!', 'success')
-    } catch (error) {
-      console.error('[useSelectedBoard] Select board failed:', error)
-      showToast('Failed to select board', 'error')
-      throw error
-    }
-  }
+  const { execute: selectBoard } = useApiCall(
+    (boardId: string) => selectedBoardStore.selectBoard(boardId),
+    { showSuccessToast: true, successMessage: 'Board selected!', showErrorToast: true },
+  )
 
-  const deselectBoard = async () => {
-    try {
-      await selectedBoardStore.deselectBoard()
-      showToast('Board deselected!', 'success')
-    } catch (error) {
-      console.error('[useSelectedBoard] Deselect board failed:', error)
-      showToast('Failed to deselect board', 'error')
-      throw error
-    }
-  }
+  const { execute: deselectBoard } = useApiCall(() => selectedBoardStore.deselectBoard(), {
+    showSuccessToast: true,
+    successMessage: 'Board deselected!',
+    showErrorToast: true,
+  })
 
-  const setBoard = async (board: Board | null) => {
-    try {
-      await selectedBoardStore.setBoard(board)
-    } catch (error) {
-      console.error('[useSelectedBoard] Set board failed:', error)
-      throw error
-    }
-  }
+  const { execute: setBoard } = useApiCall(
+    (board: Board | null) => selectedBoardStore.setBoard(board),
+    { showErrorToast: true },
+  )
 
   return {
     selectedBoard,
@@ -256,32 +139,29 @@ export function useSelectedBoard() {
     selectedBoardId,
     selectedBoardTitle,
     isLoading,
-    fetchSelectedBoard,
-    selectBoard,
-    deselectBoard,
-    setBoard,
+    fetchSelectedBoard: async () => await fetchSelectedBoard(),
+    selectBoard: async (boardId: string) => {
+      await selectBoard(boardId)
+    },
+    deselectBoard: async () => {
+      await deselectBoard()
+    },
+    setBoard: async (board: Board | null) => {
+      await setBoard(board)
+    },
   }
 }
 
 /**
- * useBoardDetail
- *
- * Для детальной страницы доски
- *
- * @example
- * ```ts
- * const { board, pins, isLoading, fetchBoard } = useBoardDetail(boardId)
- *
- * await fetchBoard()
- * ```
+ * useBoardDetail - Для страницы доски
  */
-export function useBoardDetail(boardId: Ref<string> | string) {
+export function useBoardDetail(boardId: string | (() => string)) {
   const { fetchBoardById, currentBoard, currentBoardPins, isLoadingPins } = useBoards()
 
-  const id = computed(() => (typeof boardId === 'string' ? boardId : boardId.value))
+  const getId = () => (typeof boardId === 'string' ? boardId : boardId())
 
   const fetchBoard = async (page = 0, size = 15) => {
-    await fetchBoardById(id.value, page, size)
+    await fetchBoardById(getId(), page, size)
   }
 
   return {

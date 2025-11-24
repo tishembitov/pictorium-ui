@@ -1,190 +1,94 @@
 /**
- * useUsers Composable
- *
- * Composable для работы с пользователями
+ * useUsers Composable (Refactored)
  */
 
-import { computed, ref, type Ref } from 'vue'
+import { ref, computed } from 'vue'
 import { usersApi } from '@/api/users.api'
 import { subscriptionsApi } from '@/api/subscriptions.api'
-import type { User, Pageable } from '@/types'
-import { useToast } from '@/composables/ui/useToast'
-
-export interface UseUsersReturn {
-  user: Ref<User | null>
-  followers: Ref<User[]>
-  following: Ref<User[]>
-  isLoading: Ref<boolean>
-
-  fetchUserByUsername: (username: string) => Promise<User>
-  fetchUserById: (userId: string) => Promise<User>
-  followUser: (userId: string) => Promise<void>
-  unfollowUser: (userId: string) => Promise<void>
-  checkFollow: (userId: string) => Promise<boolean>
-  fetchFollowers: (userId: string, page?: number, size?: number) => Promise<User[]>
-  fetchFollowing: (userId: string, page?: number, size?: number) => Promise<User[]>
-}
+import { useApiCall } from '@/composables/core/useApiCall'
+import { useLoadMore } from '@/composables/core/useLoadMore'
+import type { User } from '@/types'
 
 /**
- * useUsers
- *
- * @example
- * ```ts
- * const {
- *   user,
- *   fetchUserByUsername,
- *   followUser
- * } = useUsers()
- *
- * // Загрузка пользователя
- * const user = await fetchUserByUsername('john_doe')
- *
- * // Подписка
- * await followUser(user.id)
- * ```
+ * useUsers - Работа с пользователями
  */
-export function useUsers(): UseUsersReturn {
-  const { showToast } = useToast()
-
+export function useUsers() {
   const user = ref<User | null>(null)
-  const followers = ref<User[]>([])
-  const following = ref<User[]>([])
-  const isLoading = ref(false)
 
-  const fetchUserByUsername = async (username: string): Promise<User> => {
-    try {
-      isLoading.value = true
+  // Fetch User by Username
+  const { execute: fetchUserByUsername, isLoading } = useApiCall(
+    async (username: string) => {
       const fetchedUser = await usersApi.getUserByUsername(username)
       user.value = fetchedUser
       return fetchedUser
-    } catch (error) {
-      console.error('[useUsers] Fetch user by username failed:', error)
-      showToast('Failed to load user', 'error')
-      throw error
-    } finally {
-      isLoading.value = false
-    }
-  }
+    },
+    { showErrorToast: true, errorMessage: 'Failed to load user' },
+  )
 
-  const fetchUserById = async (userId: string): Promise<User> => {
-    try {
-      isLoading.value = true
+  // Fetch User by ID
+  const { execute: fetchUserById } = useApiCall(
+    async (userId: string) => {
       const fetchedUser = await usersApi.getUserById(userId)
       user.value = fetchedUser
       return fetchedUser
-    } catch (error) {
-      console.error('[useUsers] Fetch user by ID failed:', error)
-      showToast('Failed to load user', 'error')
-      throw error
-    } finally {
-      isLoading.value = false
-    }
-  }
+    },
+    { showErrorToast: true, errorMessage: 'Failed to load user' },
+  )
 
-  const followUser = async (userId: string): Promise<void> => {
-    try {
-      await subscriptionsApi.followUser(userId)
-      showToast('Followed!', 'success')
-    } catch (error) {
-      console.error('[useUsers] Follow user failed:', error)
-      showToast('Failed to follow user', 'error')
-      throw error
-    }
-  }
+  // Follow User
+  const { execute: followUser } = useApiCall(
+    (userId: string) => subscriptionsApi.followUser(userId),
+    { showSuccessToast: true, successMessage: 'Followed!', showErrorToast: true },
+  )
 
-  const unfollowUser = async (userId: string): Promise<void> => {
-    try {
-      await subscriptionsApi.unfollowUser(userId)
-      showToast('Unfollowed!', 'success')
-    } catch (error) {
-      console.error('[useUsers] Unfollow user failed:', error)
-      showToast('Failed to unfollow user', 'error')
-      throw error
-    }
-  }
+  // Unfollow User
+  const { execute: unfollowUser } = useApiCall(
+    (userId: string) => subscriptionsApi.unfollowUser(userId),
+    { showSuccessToast: true, successMessage: 'Unfollowed!', showErrorToast: true },
+  )
 
-  const checkFollow = async (userId: string): Promise<boolean> => {
-    try {
+  // Check Follow
+  const { execute: checkFollow } = useApiCall(
+    async (userId: string) => {
       const response = await subscriptionsApi.checkFollow(userId)
       return response.isFollowing
-    } catch (error) {
-      console.error('[useUsers] Check follow failed:', error)
-      return false
-    }
-  }
-
-  const fetchFollowers = async (userId: string, page = 0, size = 20): Promise<User[]> => {
-    try {
-      const response = await subscriptionsApi.getFollowers(userId, { page, size, sort: [] })
-      followers.value = response.content
-      return response.content
-    } catch (error) {
-      console.error('[useUsers] Fetch followers failed:', error)
-      showToast('Failed to load followers', 'error')
-      throw error
-    }
-  }
-
-  const fetchFollowing = async (userId: string, page = 0, size = 20): Promise<User[]> => {
-    try {
-      const response = await subscriptionsApi.getFollowing(userId, { page, size, sort: [] })
-      following.value = response.content
-      return response.content
-    } catch (error) {
-      console.error('[useUsers] Fetch following failed:', error)
-      showToast('Failed to load following', 'error')
-      throw error
-    }
-  }
+    },
+    { showErrorToast: false },
+  )
 
   return {
-    user,
-    followers,
-    following,
+    user: computed(() => user.value),
     isLoading,
-    fetchUserByUsername,
-    fetchUserById,
-    followUser,
-    unfollowUser,
-    checkFollow,
-    fetchFollowers,
-    fetchFollowing,
+    fetchUserByUsername: async (username: string) => (await fetchUserByUsername(username))!,
+    fetchUserById: async (userId: string) => (await fetchUserById(userId))!,
+    followUser: async (userId: string) => {
+      await followUser(userId)
+    },
+    unfollowUser: async (userId: string) => {
+      await unfollowUser(userId)
+    },
+    checkFollow: async (userId: string) => (await checkFollow(userId)) || false,
   }
 }
 
 /**
- * useFollow
- *
- * Для кнопки Follow/Unfollow
- *
- * @example
- * ```ts
- * const { isFollowing, isLoading, toggle, check } = useFollow(userId)
- *
- * await check()
- * await toggle()
- * ```
+ * useFollow - Follow/Unfollow для конкретного пользователя
  */
-export function useFollow(userId: Ref<string> | string) {
+export function useFollow(userId: string | (() => string)) {
   const { followUser, unfollowUser, checkFollow } = useUsers()
-
   const isFollowing = ref(false)
   const isLoading = ref(false)
 
-  const id = computed(() => (typeof userId === 'string' ? userId : userId.value))
+  const getId = () => (typeof userId === 'string' ? userId : userId())
 
   const check = async () => {
-    try {
-      isFollowing.value = await checkFollow(id.value)
-    } catch (error) {
-      console.error('[useFollow] Check follow failed:', error)
-    }
+    isFollowing.value = await checkFollow(getId())
   }
 
   const follow = async () => {
+    isLoading.value = true
     try {
-      isLoading.value = true
-      await followUser(id.value)
+      await followUser(getId())
       isFollowing.value = true
     } finally {
       isLoading.value = false
@@ -192,9 +96,9 @@ export function useFollow(userId: Ref<string> | string) {
   }
 
   const unfollow = async () => {
+    isLoading.value = true
     try {
-      isLoading.value = true
-      await unfollowUser(id.value)
+      await unfollowUser(getId())
       isFollowing.value = false
     } finally {
       isLoading.value = false
@@ -210,8 +114,8 @@ export function useFollow(userId: Ref<string> | string) {
   }
 
   return {
-    isFollowing,
-    isLoading,
+    isFollowing: computed(() => isFollowing.value),
+    isLoading: computed(() => isLoading.value),
     follow,
     unfollow,
     toggle,
@@ -220,24 +124,67 @@ export function useFollow(userId: Ref<string> | string) {
 }
 
 /**
- * useUserProfile
- *
- * Для страницы профиля пользователя
- *
- * @example
- * ```ts
- * const { user, isLoading, fetchUser } = useUserProfile(username)
- *
- * await fetchUser()
- * ```
+ * useUserFollowers - Подписчики пользователя
  */
-export function useUserProfile(username: Ref<string> | string) {
-  const { fetchUserByUsername, user, isLoading } = useUsers()
+export function useUserFollowers(userId: string | (() => string)) {
+  const getId = () => (typeof userId === 'string' ? userId : userId())
 
-  const name = computed(() => (typeof username === 'string' ? username : username.value))
+  const {
+    items: followers,
+    isLoading,
+    hasMore,
+    load,
+    loadMore,
+  } = useLoadMore({
+    fetchFn: (page, size) => subscriptionsApi.getFollowers(getId(), { page, size, sort: [] }),
+    pageSize: 20,
+  })
+
+  return {
+    followers,
+    isLoading,
+    hasMore,
+    load,
+    loadMore,
+  }
+}
+
+/**
+ * useUserFollowing - Подписки пользователя
+ */
+export function useUserFollowing(userId: string | (() => string)) {
+  const getId = () => (typeof userId === 'string' ? userId : userId())
+
+  const {
+    items: following,
+    isLoading,
+    hasMore,
+    load,
+    loadMore,
+  } = useLoadMore({
+    fetchFn: (page, size) => subscriptionsApi.getFollowing(getId(), { page, size, sort: [] }),
+    pageSize: 20,
+  })
+
+  return {
+    following,
+    isLoading,
+    hasMore,
+    load,
+    loadMore,
+  }
+}
+
+/**
+ * useUserProfile - Для страницы профиля
+ */
+export function useUserProfile(username: string | (() => string)) {
+  const { user, isLoading, fetchUserByUsername } = useUsers()
+
+  const getName = () => (typeof username === 'string' ? username : username())
 
   const fetchUser = async () => {
-    await fetchUserByUsername(name.value)
+    await fetchUserByUsername(getName())
   }
 
   return {

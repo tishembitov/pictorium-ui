@@ -1,25 +1,23 @@
 /**
- * usePins Composable
- *
- * Composable для работы с пинами (CRUD + Like/Save)
+ * usePins Composable (Refactored)
  */
 
-import { computed, ref, type ComputedRef, type Ref } from 'vue'
+import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePinsStore } from '@/stores/pins.store'
-import type { PinFilter, Pin, PinCreateRequest, PinUpdateRequest } from '@/types'
-import { useToast } from '@/composables/ui/useToast'
+import { useApiCall } from '@/composables/core/useApiCall'
+import type { Pin, PinFilter } from '@/types'
 
 export interface UsePinsReturn {
-  // State
-  pins: ComputedRef<Pin[]>
-  currentFilter: ComputedRef<PinFilter>
-  isLoading: ComputedRef<boolean>
-  isLoadingMore: ComputedRef<boolean>
-  hasMore: ComputedRef<boolean>
-  currentPage: ComputedRef<number>
-  totalPages: ComputedRef<number>
-  totalElements: ComputedRef<number>
+  // State from store
+  pins: ReturnType<typeof computed<Pin[]>>
+  currentFilter: ReturnType<typeof computed<PinFilter>>
+  isLoading: ReturnType<typeof computed<boolean>>
+  isLoadingMore: ReturnType<typeof computed<boolean>>
+  hasMore: ReturnType<typeof computed<boolean>>
+  currentPage: ReturnType<typeof computed<number>>
+  totalPages: ReturnType<typeof computed<number>>
+  totalElements: ReturnType<typeof computed<number>>
 
   // Actions
   fetchPins: (filter?: PinFilter, page?: number, size?: number) => Promise<Pin[]>
@@ -34,7 +32,12 @@ export interface UsePinsReturn {
   }) => Promise<Pin>
   updatePin: (
     pinId: string,
-    data: { title?: string; description?: string; href?: string; tags?: string[] },
+    data: {
+      title?: string
+      description?: string
+      href?: string
+      tags?: string[]
+    },
   ) => Promise<Pin>
   deletePin: (pinId: string) => Promise<void>
   likePin: (pinId: string) => Promise<void>
@@ -49,37 +52,11 @@ export interface UsePinsReturn {
 }
 
 /**
- * usePins
- *
- * @example
- * ```ts
- * const {
- *   pins,
- *   isLoading,
- *   fetchPins,
- *   createPin,
- *   likePin
- * } = usePins()
- *
- * // Загрузка пинов
- * await fetchPins({ scope: 'ALL' })
- *
- * // Создание пина
- * const pin = await createPin({
- *   file,
- *   title: 'My Pin',
- *   tags: ['nature', 'landscape']
- * })
- *
- * // Лайк пина
- * await likePin(pin.id)
- * ```
+ * usePins - Main pins composable
  */
 export function usePins(): UsePinsReturn {
   const pinsStore = usePinsStore()
-  const { showToast } = useToast()
 
-  // State
   const {
     feedPins: pins,
     currentFilter,
@@ -91,151 +68,144 @@ export function usePins(): UsePinsReturn {
     totalElements,
   } = storeToRefs(pinsStore)
 
-  // Actions
-  const fetchPins = async (filter?: PinFilter, page = 0, size = 15): Promise<Pin[]> => {
-    try {
+  // Fetch Pins
+  const { execute: fetchPins } = useApiCall(
+    async (filter?: PinFilter, page = 0, size = 15) => {
       return await pinsStore.fetchPins(filter, page, size)
-    } catch (error) {
-      console.error('[usePins] Fetch pins failed:', error)
-      showToast('Failed to load pins', 'error')
-      throw error
-    }
-  }
+    },
+    { showErrorToast: true, errorMessage: 'Failed to load pins' },
+  )
 
-  const fetchPinById = async (pinId: string, forceReload = false): Promise<Pin> => {
-    try {
+  // Fetch Pin by ID
+  const { execute: fetchPinById } = useApiCall(
+    async (pinId: string, forceReload = false) => {
       return await pinsStore.fetchPinById(pinId, forceReload)
-    } catch (error) {
-      console.error('[usePins] Fetch pin by ID failed:', error)
-      showToast('Failed to load pin', 'error')
-      throw error
-    }
-  }
+    },
+    { showErrorToast: true, errorMessage: 'Failed to load pin' },
+  )
 
-  const createPin = async (data: {
-    file: File
-    title?: string
-    description?: string
-    href?: string
-    tags?: string[]
-    rgb?: string
-  }): Promise<Pin> => {
-    try {
-      const pin = await pinsStore.createPin(data)
-      showToast('Pin created successfully!', 'success')
-      return pin
-    } catch (error) {
-      console.error('[usePins] Create pin failed:', error)
-      showToast('Failed to create pin', 'error')
-      throw error
-    }
-  }
+  // Create Pin
+  const { execute: createPin } = useApiCall(
+    async (data: {
+      file: File
+      title?: string
+      description?: string
+      href?: string
+      tags?: string[]
+      rgb?: string
+    }) => {
+      return await pinsStore.createPin(data)
+    },
+    {
+      showSuccessToast: true,
+      successMessage: 'Pin created!',
+      showErrorToast: true,
+      errorMessage: 'Failed to create pin',
+    },
+  )
 
-  const updatePin = async (
-    pinId: string,
-    data: { title?: string; description?: string; href?: string; tags?: string[] },
-  ): Promise<Pin> => {
-    try {
-      const pin = await pinsStore.updatePin(pinId, data)
-      showToast('Pin updated successfully!', 'success')
-      return pin
-    } catch (error) {
-      console.error('[usePins] Update pin failed:', error)
-      showToast('Failed to update pin', 'error')
-      throw error
-    }
-  }
+  // Update Pin
+  const { execute: updatePin } = useApiCall(
+    async (
+      pinId: string,
+      data: {
+        title?: string
+        description?: string
+        href?: string
+        tags?: string[]
+      },
+    ) => {
+      return await pinsStore.updatePin(pinId, data)
+    },
+    {
+      showSuccessToast: true,
+      successMessage: 'Pin updated!',
+      showErrorToast: true,
+      errorMessage: 'Failed to update pin',
+    },
+  )
 
-  const deletePin = async (pinId: string): Promise<void> => {
-    try {
+  // Delete Pin
+  const { execute: deletePin } = useApiCall(
+    async (pinId: string) => {
       await pinsStore.deletePin(pinId)
-      showToast('Pin deleted successfully!', 'success')
-    } catch (error) {
-      console.error('[usePins] Delete pin failed:', error)
-      showToast('Failed to delete pin', 'error')
-      throw error
-    }
-  }
+    },
+    {
+      showSuccessToast: true,
+      successMessage: 'Pin deleted!',
+      showErrorToast: true,
+      errorMessage: 'Failed to delete pin',
+    },
+  )
 
-  const likePin = async (pinId: string): Promise<void> => {
-    try {
+  // Like Pin
+  const { execute: likePin } = useApiCall(
+    async (pinId: string) => {
       await pinsStore.likePin(pinId)
-    } catch (error) {
-      console.error('[usePins] Like pin failed:', error)
-      showToast('Failed to like pin', 'error')
-      throw error
-    }
-  }
+    },
+    { showErrorToast: true, errorMessage: 'Failed to like pin' },
+  )
 
-  const unlikePin = async (pinId: string): Promise<void> => {
-    try {
+  // Unlike Pin
+  const { execute: unlikePin } = useApiCall(
+    async (pinId: string) => {
       await pinsStore.unlikePin(pinId)
-    } catch (error) {
-      console.error('[usePins] Unlike pin failed:', error)
-      showToast('Failed to unlike pin', 'error')
-      throw error
-    }
-  }
+    },
+    { showErrorToast: true, errorMessage: 'Failed to unlike pin' },
+  )
 
-  const savePin = async (pinId: string): Promise<void> => {
-    try {
+  // Save Pin
+  const { execute: savePin } = useApiCall(
+    async (pinId: string) => {
       await pinsStore.savePin(pinId)
-      showToast('Pin saved!', 'success')
-    } catch (error) {
-      console.error('[usePins] Save pin failed:', error)
-      showToast('Failed to save pin', 'error')
-      throw error
-    }
-  }
+    },
+    {
+      showSuccessToast: true,
+      successMessage: 'Pin saved!',
+      showErrorToast: true,
+      errorMessage: 'Failed to save pin',
+    },
+  )
 
-  const unsavePin = async (pinId: string): Promise<void> => {
-    try {
+  // Unsave Pin
+  const { execute: unsavePin } = useApiCall(
+    async (pinId: string) => {
       await pinsStore.unsavePin(pinId)
-      showToast('Pin removed from saved', 'success')
-    } catch (error) {
-      console.error('[usePins] Unsave pin failed:', error)
-      showToast('Failed to unsave pin', 'error')
-      throw error
-    }
-  }
+    },
+    {
+      showSuccessToast: true,
+      successMessage: 'Pin unsaved!',
+      showErrorToast: true,
+      errorMessage: 'Failed to unsave pin',
+    },
+  )
 
-  const searchByTag = async (tagName: string, page = 0): Promise<Pin[]> => {
-    try {
+  // Search by Tag
+  const { execute: searchByTag } = useApiCall(
+    async (tagName: string, page = 0) => {
       return await pinsStore.searchByTag(tagName, page)
-    } catch (error) {
-      console.error('[usePins] Search by tag failed:', error)
-      showToast('Failed to search by tag', 'error')
-      throw error
-    }
-  }
+    },
+    { showErrorToast: true, errorMessage: 'Failed to search by tag' },
+  )
 
-  const searchByQuery = async (query: string, page = 0): Promise<Pin[]> => {
-    try {
+  // Search by Query
+  const { execute: searchByQuery } = useApiCall(
+    async (query: string, page = 0) => {
       return await pinsStore.searchByQuery(query, page)
-    } catch (error) {
-      console.error('[usePins] Search by query failed:', error)
-      showToast('Failed to search', 'error')
-      throw error
-    }
-  }
+    },
+    { showErrorToast: true, errorMessage: 'Failed to search pins' },
+  )
 
-  const fetchRelatedPins = async (pinId: string, page = 0): Promise<Pin[]> => {
-    try {
+  // Fetch Related Pins
+  const { execute: fetchRelatedPins } = useApiCall(
+    async (pinId: string, page = 0) => {
       return await pinsStore.fetchRelatedPins(pinId, page)
-    } catch (error) {
-      console.error('[usePins] Fetch related pins failed:', error)
-      showToast('Failed to load related pins', 'error')
-      throw error
-    }
-  }
+    },
+    { showErrorToast: true, errorMessage: 'Failed to load related pins' },
+  )
 
-  const resetFeed = (): void => {
-    pinsStore.resetFeed()
-  }
-
-  const getPinById = (pinId: string): Pin | undefined => {
-    return pinsStore.getPinById(pinId)
-  }
+  const resetFeed = () => pinsStore.resetFeed()
+  const getPinById = (pinId: string) => pinsStore.getPinById(pinId)
 
   return {
     // State
@@ -249,99 +219,77 @@ export function usePins(): UsePinsReturn {
     totalElements: computed(() => totalElements.value),
 
     // Actions
-    fetchPins,
-    fetchPinById,
-    createPin,
-    updatePin,
-    deletePin,
-    likePin,
-    unlikePin,
-    savePin,
-    unsavePin,
-    searchByTag,
-    searchByQuery,
-    fetchRelatedPins,
+    fetchPins: async (filter, page, size) => (await fetchPins(filter, page, size)) || [],
+    fetchPinById: async (pinId, forceReload) => (await fetchPinById(pinId, forceReload))!,
+    createPin: async (data) => (await createPin(data))!,
+    updatePin: async (pinId, data) => (await updatePin(pinId, data))!,
+    deletePin: async (pinId) => {
+      await deletePin(pinId)
+    },
+    likePin: async (pinId) => {
+      await likePin(pinId)
+    },
+    unlikePin: async (pinId) => {
+      await unlikePin(pinId)
+    },
+    savePin: async (pinId) => {
+      await savePin(pinId)
+    },
+    unsavePin: async (pinId) => {
+      await unsavePin(pinId)
+    },
+    searchByTag: async (tagName, page) => (await searchByTag(tagName, page)) || [],
+    searchByQuery: async (query, page) => (await searchByQuery(query, page)) || [],
+    fetchRelatedPins: async (pinId, page) => (await fetchRelatedPins(pinId, page)) || [],
     resetFeed,
     getPinById,
   }
 }
 
 /**
- * usePinActions
- *
- * Только actions для конкретного пина (для PinCard)
- *
- * @example
- * ```ts
- * const { like, unlike, save, unsave, remove } = usePinActions(pinId)
- *
- * await like()
- * await save()
- * ```
+ * usePinActions - Actions для отдельного пина
  */
-export function usePinActions(pinId: Ref<string> | string) {
+export function usePinActions(pinId: string | (() => string)) {
   const { likePin, unlikePin, savePin, unsavePin, deletePin } = usePins()
 
-  const id = computed(() => (typeof pinId === 'string' ? pinId : pinId.value))
-
-  const like = () => likePin(id.value)
-  const unlike = () => unlikePin(id.value)
-  const save = () => savePin(id.value)
-  const unsave = () => unsavePin(id.value)
-  const remove = () => deletePin(id.value)
+  const getId = () => (typeof pinId === 'string' ? pinId : pinId())
 
   return {
-    like,
-    unlike,
-    save,
-    unsave,
-    remove,
+    like: () => likePin(getId()),
+    unlike: () => unlikePin(getId()),
+    save: () => savePin(getId()),
+    unsave: () => unsavePin(getId()),
+    remove: () => deletePin(getId()),
   }
 }
 
 /**
- * usePinDetail
- *
- * Для детальной страницы пина
- *
- * @example
- * ```ts
- * const { pin, isLoading, relatedPins, fetchPin, fetchRelated } = usePinDetail(pinId)
- *
- * await fetchPin()
- * await fetchRelated()
- * ```
+ * usePinDetail - Для детальной страницы пина
  */
-export function usePinDetail(pinId: Ref<string> | string) {
-  const { fetchPinById, fetchRelatedPins } = usePins()
+export function usePinDetail(pinId: string | (() => string)) {
+  const { fetchPinById, fetchRelatedPins, getPinById } = usePins()
+  const { isLoading, execute: loadPin } = useApiCall(fetchPinById)
+  const {
+    isLoading: isLoadingRelated,
+    execute: loadRelated,
+    data: relatedPins,
+  } = useApiCall(fetchRelatedPins)
 
-  const id = computed(() => (typeof pinId === 'string' ? pinId : pinId.value))
-  const pin = ref<Pin | null>(null)
-  const relatedPins = ref<Pin[]>([])
-  const isLoading = ref(false)
-  const isLoadingRelated = ref(false)
+  const getId = () => (typeof pinId === 'string' ? pinId : pinId())
+
+  const pin = computed(() => getPinById(getId()) || null)
 
   const fetchPin = async (forceReload = false) => {
-    try {
-      isLoading.value = true
-      pin.value = await fetchPinById(id.value, forceReload)
-    } finally {
-      isLoading.value = false
-    }
+    await loadPin(getId(), forceReload)
   }
 
   const fetchRelated = async () => {
-    try {
-      isLoadingRelated.value = true
-      relatedPins.value = await fetchRelatedPins(id.value)
-    } finally {
-      isLoadingRelated.value = false
-    }
+    await loadRelated(getId())
   }
 
   return {
     pin,
-    relatedPins,
+    relatedPins: computed(() => relatedPins.value || []),
     isLoading,
     isLoadingRelated,
     fetchPin,

@@ -180,6 +180,28 @@ const handleCountClick = () => {
   </div>
 </template>
 
+<script setup lang="ts">
+// Добавить emit для анимации на медиа
+const emit = defineEmits<{
+  (e: 'like'): void
+  (e: 'unlike'): void
+  (e: 'animate', type: 'like' | 'unlike'): void // ✅ Новый emit
+}>()
+
+const handleLike = async () => {
+  // ...
+  if (isLikedLocal.value) {
+    await unlikePinAction(props.pinId)
+    emit('animate', 'unlike') // ✅
+    emit('unlike')
+  } else {
+    await likePinAction(props.pinId)
+    emit('animate', 'like') // ✅
+    emit('like')
+  }
+}
+</script>
+
 <style scoped>
 @keyframes ping {
   0% {

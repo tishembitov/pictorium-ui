@@ -16,33 +16,50 @@ interface PinWithBlob extends PinResponse {
   isGif?: boolean
 }
 
+interface PinFeed {
+  pins: PinWithBlob[]
+  page: number
+  totalPages: number
+  totalElements: number
+  hasMore: boolean
+  isLoading: boolean
+}
+
+type FeedType = 'all' | 'created' | 'saved' | 'liked'
+
 export const usePinsStore = defineStore('pins', () => {
   // ============ STATE ============
 
-  // Кэш пинов (key: pinId)
+  // Кэш пинов по ID (единый источник правды)
   const pinsCache = ref<Map<string, PinWithBlob>>(new Map())
 
+  // Feeds для разных scope
+  const feeds = ref<Map<FeedType, PinFeed>>(
+    new Map([
+      ['all', createEmptyFeed()],
+      ['created', createEmptyFeed()],
+      ['saved', createEmptyFeed()],
+      ['liked', createEmptyFeed()],
+    ]),
+  )
+
+  // Текущий активный feed
+  const activeFeedType = ref<FeedType>('all')
+
   // Текущий фильтр
-  const currentFilter = ref<PinFilter>({
-    scope: 'ALL',
-  })
+  const currentFilter = ref<PinFilter>({ scope: 'ALL' })
 
-  // Пагинация
-  const currentPage = ref(0)
+  // Размер страницы
   const pageSize = ref(15)
-  const totalPages = ref(0)
-  const totalElements = ref(0)
-
-  // Loading states
-  const isLoading = ref(false)
-  const isLoadingMore = ref(false)
-
-  // Feed пины (главная страница)
-  const feedPins = ref<PinWithBlob[]>([])
 
   // ============ GETTERS ============
 
-  const hasMore = computed(() => currentPage.value < totalPages.value - 1)
+  const activeFeed = computed(() => feeds.value.get(activeFeedType.value)!)
+
+  const feedPins = computed(() => activeFeed.value.pins)
+  const isLoading = computed(() => activeFeed.value.isLoading)
+  const hasMore = computed(() => activeFeed.value.hasMore)
+  const currentPage = computed(() => activeFeed.value.page)
 
   const getPinById = computed(() => (pinId: string) => {
     return pinsCache.value.get(pinId)
@@ -53,14 +70,12 @@ export const usePinsStore = defineStore('pins', () => {
   /**
    * Загрузка пинов с фильтром
    */
-  async function fetchPins(filter?: PinFilter, page = 0, size = 15) {
+  async function fetchPins(filter?: PinFilter, page = 0, size = 15, feedType: FeedType = 'all') {
     try {
-      isLoading.value = page === 0
-      isLoadingMore.value = page > 0
+      const feed = feeds.value.get(feedType)!
+      feed.isLoading = true
 
       if (filter) currentFilter.value = filter
-      currentPage.value = page
-      pageSize.value = size
 
       const response: PagePinResponse = await pinsApi.getPins(currentFilter.value, {
         page,
@@ -68,35 +83,44 @@ export const usePinsStore = defineStore('pins', () => {
         sort: ['createdAt,desc'],
       })
 
-      totalPages.value = response.totalPages
-      totalElements.value = response.totalElements
-
-      // Загружаем blob URLs для медиа
-      const pinsWithBlobs = await loadPinBlobs(response.content)
-
-      if (page === 0) {
-        feedPins.value = pinsWithBlobs
-      } else {
-        feedPins.value.push(...pinsWithBlobs)
-      }
+      // Загружаем blob URLs
+      const pinsWithBlobs = await loadPinsBlobsParallel(response.content)
 
       // Кэшируем пины
       pinsWithBlobs.forEach((pin) => {
         pinsCache.value.set(pin.id, pin)
       })
 
+      // Обновляем feed
+      if (page === 0) {
+        feed.pins = pinsWithBlobs
+      } else {
+        feed.pins.push(...pinsWithBlobs)
+      }
+
+      feed.page = response.number
+      feed.totalPages = response.totalPages
+      feed.totalElements = response.totalElements
+      feed.hasMore = !response.last
+
+      activeFeedType.value = feedType
+
       return pinsWithBlobs
     } catch (error) {
-      console.error('Failed to fetch pins:', error)
+      console.error('[Pins] Failed to fetch pins:', error)
       throw error
     } finally {
-      isLoading.value = false
-      isLoadingMore.value = false
+      const feed = feeds.value.get(feedType)!
+      feed.isLoading = false
     }
   }
 
+  /**
+   * Загрузка пина по ID
+   */
   async function fetchPinById(pinId: string, forceReload = false) {
     try {
+      // Проверяем кэш
       if (!forceReload && pinsCache.value.has(pinId)) {
         return pinsCache.value.get(pinId)!
       }
@@ -107,7 +131,7 @@ export const usePinsStore = defineStore('pins', () => {
       pinsCache.value.set(pinId, pinWithBlob)
       return pinWithBlob
     } catch (error) {
-      console.error('Failed to fetch pin:', error)
+      console.error('[Pins] Failed to fetch pin:', error)
       throw error
     }
   }
@@ -124,9 +148,7 @@ export const usePinsStore = defineStore('pins', () => {
     rgb?: string
   }) {
     try {
-      isLoading.value = true
-
-      // 1. Получаем размеры изображения/видео
+      // 1. Получаем размеры
       const isVideoFile = isVideo(data.file)
       let width: number | undefined
       let height: number | undefined
@@ -137,11 +159,11 @@ export const usePinsStore = defineStore('pins', () => {
           width = dimensions.width
           height = dimensions.height
         } catch (error) {
-          console.warn('Failed to get image dimensions:', error)
+          console.warn('[Pins] Failed to get image dimensions:', error)
         }
       }
 
-      // 2. Загружаем медиа в Storage Service
+      // 2. Загружаем медиа
       const uploadResponse = await storageApi.uploadImage({
         file: data.file,
         category: 'pins',
@@ -150,7 +172,7 @@ export const usePinsStore = defineStore('pins', () => {
         thumbnailHeight: 400,
       })
 
-      // 3. Создаем пин в Content Service
+      // 3. Создаем пин
       const pin = await pinsApi.create({
         imageId: uploadResponse.imageId,
         imageUrl: uploadResponse.imageUrl,
@@ -166,22 +188,24 @@ export const usePinsStore = defineStore('pins', () => {
         height,
         fileSize: uploadResponse.size,
         contentType: uploadResponse.contentType,
-        tags: data.tags, // Передаем массив напрямую
+        tags: data.tags,
       })
 
       // 4. Кэшируем
       const pinWithBlob = await loadPinBlob(pin)
       pinsCache.value.set(pin.id, pinWithBlob)
 
-      // 5. Добавляем в начало feed
-      feedPins.value.unshift(pinWithBlob)
+      // 5. Добавляем в feed "created" и "all"
+      const createdFeed = feeds.value.get('created')!
+      createdFeed.pins.unshift(pinWithBlob)
+
+      const allFeed = feeds.value.get('all')!
+      allFeed.pins.unshift(pinWithBlob)
 
       return pinWithBlob
     } catch (error) {
-      console.error('Failed to create pin:', error)
+      console.error('[Pins] Failed to create pin:', error)
       throw error
-    } finally {
-      isLoading.value = false
     }
   }
 
@@ -198,28 +222,20 @@ export const usePinsStore = defineStore('pins', () => {
     },
   ) {
     try {
-      const updated = await pinsApi.update(pinId, {
-        title: data.title,
-        description: data.description,
-        href: data.href,
-        tags: data.tags, // Передаем массив напрямую
-      })
+      const updated = await pinsApi.update(pinId, data)
 
-      // Обновляем кэш
+      // Обновляем кэш (сохраняем blob URLs)
       const cached = pinsCache.value.get(pinId)
       if (cached) {
-        pinsCache.value.set(pinId, { ...cached, ...updated })
-      }
-
-      // Обновляем в feed
-      const index = feedPins.value.findIndex((p) => p.id === pinId)
-      if (index !== -1) {
-        feedPins.value[index] = { ...feedPins.value[index], ...updated }
+        pinsCache.value.set(pinId, {
+          ...cached,
+          ...updated,
+        })
       }
 
       return updated
     } catch (error) {
-      console.error('Failed to update pin:', error)
+      console.error('[Pins] Failed to update pin:', error)
       throw error
     }
   }
@@ -231,61 +247,62 @@ export const usePinsStore = defineStore('pins', () => {
     try {
       await pinsApi.delete(pinId)
 
-      // Удаляем из кэша
+      // Очищаем blob URLs
       const cached = pinsCache.value.get(pinId)
       if (cached) {
-        if (cached.imageBlobUrl) URL.revokeObjectURL(cached.imageBlobUrl)
-        if (cached.videoBlobUrl) URL.revokeObjectURL(cached.videoBlobUrl)
+        cleanupPinBlobs(cached)
         pinsCache.value.delete(pinId)
       }
 
-      // Удаляем из feed
-      feedPins.value = feedPins.value.filter((p) => p.id !== pinId)
+      // Удаляем из всех feeds
+      feeds.value.forEach((feed) => {
+        feed.pins = feed.pins.filter((p) => p.id !== pinId)
+      })
     } catch (error) {
-      console.error('Failed to delete pin:', error)
+      console.error('[Pins] Failed to delete pin:', error)
       throw error
     }
   }
 
   /**
-   * Like пина
+   * Лайк пина
    */
   async function likePin(pinId: string) {
     try {
-      await likesApi.likePin(pinId)
-
       // Оптимистичное обновление
       updatePinInCache(pinId, (pin) => ({
         ...pin,
         isLiked: true,
         likeCount: pin.likeCount + 1,
       }))
+
+      await likesApi.likePin(pinId)
     } catch (error) {
-      console.error('Failed to like pin:', error)
-      // Откатываем
+      console.error('[Pins] Failed to like pin:', error)
+      // Откат
       updatePinInCache(pinId, (pin) => ({
         ...pin,
         isLiked: false,
-        likeCount: pin.likeCount - 1,
+        likeCount: Math.max(0, pin.likeCount - 1),
       }))
       throw error
     }
   }
 
   /**
-   * Unlike пина
+   * Убрать лайк
    */
   async function unlikePin(pinId: string) {
     try {
-      await likesApi.unlikePin(pinId)
-
       updatePinInCache(pinId, (pin) => ({
         ...pin,
         isLiked: false,
         likeCount: Math.max(0, pin.likeCount - 1),
       }))
+
+      await likesApi.unlikePin(pinId)
     } catch (error) {
-      console.error('Failed to unlike pin:', error)
+      console.error('[Pins] Failed to unlike pin:', error)
       updatePinInCache(pinId, (pin) => ({
         ...pin,
         isLiked: true,
@@ -296,42 +313,53 @@ export const usePinsStore = defineStore('pins', () => {
   }
 
   /**
-   * Save пина
+   * Сохранить пин
    */
   async function savePin(pinId: string) {
     try {
-      await savedPinsApi.save(pinId)
-
       updatePinInCache(pinId, (pin) => ({
         ...pin,
         isSaved: true,
         saveCount: pin.saveCount + 1,
       }))
+
+      await savedPinsApi.save(pinId)
+
+      // Добавляем в saved feed
+      const pin = pinsCache.value.get(pinId)
+      if (pin) {
+        const savedFeed = feeds.value.get('saved')!
+        savedFeed.pins.unshift(pin)
+      }
     } catch (error) {
-      console.error('Failed to save pin:', error)
-      updatePinInCache(pinId, (pin) => ({
-        ...pin,
-        isSaved: false,
-        saveCount: pin.saveCount - 1,
-      }))
-      throw error
-    }
-  }
-
-  /**
-   * Unsave пина
-   */
-  async function unsavePin(pinId: string) {
-    try {
-      await savedPinsApi.unsave(pinId)
-
+      console.error('[Pins] Failed to save pin:', error)
       updatePinInCache(pinId, (pin) => ({
         ...pin,
         isSaved: false,
         saveCount: Math.max(0, pin.saveCount - 1),
       }))
+      throw error
+    }
+  }
+
+  /**
+   * Убрать из сохраненных
+   */
+  async function unsavePin(pinId: string) {
+    try {
+      updatePinInCache(pinId, (pin) => ({
+        ...pin,
+        isSaved: false,
+        saveCount: Math.max(0, pin.saveCount - 1),
+      }))
+
+      await savedPinsApi.unsave(pinId)
+
+      // Удаляем из saved feed
+      const savedFeed = feeds.value.get('saved')!
+      savedFeed.pins = savedFeed.pins.filter((p) => p.id !== pinId)
     } catch (error) {
-      console.error('Failed to unsave pin:', error)
+      console.error('[Pins] Failed to unsave pin:', error)
       updatePinInCache(pinId, (pin) => ({
         ...pin,
         isSaved: true,
@@ -342,40 +370,62 @@ export const usePinsStore = defineStore('pins', () => {
   }
 
   /**
-   * Поиск по тегу
+   * Загрузка следующей страницы
    */
-  async function searchByTag(tagName: string, page = 0) {
-    return fetchPins({ tags: [tagName], scope: 'ALL' }, page)
+  async function loadMore() {
+    const feed = activeFeed.value
+    if (!feed.hasMore) return
+
+    await fetchPins(currentFilter.value, feed.page + 1, pageSize.value, activeFeedType.value)
   }
 
   /**
-   * Поиск по тексту
+   * Переключение feed
    */
-  async function searchByQuery(query: string, page = 0) {
-    return fetchPins({ q: query, scope: 'ALL' }, page)
-  }
+  async function switchFeed(feedType: FeedType, filter?: PinFilter) {
+    activeFeedType.value = feedType
 
-  /**
-   * Related пины (похожие по тегам)
-   */
-  async function fetchRelatedPins(pinId: string, page = 0) {
-    return fetchPins({ relatedTo: pinId, scope: 'RELATED' }, page)
+    const feed = feeds.value.get(feedType)!
+
+    // Если feed пустой - загружаем
+    if (feed.pins.length === 0) {
+      const feedFilter = filter || getFeedFilter(feedType)
+      await fetchPins(feedFilter, 0, pageSize.value, feedType)
+    }
   }
 
   /**
    * Сброс feed
    */
-  function resetFeed() {
-    feedPins.value = []
-    currentPage.value = 0
-    totalPages.value = 0
-    totalElements.value = 0
+  function resetFeed(feedType?: FeedType) {
+    if (feedType) {
+      feeds.value.set(feedType, createEmptyFeed())
+    } else {
+      feeds.value.forEach((feed, type) => {
+        feeds.value.set(type, createEmptyFeed())
+      })
+    }
+  }
+
+  /**
+   * Очистка всего
+   */
+  function cleanup() {
+    // Cleanup blob URLs
+    pinsCache.value.forEach((pin) => {
+      cleanupPinBlobs(pin)
+    })
+
+    pinsCache.value.clear()
+    feeds.value.forEach((feed) => {
+      feed.pins = []
+    })
   }
 
   // ============ HELPERS ============
 
   /**
-   * Загрузка blob URL для одного пина
+   * Загрузка blob URL для пина
    */
   async function loadPinBlob(pin: PinResponse): Promise<PinWithBlob> {
     const pinWithBlob: PinWithBlob = { ...pin }
@@ -394,68 +444,88 @@ export const usePinsStore = defineStore('pins', () => {
         pinWithBlob.isVideo = true
       }
     } catch (error) {
-      console.error(`Failed to load media for pin ${pin.id}:`, error)
-      // Fallback image
-      pinWithBlob.imageBlobUrl =
-        'https://i.pinimg.com/736x/6c/a8/05/6ca805efcc51ff2366298781aecde4ae.jpg'
-      pinWithBlob.isImage = true
+      console.error(`[Pins] Failed to load media for pin ${pin.id}:`, error)
+      // Не используем fallback - просто возвращаем пин без blob
     }
 
     return pinWithBlob
   }
 
   /**
-   * Загрузка blob URLs для нескольких пинов
+   * Загрузка blob URLs параллельно
    */
-  async function loadPinBlobs(pins: PinResponse[]): Promise<PinWithBlob[]> {
+  async function loadPinsBlobsParallel(pins: PinResponse[]): Promise<PinWithBlob[]> {
     return Promise.all(pins.map(loadPinBlob))
   }
 
   /**
-   * Обновление пина в кэше и feed
+   * Очистка blob URLs пина
    */
-  function updatePinInCache(pinId: string, updater: (pin: PinWithBlob) => PinWithBlob) {
-    // Обновляем кэш
-    const cached = pinsCache.value.get(pinId)
-    if (cached) {
-      pinsCache.value.set(pinId, updater(cached))
+  function cleanupPinBlobs(pin: PinWithBlob) {
+    if (pin.imageBlobUrl) {
+      URL.revokeObjectURL(pin.imageBlobUrl)
     }
-
-    // Обновляем feed
-    const index = feedPins.value.findIndex((p) => p.id === pinId)
-    if (index !== -1) {
-      const pin = feedPins.value[index]
-      if (pin) {
-        feedPins.value[index] = updater(pin)
-      }
+    if (pin.videoBlobUrl) {
+      URL.revokeObjectURL(pin.videoBlobUrl)
     }
   }
 
   /**
-   * Cleanup blob URLs
+   * Обновление пина в кэше
    */
-  function cleanup() {
-    pinsCache.value.forEach((pin) => {
-      if (pin.imageBlobUrl) URL.revokeObjectURL(pin.imageBlobUrl)
-      if (pin.videoBlobUrl) URL.revokeObjectURL(pin.videoBlobUrl)
-    })
-    pinsCache.value.clear()
-    feedPins.value = []
+  function updatePinInCache(pinId: string, updater: (pin: PinWithBlob) => PinWithBlob) {
+    const cached = pinsCache.value.get(pinId)
+    if (cached) {
+      pinsCache.value.set(pinId, updater(cached))
+    }
+  }
+
+  /**
+   * Создание пустого feed
+   */
+  function createEmptyFeed(): PinFeed {
+    return {
+      pins: [],
+      page: 0,
+      totalPages: 0,
+      totalElements: 0,
+      hasMore: true,
+      isLoading: false,
+    }
+  }
+
+  /**
+   * Получить фильтр для feed типа
+   */
+  function getFeedFilter(feedType: FeedType): PinFilter {
+    switch (feedType) {
+      case 'all':
+        return { scope: 'ALL' }
+      case 'created':
+        return { scope: 'CREATED' }
+      case 'saved':
+        return { scope: 'SAVED' }
+      case 'liked':
+        return { scope: 'LIKED' }
+      default:
+        return { scope: 'ALL' }
+    }
   }
 
   return {
     // State
     pinsCache,
-    feedPins,
+    feeds,
+    activeFeedType,
     currentFilter,
-    currentPage,
-    totalPages,
-    totalElements,
-    isLoading,
-    isLoadingMore,
+    pageSize,
 
     // Getters
+    activeFeed,
+    feedPins,
+    isLoading,
     hasMore,
+    currentPage,
     getPinById,
 
     // Actions
@@ -468,9 +538,8 @@ export const usePinsStore = defineStore('pins', () => {
     unlikePin,
     savePin,
     unsavePin,
-    searchByTag,
-    searchByQuery,
-    fetchRelatedPins,
+    loadMore,
+    switchFeed,
     resetFeed,
     cleanup,
   }

@@ -2,19 +2,21 @@
 import { createPinia } from 'pinia'
 import type { App } from 'vue'
 
-// Создаем Pinia instance
 export const pinia = createPinia()
 
-// Setup функция для регистрации в app
 export function setupStores(app: App) {
   app.use(pinia)
 }
 
-// Re-export всех stores
+// Re-export all stores
 export { useAuthStore } from './auth.store'
+export { useUserStore } from './user.store'
 export { usePinsStore } from './pins.store'
 export { useBoardsStore } from './boards.store'
 export { useSelectedBoardStore } from './selectedBoard.store'
+export { useCommentsStore } from './comments.store'
+export { useSubscriptionsStore } from './subscriptions.store'
+export { useTagsStore } from './tags.store'
 export { useUIStore } from './ui.store'
 
 // Позже добавятся:

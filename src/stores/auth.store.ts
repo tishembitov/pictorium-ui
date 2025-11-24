@@ -2,214 +2,103 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type Keycloak from 'keycloak-js'
-import type { User } from '@/types'
-import { usersApi } from '@/api/users.api'
-import { storageApi } from '@/api/storage.api'
 
 export const useAuthStore = defineStore('auth', () => {
   // ============ STATE ============
+
   const keycloak = ref<Keycloak | null>(null)
   const isAuthenticated = ref(false)
   const isInitialized = ref(false)
-
-  // User data
-  const user = ref<User | null>(null)
-  const userImage = ref<string | null>(null)
-  const bannerImage = ref<string | null>(null)
-
-  // Loading states
-  const loading = ref(false)
-  const isLoadingProfile = ref(true)
+  const isInitializing = ref(false)
 
   // ============ GETTERS ============
-  const userId = computed(() => user.value?.id || null)
-  const username = computed(() => user.value?.username || null)
-  const email = computed(() => user.value?.email || null)
+
+  const token = computed(() => keycloak.value?.token || null)
+  const refreshToken = computed(() => keycloak.value?.refreshToken || null)
+  const idToken = computed(() => keycloak.value?.idToken || null)
+
+  const tokenParsed = computed(() => keycloak.value?.tokenParsed || null)
+  const userId = computed(() => tokenParsed.value?.sub || null)
+  const userEmail = computed(() => tokenParsed.value?.email || null)
+  const preferredUsername = computed(() => tokenParsed.value?.preferred_username || null)
+
   const hasRole = computed(() => (role: string) => {
     return keycloak.value?.hasRealmRole(role) || false
   })
+
+  const hasRealmRole = computed(() => (role: string) => {
+    return keycloak.value?.hasRealmRole(role) || false
+  })
+
+  const hasResourceRole = computed(() => (role: string, resource: string) => {
+    return keycloak.value?.hasResourceRole(role, resource) || false
+  })
+
   const isAdmin = computed(() => hasRole.value('admin'))
-  const token = computed(() => keycloak.value?.token || null)
-  const refreshToken = computed(() => keycloak.value?.refreshToken || null)
+  const isModerator = computed(() => hasRole.value('moderator'))
+
+  const realmAccess = computed(() => tokenParsed.value?.realm_access || null)
+  const resourceAccess = computed(() => tokenParsed.value?.resource_access || null)
+
+  const allRoles = computed(() => {
+    const roles: string[] = []
+
+    // Realm roles
+    if (realmAccess.value?.roles) {
+      roles.push(...realmAccess.value.roles)
+    }
+
+    // Resource roles
+    if (resourceAccess.value) {
+      Object.values(resourceAccess.value).forEach((resource: any) => {
+        if (resource.roles) {
+          roles.push(...resource.roles)
+        }
+      })
+    }
+
+    return [...new Set(roles)] // Remove duplicates
+  })
 
   // ============ ACTIONS ============
 
   /**
-   * Инициализация Keycloak и загрузка профиля
+   * Инициализация Keycloak
    */
   async function initKeycloak(keycloakInstance: Keycloak) {
     try {
+      isInitializing.value = true
       keycloak.value = keycloakInstance
       isAuthenticated.value = keycloakInstance.authenticated || false
       isInitialized.value = true
 
-      if (isAuthenticated.value) {
-        await loadUserProfile()
-      }
+      console.log('[Auth] Keycloak initialized:', {
+        authenticated: isAuthenticated.value,
+        userId: userId.value,
+        roles: allRoles.value,
+      })
     } catch (error) {
-      console.error('Failed to initialize Keycloak:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Загрузка профиля текущего пользователя
-   */
-  async function loadUserProfile() {
-    try {
-      isLoadingProfile.value = true
-
-      // Получаем данные пользователя из User Service
-      const userData = await usersApi.getCurrentUser()
-      user.value = userData
-
-      // Загружаем изображения параллельно
-      await Promise.allSettled([
-        loadUserImage(userData.imageUrl),
-        loadBannerImage(userData.bannerImageUrl),
-      ])
-    } catch (error) {
-      console.error('Failed to load user profile:', error)
+      console.error('[Auth] Failed to initialize Keycloak:', error)
       throw error
     } finally {
-      isLoadingProfile.value = false
+      isInitializing.value = false
     }
   }
 
-  /**
-   * Загрузка аватара пользователя
-   */
-  async function loadUserImage(imageId: string | null) {
-    try {
-      if (!imageId) return
-
-      const blob = await storageApi.downloadImage(imageId)
-      userImage.value = URL.createObjectURL(blob)
-    } catch (error) {
-      console.error('Failed to load user image:', error)
-      userImage.value = null
-    }
-  }
-
-  /**
-   * Загрузка баннера пользователя
-   */
-  async function loadBannerImage(imageId: string | null) {
-    try {
-      if (!imageId) return
-
-      const blob = await storageApi.downloadImage(imageId)
-      bannerImage.value = URL.createObjectURL(blob)
-    } catch (error) {
-      console.error('Failed to load banner image:', error)
-      bannerImage.value = null
-    }
-  }
-
-  /**
-   * Обновление профиля
-   */
-  async function updateProfile(data: {
-    username?: string
-    description?: string
-    instagram?: string
-    tiktok?: string
-    telegram?: string
-    pinterest?: string
-  }) {
-    try {
-      loading.value = true
-      const updated = await usersApi.updateUser(data)
-      user.value = updated
-      return updated
-    } catch (error) {
-      console.error('Failed to update profile:', error)
-      throw error
-    } finally {
-      loading.value = false
-    }
-  }
-
-  /**
-   * Загрузка нового аватара
-   */
-  async function uploadAvatar(file: File) {
-    try {
-      loading.value = true
-
-      // 1. Загружаем в Storage Service
-      const uploadResponse = await storageApi.uploadImage({
-        file,
-        category: 'avatars',
-        generateThumbnail: true,
-        thumbnailWidth: 200,
-        thumbnailHeight: 200,
-      })
-
-      // 2. Обновляем профиль с новым imageId и imageUrl
-      const updated = await usersApi.updateUser({
-        imageId: uploadResponse.imageId, // ДОБАВЛЕНО
-        imageUrl: uploadResponse.imageUrl, // Уже было
-      })
-
-      user.value = updated
-
-      // 3. Обновляем локальный blob
-      if (userImage.value) {
-        URL.revokeObjectURL(userImage.value)
-      }
-      userImage.value = URL.createObjectURL(file)
-
-      return uploadResponse
-    } catch (error) {
-      console.error('Failed to upload avatar:', error)
-      throw error
-    } finally {
-      loading.value = false
-    }
-  }
-
-  /**
-   * Загрузка нового баннера
-   */
-  async function uploadBanner(file: File) {
-    try {
-      loading.value = true
-
-      const uploadResponse = await storageApi.uploadImage({
-        file,
-        category: 'banners',
-        generateThumbnail: false,
-      })
-
-      const updated = await usersApi.updateUser({
-        bannerImageId: uploadResponse.imageId, // ДОБАВЛЕНО
-        bannerImageUrl: uploadResponse.imageUrl, // Уже было
-      })
-
-      user.value = updated
-
-      if (bannerImage.value) {
-        URL.revokeObjectURL(bannerImage.value)
-      }
-      bannerImage.value = URL.createObjectURL(file)
-
-      return uploadResponse
-    } catch (error) {
-      console.error('Failed to upload banner:', error)
-      throw error
-    } finally {
-      loading.value = false
-    }
-  }
   /**
    * Login через Keycloak
    */
-  async function login() {
+  async function login(redirectUri?: string) {
     try {
-      await keycloak.value?.login()
+      if (!keycloak.value) {
+        throw new Error('Keycloak not initialized')
+      }
+
+      await keycloak.value.login({
+        redirectUri: redirectUri || window.location.origin,
+      })
     } catch (error) {
-      console.error('Login failed:', error)
+      console.error('[Auth] Login failed:', error)
       throw error
     }
   }
@@ -217,22 +106,21 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Logout
    */
-  async function logout() {
+  async function logout(redirectUri?: string) {
     try {
-      // Очищаем blob URLs
-      if (userImage.value) URL.revokeObjectURL(userImage.value)
-      if (bannerImage.value) URL.revokeObjectURL(bannerImage.value)
+      if (!keycloak.value) {
+        throw new Error('Keycloak not initialized')
+      }
 
       // Сбрасываем state
-      user.value = null
-      userImage.value = null
-      bannerImage.value = null
       isAuthenticated.value = false
 
       // Выходим из Keycloak
-      await keycloak.value?.logout()
+      await keycloak.value.logout({
+        redirectUri: redirectUri || window.location.origin,
+      })
     } catch (error) {
-      console.error('Logout failed:', error)
+      console.error('[Auth] Logout failed:', error)
       throw error
     }
   }
@@ -240,24 +128,126 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Обновление токена
    */
-  async function updateToken(minValidity = 5) {
+  async function updateToken(minValidity = 5): Promise<boolean> {
     try {
-      const refreshed = await keycloak.value?.updateToken(minValidity)
+      if (!keycloak.value) {
+        console.warn('[Auth] Keycloak not initialized')
+        return false
+      }
+
+      const refreshed = await keycloak.value.updateToken(minValidity)
+
+      if (refreshed) {
+        console.log('[Auth] Token refreshed successfully')
+      }
+
       return refreshed
     } catch (error) {
-      console.error('Token update failed:', error)
+      console.error('[Auth] Token update failed:', error)
+      // Если не удалось обновить токен - разлогиниваем
       await logout()
       throw error
     }
   }
 
   /**
-   * Проверка авторизации (для guards)
+   * Проверка валидности токена
    */
-  async function checkAuth() {
-    if (isAuthenticated.value && !user.value) {
-      await loadUserProfile()
+  function isTokenExpired(): boolean {
+    if (!keycloak.value) return true
+    return keycloak.value.isTokenExpired()
+  }
+
+  /**
+   * Загрузка профиля из Keycloak
+   */
+  async function loadKeycloakProfile() {
+    try {
+      if (!keycloak.value) {
+        throw new Error('Keycloak not initialized')
+      }
+
+      const profile = await keycloak.value.loadUserProfile()
+      console.log('[Auth] Keycloak profile loaded:', profile)
+      return profile
+    } catch (error) {
+      console.error('[Auth] Failed to load Keycloak profile:', error)
+      throw error
     }
+  }
+
+  /**
+   * Регистрация нового пользователя
+   */
+  async function register(redirectUri?: string) {
+    try {
+      if (!keycloak.value) {
+        throw new Error('Keycloak not initialized')
+      }
+
+      await keycloak.value.register({
+        redirectUri: redirectUri || window.location.origin,
+      })
+    } catch (error) {
+      console.error('[Auth] Registration failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Управление аккаунтом Keycloak
+   */
+  async function accountManagement() {
+    try {
+      if (!keycloak.value) {
+        throw new Error('Keycloak not initialized')
+      }
+
+      await keycloak.value.accountManagement()
+    } catch (error) {
+      console.error('[Auth] Account management failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Проверка аутентификации (для guards)
+   */
+  function checkAuth(): boolean {
+    if (!keycloak.value || !isInitialized.value) {
+      console.warn('[Auth] Keycloak not initialized')
+      return false
+    }
+
+    return isAuthenticated.value
+  }
+
+  /**
+   * Проверка разрешения (permission-based)
+   */
+  function hasPermission(permission: string): boolean {
+    // Можно расширить логику проверки разрешений
+    // Например, через mapping ролей на разрешения
+    return allRoles.value.includes(permission)
+  }
+
+  /**
+   * Получить время истечения токена
+   */
+  function getTokenExpirationTime(): Date | null {
+    if (!tokenParsed.value?.exp) return null
+    return new Date(tokenParsed.value.exp * 1000)
+  }
+
+  /**
+   * Получить время до истечения токена (в секундах)
+   */
+  function getTimeToExpiration(): number | null {
+    const expirationTime = getTokenExpirationTime()
+    if (!expirationTime) return null
+
+    const now = new Date()
+    return Math.floor((expirationTime.getTime() - now.getTime()) / 1000)
   }
 
   /**
@@ -267,11 +257,7 @@ export const useAuthStore = defineStore('auth', () => {
     keycloak.value = null
     isAuthenticated.value = false
     isInitialized.value = false
-    user.value = null
-    userImage.value = null
-    bannerImage.value = null
-    loading.value = false
-    isLoadingProfile.value = true
+    isInitializing.value = false
   }
 
   return {
@@ -279,31 +265,38 @@ export const useAuthStore = defineStore('auth', () => {
     keycloak,
     isAuthenticated,
     isInitialized,
-    user,
-    userImage,
-    bannerImage,
-    loading,
-    isLoadingProfile,
+    isInitializing,
 
     // Getters
-    userId,
-    username,
-    email,
-    hasRole,
-    isAdmin,
     token,
     refreshToken,
+    idToken,
+    tokenParsed,
+    userId,
+    userEmail,
+    preferredUsername,
+    hasRole,
+    hasRealmRole,
+    hasResourceRole,
+    isAdmin,
+    isModerator,
+    realmAccess,
+    resourceAccess,
+    allRoles,
 
     // Actions
     initKeycloak,
-    loadUserProfile,
-    updateProfile,
-    uploadAvatar,
-    uploadBanner,
     login,
     logout,
+    register,
     updateToken,
+    isTokenExpired,
+    loadKeycloakProfile,
+    accountManagement,
     checkAuth,
+    hasPermission,
+    getTokenExpirationTime,
+    getTimeToExpiration,
     $reset,
   }
 })

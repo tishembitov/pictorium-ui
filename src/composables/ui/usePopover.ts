@@ -1,12 +1,5 @@
 // src/composables/ui/usePopover.ts
-/**
- * usePopover - Popover positioning
- *
- * Использует utils/positioning.ts для расчетов
- * Добавляет reactive state и lifecycle management
- */
-
-import { ref, unref, nextTick, watch, type Ref } from 'vue'
+import { ref, unref, nextTick, watch, onUnmounted, type Ref } from 'vue'
 import { calculatePopoverPosition, applyPosition, type PopoverPosition } from '@/utils/positioning'
 
 export interface PopoverOptions {
@@ -53,12 +46,26 @@ export function usePopover(
     isOpen.value ? close() : open()
   }
 
-  // Click outside
-  if (closeOnClickOutside) {
-    watch(isOpen, (open) => {
-      if (!open) return
+  // ✅ ИСПРАВЛЕНО: правильный cleanup
+  let clickOutsideHandler: ((e: MouseEvent) => void) | undefined
+  let escapeHandler: ((e: KeyboardEvent) => void) | undefined
 
-      const handler = (e: MouseEvent) => {
+  watch(isOpen, (open) => {
+    // Cleanup previous handlers
+    if (clickOutsideHandler) {
+      document.removeEventListener('click', clickOutsideHandler)
+      clickOutsideHandler = undefined
+    }
+    if (escapeHandler) {
+      document.removeEventListener('keydown', escapeHandler)
+      escapeHandler = undefined
+    }
+
+    if (!open) return
+
+    // Click outside
+    if (closeOnClickOutside) {
+      clickOutsideHandler = (e: MouseEvent) => {
         const trigger = unref(triggerRef)
         const popover = unref(popoverRef)
         const target = e.target as Node
@@ -66,25 +73,32 @@ export function usePopover(
         if (trigger?.contains(target) || popover?.contains(target)) return
         close()
       }
+      // Delay to prevent immediate close on open click
+      setTimeout(() => {
+        if (clickOutsideHandler) {
+          document.addEventListener('click', clickOutsideHandler)
+        }
+      }, 0)
+    }
 
-      setTimeout(() => document.addEventListener('click', handler), 0)
-      return () => document.removeEventListener('click', handler)
-    })
-  }
-
-  // Escape key
-  if (closeOnEscape) {
-    watch(isOpen, (open) => {
-      if (!open) return
-
-      const handler = (e: KeyboardEvent) => {
+    // Escape key
+    if (closeOnEscape) {
+      escapeHandler = (e: KeyboardEvent) => {
         if (e.key === 'Escape') close()
       }
+      document.addEventListener('keydown', escapeHandler)
+    }
+  })
 
-      document.addEventListener('keydown', handler)
-      return () => document.removeEventListener('keydown', handler)
-    })
-  }
+  // Cleanup on unmount
+  onUnmounted(() => {
+    if (clickOutsideHandler) {
+      document.removeEventListener('click', clickOutsideHandler)
+    }
+    if (escapeHandler) {
+      document.removeEventListener('keydown', escapeHandler)
+    }
+  })
 
   return { isOpen, open, close, toggle, updatePosition }
 }
@@ -132,22 +146,26 @@ export function useTooltip(
     isVisible.value = false
   }
 
-  // Event listeners
+  // ✅ ИСПРАВЛЕНО: правильный cleanup
   watch(
     targetRef,
-    (target) => {
+    (target, _, onCleanup) => {
       if (!target) return
 
       target.addEventListener('mouseenter', show)
       target.addEventListener('mouseleave', hide)
 
-      return () => {
+      onCleanup(() => {
         target.removeEventListener('mouseenter', show)
         target.removeEventListener('mouseleave', hide)
-      }
+      })
     },
     { immediate: true },
   )
+
+  onUnmounted(() => {
+    if (showTimeout) clearTimeout(showTimeout)
+  })
 
   return { isVisible, show, hide }
 }

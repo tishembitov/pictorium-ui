@@ -1,11 +1,5 @@
 // src/composables/ui/useConfirm.ts
-/**
- * useConfirm - Confirmation dialogs
- *
- * Уникальный composable - нет аналога в stores/utils
- */
-
-import { ref, type Ref } from 'vue'
+import { ref, type Ref, shallowRef } from 'vue'
 
 export interface ConfirmOptions {
   title?: string
@@ -21,14 +15,21 @@ interface ConfirmState {
   resolve: ((value: boolean) => void) | null
 }
 
-// Singleton state для глобального доступа
-const state: Ref<ConfirmState> = ref({
-  isOpen: false,
-  options: null,
-  resolve: null,
-})
+// ✅ SSR-safe: создаём state лениво
+let globalState: Ref<ConfirmState> | null = null
+
+function getState(): Ref<ConfirmState> {
+  globalState ??= ref({
+    isOpen: false,
+    options: null,
+    resolve: null,
+  })
+  return globalState
+}
 
 export function useConfirm() {
+  const state = getState()
+
   const confirm = (options: ConfirmOptions): Promise<boolean> => {
     return new Promise((resolve) => {
       state.value = {
@@ -47,12 +48,20 @@ export function useConfirm() {
 
   const handleConfirm = () => {
     state.value.resolve?.(true)
-    state.value.isOpen = false
+    close()
   }
 
   const handleCancel = () => {
     state.value.resolve?.(false)
-    state.value.isOpen = false
+    close()
+  }
+
+  const close = () => {
+    state.value = {
+      isOpen: false,
+      options: null,
+      resolve: null,
+    }
   }
 
   return {
@@ -60,6 +69,7 @@ export function useConfirm() {
     confirm,
     handleConfirm,
     handleCancel,
+    close,
   }
 }
 

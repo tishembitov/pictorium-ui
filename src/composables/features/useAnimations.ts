@@ -3,11 +3,9 @@
  * useAnimations - Like/Save animations
  *
  * Reactive обертки над utils/animations.ts
- * Добавляют isAnimating state и lifecycle management
  */
 
 import { ref, unref, watch, onUnmounted, type Ref } from 'vue'
-import { flashAnimation, glowEffect, scaleUp, scaleDown, bounce } from '@/utils/animations'
 
 /**
  * useLikeAnimation - Heart animation для лайков
@@ -21,11 +19,21 @@ export function useLikeAnimation(elementRef: Ref<HTMLElement | null>) {
 
     isAnimating.value = true
 
-    flashAnimation(el, 500)
-    scaleUp(el, 1.2, 150)
+    // Добавляем CSS класс для анимации
+    el.classList.add('like-animation')
 
-    setTimeout(() => scaleDown(el, 150), 150)
+    // Scale up then down
+    el.style.transition = 'transform 150ms ease-out'
+    el.style.transform = 'scale(1.2)'
+
     setTimeout(() => {
+      el.style.transform = 'scale(1)'
+    }, 150)
+
+    setTimeout(() => {
+      el.classList.remove('like-animation')
+      el.style.transition = ''
+      el.style.transform = ''
       isAnimating.value = false
     }, 500)
   }
@@ -37,21 +45,36 @@ export function useLikeAnimation(elementRef: Ref<HTMLElement | null>) {
  * useHeartBurst - Double-tap heart effect
  */
 export function useHeartBurst(containerRef: Ref<HTMLElement | null>) {
+  const hearts: HTMLElement[] = []
+
   const burst = (x?: number, y?: number) => {
     const container = unref(containerRef)
     if (!container) return
 
     const heart = document.createElement('div')
     heart.innerHTML = '❤️'
-    heart.className = 'absolute text-6xl pointer-events-none z-50 animate-heart-burst'
-    heart.style.left = x !== undefined ? `${x}px` : '50%'
-    heart.style.top = y !== undefined ? `${y}px` : '50%'
-
-    if (x === undefined) heart.style.transform = 'translate(-50%, -50%)'
+    heart.className = 'absolute text-6xl pointer-events-none z-50'
+    heart.style.cssText = `
+      left: ${x !== undefined ? `${x}px` : '50%'};
+      top: ${y !== undefined ? `${y}px` : '50%'};
+      transform: ${x === undefined ? 'translate(-50%, -50%)' : 'none'};
+      animation: heart-burst 1s ease-out forwards;
+    `
 
     container.appendChild(heart)
-    setTimeout(() => heart.remove(), 1000)
+    hearts.push(heart)
+
+    setTimeout(() => {
+      heart.remove()
+      const index = hearts.indexOf(heart)
+      if (index > -1) hearts.splice(index, 1)
+    }, 1000)
   }
+
+  // Cleanup
+  onUnmounted(() => {
+    hearts.forEach((heart) => heart.remove())
+  })
 
   return { burst }
 }
@@ -65,6 +88,7 @@ export function useDoubleTap(
   delay = 300,
 ) {
   let lastTap = 0
+  let cleanup: (() => void) | undefined
 
   const handleTap = (e: MouseEvent | TouchEvent) => {
     const now = Date.now()
@@ -83,7 +107,7 @@ export function useDoubleTap(
       if (!el) return
 
       el.addEventListener('click', handleTap)
-      el.addEventListener('touchend', handleTap)
+      el.addEventListener('touchend', handleTap, { passive: false })
 
       onCleanup(() => {
         el.removeEventListener('click', handleTap)
@@ -105,8 +129,10 @@ export function useSaveAnimation(elementRef: Ref<HTMLElement | null>) {
     if (!el || isAnimating.value) return
 
     isAnimating.value = true
-    bounce(el, 500)
+    el.classList.add('bounce-animation')
+
     setTimeout(() => {
+      el.classList.remove('bounce-animation')
       isAnimating.value = false
     }, 500)
   }
@@ -125,14 +151,49 @@ export function useCommentLikeAnimation(elementRef: Ref<HTMLElement | null>) {
     if (!el || isAnimating.value) return
 
     isAnimating.value = true
-    glowEffect(el, 300)
-    scaleUp(el, 1.1, 100)
 
-    setTimeout(() => scaleDown(el, 100), 100)
+    el.style.transition = 'transform 100ms ease-out, filter 300ms ease-out'
+    el.style.transform = 'scale(1.1)'
+    el.style.filter = 'drop-shadow(0 0 4px currentColor)'
+
     setTimeout(() => {
+      el.style.transform = 'scale(1)'
+    }, 100)
+
+    setTimeout(() => {
+      el.style.transition = ''
+      el.style.transform = ''
+      el.style.filter = ''
       isAnimating.value = false
     }, 300)
   }
 
   return { isAnimating, animate }
+}
+
+/**
+ * usePulseAnimation - Generic pulse для loading states
+ */
+export function usePulseAnimation(elementRef: Ref<HTMLElement | null>) {
+  const isAnimating = ref(false)
+
+  const start = () => {
+    const el = unref(elementRef)
+    if (!el) return
+
+    isAnimating.value = true
+    el.classList.add('animate-pulse')
+  }
+
+  const stop = () => {
+    const el = unref(elementRef)
+    if (!el) return
+
+    isAnimating.value = false
+    el.classList.remove('animate-pulse')
+  }
+
+  onUnmounted(stop)
+
+  return { isAnimating, start, stop }
 }

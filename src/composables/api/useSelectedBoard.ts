@@ -1,32 +1,27 @@
 // src/composables/api/useSelectedBoard.ts
+/**
+ * useSelectedBoard - Выбранная доска для сохранения пинов
+ */
+
 import { computed } from 'vue'
 import { useSelectedBoardStore } from '@/stores/boards.store'
+import type { Board } from '@/types'
 
 export function useSelectedBoard() {
   const store = useSelectedBoardStore()
 
-  const board = computed(() => store.selectedBoard)
-  const hasSelected = computed(() => store.hasSelectedBoard)
-  const isLoading = computed(() => store.isLoading)
-
-  async function fetch() {
-    return await store.fetchSelectedBoard()
-  }
-
-  async function select(boardId: string) {
-    return await store.selectBoard(boardId)
-  }
-
-  async function deselect() {
-    return await store.deselectBoard()
-  }
-
   return {
-    board,
-    hasSelected,
-    isLoading,
-    fetch,
-    select,
-    deselect,
+    // State
+    board: computed(() => store.selectedBoard),
+    hasSelected: computed(() => store.hasSelectedBoard),
+    boardId: computed(() => store.selectedBoardId),
+    boardTitle: computed(() => store.selectedBoardTitle),
+    isLoading: computed(() => store.isLoading),
+
+    // Actions
+    fetch: () => store.fetchSelectedBoard(),
+    select: (boardId: string) => store.selectBoard(boardId),
+    deselect: () => store.deselectBoard(),
+    set: (board: Board | null) => store.setBoard(board),
   }
 }

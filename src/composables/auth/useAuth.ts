@@ -2,170 +2,140 @@
 /**
  * useAuth - Authentication composable
  *
- * Объединяет auth.store и user.store в единый интерфейс.
- * Не дублирует - делегирует в stores.
+ * ТОЛЬКО аутентификация. Профиль пользователя - в useCurrentUser.
+ * Не дублирует - делегирует в auth.store и plugins/keycloak.
  */
 
 import { computed } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth.store'
-import { useUserStore } from '@/stores/user.store'
 import {
-  login as keycloakLogin,
-  logout as keycloakLogout,
+  login,
+  logout,
+  register,
   refreshToken,
-  getKeycloak,
+  accountManagement,
+  isAuthenticated as checkIsAuthenticated,
+  getToken,
 } from '@/plugins/keycloak'
 
 /**
  * useAuth - Основной auth composable
+ *
+ * Использование:
+ * ```ts
+ * const { isAuthenticated, login, logout } = useAuth()
+ *
+ * if (!isAuthenticated.value) {
+ *   login()
+ * }
+ * ```
  */
 export function useAuth() {
   const authStore = useAuthStore()
-  const userStore = useUserStore()
-
-  // Auth state (из auth.store)
-  const { isAuthenticated, isInitialized, isInitializing, token, userId } = storeToRefs(authStore)
-
-  // User state (из user.store)
-  const {
-    currentUser: user,
-    avatarBlobUrl: userImage,
-    bannerBlobUrl: bannerImage,
-    isLoadingProfile,
-    username,
-    email,
-  } = storeToRefs(userStore)
-
-  // Combined loading state
-  const isLoading = computed(() => isInitializing.value || isLoadingProfile.value)
 
   return {
     // ==================== STATE ====================
-    user,
-    isAuthenticated,
-    isInitialized,
-    isLoading,
-    isLoadingProfile,
-    userImage,
-    bannerImage,
+    /** Пользователь аутентифицирован */
+    isAuthenticated: computed(() => authStore.isAuthenticated),
 
-    // ==================== GETTERS ====================
-    userId,
-    username,
-    email,
-    token,
+    /** Keycloak инициализирован */
+    isInitialized: computed(() => authStore.isInitialized),
 
-    // Roles (делегируем в auth.store)
-    isAdmin: computed(() => authStore.isAdmin),
-    isModerator: computed(() => authStore.isModerator),
-    hasRole: authStore.hasRole,
+    /** Идёт инициализация */
+    isInitializing: computed(() => authStore.isInitializing),
+
+    // ==================== TOKEN ====================
+    /** Access token (для API вызовов - обычно не нужен напрямую) */
+    token: computed(() => authStore.token),
+
+    /** User ID из токена */
+    userId: computed(() => authStore.userId),
+
+    /** Email из токена */
+    email: computed(() => authStore.userEmail),
+
+    /** Username из токена */
+    preferredUsername: computed(() => authStore.preferredUsername),
 
     // ==================== ACTIONS ====================
+    /**
+     * Войти через Keycloak
+     * @param redirectUri - URL для редиректа после логина
+     */
+    login: (redirectUri?: string) => login(redirectUri),
 
     /**
-     * Login через Keycloak
+     * Выйти
+     * @param redirectUri - URL для редиректа после логаута
      */
-    login: (redirectUri?: string) => keycloakLogin(redirectUri),
+    logout: (redirectUri?: string) => logout(redirectUri),
 
     /**
-     * Logout через Keycloak
+     * Регистрация нового пользователя
+     * @param redirectUri - URL для редиректа после регистрации
      */
-    logout: (redirectUri?: string) => keycloakLogout(redirectUri),
+    register: (redirectUri?: string) => register(redirectUri),
 
     /**
-     * Загрузить профиль текущего пользователя
+     * Открыть страницу управления аккаунтом Keycloak
      */
-    loadProfile: () => userStore.loadCurrentUser(),
-
-    /**
-     * Обновить профиль
-     */
-    updateProfile: (data: Parameters<typeof userStore.updateProfile>[0]) =>
-      userStore.updateProfile(data),
-
-    /**
-     * Загрузить аватар
-     */
-    uploadAvatar: (file: File) => userStore.uploadAvatar(file),
-
-    /**
-     * Загрузить баннер
-     */
-    uploadBanner: (file: File) => userStore.uploadBanner(file),
-
-    /**
-     * Удалить аватар
-     */
-    removeAvatar: () => userStore.removeAvatar(),
-
-    /**
-     * Удалить баннер
-     */
-    removeBanner: () => userStore.removeBanner(),
+    openAccountManagement: () => accountManagement(),
 
     /**
      * Обновить токен
+     * @param minValidity - минимальное время валидности в секундах
      */
     refreshToken: (minValidity?: number) => refreshToken(minValidity),
 
     /**
-     * Проверить аутентификацию
+     * Проверить аутентификацию (sync)
      */
     checkAuth: () => authStore.checkAuth(),
   }
 }
 
 /**
- * useAuthState - Только состояние аутентификации (без user data)
+ * useAuthState - Минимальное состояние (для guards, layouts)
+ *
+ * Использование в router guard:
+ * ```ts
+ * const { isAuthenticated, isInitialized } = useAuthState()
+ * ```
  */
 export function useAuthState() {
   const authStore = useAuthStore()
-  const { isAuthenticated, isInitialized, isInitializing } = storeToRefs(authStore)
+
+  return {
+    isAuthenticated: computed(() => authStore.isAuthenticated),
+    isInitialized: computed(() => authStore.isInitialized),
+    isLoading: computed(() => authStore.isInitializing),
+    userId: computed(() => authStore.userId),
+  }
+}
+
+/**
+ * useRequireAuth - Для страниц требующих аутентификации
+ *
+ * Использование:
+ * ```ts
+ * const { isReady, redirectToLogin } = useRequireAuth()
+ *
+ * watchEffect(() => {
+ *   if (isReady.value && !isAuthenticated.value) {
+ *     redirectToLogin()
+ *   }
+ * })
+ * ```
+ */
+export function useRequireAuth() {
+  const { isAuthenticated, isInitialized, login } = useAuth()
 
   return {
     isAuthenticated,
-    isInitialized,
-    isLoading: isInitializing,
-  }
-}
-
-/**
- * useAuthUser - Только данные пользователя
- */
-export function useAuthUser() {
-  const userStore = useUserStore()
-  const {
-    currentUser: user,
-    avatarBlobUrl: userImage,
-    bannerBlobUrl: bannerImage,
-    userId,
-    username,
-    email,
-  } = storeToRefs(userStore)
-
-  return {
-    user,
-    userImage,
-    bannerImage,
-    userId,
-    username,
-    email,
-  }
-}
-
-/**
- * useKeycloak - Прямой доступ к Keycloak (для продвинутых случаев)
- */
-export function useKeycloak() {
-  const authStore = useAuthStore()
-  const keycloak = getKeycloak()
-
-  return {
-    instance: keycloak,
-    isReady: computed(() => authStore.isInitialized),
-    token: computed(() => authStore.token),
-    tokenParsed: computed(() => authStore.tokenParsed),
-    refreshToken: computed(() => authStore.refreshToken),
+    isReady: isInitialized,
+    redirectToLogin: (returnUrl?: string) => {
+      const redirectUri = returnUrl || window.location.href
+      login(redirectUri)
+    },
   }
 }

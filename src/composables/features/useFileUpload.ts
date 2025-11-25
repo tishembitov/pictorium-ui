@@ -1,14 +1,11 @@
 // src/composables/features/useFileUpload.ts
 /**
  * useFileUpload - File upload с preview и validation
- *
- * Расширяет useStorage из composables/api
- * Добавляет preview, drag & drop, validation
  */
 
-import { ref, computed, watch, onUnmounted, type Ref } from 'vue'
+import { ref, computed, onUnmounted, type Ref } from 'vue'
 import { useStorage } from '@/composables/api/useStorage'
-import { validateMediaFile } from '@/utils/files'
+import { validateMediaFile, type FileValidationResult } from '@/utils/files'
 import { isImage, isVideo } from '@/utils/media'
 import { useToast } from '@/composables/ui/useToast'
 import type { ImageUploadRequest } from '@/types'
@@ -26,7 +23,6 @@ export interface UseFileUploadOptions {
 export function useFileUpload(options: UseFileUploadOptions = {}) {
   const {
     accept = 'image/*,video/*',
-    maxSize,
     autoUpload = false,
     category = 'pins',
     generateThumbnail = true,
@@ -37,47 +33,75 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   const storage = useStorage()
   const { error: showError } = useToast()
 
+  // State
   const file = ref<File | null>(null)
   const preview = ref<string | null>(null)
   const validationError = ref<string | null>(null)
 
+  // Computed
   const hasFile = computed(() => file.value !== null)
   const isImageFile = computed(() => (file.value ? isImage(file.value) : false))
   const isVideoFile = computed(() => (file.value ? isVideo(file.value) : false))
+  const fileName = computed(() => file.value?.name || null)
+  const fileSize = computed(() => file.value?.size || 0)
 
-  const selectFile = async (event: Event) => {
-    const input = event.target as HTMLInputElement
-    const selectedFile = input.files?.[0]
-    if (!selectedFile) return
+  // Cleanup preview URL
+  const cleanupPreview = () => {
+    if (preview.value?.startsWith('blob:')) {
+      URL.revokeObjectURL(preview.value)
+      preview.value = null
+    }
+  }
+
+  // Create preview from file
+  const createPreview = (selectedFile: File) => {
+    cleanupPreview()
+
+    if (isImage(selectedFile)) {
+      preview.value = URL.createObjectURL(selectedFile)
+    } else if (isVideo(selectedFile)) {
+      preview.value = URL.createObjectURL(selectedFile)
+    }
+  }
+
+  // Select file (from input or drag)
+  const selectFile = async (fileOrEvent: File | Event) => {
+    let selectedFile: File | null = null
+
+    if (fileOrEvent instanceof Event) {
+      const input = fileOrEvent.target as HTMLInputElement
+      selectedFile = input.files?.[0] || null
+      // Reset input to allow re-selecting same file
+      input.value = ''
+    } else {
+      selectedFile = fileOrEvent
+    }
+
+    if (!selectedFile) return false
 
     // Validate
     const validation = await validateMediaFile(selectedFile)
     if (!validation.valid) {
       validationError.value = validation.errors[0] || 'Invalid file'
       showError(validationError.value)
-      return
+      return false
     }
 
+    // Set file and create preview
     file.value = selectedFile
     validationError.value = null
+    createPreview(selectedFile)
 
-    // Create preview
-    if (isImage(selectedFile)) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        preview.value = e.target?.result as string
-      }
-      reader.readAsDataURL(selectedFile)
-    } else if (isVideo(selectedFile)) {
-      preview.value = URL.createObjectURL(selectedFile)
-    }
-
+    // Auto-upload if enabled
     if (autoUpload) {
       await upload()
     }
+
+    return true
   }
 
-  const upload = async () => {
+  // Upload file
+  const upload = async (uploadOptions?: Partial<ImageUploadRequest>) => {
     if (!file.value) {
       throw new Error('No file selected')
     }
@@ -89,32 +113,29 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         generateThumbnail,
         thumbnailWidth: 400,
         thumbnailHeight: 400,
+        ...uploadOptions,
       }
 
       const url = await storage.uploadImage(params)
       onSuccess?.(url)
       return url
     } catch (err) {
-      onError?.(err as Error)
+      const error = err as Error
+      onError?.(error)
+      showError(error.message || 'Upload failed')
       throw err
     }
   }
 
+  // Reset all state
   const reset = () => {
-    if (preview.value?.startsWith('blob:')) {
-      URL.revokeObjectURL(preview.value)
-    }
+    cleanupPreview()
     file.value = null
-    preview.value = null
     validationError.value = null
     storage.reset()
   }
 
-  onUnmounted(() => {
-    if (preview.value?.startsWith('blob:')) {
-      URL.revokeObjectURL(preview.value)
-    }
-  })
+  onUnmounted(cleanupPreview)
 
   return {
     // State
@@ -129,6 +150,8 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     hasFile,
     isImageFile,
     isVideoFile,
+    fileName,
+    fileSize,
     accept,
 
     // Actions
@@ -151,11 +174,10 @@ export function useImageUpload(options: Omit<UseFileUploadOptions, 'accept'> = {
 /**
  * useVideoUpload - Preset для видео
  */
-export function useVideoUpload(options: Omit<UseFileUploadOptions, 'accept' | 'maxSize'> = {}) {
+export function useVideoUpload(options: Omit<UseFileUploadOptions, 'accept'> = {}) {
   return useFileUpload({
     ...options,
     accept: 'video/mp4,video/webm',
-    maxSize: 50 * 1024 * 1024,
   })
 }
 
@@ -168,45 +190,72 @@ export function useDragAndDrop(
     accept?: string
     multiple?: boolean
     onDrop?: (files: File[]) => void
+    onError?: (error: string) => void
   } = {},
 ) {
-  const { accept, multiple = false, onDrop } = options
+  const { accept, multiple = false, onDrop, onError } = options
 
   const isDragging = ref(false)
   let dragCounter = 0
 
+  const isAcceptedType = (file: File): boolean => {
+    if (!accept) return true
+
+    const types = accept.split(',').map((t) => t.trim())
+    return types.some((type) => {
+      if (type.endsWith('/*')) {
+        return file.type.startsWith(type.slice(0, -2))
+      }
+      return file.type === type
+    })
+  }
+
   const handleDragEnter = (e: DragEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     dragCounter++
     isDragging.value = true
   }
 
   const handleDragLeave = (e: DragEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     dragCounter--
-    if (dragCounter === 0) isDragging.value = false
+    if (dragCounter === 0) {
+      isDragging.value = false
+    }
   }
 
-  const handleDragOver = (e: DragEvent) => e.preventDefault()
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
 
   const handleDrop = (e: DragEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     isDragging.value = false
     dragCounter = 0
 
     let files = Array.from(e.dataTransfer?.files || [])
-    if (!multiple) files = files.slice(0, 1)
 
+    // Filter by accept
     if (accept) {
-      const types = accept.split(',').map((t) => t.trim())
-      files = files.filter((f) =>
-        types.some((type) =>
-          type.endsWith('/*') ? f.type.startsWith(type.slice(0, -2)) : f.type === type,
-        ),
-      )
+      const rejected = files.filter((f) => !isAcceptedType(f))
+      if (rejected.length > 0) {
+        onError?.(`Invalid file type: ${rejected[0]?.name}`)
+      }
+      files = files.filter(isAcceptedType)
     }
 
-    onDrop?.(files)
+    // Limit to one if not multiple
+    if (!multiple && files.length > 1) {
+      files = files.slice(0, 1)
+    }
+
+    if (files.length > 0) {
+      onDrop?.(files)
+    }
   }
 
   watch(
@@ -231,3 +280,6 @@ export function useDragAndDrop(
 
   return { isDragging }
 }
+
+// Need to import watch
+import { watch } from 'vue'

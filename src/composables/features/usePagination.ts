@@ -1,8 +1,6 @@
 // src/composables/features/usePagination.ts
 /**
  * usePagination - Classic pagination (не infinite scroll)
- *
- * Уникальный composable для страничной навигации
  */
 
 import { ref, computed, type Ref } from 'vue'
@@ -18,12 +16,14 @@ export interface UsePaginationOptions<T> {
   }>
   pageSize?: number
   initialPage?: number
+  immediate?: boolean
   onPageChange?: (page: number) => void
 }
 
 export function usePagination<T>(options: UsePaginationOptions<T>) {
-  const { fetchPage, pageSize = 10, initialPage = 0, onPageChange } = options
+  const { fetchPage, pageSize = 10, initialPage = 0, immediate = true, onPageChange } = options
 
+  // State
   const items = ref<T[]>([]) as Ref<T[]>
   const currentPage = ref(initialPage)
   const totalItems = ref(0)
@@ -31,11 +31,17 @@ export function usePagination<T>(options: UsePaginationOptions<T>) {
   const isLoading = ref(false)
   const error = ref<Error | null>(null)
 
+  // Computed
   const hasNext = computed(() => currentPage.value < totalPages.value - 1)
   const hasPrev = computed(() => currentPage.value > 0)
+  const isEmpty = computed(() => !isLoading.value && items.value.length === 0)
 
+  // Load page
   const loadPage = async (page: number) => {
-    if (page < 0 || (totalPages.value > 0 && page >= totalPages.value)) return
+    // Validate page number
+    if (page < 0) return
+    if (totalPages.value > 0 && page >= totalPages.value) return
+    if (isLoading.value) return
 
     try {
       isLoading.value = true
@@ -57,17 +63,21 @@ export function usePagination<T>(options: UsePaginationOptions<T>) {
     }
   }
 
+  // Navigation
   const goTo = (page: number) => loadPage(page)
   const next = () => hasNext.value && loadPage(currentPage.value + 1)
   const prev = () => hasPrev.value && loadPage(currentPage.value - 1)
   const first = () => loadPage(0)
-  const last = () => loadPage(totalPages.value - 1)
+  const last = () => totalPages.value > 0 && loadPage(totalPages.value - 1)
   const refresh = () => loadPage(currentPage.value)
 
-  // Initial load
-  loadPage(initialPage)
+  // Initial load (optional)
+  if (immediate) {
+    loadPage(initialPage)
+  }
 
   return {
+    // State
     items,
     currentPage,
     totalItems,
@@ -75,19 +85,25 @@ export function usePagination<T>(options: UsePaginationOptions<T>) {
     pageSize,
     isLoading,
     error,
+
+    // Computed
     hasNext,
     hasPrev,
+    isEmpty,
+
+    // Actions
     goTo,
     next,
     prev,
     first,
     last,
     refresh,
+    loadPage,
   }
 }
 
 /**
- * usePaginationControls - UI helpers для пагинации
+ * usePaginationControls - UI helpers
  */
 export function usePaginationControls(
   currentPage: Ref<number>,
@@ -106,15 +122,32 @@ export function usePaginationControls(
     let start = Math.max(0, current - half)
     let end = Math.min(total - 1, current + half)
 
-    if (start === 0) end = Math.min(total - 1, maxVisible - 1)
-    if (end === total - 1) start = Math.max(0, total - maxVisible)
+    // Adjust if at edges
+    if (start === 0) {
+      end = Math.min(total - 1, maxVisible - 1)
+    }
+    if (end === total - 1) {
+      start = Math.max(0, total - maxVisible)
+    }
 
     return pages.value.slice(start, end + 1)
   })
 
+  const showFirstEllipsis = computed(
+    () => visiblePages.value.length > 0 && visiblePages.value[0]! > 0,
+  )
+
+  const showLastEllipsis = computed(
+    () =>
+      visiblePages.value.length > 0 &&
+      visiblePages.value[visiblePages.value.length - 1]! < totalPages.value - 1,
+  )
+
   return {
     pages,
     visiblePages,
+    showFirstEllipsis,
+    showLastEllipsis,
     isFirst: computed(() => currentPage.value === 0),
     isLast: computed(() => currentPage.value === totalPages.value - 1),
     isActive: (page: number) => page === currentPage.value,

@@ -1,7 +1,6 @@
 // src/composables/utils/useMediaQuery.ts
 /**
  * useMediaQuery - Reactive media queries
- * НЕТ аналога в directives
  */
 
 import { ref, onMounted, onUnmounted, computed } from 'vue'
@@ -15,12 +14,16 @@ export function useMediaQuery(query: string) {
   }
 
   onMounted(() => {
+    if (typeof window === 'undefined') return
+
     mediaQuery = window.matchMedia(query)
     update()
     mediaQuery.addEventListener('change', update)
   })
 
-  onUnmounted(() => mediaQuery?.removeEventListener('change', update))
+  onUnmounted(() => {
+    mediaQuery?.removeEventListener('change', update)
+  })
 
   return matches
 }

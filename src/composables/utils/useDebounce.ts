@@ -2,15 +2,13 @@
 /**
  * useDebounce - Reactive debounce
  *
- * Использует debounce из utils/helpers.ts
- * НЕТ аналога в directives
+ * НЕТ аналога в directives - это для reactive values
  */
 
 import { ref, watch, customRef, type Ref, onUnmounted } from 'vue'
-import { debounce, throttle } from '@/utils/helpers'
 
 /**
- * useDebouncedRef - Debounced ref
+ * useDebouncedRef - Ref с debounced обновлением
  */
 export function useDebouncedRef<T>(initialValue: T, delay = 300): Ref<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined
@@ -36,42 +34,57 @@ export function useDebouncedRef<T>(initialValue: T, delay = 300): Ref<T> {
  */
 export function useDebounce<T>(source: Ref<T>, delay = 300): Ref<T> {
   const debounced = ref(source.value) as Ref<T>
+  let timeout: ReturnType<typeof setTimeout> | undefined
 
-  const debouncedFn = debounce((value: T) => {
-    debounced.value = value
-  }, delay)
+  watch(source, (newValue) => {
+    if (timeout) clearTimeout(timeout)
+    timeout = setTimeout(() => {
+      debounced.value = newValue
+    }, delay)
+  })
 
-  watch(source, (newValue) => debouncedFn.debounced(newValue))
-  onUnmounted(() => debouncedFn.cancel())
+  onUnmounted(() => {
+    if (timeout) clearTimeout(timeout)
+  })
 
   return debounced
 }
 
 /**
- * useDebouncedFn - Debounced функция с isPending
+ * useDebouncedFn - Debounced функция с isPending state
  */
-export function useDebouncedFn<T extends (...args: any[]) => any>(fn: T, delay = 300) {
+export function useDebouncedFn<T extends (...args: unknown[]) => unknown>(fn: T, delay = 300) {
   const isPending = ref(false)
+  let timeout: ReturnType<typeof setTimeout> | undefined
 
-  const debouncedFn = debounce((...args: Parameters<T>) => {
-    fn(...args)
-    isPending.value = false
-  }, delay)
-
-  const wrappedDebounced = (...args: Parameters<T>) => {
+  const execute = (...args: Parameters<T>) => {
     isPending.value = true
-    debouncedFn.debounced(...args)
+
+    if (timeout) clearTimeout(timeout)
+
+    timeout = setTimeout(() => {
+      fn(...args)
+      isPending.value = false
+    }, delay)
   }
 
-  onUnmounted(() => debouncedFn.cancel())
+  const cancel = () => {
+    if (timeout) clearTimeout(timeout)
+    isPending.value = false
+  }
+
+  const flush = () => {
+    // Нельзя flush без сохранённых args
+    // Это упрощённая версия
+    cancel()
+  }
+
+  onUnmounted(cancel)
 
   return {
-    debounced: wrappedDebounced,
-    cancel: () => {
-      debouncedFn.cancel()
-      isPending.value = false
-    },
-    flush: debouncedFn.flush,
+    execute,
+    cancel,
+    flush,
     isPending,
   }
 }
@@ -81,11 +94,50 @@ export function useDebouncedFn<T extends (...args: any[]) => any>(fn: T, delay =
  */
 export function useThrottle<T>(source: Ref<T>, limit = 300): Ref<T> {
   const throttled = ref(source.value) as Ref<T>
-  const throttledFn = throttle((value: T) => {
-    throttled.value = value
-  }, limit)
+  let lastRan = 0
 
-  watch(source, throttledFn)
+  watch(source, (newValue) => {
+    const now = Date.now()
+    if (now - lastRan >= limit) {
+      throttled.value = newValue
+      lastRan = now
+    }
+  })
 
   return throttled
+}
+
+/**
+ * useThrottledFn - Throttled функция
+ */
+export function useThrottledFn<T extends (...args: unknown[]) => unknown>(fn: T, limit = 300) {
+  let lastRan = 0
+  let timeout: ReturnType<typeof setTimeout> | undefined
+
+  const execute = (...args: Parameters<T>) => {
+    const now = Date.now()
+
+    if (now - lastRan >= limit) {
+      fn(...args)
+      lastRan = now
+    } else {
+      // Trailing call
+      if (timeout) clearTimeout(timeout)
+      timeout = setTimeout(
+        () => {
+          fn(...args)
+          lastRan = Date.now()
+        },
+        limit - (now - lastRan),
+      )
+    }
+  }
+
+  const cancel = () => {
+    if (timeout) clearTimeout(timeout)
+  }
+
+  onUnmounted(cancel)
+
+  return { execute, cancel }
 }

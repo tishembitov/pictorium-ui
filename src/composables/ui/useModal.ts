@@ -1,237 +1,96 @@
+// src/composables/ui/useModal.ts
 /**
- * useModal Composable
+ * useModal - Modal management
  *
- * Управление модальными окнами через UI store
+ * Использует ui.store для состояния модалок
+ * Добавляет типизированные хелперы для конкретных модалок
  */
 
-import { computed, type Component } from 'vue'
+import { computed } from 'vue'
 import { useUIStore } from '@/stores/ui.store'
 
-export interface ModalOptions {
-  component?: Component
-  props?: Record<string, unknown>
-  onClose?: () => void
-}
-
+/**
+ * useModal - Базовый composable для модалки
+ */
 export function useModal(id: string) {
   const uiStore = useUIStore()
 
-  const isOpen = computed(() => {
-    const modal = uiStore.getModalById(id)
-    return modal?.isOpen || false
-  })
-
-  const modalData = computed(() => {
-    return uiStore.getModalById(id)
-  })
-
-  const openModal = (options: ModalOptions = {}) => {
-    uiStore.openModal(id, options.component, options.props)
-
-    // Store onClose callback
-    if (options.onClose) {
-      const cleanup = () => {
-        options.onClose?.()
-        document.removeEventListener('modal-closed', cleanup)
-      }
-      document.addEventListener('modal-closed', cleanup)
-    }
-  }
-
-  const closeModal = () => {
-    uiStore.closeModal(id)
-    document.dispatchEvent(new CustomEvent('modal-closed', { detail: { id } }))
-  }
-
-  const toggleModal = () => {
-    uiStore.toggleModal(id)
-  }
+  const isOpen = computed(() => uiStore.getModalById(id)?.isOpen || false)
 
   return {
     isOpen,
-    modalData,
-    openModal,
-    closeModal,
-    toggleModal,
+    open: (props?: Record<string, unknown>) => uiStore.openModal(id, undefined, props),
+    close: () => uiStore.closeModal(id),
+    toggle: () => uiStore.toggleModal(id),
   }
 }
 
-export function useCreatePinModal() {
-  const { openModal, closeModal, isOpen } = useModal('create-pin')
-
-  const open = (props?: Record<string, unknown>) => {
-    openModal({ props })
-  }
-
-  const close = () => {
-    closeModal()
-  }
+/**
+ * useModals - Глобальное управление модалками
+ */
+export function useModals() {
+  const uiStore = useUIStore()
 
   return {
-    open,
-    close,
-    isOpen,
+    isAnyOpen: computed(() => uiStore.isAnyModalOpen),
+    closeAll: () => uiStore.closeAllModals(),
   }
+}
+
+// ============================================================================
+// ТИПИЗИРОВАННЫЕ МОДАЛКИ
+// ============================================================================
+
+export function useCreatePinModal() {
+  return useModal('create-pin')
 }
 
 export function useBoardSelectorModal() {
-  const { openModal, closeModal, isOpen } = useModal('board-selector')
-
-  interface BoardSelectorProps {
-    pinId: string
-    onSelect?: (boardId: string) => void
-  }
-
-  const open = (props: BoardSelectorProps) => {
-    openModal({ props: props as unknown as Record<string, unknown> })
-  }
-
-  const close = () => {
-    closeModal()
-  }
+  const modal = useModal('board-selector')
 
   return {
-    open,
-    close,
-    isOpen,
+    ...modal,
+    open: (pinId: string, onSelect?: (boardId: string) => void) => modal.open({ pinId, onSelect }),
   }
 }
 
 export function useImagePreviewModal() {
-  const { openModal, closeModal, isOpen } = useModal('image-preview')
-
-  interface ImagePreviewProps {
-    imageUrl: string
-    alt?: string
-  }
-
-  const open = (props: ImagePreviewProps) => {
-    openModal({ props: props as unknown as Record<string, unknown> })
-  }
-
-  const close = () => {
-    closeModal()
-  }
+  const modal = useModal('image-preview')
 
   return {
-    open,
-    close,
-    isOpen,
+    ...modal,
+    open: (imageUrl: string, alt?: string) => modal.open({ imageUrl, alt }),
   }
 }
 
 export function useLikesModal() {
-  const { openModal, closeModal, isOpen } = useModal('likes')
-
-  interface LikesModalProps {
-    pinId?: string
-    commentId?: string
-    type: 'pin' | 'comment'
-  }
-
-  const open = (props: LikesModalProps) => {
-    openModal({ props: props as unknown as Record<string, unknown> })
-  }
-
-  const close = () => {
-    closeModal()
-  }
+  const modal = useModal('likes')
 
   return {
-    open,
-    close,
-    isOpen,
+    ...modal,
+    openForPin: (pinId: string) => modal.open({ pinId, type: 'pin' }),
+    openForComment: (commentId: string) => modal.open({ commentId, type: 'comment' }),
   }
 }
 
-/**
- * useFollowersModal
- *
- * Модалка списка подписчиков
- */
 export function useFollowersModal() {
-  const { openModal, closeModal, isOpen } = useModal('followers')
-
-  interface FollowersModalProps {
-    userId: string
-  }
-
-  const open = (props: FollowersModalProps) => {
-    openModal({ props: props as unknown as Record<string, unknown> })
-  }
-
-  const close = () => {
-    closeModal()
-  }
+  const modal = useModal('followers')
 
   return {
-    open,
-    close,
-    isOpen,
+    ...modal,
+    open: (userId: string) => modal.open({ userId }),
   }
 }
 
-/**
- * useFollowingModal
- *
- * Модалка списка подписок
- */
 export function useFollowingModal() {
-  const { openModal, closeModal, isOpen } = useModal('following')
-
-  interface FollowingModalProps {
-    userId: string
-  }
-
-  const open = (props: FollowingModalProps) => {
-    openModal({ props: props as unknown as Record<string, unknown> })
-  }
-
-  const close = () => {
-    closeModal()
-  }
+  const modal = useModal('following')
 
   return {
-    open,
-    close,
-    isOpen,
+    ...modal,
+    open: (userId: string) => modal.open({ userId }),
   }
 }
 
-/**
- * useEditProfileModal
- *
- * Модалка редактирования профиля
- */
 export function useEditProfileModal() {
-  const { openModal, closeModal, isOpen } = useModal('edit-profile')
-
-  const open = (props?: Record<string, unknown>) => {
-    openModal({ props })
-  }
-
-  const close = () => {
-    closeModal()
-  }
-
-  return {
-    open,
-    close,
-    isOpen,
-  }
-}
-
-export function useModals() {
-  const uiStore = useUIStore()
-
-  const isAnyOpen = computed(() => uiStore.isAnyModalOpen)
-
-  const closeAll = () => {
-    uiStore.closeAllModals()
-  }
-
-  return {
-    isAnyOpen,
-    closeAll,
-  }
+  return useModal('edit-profile')
 }

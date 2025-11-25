@@ -1,7 +1,8 @@
+// src/composables/ui/useConfirm.ts
 /**
- * useConfirm Composable
+ * useConfirm - Confirmation dialogs
  *
- * Диалоги подтверждения
+ * Уникальный composable - нет аналога в stores/utils
  */
 
 import { ref, type Ref } from 'vue'
@@ -12,8 +13,6 @@ export interface ConfirmOptions {
   confirmText?: string
   cancelText?: string
   type?: 'danger' | 'warning' | 'info'
-  onConfirm?: () => void | Promise<void>
-  onCancel?: () => void
 }
 
 interface ConfirmState {
@@ -22,7 +21,8 @@ interface ConfirmState {
   resolve: ((value: boolean) => void) | null
 }
 
-const confirmState: Ref<ConfirmState> = ref({
+// Singleton state для глобального доступа
+const state: Ref<ConfirmState> = ref({
   isOpen: false,
   options: null,
   resolve: null,
@@ -31,7 +31,7 @@ const confirmState: Ref<ConfirmState> = ref({
 export function useConfirm() {
   const confirm = (options: ConfirmOptions): Promise<boolean> => {
     return new Promise((resolve) => {
-      confirmState.value = {
+      state.value = {
         isOpen: true,
         options: {
           title: options.title || 'Confirm',
@@ -45,40 +45,31 @@ export function useConfirm() {
     })
   }
 
-  const handleConfirm = async () => {
-    const { resolve, options } = confirmState.value
-
-    if (options?.onConfirm) {
-      await options.onConfirm()
-    }
-
-    confirmState.value.isOpen = false
-    resolve?.(true)
+  const handleConfirm = () => {
+    state.value.resolve?.(true)
+    state.value.isOpen = false
   }
 
   const handleCancel = () => {
-    const { resolve, options } = confirmState.value
-
-    if (options?.onCancel) {
-      options.onCancel()
-    }
-
-    confirmState.value.isOpen = false
-    resolve?.(false)
+    state.value.resolve?.(false)
+    state.value.isOpen = false
   }
 
   return {
+    state,
     confirm,
-    confirmState,
     handleConfirm,
     handleCancel,
   }
 }
 
+/**
+ * useDeleteConfirm - Предопределенные confirm для удаления
+ */
 export function useDeleteConfirm() {
   const { confirm } = useConfirm()
 
-  const confirmDelete = (itemType: string, itemName?: string): Promise<boolean> => {
+  const confirmDelete = (itemType: string, itemName?: string) => {
     const message = itemName
       ? `Are you sure you want to delete "${itemName}"?`
       : `Are you sure you want to delete this ${itemType}?`
@@ -87,79 +78,40 @@ export function useDeleteConfirm() {
       title: `Delete ${itemType}`,
       message: `${message} This action cannot be undone.`,
       confirmText: 'Delete',
-      cancelText: 'Cancel',
       type: 'danger',
     })
   }
 
-  const confirmDeletePin = (pinTitle?: string): Promise<boolean> => {
-    return confirmDelete('pin', pinTitle)
-  }
-
-  const confirmDeleteBoard = (boardTitle?: string): Promise<boolean> => {
-    return confirmDelete('board', boardTitle)
-  }
-
-  const confirmDeleteComment = (): Promise<boolean> => {
-    return confirmDelete('comment')
-  }
-
   return {
-    confirmDelete,
-    confirmDeletePin,
-    confirmDeleteBoard,
-    confirmDeleteComment,
-  }
-}
-
-export function useUnsavedChangesConfirm() {
-  const { confirm } = useConfirm()
-
-  const confirmLeave = (): Promise<boolean> => {
-    return confirm({
-      title: 'Unsaved Changes',
-      message: 'You have unsaved changes. Are you sure you want to leave?',
-      confirmText: 'Leave',
-      cancelText: 'Stay',
-      type: 'warning',
-    })
-  }
-
-  const confirmDiscard = (): Promise<boolean> => {
-    return confirm({
-      title: 'Discard Changes',
-      message: 'Are you sure you want to discard all changes?',
-      confirmText: 'Discard',
-      cancelText: 'Keep Editing',
-      type: 'warning',
-    })
-  }
-
-  return {
-    confirmLeave,
-    confirmDiscard,
+    confirmDeletePin: (title?: string) => confirmDelete('pin', title),
+    confirmDeleteBoard: (title?: string) => confirmDelete('board', title),
+    confirmDeleteComment: () => confirmDelete('comment'),
   }
 }
 
 /**
- * useLogoutConfirm
- *
- * Confirm для выхода из аккаунта
+ * useUnsavedChangesConfirm
  */
-export function useLogoutConfirm() {
+export function useUnsavedChangesConfirm() {
   const { confirm } = useConfirm()
 
-  const confirmLogout = (): Promise<boolean> => {
-    return confirm({
-      title: 'Logout',
-      message: 'Are you sure you want to logout?',
-      confirmText: 'Logout',
-      cancelText: 'Cancel',
-      type: 'info',
-    })
-  }
-
   return {
-    confirmLogout,
+    confirmLeave: () =>
+      confirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to leave?',
+        confirmText: 'Leave',
+        cancelText: 'Stay',
+        type: 'warning',
+      }),
+
+    confirmDiscard: () =>
+      confirm({
+        title: 'Discard Changes',
+        message: 'Are you sure you want to discard all changes?',
+        confirmText: 'Discard',
+        cancelText: 'Keep Editing',
+        type: 'warning',
+      }),
   }
 }

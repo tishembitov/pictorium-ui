@@ -1,56 +1,48 @@
+// src/composables/ui/usePopover.ts
 /**
- * usePopover Composable
+ * usePopover - Popover positioning
  *
- * Popover positioning и управление
+ * Использует utils/positioning.ts для расчетов
+ * Добавляет reactive state и lifecycle management
  */
 
-import { ref, computed, watch, unref, nextTick, type Ref } from 'vue'
-import {
-  calculatePopoverPosition,
-  shouldPositionTop,
-  applyPosition,
-  centerInViewport,
-  type PopoverPosition,
-  type Position,
-} from '@/utils/positioning'
+import { ref, unref, nextTick, watch, type Ref } from 'vue'
+import { calculatePopoverPosition, applyPosition, type PopoverPosition } from '@/utils/positioning'
 
 export interface PopoverOptions {
   position?: PopoverPosition
   offset?: number
-  container?: HTMLElement
   closeOnClickOutside?: boolean
   closeOnEscape?: boolean
 }
 
 export function usePopover(
-  triggerRef: Ref<HTMLElement | null | undefined>,
-  popoverRef: Ref<HTMLElement | null | undefined>,
+  triggerRef: Ref<HTMLElement | null>,
+  popoverRef: Ref<HTMLElement | null>,
   options: PopoverOptions = {},
 ) {
   const {
     position = 'bottom',
     offset = 10,
-    container = document.body,
     closeOnClickOutside = true,
     closeOnEscape = true,
   } = options
 
   const isOpen = ref(false)
-  const currentPosition = ref<Position>({})
+
+  const updatePosition = () => {
+    const trigger = unref(triggerRef)
+    const popover = unref(popoverRef)
+    if (!trigger || !popover) return
+
+    const pos = calculatePopoverPosition(trigger, popover, position, { offset })
+    applyPosition(popover, pos)
+  }
 
   const open = async () => {
     isOpen.value = true
-
     await nextTick()
-
-    const trigger = unref(triggerRef)
-    const popover = unref(popoverRef)
-
-    if (!trigger || !popover) return
-
-    const pos = calculatePopoverPosition(trigger, popover, position, { offset, container })
-    currentPosition.value = pos
-    applyPosition(popover, pos)
+    updatePosition()
   }
 
   const close = () => {
@@ -58,106 +50,76 @@ export function usePopover(
   }
 
   const toggle = () => {
-    if (isOpen.value) {
-      close()
-    } else {
-      open()
-    }
+    isOpen.value ? close() : open()
   }
 
-  // Close on click outside
+  // Click outside
   if (closeOnClickOutside) {
     watch(isOpen, (open) => {
       if (!open) return
 
-      const handleClickOutside = (event: MouseEvent) => {
+      const handler = (e: MouseEvent) => {
         const trigger = unref(triggerRef)
         const popover = unref(popoverRef)
+        const target = e.target as Node
 
-        if (!trigger || !popover) return
-
-        const target = event.target as Node
-
-        if (!trigger.contains(target) && !popover.contains(target)) {
-          close()
-        }
+        if (trigger?.contains(target) || popover?.contains(target)) return
+        close()
       }
 
-      setTimeout(() => {
-        document.addEventListener('click', handleClickOutside)
-      }, 0)
-
-      return () => {
-        document.removeEventListener('click', handleClickOutside)
-      }
+      setTimeout(() => document.addEventListener('click', handler), 0)
+      return () => document.removeEventListener('click', handler)
     })
   }
 
-  // Close on Escape
+  // Escape key
   if (closeOnEscape) {
     watch(isOpen, (open) => {
       if (!open) return
 
-      const handleEscape = (event: KeyboardEvent) => {
-        if (event.key === 'Escape') {
-          close()
-        }
+      const handler = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') close()
       }
 
-      document.addEventListener('keydown', handleEscape)
-
-      return () => {
-        document.removeEventListener('keydown', handleEscape)
-      }
+      document.addEventListener('keydown', handler)
+      return () => document.removeEventListener('keydown', handler)
     })
   }
 
-  return {
-    isOpen,
-    currentPosition,
-    open,
-    close,
-    toggle,
-  }
+  return { isOpen, open, close, toggle, updatePosition }
 }
 
+/**
+ * useDropdown - Dropdown preset
+ */
 export function useDropdown(
-  triggerRef: Ref<HTMLElement | null | undefined>,
-  menuRef: Ref<HTMLElement | null | undefined>,
+  triggerRef: Ref<HTMLElement | null>,
+  menuRef: Ref<HTMLElement | null>,
   options: Omit<PopoverOptions, 'position'> = {},
 ) {
-  return usePopover(triggerRef, menuRef, {
-    ...options,
-    position: 'bottom',
-  })
+  return usePopover(triggerRef, menuRef, { ...options, position: 'bottom' })
 }
 
+/**
+ * useTooltip - Tooltip с задержкой
+ */
 export function useTooltip(
-  targetRef: Ref<HTMLElement | null | undefined>,
-  tooltipRef: Ref<HTMLElement | null | undefined>,
-  options: {
-    position?: PopoverPosition
-    delay?: number
-    offset?: number
-  } = {},
+  targetRef: Ref<HTMLElement | null>,
+  tooltipRef: Ref<HTMLElement | null>,
+  options: { position?: PopoverPosition; delay?: number; offset?: number } = {},
 ) {
   const { position = 'top', delay = 200, offset = 8 } = options
 
   const isVisible = ref(false)
   let showTimeout: ReturnType<typeof setTimeout> | undefined
-  let hideTimeout: ReturnType<typeof setTimeout> | undefined
 
   const show = async () => {
-    if (hideTimeout) clearTimeout(hideTimeout)
-
     showTimeout = setTimeout(async () => {
       isVisible.value = true
-
       await nextTick()
 
       const target = unref(targetRef)
       const tooltip = unref(tooltipRef)
-
       if (!target || !tooltip) return
 
       const pos = calculatePopoverPosition(target, tooltip, position, { offset })
@@ -167,13 +129,10 @@ export function useTooltip(
 
   const hide = () => {
     if (showTimeout) clearTimeout(showTimeout)
-
-    hideTimeout = setTimeout(() => {
-      isVisible.value = false
-    }, 100)
+    isVisible.value = false
   }
 
-  // Setup event listeners
+  // Event listeners
   watch(
     targetRef,
     (target) => {
@@ -181,89 +140,14 @@ export function useTooltip(
 
       target.addEventListener('mouseenter', show)
       target.addEventListener('mouseleave', hide)
-      target.addEventListener('focus', show)
-      target.addEventListener('blur', hide)
 
       return () => {
         target.removeEventListener('mouseenter', show)
         target.removeEventListener('mouseleave', hide)
-        target.removeEventListener('focus', show)
-        target.removeEventListener('blur', hide)
       }
     },
     { immediate: true },
   )
 
-  return {
-    isVisible,
-    show,
-    hide,
-  }
-}
-
-export function useContextMenu(
-  targetRef: Ref<HTMLElement | null | undefined>,
-  menuRef: Ref<HTMLElement | null | undefined>,
-) {
-  const isOpen = ref(false)
-  const position = ref<{ x: number; y: number }>({ x: 0, y: 0 })
-
-  const open = (event: MouseEvent) => {
-    event.preventDefault()
-
-    isOpen.value = true
-    position.value = { x: event.clientX, y: event.clientY }
-
-    nextTick(() => {
-      const menu = unref(menuRef)
-      if (!menu) return
-
-      menu.style.position = 'fixed'
-      menu.style.left = `${event.clientX}px`
-      menu.style.top = `${event.clientY}px`
-    })
-  }
-
-  const close = () => {
-    isOpen.value = false
-  }
-
-  // Setup context menu listener
-  watch(
-    targetRef,
-    (target) => {
-      if (!target) return
-
-      target.addEventListener('contextmenu', open)
-
-      return () => {
-        target.removeEventListener('contextmenu', open)
-      }
-    },
-    { immediate: true },
-  )
-
-  // Close on click outside
-  watch(isOpen, (open) => {
-    if (!open) return
-
-    const handleClickOutside = () => {
-      close()
-    }
-
-    setTimeout(() => {
-      document.addEventListener('click', handleClickOutside)
-    }, 0)
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside)
-    }
-  })
-
-  return {
-    isOpen,
-    position,
-    open,
-    close,
-  }
+  return { isVisible, show, hide }
 }

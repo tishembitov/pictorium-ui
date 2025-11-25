@@ -1,19 +1,13 @@
+// src/composables/form/useFormValidation.ts
 /**
- * useFormValidation Composable
+ * useFormValidation - Form validation
  *
- * Валидация форм
+ * Использует validators из utils/validators.ts
+ * НЕ дублирует - создает reactive validation flow
  */
 
-import { ref, type Ref } from 'vue'
-import type { ValidationRule } from '@/types/utils.types'
+import { ref } from 'vue'
 import {
-  validateUsername,
-  validateEmail,
-  validateUrl,
-  validatePinTitle,
-  validatePinDescription,
-  validateComment,
-  validateTag,
   getUsernameError,
   getEmailError,
   getUrlError,
@@ -23,57 +17,49 @@ import {
   getTagError,
 } from '@/utils/validators'
 
-export interface ValidationRules {
-  [key: string]: ValidationRule | ValidationRule[]
-}
+// ============================================================================
+// TYPES
+// ============================================================================
 
-/**
- * useFormValidation
- *
- * @example
- * ```ts
- * const { validateField, validateForm } = useFormValidation({
- *   username: (value) => {
- *     if (!value) return 'Username is required'
- *     return getUsernameError(value)
- *   },
- *   email: [
- *     required('Email is required'),
- *     email('Invalid email format')
- *   ]
- * })
- *
- * const error = await validateField('username', 'ab')
- * const errors = await validateForm({ username: 'ab', email: 'invalid' })
- * ```
- */
-export function useFormValidation(rules: ValidationRules = {}) {
+export type ValidationRule<T = unknown> = (value: T) => string | null | Promise<string | null>
+
+export type ValidationRules<T extends Record<string, unknown>> = Partial<{
+  [K in keyof T]: ValidationRule<T[K]> | ValidationRule<T[K]>[]
+}>
+
+// ============================================================================
+// MAIN COMPOSABLE
+// ============================================================================
+
+export function useFormValidation<T extends Record<string, unknown>>(
+  rules: ValidationRules<T> = {},
+) {
   const isValidating = ref(false)
 
-  const validateField = async (field: string, value: any): Promise<string | null> => {
-    const fieldRules = rules[field]
+  const validateField = async (field: string, value: unknown): Promise<string | null> => {
+    const fieldRules = rules[field as keyof T]
     if (!fieldRules) return null
 
     const rulesToApply = Array.isArray(fieldRules) ? fieldRules : [fieldRules]
 
     for (const rule of rulesToApply) {
-      const error = await rule(value)
+      const error = await rule(value as T[keyof T])
       if (error) return error
     }
 
     return null
   }
 
-  const validateForm = async (values: Record<string, any>): Promise<Record<string, string>> => {
+  const validateAll = async (values: T): Promise<Partial<Record<keyof T, string>>> => {
     isValidating.value = true
-    const errors: Record<string, string> = {}
+    const errors: Partial<Record<keyof T, string>> = {}
 
     try {
       await Promise.all(
         Object.keys(rules).map(async (field) => {
-          const error = await validateField(field, values[field])
+          const error = await validateField(field, values[field as keyof T])
           if (error) {
-            errors[field] = error
+            errors[field as keyof T] = error
           }
         }),
       )
@@ -84,225 +70,88 @@ export function useFormValidation(rules: ValidationRules = {}) {
     return errors
   }
 
-  return {
-    isValidating,
-    validateField,
-    validateForm,
-  }
+  return { isValidating, validateField, validateAll }
 }
 
-/**
- * Validation rule factories
- */
+// ============================================================================
+// VALIDATION RULE FACTORIES
+// ============================================================================
 
-/**
- * Required validator
- */
-export function required(message = 'This field is required'): ValidationRule {
-  return (value: any) => {
+export const required =
+  (message = 'This field is required'): ValidationRule =>
+  (value) => {
     if (value === null || value === undefined) return message
     if (typeof value === 'string' && !value.trim()) return message
     if (Array.isArray(value) && value.length === 0) return message
     return null
   }
-}
 
-/**
- * Min length validator
- */
-export function minLength(min: number, message?: string): ValidationRule {
-  return (value: any) => {
+export const minLength =
+  (min: number, message?: string): ValidationRule<string> =>
+  (value) => {
     if (!value) return null
-    if (typeof value === 'string' && value.length < min) {
-      return message || `Must be at least ${min} characters`
-    }
-    if (Array.isArray(value) && value.length < min) {
-      return message || `Must have at least ${min} items`
-    }
+    if (value.length < min) return message || `Must be at least ${min} characters`
     return null
   }
-}
 
-/**
- * Max length validator
- */
-export function maxLength(max: number, message?: string): ValidationRule {
-  return (value: any) => {
+export const maxLength =
+  (max: number, message?: string): ValidationRule<string> =>
+  (value) => {
     if (!value) return null
-    if (typeof value === 'string' && value.length > max) {
-      return message || `Must be at most ${max} characters`
-    }
-    if (Array.isArray(value) && value.length > max) {
-      return message || `Must have at most ${max} items`
-    }
+    if (value.length > max) return message || `Must be at most ${max} characters`
     return null
   }
-}
 
-/**
- * Email validator
- */
-export function email(message = 'Invalid email format'): ValidationRule {
-  return (value: any) => {
-    if (!value) return null
-    if (!validateEmail(value)) return message
-    return null
-  }
-}
-
-/**
- * URL validator
- */
-export function url(message = 'Invalid URL format'): ValidationRule {
-  return (value: any) => {
-    if (!value) return null
-    if (!validateUrl(value)) return message
-    return null
-  }
-}
-
-/**
- * Pattern validator
- */
-export function pattern(regex: RegExp, message = 'Invalid format'): ValidationRule {
-  return (value: any) => {
+export const pattern =
+  (regex: RegExp, message = 'Invalid format'): ValidationRule<string> =>
+  (value) => {
     if (!value) return null
     if (!regex.test(value)) return message
     return null
   }
+
+export const email =
+  (message = 'Invalid email'): ValidationRule<string> =>
+  (value) =>
+    value ? getEmailError(value) : null
+
+export const url =
+  (message = 'Invalid URL'): ValidationRule<string> =>
+  (value) =>
+    value ? getUrlError(value) : null
+
+// ============================================================================
+// PREDEFINED VALIDATORS (используют utils/validators.ts)
+// ============================================================================
+
+export const validators = {
+  // Basic factories
+  required,
+  minLength,
+  maxLength,
+  pattern,
+  email,
+  url,
+
+  // App-specific (делегируют в utils/validators.ts)
+  username: (value: string) => getUsernameError(value),
+  pinTitle: (value: string) => getPinTitleError(value),
+  pinDescription: (value: string) => getPinDescriptionError(value),
+  comment: (value: string) => getCommentError(value),
+  tag: (value: string) => getTagError(value),
+
+  // Composite validators
+  usernameField: [required('Username is required'), (value: string) => getUsernameError(value)],
+  emailField: [required('Email is required'), email()],
+  passwordField: [
+    required('Password is required'),
+    minLength(8, 'Password must be at least 8 characters'),
+  ],
 }
 
 /**
- * Min value validator
- */
-export function min(minValue: number, message?: string): ValidationRule {
-  return (value: any) => {
-    if (value === null || value === undefined) return null
-    if (Number(value) < minValue) {
-      return message || `Must be at least ${minValue}`
-    }
-    return null
-  }
-}
-
-/**
- * Max value validator
- */
-export function max(maxValue: number, message?: string): ValidationRule {
-  return (value: any) => {
-    if (value === null || value === undefined) return null
-    if (Number(value) > maxValue) {
-      return message || `Must be at most ${maxValue}`
-    }
-    return null
-  }
-}
-
-/**
- * Match validator (для подтверждения пароля)
- */
-export function match(fieldName: string, message?: string): ValidationRule {
-  return (value: any, formValues?: Record<string, any>) => {
-    if (!value || !formValues) return null
-    if (value !== formValues[fieldName]) {
-      return message || `Must match ${fieldName}`
-    }
-    return null
-  }
-}
-
-/**
- * Custom async validator
- */
-export function asyncValidator(
-  fn: (value: any) => Promise<boolean>,
-  message = 'Validation failed',
-): ValidationRule {
-  return async (value: any) => {
-    const isValid = await fn(value)
-    return isValid ? null : message
-  }
-}
-
-/**
- * Предопределенные валидаторы для приложения
- */
-
-export const usernameValidator = [
-  required('Username is required'),
-  minLength(3, 'Username must be at least 3 characters'),
-  maxLength(30, 'Username must be at most 30 characters'),
-  pattern(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
-]
-
-export const emailValidator = [required('Email is required'), email('Invalid email format')]
-
-export const passwordValidator = [
-  required('Password is required'),
-  minLength(8, 'Password must be at least 8 characters'),
-]
-
-export const pinTitleValidator = [maxLength(200, 'Title must be at most 200 characters')]
-
-export const pinDescriptionValidator = [
-  maxLength(400, 'Description must be at most 400 characters'),
-]
-
-export const commentValidator = [
-  required('Comment cannot be empty'),
-  maxLength(400, 'Comment must be at most 400 characters'),
-]
-
-export const tagValidator = [
-  required('Tag cannot be empty'),
-  maxLength(100, 'Tag must be at most 100 characters'),
-]
-
-export const boardTitleValidator = [
-  required('Board title is required'),
-  maxLength(200, 'Title must be at most 200 characters'),
-]
-
-/**
- * useValidators
- *
- * Helper для использования предопределенных валидаторов
- *
- * @example
- * ```ts
- * const validators = useValidators()
- *
- * const form = useForm({
- *   initialValues: { username: '', email: '' },
- *   validationRules: {
- *     username: validators.username,
- *     email: validators.email
- *   }
- * })
- * ```
+ * useValidators - Helper для доступа к валидаторам
  */
 export function useValidators() {
-  return {
-    // Basic
-    required,
-    minLength,
-    maxLength,
-    email,
-    url,
-    pattern,
-    min,
-    max,
-    match,
-    asyncValidator,
-
-    // Predefined
-    username: usernameValidator,
-    emailField: emailValidator,
-    password: passwordValidator,
-    pinTitle: pinTitleValidator,
-    pinDescription: pinDescriptionValidator,
-    comment: commentValidator,
-    tag: tagValidator,
-    boardTitle: boardTitleValidator,
-  }
+  return validators
 }

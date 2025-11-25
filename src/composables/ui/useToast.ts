@@ -1,169 +1,91 @@
+// src/composables/ui/useToast.ts
 /**
- * useToast Composable
+ * useToast - Toast notifications
  *
- * Toast уведомления через vue-toastification
+ * Обертка над vue-toastification с типизацией
+ * НЕ дублирует - plugins/toast.ts только настраивает плагин
  */
 
-import { useToast as useVueToast, type PluginOptions as ToastOptions } from 'vue-toastification'
+import { useToast as useVueToast } from 'vue-toastification'
+import type { PluginOptions as ToastOptions } from 'vue-toastification'
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
 
-export interface ShowToastOptions extends Partial<ToastOptions> {
+export interface ShowToastOptions {
   duration?: number
-  closable?: boolean
   position?: ToastOptions['position']
 }
+
+const DEFAULT_TIMEOUT = 3000
 
 export function useToast() {
   const toast = useVueToast()
 
-  const defaultOptions: Partial<ToastOptions> = {
-    timeout: 3000,
-    closeOnClick: true,
-    pauseOnFocusLoss: true,
-    pauseOnHover: true,
-    draggable: true,
-    draggablePercent: 0.6,
-    showCloseButtonOnHover: false,
-    hideProgressBar: false,
-    closeButton: 'button',
-    icon: true,
-    rtl: false,
-  }
-
   const showToast = (message: string, type: ToastType = 'info', options: ShowToastOptions = {}) => {
-    const mergedOptions: ToastOptions = {
-      ...defaultOptions,
-      ...options,
-      timeout: options.duration || defaultOptions.timeout,
+    const toastOptions = {
+      timeout: options.duration || DEFAULT_TIMEOUT,
+      position: options.position,
     }
 
-    switch (type) {
-      case 'success':
-        toast.success(message, mergedOptions)
-        break
-      case 'error':
-        toast.error(message, mergedOptions)
-        break
-      case 'warning':
-        toast.warning(message, mergedOptions)
-        break
-      case 'info':
-        toast.info(message, mergedOptions)
-        break
-      default:
-        toast(message, mergedOptions)
-    }
-  }
-
-  const success = (message: string, options?: ShowToastOptions) => {
-    showToast(message, 'success', options)
-  }
-
-  const error = (message: string, options?: ShowToastOptions) => {
-    showToast(message, 'error', options)
-  }
-
-  const warning = (message: string, options?: ShowToastOptions) => {
-    showToast(message, 'warning', options)
-  }
-
-  const info = (message: string, options?: ShowToastOptions) => {
-    showToast(message, 'info', options)
-  }
-
-  const clear = () => {
-    toast.clear()
+    toast[type](message, toastOptions)
   }
 
   return {
     showToast,
-    success,
-    error,
-    warning,
-    info,
-    clear,
+    success: (msg: string, opts?: ShowToastOptions) => showToast(msg, 'success', opts),
+    error: (msg: string, opts?: ShowToastOptions) => showToast(msg, 'error', opts),
+    warning: (msg: string, opts?: ShowToastOptions) => showToast(msg, 'warning', opts),
+    info: (msg: string, opts?: ShowToastOptions) => showToast(msg, 'info', opts),
+    clear: () => toast.clear(),
   }
 }
 
+/**
+ * useErrorToast - Обработка ошибок
+ */
 export function useErrorToast() {
-  const { error: showErrorToast } = useToast()
-
-  const showError = (err: unknown, fallbackMessage = 'An error occurred') => {
-    let message = fallbackMessage
-
-    if (err instanceof Error) {
-      message = err.message
-    } else if (typeof err === 'string') {
-      message = err
-    } else if (err && typeof err === 'object' && 'message' in err) {
-      message = String(err.message)
-    }
-
-    showErrorToast(message)
-  }
-
-  const showValidationError = (errors: Record<string, string[]>) => {
-    const messages = Object.values(errors).flat()
-    if (messages.length > 0) {
-      showErrorToast(messages[0] || '')
-    }
-  }
-
-  const showNetworkError = () => {
-    showErrorToast('Network error. Please check your connection.')
-  }
-
-  const showUnauthorizedError = () => {
-    showErrorToast('You need to be logged in to perform this action.')
-  }
-
-  const showForbiddenError = () => {
-    showErrorToast("You don't have permission to perform this action.")
-  }
+  const { error } = useToast()
 
   return {
-    showError,
-    showValidationError,
-    showNetworkError,
-    showUnauthorizedError,
-    showForbiddenError,
+    showError: (err: unknown, fallback = 'An error occurred') => {
+      const message = err instanceof Error ? err.message : typeof err === 'string' ? err : fallback
+      error(message)
+    },
+    showNetworkError: () => error('Network error. Please check your connection.'),
+    showUnauthorizedError: () => error('You need to be logged in.'),
+    showForbiddenError: () => error("You don't have permission."),
   }
 }
 
+/**
+ * useSuccessToast - Предопределенные success сообщения
+ */
 export function useSuccessToast() {
   const { success } = useToast()
 
   return {
     // Pins
-    pinCreated: () => success('Pin created successfully!'),
-    pinUpdated: () => success('Pin updated successfully!'),
-    pinDeleted: () => success('Pin deleted successfully!'),
+    pinCreated: () => success('Pin created!'),
+    pinDeleted: () => success('Pin deleted!'),
     pinSaved: () => success('Pin saved!'),
     pinUnsaved: () => success('Pin removed from saved'),
 
     // Boards
-    boardCreated: () => success('Board created successfully!'),
-    boardDeleted: () => success('Board deleted successfully!'),
-    pinAddedToBoard: () => success('Pin added to board!'),
-    pinRemovedFromBoard: () => success('Pin removed from board!'),
+    boardCreated: () => success('Board created!'),
+    boardDeleted: () => success('Board deleted!'),
 
     // Comments
     commentAdded: () => success('Comment added!'),
-    commentUpdated: () => success('Comment updated!'),
     commentDeleted: () => success('Comment deleted!'),
 
     // Profile
-    profileUpdated: () => success('Profile updated successfully!'),
-    avatarUploaded: () => success('Avatar updated!'),
-    bannerUploaded: () => success('Banner updated!'),
+    profileUpdated: () => success('Profile updated!'),
 
     // Follow
     followed: () => success('Followed!'),
     unfollowed: () => success('Unfollowed!'),
 
     // Generic
-    saved: () => success('Saved successfully!'),
     copied: () => success('Copied to clipboard!'),
   }
 }

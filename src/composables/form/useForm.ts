@@ -1,91 +1,21 @@
+// src/composables/form/useForm.ts
 /**
- * useForm Composable
+ * useForm - Form state management
  *
- * Управление состоянием форм
+ * Уникальный composable для управления формами
  */
 
-import { ref, reactive, computed, watch, onMounted, type Ref, type UnwrapRef } from 'vue'
-import { useFormValidation } from './useFormValidation'
-import { useFormErrors } from './useFormErrors'
-import type { ValidationRule } from '@/types/utils.types'
-
-export interface FormField<T = unknown> {
-  value: T
-  error: string | null
-  touched: boolean
-  dirty: boolean
-}
+import { ref, reactive, computed, type UnwrapRef } from 'vue'
+import { useFormValidation, type ValidationRules } from './useFormValidation'
 
 export interface UseFormOptions<T extends Record<string, unknown>> {
-  /**
-   * Начальные значения
-   */
   initialValues: T
-
-  /**
-   * Правила валидации
-   */
-  validationRules?: Partial<Record<keyof T, ValidationRule | ValidationRule[]>>
-
-  /**
-   * Валидировать при изменении
-   * @default true
-   */
+  validationRules?: ValidationRules<T>
   validateOnChange?: boolean
-
-  /**
-   * Валидировать при blur
-   * @default true
-   */
   validateOnBlur?: boolean
-
-  /**
-   * Callback при успешной отправке
-   */
   onSubmit?: (values: T) => void | Promise<void>
-
-  /**
-   * Callback при ошибке
-   */
-  onError?: (errors: Record<keyof T, string>) => void
 }
 
-/**
- * useForm
- *
- * @example
- * ```ts
- * const {
- *   values,
- *   errors,
- *   isValid,
- *   handleSubmit,
- *   setFieldValue,
- *   setFieldError
- * } = useForm({
- *   initialValues: {
- *     username: '',
- *     email: '',
- *     password: ''
- *   },
- *   validationRules: {
- *     username: (value) => {
- *       if (!value) return 'Username is required'
- *       if (value.length < 3) return 'Username must be at least 3 characters'
- *       return null
- *     },
- *     email: (value) => {
- *       if (!value) return 'Email is required'
- *       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Invalid email'
- *       return null
- *     }
- *   },
- *   onSubmit: async (values) => {
- *     await createUser(values)
- *   }
- * })
- * ```
- */
 export function useForm<T extends Record<string, unknown>>(options: UseFormOptions<T>) {
   const {
     initialValues,
@@ -93,111 +23,85 @@ export function useForm<T extends Record<string, unknown>>(options: UseFormOptio
     validateOnChange = true,
     validateOnBlur = true,
     onSubmit,
-    onError,
   } = options
 
-  // Form state
+  // State
   const values = reactive({ ...initialValues }) as UnwrapRef<T>
-  const touched = reactive(
+  const errors = ref<Partial<Record<keyof T, string>>>({})
+  const touched = reactive<Record<keyof T, boolean>>(
     Object.keys(initialValues).reduce(
-      (acc, key) => {
-        acc[key as keyof T] = false
-        return acc
-      },
+      (acc, key) => ({ ...acc, [key]: false }),
       {} as Record<keyof T, boolean>,
     ),
   )
-  const dirty = reactive(
-    Object.keys(initialValues).reduce(
-      (acc, key) => {
-        acc[key as keyof T] = false
-        return acc
-      },
-      {} as Record<keyof T, boolean>,
-    ),
-  )
-
-  const { errors, setFieldError, clearFieldError, clearAllErrors, hasErrors } = useFormErrors<T>()
-  const { validateField, validateForm } = useFormValidation(validationRules)
-
   const isSubmitting = ref(false)
-  const submitCount = ref(0)
+
+  // Validation
+  const { validateField, validateAll } = useFormValidation(validationRules)
 
   // Computed
-  const isValid = computed(() => !hasErrors.value)
-  const isDirty = computed(() => Object.values(dirty).some(Boolean))
-  const isTouched = computed(() => Object.values(touched).some(Boolean))
+  const isValid = computed(() => Object.keys(errors.value).length === 0)
+  const isDirty = computed(() => {
+    return Object.keys(initialValues).some(
+      (key) => values[key as keyof T] !== initialValues[key as keyof T],
+    )
+  })
 
-  // Field methods
+  // Methods
   const setFieldValue = <K extends keyof T>(field: K, value: T[K]) => {
     values[field] = value as UnwrapRef<T>[K]
-    dirty[field] = true
 
     if (validateOnChange) {
-      validateFieldWithRules(field)
+      validateFieldInternal(field)
     }
   }
 
-  const setFieldTouched = <K extends keyof T>(field: K, isTouched = true) => {
-    touched[field] = isTouched
+  const setFieldTouched = <K extends keyof T>(field: K) => {
+    touched[field] = true
 
-    if (validateOnBlur && isTouched) {
-      validateFieldWithRules(field)
+    if (validateOnBlur) {
+      validateFieldInternal(field)
     }
   }
 
-  const validateFieldWithRules = async <K extends keyof T>(field: K) => {
-    const value = values[field]
-    const error = await validateField(field as string, value)
+  const setFieldError = <K extends keyof T>(field: K, error: string) => {
+    errors.value[field] = error
+  }
 
+  const clearFieldError = <K extends keyof T>(field: K) => {
+    delete errors.value[field]
+  }
+
+  const validateFieldInternal = async <K extends keyof T>(field: K) => {
+    const error = await validateField(field as string, values[field])
     if (error) {
-      setFieldError(field, error)
+      errors.value[field] = error
     } else {
-      clearFieldError(field)
+      delete errors.value[field]
     }
-
-    return error
+    return !error
   }
 
-  const validateAllFields = async () => {
-    const validationErrors = await validateForm(values)
-
-    clearAllErrors()
-
-    Object.entries(validationErrors).forEach(([field, error]) => {
-      if (error) {
-        setFieldError(field as keyof T, error)
-      }
-    })
-
+  const validateForm = async () => {
+    const validationErrors = await validateAll(values as T)
+    errors.value = validationErrors as Partial<Record<keyof T, string>>
     return Object.keys(validationErrors).length === 0
   }
 
-  // Form methods
-  const handleSubmit = async (event?: Event) => {
-    event?.preventDefault()
-
-    submitCount.value++
+  const handleSubmit = async (e?: Event) => {
+    e?.preventDefault()
 
     // Touch all fields
     Object.keys(initialValues).forEach((key) => {
       touched[key as keyof T] = true
     })
 
-    // Validate
-    const isFormValid = await validateAllFields()
+    const isFormValid = await validateForm()
+    if (!isFormValid) return
 
-    if (!isFormValid) {
-      onError?.(errors.value as Record<keyof T, string>)
-      return
-    }
-
-    // Submit
     try {
       isSubmitting.value = true
       await onSubmit?.(values as T)
-    } catch (error) {
-      console.error('[useForm] Submit failed:', error)
     } finally {
       isSubmitting.value = false
     }
@@ -208,18 +112,8 @@ export function useForm<T extends Record<string, unknown>>(options: UseFormOptio
       const k = key as keyof T
       values[k] = initialValues[k] as UnwrapRef<T>[keyof T]
       touched[k] = false
-      dirty[k] = false
     })
-
-    clearAllErrors()
-    submitCount.value = 0
-  }
-
-  const resetField = <K extends keyof T>(field: K) => {
-    values[field] = initialValues[field] as UnwrapRef<T>[K]
-    touched[field] = false
-    dirty[field] = false
-    clearFieldError(field)
+    errors.value = {}
   }
 
   return {
@@ -227,186 +121,46 @@ export function useForm<T extends Record<string, unknown>>(options: UseFormOptio
     values,
     errors,
     touched,
-    dirty,
     isSubmitting,
-    submitCount,
 
     // Computed
     isValid,
     isDirty,
-    isTouched,
 
     // Methods
     setFieldValue,
     setFieldTouched,
     setFieldError,
     clearFieldError,
-    validateField: validateFieldWithRules,
-    validateForm: validateAllFields,
+    validateField: validateFieldInternal,
+    validateForm,
     handleSubmit,
     reset,
-    resetField,
   }
 }
 
 /**
- * useFieldArray
- *
- * Управление массивом полей (для динамических форм)
- *
- * @example
- * ```ts
- * const { fields, append, remove, insert } = useFieldArray({
- *   name: 'tags',
- *   defaultValue: []
- * })
- *
- * append('nature')
- * remove(0)
- * insert(1, 'landscape')
- * ```
+ * useFieldArray - Динамические массивы полей
  */
-export function useFieldArray<T = unknown>(options: { name: string; defaultValue?: T[] }) {
-  const { name, defaultValue = [] } = options
-
-  const fields = ref<T[]>([...defaultValue]) as Ref<T[]>
-
-  const append = (value: T) => {
-    fields.value.push(value)
-  }
-
-  const prepend = (value: T) => {
-    fields.value.unshift(value)
-  }
-
-  const insert = (index: number, value: T) => {
-    fields.value.splice(index, 0, value)
-  }
-
-  const remove = (index: number) => {
-    fields.value.splice(index, 1)
-  }
-
-  const swap = (indexA: number, indexB: number) => {
-    const temp = fields.value[indexA]
-    fields.value[indexA] = fields.value[indexB] as T
-    fields.value[indexB] = temp as T
-  }
-
-  const move = (from: number, to: number) => {
-    const item = fields.value.splice(from, 1)[0]
-    fields.value.splice(to, 0, item as T)
-  }
-
-  const replace = (index: number, value: T) => {
-    fields.value[index] = value
-  }
-
-  const clear = () => {
-    fields.value = []
-  }
-
-  const reset = () => {
-    fields.value = [...defaultValue]
-  }
+export function useFieldArray<T>(defaultValue: T[] = []) {
+  const fields = ref<T[]>([...defaultValue])
 
   return {
     fields,
-    append,
-    prepend,
-    insert,
-    remove,
-    swap,
-    move,
-    replace,
-    clear,
-    reset,
-  }
-}
-
-/**
- * useFormPersist
- *
- * Сохранение формы в localStorage
- *
- * @example
- * ```ts
- * const form = useForm({ ... })
- *
- * useFormPersist(form, 'create-pin-form')
- * ```
- */
-export function useFormPersist<T extends Record<string, unknown>>(
-  form: ReturnType<typeof useForm<T>>,
-  storageKey: string,
-  options: {
-    debounce?: number
-    exclude?: (keyof T)[]
-  } = {},
-) {
-  const { debounce: debounceMs = 500, exclude = [] } = options
-
-  // Load from localStorage
-  const load = () => {
-    try {
-      const stored = localStorage.getItem(storageKey)
-      if (stored) {
-        const data = JSON.parse(stored) as T
-        Object.keys(data).forEach((key) => {
-          const k = key as keyof T
-          if (!exclude.includes(k)) {
-            form.setFieldValue(k, data[k])
-          }
-        })
-      }
-    } catch (error) {
-      console.error('[useFormPersist] Load failed:', error)
-    }
-  }
-
-  // Save to localStorage
-  const save = () => {
-    try {
-      const data = { ...form.values }
-      exclude.forEach((key) => {
-        delete data[key]
-      })
-      localStorage.setItem(storageKey, JSON.stringify(data))
-    } catch (error) {
-      console.error('[useFormPersist] Save failed:', error)
-    }
-  }
-
-  // Clear localStorage
-  const clear = () => {
-    localStorage.removeItem(storageKey)
-  }
-
-  // Watch values changes
-  let saveTimeout: ReturnType<typeof setTimeout> | undefined
-
-  watch(
-    () => form.values,
-    () => {
-      if (saveTimeout) clearTimeout(saveTimeout)
-      saveTimeout = setTimeout(save, debounceMs)
+    append: (value: T) => fields.value.push(value),
+    prepend: (value: T) => fields.value.unshift(value),
+    insert: (index: number, value: T) => fields.value.splice(index, 0, value),
+    remove: (index: number) => fields.value.splice(index, 1),
+    swap: (a: number, b: number) => {
+      const temp = fields.value[a]
+      fields.value[a] = fields.value[b] as T
+      fields.value[b] = temp as T
     },
-    { deep: true },
-  )
-
-  // Load on mount
-  onMounted(() => {
-    load()
-  })
-
-  // Clear on unmount (optional)
-  // onUnmounted(() => {
-  //   clear()
-  // })
-
-  return {
-    load,
-    save,
-    clear,
+    clear: () => {
+      fields.value = []
+    },
+    reset: () => {
+      fields.value = [...defaultValue]
+    },
   }
 }

@@ -1,15 +1,13 @@
+// src/composables/features/usePagination.ts
 /**
- * usePagination Composable
+ * usePagination - Classic pagination (не infinite scroll)
  *
- * Классическая пагинация (не infinite scroll)
+ * Уникальный composable для страничной навигации
  */
 
-import { ref, computed, watch, type Ref } from 'vue'
+import { ref, computed, type Ref } from 'vue'
 
 export interface UsePaginationOptions<T> {
-  /**
-   * Функция загрузки страницы
-   */
   fetchPage: (
     page: number,
     size: number,
@@ -18,50 +16,12 @@ export interface UsePaginationOptions<T> {
     total: number
     totalPages: number
   }>
-
-  /**
-   * Размер страницы
-   * @default 10
-   */
   pageSize?: number
-
-  /**
-   * Начальная страница
-   * @default 0
-   */
   initialPage?: number
-
-  /**
-   * Callback при изменении страницы
-   */
   onPageChange?: (page: number) => void
 }
 
-/**
- * usePagination
- *
- * @example
- * ```ts
- * const {
- *   items,
- *   currentPage,
- *   totalPages,
- *   goToPage,
- *   nextPage,
- *   prevPage
- * } = usePagination({
- *   fetchPage: async (page, size) => {
- *     const response = await fetchPins({}, page, size)
- *     return {
- *       items: response.content,
- *       total: response.totalElements,
- *       totalPages: response.totalPages
- *     }
- *   }
- * })
- * ```
- */
-export function usePagination<T = unknown>(options: UsePaginationOptions<T>) {
+export function usePagination<T>(options: UsePaginationOptions<T>) {
   const { fetchPage, pageSize = 10, initialPage = 0, onPageChange } = options
 
   const items = ref<T[]>([]) as Ref<T[]>
@@ -71,10 +31,12 @@ export function usePagination<T = unknown>(options: UsePaginationOptions<T>) {
   const isLoading = ref(false)
   const error = ref<Error | null>(null)
 
-  const hasNextPage = computed(() => currentPage.value < totalPages.value - 1)
-  const hasPrevPage = computed(() => currentPage.value > 0)
+  const hasNext = computed(() => currentPage.value < totalPages.value - 1)
+  const hasPrev = computed(() => currentPage.value > 0)
 
   const loadPage = async (page: number) => {
+    if (page < 0 || (totalPages.value > 0 && page >= totalPages.value)) return
+
     try {
       isLoading.value = true
       error.value = null
@@ -95,34 +57,12 @@ export function usePagination<T = unknown>(options: UsePaginationOptions<T>) {
     }
   }
 
-  const goToPage = async (page: number) => {
-    if (page < 0 || page >= totalPages.value) return
-    await loadPage(page)
-  }
-
-  const nextPage = async () => {
-    if (hasNextPage.value) {
-      await loadPage(currentPage.value + 1)
-    }
-  }
-
-  const prevPage = async () => {
-    if (hasPrevPage.value) {
-      await loadPage(currentPage.value - 1)
-    }
-  }
-
-  const firstPage = async () => {
-    await loadPage(0)
-  }
-
-  const lastPage = async () => {
-    await loadPage(totalPages.value - 1)
-  }
-
-  const refresh = async () => {
-    await loadPage(currentPage.value)
-  }
+  const goTo = (page: number) => loadPage(page)
+  const next = () => hasNext.value && loadPage(currentPage.value + 1)
+  const prev = () => hasPrev.value && loadPage(currentPage.value - 1)
+  const first = () => loadPage(0)
+  const last = () => loadPage(totalPages.value - 1)
+  const refresh = () => loadPage(currentPage.value)
 
   // Initial load
   loadPage(initialPage)
@@ -135,75 +75,48 @@ export function usePagination<T = unknown>(options: UsePaginationOptions<T>) {
     pageSize,
     isLoading,
     error,
-    hasNextPage,
-    hasPrevPage,
-    goToPage,
-    nextPage,
-    prevPage,
-    firstPage,
-    lastPage,
+    hasNext,
+    hasPrev,
+    goTo,
+    next,
+    prev,
+    first,
+    last,
     refresh,
   }
 }
 
 /**
- * usePaginationControls
- *
- * UI controls для пагинации
- *
- * @example
- * ```ts
- * const {
- *   pages,
- *   visiblePages,
- *   isFirstPage,
- *   isLastPage
- * } = usePaginationControls(currentPage, totalPages)
- * ```
+ * usePaginationControls - UI helpers для пагинации
  */
 export function usePaginationControls(
   currentPage: Ref<number>,
   totalPages: Ref<number>,
   maxVisible = 5,
 ) {
-  const pages = computed(() => {
-    return Array.from({ length: totalPages.value }, (_, i) => i)
-  })
+  const pages = computed(() => Array.from({ length: totalPages.value }, (_, i) => i))
 
   const visiblePages = computed(() => {
     const current = currentPage.value
     const total = totalPages.value
 
-    if (total <= maxVisible) {
-      return pages.value
-    }
+    if (total <= maxVisible) return pages.value
 
     const half = Math.floor(maxVisible / 2)
-    let start = current - half
-    let end = current + half
+    let start = Math.max(0, current - half)
+    let end = Math.min(total - 1, current + half)
 
-    if (start < 0) {
-      start = 0
-      end = maxVisible - 1
-    }
-
-    if (end >= total) {
-      end = total - 1
-      start = total - maxVisible
-    }
+    if (start === 0) end = Math.min(total - 1, maxVisible - 1)
+    if (end === total - 1) start = Math.max(0, total - maxVisible)
 
     return pages.value.slice(start, end + 1)
   })
 
-  const isFirstPage = computed(() => currentPage.value === 0)
-  const isLastPage = computed(() => currentPage.value === totalPages.value - 1)
-  const isActivePage = (page: number) => page === currentPage.value
-
   return {
     pages,
     visiblePages,
-    isFirstPage,
-    isLastPage,
-    isActivePage,
+    isFirst: computed(() => currentPage.value === 0),
+    isLast: computed(() => currentPage.value === totalPages.value - 1),
+    isActive: (page: number) => page === currentPage.value,
   }
 }

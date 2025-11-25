@@ -1,64 +1,29 @@
+// src/composables/features/useHover.ts
 /**
- * useHover Composable
+ * useHover - Hover state management
  *
- * Hover states management
+ * Уникальный composable с delay support
  */
 
-import { ref, type Ref } from 'vue'
-import { useEventListener } from '@/composables'
+import { ref, computed, unref, watch, onUnmounted, type Ref } from 'vue'
+import { useEventListener } from '@/composables/utils/useEventListener'
 
 export interface UseHoverOptions {
-  /**
-   * Delay before considering hovered (ms)
-   * @default 0
-   */
   enterDelay?: number
-
-  /**
-   * Delay before considering not hovered (ms)
-   * @default 0
-   */
   leaveDelay?: number
-
-  /**
-   * Callback при hover
-   */
   onEnter?: () => void
-
-  /**
-   * Callback при leave
-   */
   onLeave?: () => void
 }
 
-/**
- * useHover
- *
- * @example
- * ```ts
- * const elementRef = ref<HTMLElement>()
- *
- * const { isHovered } = useHover(elementRef, {
- *   enterDelay: 200,
- *   onEnter: () => console.log('Hovered!')
- * })
- * ```
- */
-export function useHover(
-  elementRef: Ref<HTMLElement | null | undefined>,
-  options: UseHoverOptions = {},
-) {
+export function useHover(elementRef: Ref<HTMLElement | null>, options: UseHoverOptions = {}) {
   const { enterDelay = 0, leaveDelay = 0, onEnter, onLeave } = options
 
   const isHovered = ref(false)
   let enterTimeout: ReturnType<typeof setTimeout> | undefined
   let leaveTimeout: ReturnType<typeof setTimeout> | undefined
 
-  const handleMouseEnter = () => {
-    if (leaveTimeout) {
-      clearTimeout(leaveTimeout)
-      leaveTimeout = undefined
-    }
+  const handleEnter = () => {
+    if (leaveTimeout) clearTimeout(leaveTimeout)
 
     if (enterDelay > 0) {
       enterTimeout = setTimeout(() => {
@@ -71,11 +36,8 @@ export function useHover(
     }
   }
 
-  const handleMouseLeave = () => {
-    if (enterTimeout) {
-      clearTimeout(enterTimeout)
-      enterTimeout = undefined
-    }
+  const handleLeave = () => {
+    if (enterTimeout) clearTimeout(enterTimeout)
 
     if (leaveDelay > 0) {
       leaveTimeout = setTimeout(() => {
@@ -88,199 +50,48 @@ export function useHover(
     }
   }
 
-  useEventListener(elementRef, 'mouseenter', handleMouseEnter)
-  useEventListener(elementRef, 'mouseleave', handleMouseLeave)
+  useEventListener(elementRef, 'mouseenter', handleEnter)
+  useEventListener(elementRef, 'mouseleave', handleLeave)
 
   onUnmounted(() => {
     if (enterTimeout) clearTimeout(enterTimeout)
     if (leaveTimeout) clearTimeout(leaveTimeout)
   })
 
-  return {
-    isHovered,
-  }
+  return { isHovered }
 }
 
 /**
- * usePinHover
- *
- * Специализированный hover для PinCard
- *
- * @example
- * ```ts
- * const { isHovered, showActions } = usePinHover(pinRef)
- * ```
+ * usePinHover - Специализированный hover для PinCard
  */
-export function usePinHover(elementRef: Ref<HTMLElement | null | undefined>) {
+export function usePinHover(elementRef: Ref<HTMLElement | null>) {
   const { isHovered } = useHover(elementRef, {
     enterDelay: 100,
     leaveDelay: 200,
   })
 
-  const showActions = computed(() => isHovered.value)
-  const showOverlay = computed(() => isHovered.value)
-
   return {
     isHovered,
-    showActions,
-    showOverlay,
+    showActions: computed(() => isHovered.value),
+    showOverlay: computed(() => isHovered.value),
   }
 }
 
 /**
- * useHoverIntent
- *
- * Hover с проверкой намерения (движение мыши)
- *
- * @example
- * ```ts
- * const { isHovered } = useHoverIntent(elementRef, {
- *   sensitivity: 7,
- *   interval: 100
- * })
- * ```
+ * useFocus - Focus state tracking
  */
-export function useHoverIntent(
-  elementRef: Ref<HTMLElement | null | undefined>,
-  options: {
-    sensitivity?: number
-    interval?: number
-    onEnter?: () => void
-    onLeave?: () => void
-  } = {},
-) {
-  const { sensitivity = 7, interval = 100, onEnter, onLeave } = options
-
-  const isHovered = ref(false)
-  let x = 0
-  let y = 0
-  let pX = 0
-  let pY = 0
-  let timer: ReturnType<typeof setTimeout> | undefined
-
-  const handleMouseMove = (event: MouseEvent) => {
-    x = event.clientX
-    y = event.clientY
-  }
-
-  const compare = () => {
-    if (Math.abs(pX - x) + Math.abs(pY - y) < sensitivity) {
-      isHovered.value = true
-      onEnter?.()
-    } else {
-      pX = x
-      pY = y
-      timer = setTimeout(compare, interval)
-    }
-  }
-
-  const handleMouseEnter = (event: MouseEvent) => {
-    pX = event.clientX
-    pY = event.clientY
-    x = pX
-    y = pY
-
-    timer = setTimeout(compare, interval)
-  }
-
-  const handleMouseLeave = () => {
-    if (timer) {
-      clearTimeout(timer)
-      timer = undefined
-    }
-
-    isHovered.value = false
-    onLeave?.()
-  }
-
-  useEventListener(elementRef, 'mouseenter', handleMouseEnter)
-  useEventListener(elementRef, 'mousemove', handleMouseMove)
-  useEventListener(elementRef, 'mouseleave', handleMouseLeave)
-
-  onUnmounted(() => {
-    if (timer) clearTimeout(timer)
-  })
-
-  return {
-    isHovered,
-  }
-}
-
-/**
- * useFocus
- *
- * Focus state tracking
- *
- * @example
- * ```ts
- * const inputRef = ref<HTMLInputElement>()
- *
- * const { isFocused, focus, blur } = useFocus(inputRef)
- * ```
- */
-export function useFocus(elementRef: Ref<HTMLElement | null | undefined>) {
+export function useFocus(elementRef: Ref<HTMLElement | null>) {
   const isFocused = ref(false)
 
-  const handleFocus = () => {
+  useEventListener(elementRef, 'focus', () => {
     isFocused.value = true
-  }
-
-  const handleBlur = () => {
+  })
+  useEventListener(elementRef, 'blur', () => {
     isFocused.value = false
-  }
+  })
 
-  useEventListener(elementRef, 'focus', handleFocus)
-  useEventListener(elementRef, 'blur', handleBlur)
+  const focus = () => unref(elementRef)?.focus()
+  const blur = () => unref(elementRef)?.blur()
 
-  const focus = () => {
-    const element = unref(elementRef)
-    element?.focus()
-  }
-
-  const blur = () => {
-    const element = unref(elementRef)
-    element?.blur()
-  }
-
-  return {
-    isFocused,
-    focus,
-    blur,
-  }
-}
-
-/**
- * useActive
- *
- * Active state (mousedown/mouseup)
- *
- * @example
- * ```ts
- * const buttonRef = ref<HTMLElement>()
- *
- * const { isActive } = useActive(buttonRef)
- * ```
- */
-export function useActive(elementRef: Ref<HTMLElement | null | undefined>) {
-  const isActive = ref(false)
-
-  const handleMouseDown = () => {
-    isActive.value = true
-  }
-
-  const handleMouseUp = () => {
-    isActive.value = false
-  }
-
-  const handleMouseLeave = () => {
-    isActive.value = false
-  }
-
-  useEventListener(elementRef, 'mousedown', handleMouseDown)
-  useEventListener(elementRef, 'mouseup', handleMouseUp)
-  useEventListener(elementRef, 'mouseleave', handleMouseLeave)
-
-  return {
-    isActive,
-  }
+  return { isFocused, focus, blur }
 }

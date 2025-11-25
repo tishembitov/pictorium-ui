@@ -39,7 +39,5 @@ export * from './utils/useFocusTrap'
 
 //Features
 export * from './features/useAnimations'
-export * from './features/useFileValidation'
 export * from './features/useHover'
-export * from './features/useMasonry'
 export * from './features/useVideoPlayer'

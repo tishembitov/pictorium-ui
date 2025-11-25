@@ -1,80 +1,32 @@
+// src/composables/features/useFileUpload.ts
 /**
- * useFileUpload Composable
+ * useFileUpload - File upload с preview и validation
  *
- * Загрузка файлов с preview и validation
+ * Расширяет useStorage из composables/api
+ * Добавляет preview, drag & drop, validation
  */
 
-import { ref, computed, type Ref } from 'vue'
-import { storageApi } from '@/api/storage.api'
-import { useFileValidation } from './useFileValidation'
-import { useProgress, useToast } from '@/composables'
+import { ref, computed, watch, onUnmounted, type Ref } from 'vue'
+import { useStorage } from '@/composables/api/useStorage'
+import { validateMediaFile } from '@/utils/files'
+import { isImage, isVideo } from '@/utils/media'
+import { useToast } from '@/composables/ui/useToast'
 import type { ImageUploadRequest } from '@/types'
 
 export interface UseFileUploadOptions {
-  /**
-   * Разрешенные типы файлов
-   */
   accept?: string
-
-  /**
-   * Максимальный размер (bytes)
-   */
   maxSize?: number
-
-  /**
-   * Автоматическая загрузка после выбора
-   */
   autoUpload?: boolean
-
-  /**
-   * Категория для Storage Service
-   */
   category?: string
-
-  /**
-   * Генерировать thumbnail
-   */
   generateThumbnail?: boolean
-
-  /**
-   * Callback при успехе
-   */
-  onSuccess?: (response: unknown) => void
-
-  /**
-   * Callback при ошибке
-   */
+  onSuccess?: (url: string) => void
   onError?: (error: Error) => void
 }
 
-/**
- * useFileUpload
- *
- * @example
- * ```ts
- * const {
- *   file,
- *   preview,
- *   selectFile,
- *   upload,
- *   reset
- * } = useFileUpload({
- *   accept: 'image/*',
- *   maxSize: 10 * 1024 * 1024,
- *   onSuccess: (response) => console.log('Uploaded:', response)
- * })
- *
- * <input
- *   type="file"
- *   @change="selectFile"
- *   :accept="accept"
- * />
- * ```
- */
 export function useFileUpload(options: UseFileUploadOptions = {}) {
   const {
     accept = 'image/*,video/*',
-    maxSize = 10 * 1024 * 1024,
+    maxSize,
     autoUpload = false,
     category = 'pins',
     generateThumbnail = true,
@@ -82,49 +34,44 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     onError,
   } = options
 
-  const { validateFile } = useFileValidation({ maxSize })
-  const { progress, setProgress, reset: resetProgress } = useProgress()
-  const { showToast } = useToast()
+  const storage = useStorage()
+  const { error: showError } = useToast()
 
   const file = ref<File | null>(null)
   const preview = ref<string | null>(null)
-  const isUploading = ref(false)
-  const uploadedUrl = ref<string | null>(null)
-  const error = ref<Error | null>(null)
+  const validationError = ref<string | null>(null)
 
   const hasFile = computed(() => file.value !== null)
-  const isImage = computed(() => file.value?.type.startsWith('image/') || false)
-  const isVideo = computed(() => file.value?.type.startsWith('video/') || false)
+  const isImageFile = computed(() => (file.value ? isImage(file.value) : false))
+  const isVideoFile = computed(() => (file.value ? isVideo(file.value) : false))
 
   const selectFile = async (event: Event) => {
-    const target = event.target as HTMLInputElement
-    const selectedFile = target.files?.[0]
-
+    const input = event.target as HTMLInputElement
+    const selectedFile = input.files?.[0]
     if (!selectedFile) return
 
     // Validate
-    const validation = await validateFile(selectedFile)
+    const validation = await validateMediaFile(selectedFile)
     if (!validation.valid) {
-      error.value = new Error(validation.errors[0])
-      showToast(validation.errors[0], 'error')
+      validationError.value = validation.errors[0] || 'Invalid file'
+      showError(validationError.value)
       return
     }
 
     file.value = selectedFile
-    error.value = null
+    validationError.value = null
 
     // Create preview
-    if (selectedFile.type.startsWith('image/')) {
+    if (isImage(selectedFile)) {
       const reader = new FileReader()
       reader.onload = (e) => {
         preview.value = e.target?.result as string
       }
       reader.readAsDataURL(selectedFile)
-    } else if (selectedFile.type.startsWith('video/')) {
+    } else if (isVideo(selectedFile)) {
       preview.value = URL.createObjectURL(selectedFile)
     }
 
-    // Auto upload
     if (autoUpload) {
       await upload()
     }
@@ -132,134 +79,91 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
   const upload = async () => {
     if (!file.value) {
-      error.value = new Error('No file selected')
-      return null
+      throw new Error('No file selected')
     }
 
     try {
-      isUploading.value = true
-      error.value = null
-      resetProgress()
-
-      const uploadParams: ImageUploadRequest = {
+      const params: ImageUploadRequest = {
         file: file.value,
         category,
         generateThumbnail,
+        thumbnailWidth: 400,
+        thumbnailHeight: 400,
       }
 
-      if (isImage.value) {
-        uploadParams.thumbnailWidth = 400
-        uploadParams.thumbnailHeight = 400
-      }
-
-      // Simulate progress (в реальности нужен axios onUploadProgress)
-      const progressInterval = setInterval(() => {
-        setProgress(progress.value + 10)
-      }, 200)
-
-      const response = await storageApi.uploadImage(uploadParams)
-
-      clearInterval(progressInterval)
-      setProgress(100)
-
-      uploadedUrl.value = response.imageUrl
-
-      onSuccess?.(response)
-      showToast('File uploaded successfully!', 'success')
-
-      return response
+      const url = await storage.uploadImage(params)
+      onSuccess?.(url)
+      return url
     } catch (err) {
-      error.value = err as Error
       onError?.(err as Error)
-      showToast('Failed to upload file', 'error')
       throw err
-    } finally {
-      isUploading.value = false
     }
   }
 
   const reset = () => {
-    file.value = null
-    preview.value = null
-    uploadedUrl.value = null
-    error.value = null
-    resetProgress()
-  }
-
-  const removeFile = () => {
-    if (preview.value && preview.value.startsWith('blob:')) {
+    if (preview.value?.startsWith('blob:')) {
       URL.revokeObjectURL(preview.value)
     }
-    reset()
+    file.value = null
+    preview.value = null
+    validationError.value = null
+    storage.reset()
   }
 
+  onUnmounted(() => {
+    if (preview.value?.startsWith('blob:')) {
+      URL.revokeObjectURL(preview.value)
+    }
+  })
+
   return {
+    // State
     file,
     preview,
-    uploadedUrl,
-    isUploading,
-    progress,
-    error,
+    validationError,
+    uploadedUrl: storage.uploadedUrl,
+    uploadProgress: storage.uploadProgress,
+    isUploading: storage.isUploading,
+
+    // Computed
     hasFile,
-    isImage,
-    isVideo,
+    isImageFile,
+    isVideoFile,
     accept,
+
+    // Actions
     selectFile,
     upload,
     reset,
-    removeFile,
   }
 }
 
 /**
- * useImageUpload
- *
- * Специализированная загрузка изображений
- *
- * @example
- * ```ts
- * const { selectImage, uploadImage } = useImageUpload({
- *   category: 'avatars',
- *   onSuccess: (url) => updateAvatar(url)
- * })
- * ```
+ * useImageUpload - Preset для изображений
  */
 export function useImageUpload(options: Omit<UseFileUploadOptions, 'accept'> = {}) {
   return useFileUpload({
     ...options,
-    accept: 'image/jpeg,image/jpg,image/gif,image/webp,image/png,image/bmp',
+    accept: 'image/jpeg,image/png,image/gif,image/webp',
   })
 }
 
 /**
- * useVideoUpload
- *
- * Специализированная загрузка видео
+ * useVideoUpload - Preset для видео
  */
-export function useVideoUpload(options: Omit<UseFileUploadOptions, 'accept'> = {}) {
+export function useVideoUpload(options: Omit<UseFileUploadOptions, 'accept' | 'maxSize'> = {}) {
   return useFileUpload({
     ...options,
     accept: 'video/mp4,video/webm',
-    maxSize: 50 * 1024 * 1024, // 50MB
+    maxSize: 50 * 1024 * 1024,
   })
 }
 
 /**
- * useDragAndDrop
- *
- * Drag & Drop для файлов
- *
- * @example
- * ```ts
- * const dropzoneRef = ref<HTMLElement>()
- *
- * const { isDragging, handleDrop } = useDragAndDrop(dropzoneRef, {
- *   onDrop: (files) => console.log('Dropped:', files)
- * })
- * ```
+ * useDragAndDrop - Drag & Drop support
  */
 export function useDragAndDrop(
-  target: Ref<HTMLElement | null | undefined>,
+  targetRef: Ref<HTMLElement | null>,
   options: {
     accept?: string
     multiple?: boolean
@@ -269,57 +173,45 @@ export function useDragAndDrop(
   const { accept, multiple = false, onDrop } = options
 
   const isDragging = ref(false)
-  const dragCounter = ref(0)
+  let dragCounter = 0
 
   const handleDragEnter = (e: DragEvent) => {
     e.preventDefault()
-    dragCounter.value++
+    dragCounter++
     isDragging.value = true
   }
 
   const handleDragLeave = (e: DragEvent) => {
     e.preventDefault()
-    dragCounter.value--
-    if (dragCounter.value === 0) {
-      isDragging.value = false
-    }
+    dragCounter--
+    if (dragCounter === 0) isDragging.value = false
   }
 
-  const handleDragOver = (e: DragEvent) => {
-    e.preventDefault()
-  }
+  const handleDragOver = (e: DragEvent) => e.preventDefault()
 
   const handleDrop = (e: DragEvent) => {
     e.preventDefault()
     isDragging.value = false
-    dragCounter.value = 0
+    dragCounter = 0
 
-    const files = Array.from(e.dataTransfer?.files || [])
-
-    if (!multiple && files.length > 1) {
-      files.splice(1)
-    }
+    let files = Array.from(e.dataTransfer?.files || [])
+    if (!multiple) files = files.slice(0, 1)
 
     if (accept) {
-      const acceptedTypes = accept.split(',').map((t) => t.trim())
-      const filteredFiles = files.filter((file) =>
-        acceptedTypes.some((type) => {
-          if (type.endsWith('/*')) {
-            const prefix = type.slice(0, -2)
-            return file.type.startsWith(prefix)
-          }
-          return file.type === type
-        }),
+      const types = accept.split(',').map((t) => t.trim())
+      files = files.filter((f) =>
+        types.some((type) =>
+          type.endsWith('/*') ? f.type.startsWith(type.slice(0, -2)) : f.type === type,
+        ),
       )
-      onDrop?.(filteredFiles)
-    } else {
-      onDrop?.(files)
     }
+
+    onDrop?.(files)
   }
 
   watch(
-    target,
-    (el) => {
+    targetRef,
+    (el, _, onCleanup) => {
       if (!el) return
 
       el.addEventListener('dragenter', handleDragEnter)
@@ -327,18 +219,15 @@ export function useDragAndDrop(
       el.addEventListener('dragover', handleDragOver)
       el.addEventListener('drop', handleDrop)
 
-      return () => {
+      onCleanup(() => {
         el.removeEventListener('dragenter', handleDragEnter)
         el.removeEventListener('dragleave', handleDragLeave)
         el.removeEventListener('dragover', handleDragOver)
         el.removeEventListener('drop', handleDrop)
-      }
+      })
     },
     { immediate: true },
   )
 
-  return {
-    isDragging,
-    handleDrop,
-  }
+  return { isDragging }
 }

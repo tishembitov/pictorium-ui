@@ -1,150 +1,76 @@
+// src/composables/features/useAnimations.ts
 /**
- * useAnimations Composable
+ * useAnimations - Like/Save animations
  *
- * Like/Dislike animations для пинов и комментариев
+ * Reactive обертки над utils/animations.ts
+ * Добавляют isAnimating state и lifecycle management
  */
 
-import { ref, computed, watch, onUnmounted, unref, type Ref } from 'vue' // ДОБАВИТЬ unref
-import {
-  flashAnimation,
-  glowEffect,
-  scaleUp,
-  scaleDown,
-  bounce,
-  triggerAnimation,
-  type AnimationCallbacks,
-} from '@/utils/animations'
+import { ref, unref, watch, onUnmounted, type Ref } from 'vue'
+import { flashAnimation, glowEffect, scaleUp, scaleDown, bounce } from '@/utils/animations'
 
 /**
- * useLikeAnimation
- *
- * Анимация лайка с heart effect
- *
- * @example
- * ```ts
- * const buttonRef = ref<HTMLElement>()
- *
- * const { animate, isAnimating } = useLikeAnimation(buttonRef)
- *
- * async function handleLike() {
- *   await animate()
- *   // Perform like action
- * }
- * ```
+ * useLikeAnimation - Heart animation для лайков
  */
-export function useLikeAnimation(elementRef: Ref<HTMLElement | null | undefined>) {
+export function useLikeAnimation(elementRef: Ref<HTMLElement | null>) {
   const isAnimating = ref(false)
 
-  const animate = async (callbacks?: AnimationCallbacks) => {
-    const element = unref(elementRef)
-    if (!element || isAnimating.value) return
+  const animate = () => {
+    const el = unref(elementRef)
+    if (!el || isAnimating.value) return
 
     isAnimating.value = true
 
-    callbacks?.onStart?.()
+    flashAnimation(el, 500)
+    scaleUp(el, 1.2, 150)
 
-    // Flash + Scale animation
-    flashAnimation(element, 500)
-    scaleUp(element, 1.2, 150)
-
-    setTimeout(() => {
-      scaleDown(element, 150)
-    }, 150)
-
+    setTimeout(() => scaleDown(el, 150), 150)
     setTimeout(() => {
       isAnimating.value = false
-      callbacks?.onEnd?.()
     }, 500)
   }
 
-  return {
-    isAnimating,
-    animate,
-  }
+  return { isAnimating, animate }
 }
 
 /**
- * useHeartBurst
- *
- * Heart burst effect (как в Instagram/Pinterest)
- *
- * @example
- * ```ts
- * const containerRef = ref<HTMLElement>()
- *
- * const { burst } = useHeartBurst(containerRef)
- *
- * function handleDoubleTap() {
- *   burst()
- * }
- * ```
+ * useHeartBurst - Double-tap heart effect
  */
-export function useHeartBurst(containerRef: Ref<HTMLElement | null | undefined>) {
+export function useHeartBurst(containerRef: Ref<HTMLElement | null>) {
   const burst = (x?: number, y?: number) => {
     const container = unref(containerRef)
     if (!container) return
 
     const heart = document.createElement('div')
     heart.innerHTML = '❤️'
-    heart.className = 'absolute text-6xl pointer-events-none z-50 heart-burst'
+    heart.className = 'absolute text-6xl pointer-events-none z-50 animate-heart-burst'
+    heart.style.left = x !== undefined ? `${x}px` : '50%'
+    heart.style.top = y !== undefined ? `${y}px` : '50%'
 
-    // Position
-    if (x !== undefined && y !== undefined) {
-      heart.style.left = `${x}px`
-      heart.style.top = `${y}px`
-    } else {
-      heart.style.left = '50%'
-      heart.style.top = '50%'
-      heart.style.transform = 'translate(-50%, -50%)'
-    }
+    if (x === undefined) heart.style.transform = 'translate(-50%, -50%)'
 
     container.appendChild(heart)
-
-    // Animate
-    setTimeout(() => {
-      heart.classList.add('animate-heart-burst')
-    }, 10)
-
-    // Remove after animation
-    setTimeout(() => {
-      heart.remove()
-    }, 1000)
+    setTimeout(() => heart.remove(), 1000)
   }
 
-  return {
-    burst,
-  }
+  return { burst }
 }
 
 /**
- * useDoubleTap
- *
- * Double tap detection для мобильных устройств
- *
- * @example
- * ```ts
- * const imageRef = ref<HTMLElement>()
- *
- * useDoubleTap(imageRef, () => {
- *   likePin()
- *   burst()
- * })
- * ```
+ * useDoubleTap - Double tap detection
  */
 export function useDoubleTap(
-  elementRef: Ref<HTMLElement | null | undefined>,
-  onDoubleTap: (event: MouseEvent | TouchEvent) => void,
+  elementRef: Ref<HTMLElement | null>,
+  onDoubleTap: (e: MouseEvent | TouchEvent) => void,
   delay = 300,
 ) {
   let lastTap = 0
 
-  const handleTap = (event: MouseEvent | TouchEvent) => {
+  const handleTap = (e: MouseEvent | TouchEvent) => {
     const now = Date.now()
-    const timeSinceLastTap = now - lastTap
-
-    if (timeSinceLastTap < delay && timeSinceLastTap > 0) {
-      event.preventDefault()
-      onDoubleTap(event)
+    if (now - lastTap < delay && now - lastTap > 0) {
+      e.preventDefault()
+      onDoubleTap(e)
       lastTap = 0
     } else {
       lastTap = now
@@ -153,129 +79,60 @@ export function useDoubleTap(
 
   watch(
     elementRef,
-    (element) => {
-      if (!element) return
+    (el, _, onCleanup) => {
+      if (!el) return
 
-      element.addEventListener('click', handleTap)
-      element.addEventListener('touchend', handleTap)
+      el.addEventListener('click', handleTap)
+      el.addEventListener('touchend', handleTap)
 
-      return () => {
-        element.removeEventListener('click', handleTap)
-        element.removeEventListener('touchend', handleTap)
-      }
+      onCleanup(() => {
+        el.removeEventListener('click', handleTap)
+        el.removeEventListener('touchend', handleTap)
+      })
     },
     { immediate: true },
   )
 }
 
 /**
- * useCommentLikeAnimation
- *
- * Subtle like animation для комментариев
+ * useSaveAnimation - Pin save animation
  */
-export function useCommentLikeAnimation(elementRef: Ref<HTMLElement | null | undefined>) {
+export function useSaveAnimation(elementRef: Ref<HTMLElement | null>) {
   const isAnimating = ref(false)
 
-  const animate = async () => {
-    const element = unref(elementRef)
-    if (!element || isAnimating.value) return
+  const animate = () => {
+    const el = unref(elementRef)
+    if (!el || isAnimating.value) return
 
     isAnimating.value = true
-
-    // Subtle glow + scale
-    glowEffect(element, 300)
-    scaleUp(element, 1.1, 100)
-
-    setTimeout(() => {
-      scaleDown(element, 100)
-    }, 100)
-
-    setTimeout(() => {
-      isAnimating.value = false
-    }, 300)
-  }
-
-  return {
-    isAnimating,
-    animate,
-  }
-}
-
-/**
- * useSaveAnimation
- *
- * Pin save animation
- */
-export function useSaveAnimation(elementRef: Ref<HTMLElement | null | undefined>) {
-  const isAnimating = ref(false)
-
-  const animate = async () => {
-    const element = unref(elementRef)
-    if (!element || isAnimating.value) return
-
-    isAnimating.value = true
-
-    // Bounce animation
-    bounce(element, 500)
-
+    bounce(el, 500)
     setTimeout(() => {
       isAnimating.value = false
     }, 500)
   }
 
-  return {
-    isAnimating,
-    animate,
-  }
+  return { isAnimating, animate }
 }
 
 /**
- * useRippleEffect
- *
- * Material Design ripple effect
- *
- * @example
- * ```ts
- * const buttonRef = ref<HTMLElement>()
- *
- * useRippleEffect(buttonRef)
- * ```
+ * useCommentLikeAnimation - Subtle animation для комментариев
  */
-export function useRippleEffect(elementRef: Ref<HTMLElement | null | undefined>) {
-  const createRipple = (event: MouseEvent) => {
-    const element = unref(elementRef)
-    if (!element) return
+export function useCommentLikeAnimation(elementRef: Ref<HTMLElement | null>) {
+  const isAnimating = ref(false)
 
-    const rect = element.getBoundingClientRect()
-    const size = Math.max(rect.width, rect.height)
-    const x = event.clientX - rect.left - size / 2
-    const y = event.clientY - rect.top - size / 2
+  const animate = () => {
+    const el = unref(elementRef)
+    if (!el || isAnimating.value) return
 
-    const ripple = document.createElement('span')
-    ripple.className = 'ripple'
-    ripple.style.width = ripple.style.height = `${size}px`
-    ripple.style.left = `${x}px`
-    ripple.style.top = `${y}px`
+    isAnimating.value = true
+    glowEffect(el, 300)
+    scaleUp(el, 1.1, 100)
 
-    element.appendChild(ripple)
-
+    setTimeout(() => scaleDown(el, 100), 100)
     setTimeout(() => {
-      ripple.remove()
-    }, 600)
+      isAnimating.value = false
+    }, 300)
   }
 
-  watch(
-    elementRef,
-    (element) => {
-      if (!element) return
-
-      element.classList.add('ripple-container')
-      element.addEventListener('click', createRipple)
-
-      return () => {
-        element.removeEventListener('click', createRipple)
-      }
-    },
-    { immediate: true },
-  )
+  return { isAnimating, animate }
 }

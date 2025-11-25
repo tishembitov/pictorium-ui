@@ -17,7 +17,7 @@ export * from './api/useSelectedBoard'
 
 // Auth
 export * from './auth/useAuth'
-export * from './auth/useRole'
+export * from './auth/usePermissions'
 
 // UI
 export * from './ui/useConfirm'

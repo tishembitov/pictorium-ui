@@ -1,266 +1,171 @@
+// src/composables/auth/useAuth.ts
 /**
- * useAuth Composable
+ * useAuth - Authentication composable
  *
- * Главный composable для работы с Keycloak авторизацией
+ * Объединяет auth.store и user.store в единый интерфейс.
+ * Не дублирует - делегирует в stores.
  */
 
-import { computed, type ComputedRef } from 'vue'
+import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth.store'
-import { getKeycloak, login as keycloakLogin, logout as keycloakLogout } from '@/plugins/keycloak'
-import type { User } from '@/types'
-
-export interface UseAuthReturn {
-  // State
-  user: ComputedRef<User | null>
-  isAuthenticated: ComputedRef<boolean>
-  isInitialized: ComputedRef<boolean>
-  isLoading: ComputedRef<boolean>
-  isLoadingProfile: ComputedRef<boolean>
-  userImage: ComputedRef<string | null>
-  bannerImage: ComputedRef<string | null>
-
-  // Getters
-  userId: ComputedRef<string | null>
-  username: ComputedRef<string | null>
-  email: ComputedRef<string | null>
-  token: ComputedRef<string | null>
-  refreshToken: ComputedRef<string | null>
-  isAdmin: ComputedRef<boolean>
-
-  // Actions
-  login: () => Promise<void>
-  logout: () => Promise<void>
-  checkAuth: () => Promise<void>
-  updateProfile: (data: {
-    username?: string
-    description?: string
-    instagram?: string
-    tiktok?: string
-    telegram?: string
-    pinterest?: string
-  }) => Promise<User>
-  uploadAvatar: (file: File) => Promise<void>
-  uploadBanner: (file: File) => Promise<void>
-  updateToken: (minValidity?: number) => Promise<boolean | undefined>
-}
+import { useUserStore } from '@/stores/user.store'
+import {
+  login as keycloakLogin,
+  logout as keycloakLogout,
+  refreshToken,
+  getKeycloak,
+} from '@/plugins/keycloak'
 
 /**
- * useAuth
- *
- * @example
- * ```ts
- * const {
- *   user,
- *   isAuthenticated,
- *   login,
- *   logout
- * } = useAuth()
- *
- * if (!isAuthenticated.value) {
- *   await login()
- * }
- * ```
+ * useAuth - Основной auth composable
  */
-export function useAuth(): UseAuthReturn {
+export function useAuth() {
   const authStore = useAuthStore()
+  const userStore = useUserStore()
 
-  // State
+  // Auth state (из auth.store)
+  const { isAuthenticated, isInitialized, isInitializing, token, userId } = storeToRefs(authStore)
+
+  // User state (из user.store)
   const {
+    currentUser: user,
+    avatarBlobUrl: userImage,
+    bannerBlobUrl: bannerImage,
+    isLoadingProfile,
+    username,
+    email,
+  } = storeToRefs(userStore)
+
+  // Combined loading state
+  const isLoading = computed(() => isInitializing.value || isLoadingProfile.value)
+
+  return {
+    // ==================== STATE ====================
     user,
     isAuthenticated,
     isInitialized,
-    loading: isLoading,
+    isLoading,
     isLoadingProfile,
     userImage,
     bannerImage,
+
+    // ==================== GETTERS ====================
     userId,
     username,
     email,
     token,
-    refreshToken,
-    isAdmin,
-  } = storeToRefs(authStore)
 
-  // Actions
-  const login = async (): Promise<void> => {
-    try {
-      await authStore.login()
-    } catch (error) {
-      console.error('[useAuth] Login failed:', error)
-      throw error
-    }
-  }
+    // Roles (делегируем в auth.store)
+    isAdmin: computed(() => authStore.isAdmin),
+    isModerator: computed(() => authStore.isModerator),
+    hasRole: authStore.hasRole,
 
-  const logout = async (): Promise<void> => {
-    try {
-      await authStore.logout()
-    } catch (error) {
-      console.error('[useAuth] Logout failed:', error)
-      throw error
-    }
-  }
+    // ==================== ACTIONS ====================
 
-  const checkAuth = async (): Promise<void> => {
-    try {
-      await authStore.checkAuth()
-    } catch (error) {
-      console.error('[useAuth] Check auth failed:', error)
-      throw error
-    }
-  }
+    /**
+     * Login через Keycloak
+     */
+    login: (redirectUri?: string) => keycloakLogin(redirectUri),
 
-  const updateProfile = async (data: {
-    username?: string
-    description?: string
-    instagram?: string
-    tiktok?: string
-    telegram?: string
-    pinterest?: string
-  }): Promise<User> => {
-    try {
-      return await authStore.updateProfile(data)
-    } catch (error) {
-      console.error('[useAuth] Update profile failed:', error)
-      throw error
-    }
-  }
+    /**
+     * Logout через Keycloak
+     */
+    logout: (redirectUri?: string) => keycloakLogout(redirectUri),
 
-  const uploadAvatar = async (file: File): Promise<void> => {
-    try {
-      await authStore.uploadAvatar(file)
-    } catch (error) {
-      console.error('[useAuth] Upload avatar failed:', error)
-      throw error
-    }
-  }
+    /**
+     * Загрузить профиль текущего пользователя
+     */
+    loadProfile: () => userStore.loadCurrentUser(),
 
-  const uploadBanner = async (file: File): Promise<void> => {
-    try {
-      await authStore.uploadBanner(file)
-    } catch (error) {
-      console.error('[useAuth] Upload banner failed:', error)
-      throw error
-    }
-  }
+    /**
+     * Обновить профиль
+     */
+    updateProfile: (data: Parameters<typeof userStore.updateProfile>[0]) =>
+      userStore.updateProfile(data),
 
-  const updateToken = async (minValidity = 5): Promise<boolean | undefined> => {
-    try {
-      return await authStore.updateToken(minValidity)
-    } catch (error) {
-      console.error('[useAuth] Update token failed:', error)
-      throw error
-    }
-  }
+    /**
+     * Загрузить аватар
+     */
+    uploadAvatar: (file: File) => userStore.uploadAvatar(file),
 
-  return {
-    // State
-    user: computed(() => user.value),
-    isAuthenticated: computed(() => isAuthenticated.value),
-    isInitialized: computed(() => isInitialized.value),
-    isLoading: computed(() => isLoading.value),
-    isLoadingProfile: computed(() => isLoadingProfile.value),
-    userImage: computed(() => userImage.value),
-    bannerImage: computed(() => bannerImage.value),
+    /**
+     * Загрузить баннер
+     */
+    uploadBanner: (file: File) => userStore.uploadBanner(file),
 
-    // Getters
-    userId,
-    username,
-    email,
-    token,
-    refreshToken,
-    isAdmin,
+    /**
+     * Удалить аватар
+     */
+    removeAvatar: () => userStore.removeAvatar(),
 
-    // Actions
-    login,
-    logout,
-    checkAuth,
-    updateProfile,
-    uploadAvatar,
-    uploadBanner,
-    updateToken,
+    /**
+     * Удалить баннер
+     */
+    removeBanner: () => userStore.removeBanner(),
+
+    /**
+     * Обновить токен
+     */
+    refreshToken: (minValidity?: number) => refreshToken(minValidity),
+
+    /**
+     * Проверить аутентификацию
+     */
+    checkAuth: () => authStore.checkAuth(),
   }
 }
 
 /**
- * useKeycloakInstance
- *
- * Прямой доступ к Keycloak instance (для продвинутых случаев)
- *
- * @example
- * ```ts
- * const keycloak = useKeycloakInstance()
- *
- * if (keycloak) {
- *   console.log('Token expires in:', keycloak.tokenParsed?.exp)
- * }
- * ```
- */
-export function useKeycloakInstance() {
-  return getKeycloak()
-}
-
-/**
- * useKeycloakReady
- *
- * Проверка, инициализирован ли Keycloak
- *
- * @example
- * ```ts
- * const isReady = useKeycloakReady()
- *
- * if (isReady.value) {
- *   // Keycloak готов к использованию
- * }
- * ```
- */
-export function useKeycloakReady() {
-  const authStore = useAuthStore()
-  return computed(() => authStore.isInitialized)
-}
-
-/**
- * useAuthUser
- *
- * Только user state (для компонентов, которым не нужны actions)
- *
- * @example
- * ```ts
- * const { user, userImage } = useAuthUser()
- * ```
- */
-export function useAuthUser() {
-  const authStore = useAuthStore()
-  const { user, userImage, bannerImage, userId, username, email } = storeToRefs(authStore)
-
-  return {
-    user,
-    userImage,
-    bannerImage,
-    userId,
-    username,
-    email,
-  }
-}
-
-/**
- * useAuthState
- *
- * Только authentication state (без user data)
- *
- * @example
- * ```ts
- * const { isAuthenticated, isLoading } = useAuthState()
- * ```
+ * useAuthState - Только состояние аутентификации (без user data)
  */
 export function useAuthState() {
   const authStore = useAuthStore()
-  const { isAuthenticated, isInitialized, loading, isLoadingProfile } = storeToRefs(authStore)
+  const { isAuthenticated, isInitialized, isInitializing } = storeToRefs(authStore)
 
   return {
     isAuthenticated,
     isInitialized,
-    isLoading: loading,
-    isLoadingProfile,
+    isLoading: isInitializing,
+  }
+}
+
+/**
+ * useAuthUser - Только данные пользователя
+ */
+export function useAuthUser() {
+  const userStore = useUserStore()
+  const {
+    currentUser: user,
+    avatarBlobUrl: userImage,
+    bannerBlobUrl: bannerImage,
+    userId,
+    username,
+    email,
+  } = storeToRefs(userStore)
+
+  return {
+    user,
+    userImage,
+    bannerImage,
+    userId,
+    username,
+    email,
+  }
+}
+
+/**
+ * useKeycloak - Прямой доступ к Keycloak (для продвинутых случаев)
+ */
+export function useKeycloak() {
+  const authStore = useAuthStore()
+  const keycloak = getKeycloak()
+
+  return {
+    instance: keycloak,
+    isReady: computed(() => authStore.isInitialized),
+    token: computed(() => authStore.token),
+    tokenParsed: computed(() => authStore.tokenParsed),
+    refreshToken: computed(() => authStore.refreshToken),
   }
 }

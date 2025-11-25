@@ -1,49 +1,56 @@
-/**
- * useIntersectionObserver Composable
- *
- * Intersection Observer API wrapper
- */
-
-import { ref, watch, unref, onUnmounted, type Ref } from 'vue'
-import type { MaybeElementRef } from './useClickOutside'
-
-export interface UseIntersectionObserverOptions extends IntersectionObserverInit {
-  /**
-   * Вызывается при пересечении
-   */
-  onIntersect?: (entry: IntersectionObserverEntry) => void
-}
-
+// src/composables/utils/useIntersectionObserver.ts
 /**
  * useIntersectionObserver
  *
- * @example
- * ```ts
- * const targetRef = ref<HTMLElement>()
- * const { isIntersecting, stop } = useIntersectionObserver(targetRef, {
- *   threshold: 0.5,
- *   onIntersect: (entry) => {
- *     console.log('Element is intersecting:', entry.isIntersecting)
- *   }
- * })
- * ```
+ * ОТЛИЧИЕ ОТ v-intersect и v-lazy-load:
+ * - Возвращает reactive isIntersecting
+ * - Возвращает entry для доступа к ratio, bounds и т.д.
+ * - Поддерживает once, stop(), программное управление
+ *
+ * Используйте v-intersect когда:
+ * - Просто нужен callback при intersection
+ * - Не нужен reactive state
+ *
+ * Используйте v-lazy-load когда:
+ * - Ленивая загрузка изображений
+ *
+ * Используйте useIntersectionObserver когда:
+ * - Нужен isIntersecting в template/script
+ * - Нужен доступ к entry.intersectionRatio
+ * - Нужен stop() для программного управления
  */
+
+import { ref, watch, unref, onUnmounted, computed, type Ref } from 'vue'
+import type { MaybeElementRef } from './useClickOutside'
+
+export interface UseIntersectionObserverOptions extends IntersectionObserverInit {
+  /** Callback при intersection */
+  onIntersect?: (entry: IntersectionObserverEntry) => void
+  /** Отключить после первого срабатывания */
+  once?: boolean
+  /** Автоматически наблюдать */
+  immediate?: boolean
+}
+
 export function useIntersectionObserver(
   target: MaybeElementRef,
   options: UseIntersectionObserverOptions = {},
 ) {
-  const { onIntersect, ...observerOptions } = options
+  const { onIntersect, once = false, immediate = true, ...observerOptions } = options
 
   const isIntersecting = ref(false)
   const entry = ref<IntersectionObserverEntry | null>(null)
 
+  // Computed для удобства
+  const intersectionRatio = computed(() => entry.value?.intersectionRatio ?? 0)
+
   let observer: IntersectionObserver | undefined
+  let isActive = false
 
   const cleanup = () => {
-    if (observer) {
-      observer.disconnect()
-      observer = undefined
-    }
+    observer?.disconnect()
+    observer = undefined
+    isActive = false
   }
 
   const observe = () => {
@@ -58,42 +65,36 @@ export function useIntersectionObserver(
       entry.value = observerEntry
       isIntersecting.value = observerEntry.isIntersecting
 
-      if (onIntersect && observerEntry.isIntersecting) {
-        onIntersect(observerEntry)
+      if (observerEntry.isIntersecting) {
+        onIntersect?.(observerEntry)
+        if (once) cleanup()
       }
     }, observerOptions)
 
     observer.observe(element)
+    isActive = true
   }
 
-  // Watch target changes
-  watch(() => unref(target), observe, { immediate: true })
+  if (immediate) {
+    watch(() => unref(target), observe, { immediate: true })
+  }
 
   onUnmounted(cleanup)
 
   return {
     isIntersecting,
     entry,
+    intersectionRatio,
+    observe,
     stop: cleanup,
+    isActive: () => isActive,
   }
 }
 
 /**
- * useInfiniteScroll
+ * useInfiniteScroll - НЕТ аналога в directives
  *
- * Infinite scroll implementation
- *
- * @example
- * ```ts
- * const loadMoreRef = ref<HTMLElement>()
- *
- * useInfiniteScroll(loadMoreRef, () => {
- *   loadMorePins()
- * }, {
- *   distance: 200,
- *   disabled: computed(() => !hasMore.value || isLoading.value)
- * })
- * ```
+ * Предоставляет isLoading state и программное управление
  */
 export function useInfiniteScroll(
   target: MaybeElementRef,
@@ -101,15 +102,13 @@ export function useInfiniteScroll(
   options: {
     distance?: number
     disabled?: Ref<boolean>
-    immediate?: boolean
   } = {},
 ) {
-  const { distance = 200, disabled = ref(false), immediate = true } = options
-
+  const { distance = 200, disabled = ref(false) } = options
   const isLoading = ref(false)
 
   const handleIntersect = async () => {
-    if (disabled.value || isLoading.value) return
+    if (unref(disabled) || isLoading.value) return
 
     isLoading.value = true
     try {
@@ -124,103 +123,11 @@ export function useInfiniteScroll(
     onIntersect: handleIntersect,
   })
 
-  if (!immediate) {
-    stop()
-    return {
-      isLoading,
-      isIntersecting,
-      resume: () => {
-        const element = unref(target)
-        if (element) {
-          useIntersectionObserver(target, options as UseIntersectionObserverOptions)
-        }
-      },
-      stop,
-    }
-  }
-
-  return {
-    isLoading,
-    isIntersecting,
-    stop,
-  }
+  return { isLoading, isIntersecting, stop }
 }
 
 /**
- * useLazyLoad
- *
- * Lazy load images
- *
- * @example
- * ```ts
- * const imageRef = ref<HTMLImageElement>()
- *
- * useLazyLoad(imageRef, {
- *   src: 'https://example.com/image.jpg',
- *   onLoad: () => console.log('Image loaded')
- * })
- * ```
- */
-export function useLazyLoad(
-  target: Ref<HTMLImageElement | null | undefined>,
-  options: {
-    src: string
-    srcset?: string
-    onLoad?: () => void
-    onError?: () => void
-    threshold?: number
-  },
-) {
-  const { src, srcset, onLoad, onError, threshold = 0.1 } = options
-
-  const isLoaded = ref(false)
-  const hasError = ref(false)
-
-  useIntersectionObserver(target, {
-    threshold,
-    onIntersect: () => {
-      const img = unref(target)
-      if (!img || isLoaded.value) return
-
-      img.onload = () => {
-        isLoaded.value = true
-        onLoad?.()
-      }
-
-      img.onerror = () => {
-        hasError.value = true
-        onError?.()
-      }
-
-      img.src = src
-      if (srcset) {
-        img.srcset = srcset
-      }
-    },
-  })
-
-  return {
-    isLoaded,
-    hasError,
-  }
-}
-
-/**
- * useElementVisibility
- *
- * Track element visibility
- *
- * @example
- * ```ts
- * const elementRef = ref<HTMLElement>()
- * const isVisible = useElementVisibility(elementRef)
- *
- * watch(isVisible, (visible) => {
- *   if (visible) {
- *     console.log('Element is visible')
- *   }
- * })
- * ```
+ * useElementVisibility - Простая проверка видимости
  */
 export function useElementVisibility(
   target: MaybeElementRef,

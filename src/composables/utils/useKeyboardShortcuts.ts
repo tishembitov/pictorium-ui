@@ -1,55 +1,56 @@
+// src/composables/utils/useKeyboardShortcuts.ts
 /**
- * useKeyboardShortcuts Composable
+ * useKeyboardShortcuts - Keyboard shortcuts
  *
- * Регистрация keyboard shortcuts
+ * НЕТ аналога в directives - сложная логика с modifiers
  */
 
-import { onMounted, onUnmounted, type Ref, unref } from 'vue'
+import { onMounted, onUnmounted, unref, type Ref, ref } from 'vue'
 
-export type KeyboardShortcut = {
+export interface KeyboardShortcut {
   key: string
   ctrl?: boolean
   shift?: boolean
   alt?: boolean
   meta?: boolean
   handler: (event: KeyboardEvent) => void
+  /** Предотвращать default action */
+  preventDefault?: boolean
 }
 
-/**
- * useKeyboardShortcuts
- *
- * @example
- * ```ts
- * useKeyboardShortcuts([
- *   {
- *     key: 's',
- *     ctrl: true,
- *     handler: (e) => {
- *       e.preventDefault()
- *       savePin()
- *     }
- *   },
- *   {
- *     key: 'k',
- *     ctrl: true,
- *     handler: () => openSearch()
- *   }
- * ])
- * ```
- */
+export interface UseKeyboardShortcutsOptions {
+  /** Включены ли shortcuts */
+  enabled?: Ref<boolean>
+  /** Target element (default: window) */
+  target?: Window | Document | HTMLElement
+}
+
 export function useKeyboardShortcuts(
   shortcuts: KeyboardShortcut[],
-  options: {
-    enabled?: Ref<boolean>
-  } = {},
+  options: UseKeyboardShortcutsOptions = {},
 ) {
-  const { enabled = { value: true } } = options
+  const { enabled = ref(true), target = window } = options
 
   const handleKeyDown = (event: KeyboardEvent) => {
-    if (!enabled.value) return
+    if (!unref(enabled)) return
 
-    shortcuts.forEach((shortcut) => {
-      const { key, ctrl = false, shift = false, alt = false, meta = false, handler } = shortcut
+    // Игнорируем если фокус в input/textarea
+    const activeElement = document.activeElement
+    if (activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA') {
+      // Разрешаем Escape
+      if (event.key !== 'Escape') return
+    }
+
+    for (const shortcut of shortcuts) {
+      const {
+        key,
+        ctrl = false,
+        shift = false,
+        alt = false,
+        meta = false,
+        handler,
+        preventDefault = true,
+      } = shortcut
 
       const matches =
         event.key.toLowerCase() === key.toLowerCase() &&
@@ -59,27 +60,20 @@ export function useKeyboardShortcuts(
         event.metaKey === meta
 
       if (matches) {
+        if (preventDefault) event.preventDefault()
         handler(event)
+        break
       }
-    })
+    }
   }
 
-  onMounted(() => {
-    window.addEventListener('keydown', handleKeyDown)
-  })
+  onMounted(() => target.addEventListener('keydown', handleKeyDown as EventListener))
+  onUnmounted(() => target.removeEventListener('keydown', handleKeyDown as EventListener))
 
-  onUnmounted(() => {
-    window.removeEventListener('keydown', handleKeyDown)
-  })
-
-  return {
-    stop: () => window.removeEventListener('keydown', handleKeyDown),
-  }
+  return { stop: () => target.removeEventListener('keydown', handleKeyDown as EventListener) }
 }
 
-/**
- * Предопределенные shortcuts
- */
+/** Предопределенные shortcuts */
 export const SHORTCUTS = {
   SAVE: { key: 's', ctrl: true },
   SEARCH: { key: 'k', ctrl: true },
@@ -87,4 +81,6 @@ export const SHORTCUTS = {
   CLOSE: { key: 'Escape' },
   HELP: { key: '?' },
   DELETE: { key: 'Delete' },
+  UNDO: { key: 'z', ctrl: true },
+  REDO: { key: 'z', ctrl: true, shift: true },
 } as const

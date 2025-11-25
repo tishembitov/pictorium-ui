@@ -1,35 +1,44 @@
-/**
- * useClickOutside Composable
- *
- * Detect clicks outside element
- */
-
-import { onMounted, onUnmounted, ref, unref, watch, type Ref } from 'vue'
-
-export type MaybeElementRef = Ref<HTMLElement | null | undefined> | HTMLElement | null | undefined
-
+// src/composables/utils/useClickOutside.ts
 /**
  * useClickOutside
  *
- * @example
- * ```ts
- * const dropdownRef = ref<HTMLElement>()
+ * ОТЛИЧИЕ ОТ v-click-outside:
+ * - Возвращает { stop } для программного управления
+ * - Поддерживает ignore list как refs
+ * - Можно использовать в setup без template
  *
- * useClickOutside(dropdownRef, () => {
- *   console.log('Clicked outside dropdown')
- *   closeDropdown()
- * })
- * ```
+ * Используйте v-click-outside когда:
+ * - Простой dropdown/modal
+ * - Не нужно программно останавливать
+ *
+ * Используйте useClickOutside когда:
+ * - Нужен stop() для условного отключения
+ * - Ignore элементы динамические (refs)
+ * - Используется в composable без template
  */
+
+import { onMounted, onUnmounted, unref, watch, type Ref } from 'vue'
+
+export type MaybeElementRef = Ref<HTMLElement | null | undefined> | HTMLElement | null | undefined
+
+export interface UseClickOutsideOptions {
+  /** Элементы для игнорирования (поддерживает refs) */
+  ignore?: MaybeElementRef[]
+  /** Capture phase */
+  capture?: boolean
+  /** Автоматически активировать */
+  immediate?: boolean
+}
+
 export function useClickOutside(
   target: MaybeElementRef,
   handler: (event: MouseEvent) => void,
-  options: {
-    ignore?: MaybeElementRef[]
-    capture?: boolean
-  } = {},
+  options: UseClickOutsideOptions = {},
 ) {
-  const { ignore = [], capture = true } = options
+  const { ignore = [], capture = true, immediate = true } = options
+
+  let isActive = false
+  let cleanup: (() => void) | undefined
 
   const shouldIgnore = (event: MouseEvent): boolean => {
     return ignore.some((element) => {
@@ -39,178 +48,64 @@ export function useClickOutside(
   }
 
   const listener = (event: MouseEvent) => {
-    const el = unref(target)
+    if (!isActive) return
 
+    const el = unref(target)
     if (!el) return
 
-    // Проверяем, что клик был вне элемента
-    if (el === event.target || el.contains(event.target as Node)) {
-      return
-    }
-
-    // Проверяем ignore list
-    if (shouldIgnore(event)) {
-      return
-    }
+    if (el === event.target || el.contains(event.target as Node)) return
+    if (shouldIgnore(event)) return
 
     handler(event)
   }
 
-  let cleanup: (() => void) | undefined
+  const start = () => {
+    if (isActive) return
 
-  onMounted(() => {
-    // ИСПРАВЛЕНО: задержка чтобы избежать срабатывания на клик открытия
+    // Задержка чтобы избежать срабатывания на клик открытия
     setTimeout(() => {
       window.addEventListener('click', listener, capture)
-
-      cleanup = () => {
-        window.removeEventListener('click', listener, capture)
-      }
+      isActive = true
     }, 0)
-  })
-
-  onUnmounted(() => {
-    cleanup?.()
-  })
-
-  return {
-    stop: () => {
-      cleanup?.()
-    },
   }
+
+  const stop = () => {
+    window.removeEventListener('click', listener, capture)
+    isActive = false
+  }
+
+  // Watch target changes
+  watch(
+    () => unref(target),
+    (newTarget) => {
+      if (newTarget && immediate) {
+        start()
+      } else {
+        stop()
+      }
+    },
+    { immediate },
+  )
+
+  onUnmounted(stop)
+
+  return { start, stop, isActive: () => isActive }
 }
-/**
- * useClickAway
- *
- * Alias для useClickOutside
- */
-export const useClickAway = useClickOutside
 
 /**
- * useEscapeKey
- *
- * Detect Escape key press
- *
- * @example
- * ```ts
- * useEscapeKey(() => {
- *   closeModal()
- * })
- * ```
+ * useEscapeKey - НЕТ аналога в directives
  */
-export function useEscapeKey(handler: () => void) {
+export function useEscapeKey(handler: () => void, options: { enabled?: Ref<boolean> } = {}) {
+  const { enabled = { value: true } } = options
+
   const listener = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
+    if (unref(enabled) && event.key === 'Escape') {
       handler()
     }
   }
 
-  onMounted(() => {
-    window.addEventListener('keydown', listener)
-  })
+  onMounted(() => window.addEventListener('keydown', listener))
+  onUnmounted(() => window.removeEventListener('keydown', listener))
 
-  onUnmounted(() => {
-    window.removeEventListener('keydown', listener)
-  })
-
-  return {
-    stop: () => window.removeEventListener('keydown', listener),
-  }
-}
-
-/**
- * useFocusTrap
- *
- * Trap focus inside element (для модалок)
- *
- * @example
- * ```ts
- * const modalRef = ref<HTMLElement>()
- *
- * useFocusTrap(modalRef, {
- *   enabled: isModalOpen
- * })
- * ```
- */
-export function useFocusTrap(
-  target: MaybeElementRef,
-  options: {
-    enabled?: Ref<boolean>
-    initialFocus?: MaybeElementRef
-  } = {},
-) {
-  const { enabled = ref(true), initialFocus } = options
-
-  const getFocusableElements = (container: HTMLElement): HTMLElement[] => {
-    const selector = [
-      'a[href]',
-      'button:not([disabled])',
-      'textarea:not([disabled])',
-      'input:not([disabled])',
-      'select:not([disabled])',
-      '[tabindex]:not([tabindex="-1"])',
-    ].join(',')
-
-    return Array.from(container.querySelectorAll<HTMLElement>(selector)).filter(
-      (el) => !el.hasAttribute('disabled') && el.tabIndex !== -1,
-    )
-  }
-
-  const handleKeyDown = (event: KeyboardEvent) => {
-    if (!enabled.value || event.key !== 'Tab') return
-
-    const container = unref(target)
-    if (!container) return // ДОБАВЛЕНО: проверка
-
-    const focusableElements = getFocusableElements(container)
-    if (focusableElements.length === 0) return
-
-    const firstElement = focusableElements[0]
-    const lastElement = focusableElements[focusableElements.length - 1]
-
-    if (!firstElement || !lastElement) return // ДОБАВЛЕНО: проверка
-
-    // Shift + Tab на первом элементе -> переход на последний
-    if (event.shiftKey && document.activeElement === firstElement) {
-      event.preventDefault()
-      lastElement.focus()
-    }
-    // Tab на последнем элементе -> переход на первый
-    else if (!event.shiftKey && document.activeElement === lastElement) {
-      event.preventDefault()
-      firstElement.focus()
-    }
-  }
-
-  watch(
-    enabled,
-    (isEnabled) => {
-      if (isEnabled) {
-        const container = unref(target)
-        if (!container) return // ДОБАВЛЕНО: проверка
-
-        const initial = unref(initialFocus)
-
-        if (initial) {
-          initial.focus()
-        } else {
-          const focusableElements = getFocusableElements(container)
-          focusableElements[0]?.focus()
-        }
-      }
-    },
-    { immediate: true }, // ДОБАВЛЕНО: immediate для автофокуса при монтировании
-  )
-
-  onMounted(() => {
-    window.addEventListener('keydown', handleKeyDown)
-  })
-
-  onUnmounted(() => {
-    window.removeEventListener('keydown', handleKeyDown)
-  })
-
-  return {
-    stop: () => window.removeEventListener('keydown', handleKeyDown),
-  }
+  return { stop: () => window.removeEventListener('keydown', listener) }
 }

@@ -1,13 +1,15 @@
+// src/composables/utils/useLocalStorage.ts
 /**
- * useLocalStorage Composable
+ * useLocalStorage - Reactive localStorage
  *
- * Reactive LocalStorage с типизацией
+ * Расширяет utils/storage.ts с reactivity
+ * НЕТ аналога в directives
  */
 
 import { ref, watch, type Ref } from 'vue'
-import { getFromStorage, setToStorage, removeFromStorage } from '@/utils/storage'
+import { STORAGE_KEYS } from '@/utils/constants'
 
-export interface UseLocalStorageOptions<T> {
+export interface UseStorageOptions<T> {
   serializer?: {
     read: (raw: string) => T
     write: (value: T) => string
@@ -16,60 +18,37 @@ export interface UseLocalStorageOptions<T> {
   deep?: boolean
 }
 
-/**
- * useLocalStorage
- *
- * @example
- * ```ts
- * const theme = useLocalStorage<'light' | 'dark'>('theme', 'light')
- *
- * theme.value = 'dark' // Автоматически сохраняется в localStorage
- *
- * // С кастомным serializer
- * const user = useLocalStorage<User>('user', null, {
- *   serializer: {
- *     read: (v) => JSON.parse(v),
- *     write: (v) => JSON.stringify(v)
- *   }
- * })
- * ```
- */
+const defaultSerializer = {
+  read: <T>(raw: string): T => JSON.parse(raw),
+  write: <T>(value: T): string => JSON.stringify(value),
+}
+
 export function useLocalStorage<T>(
   key: string,
   defaultValue: T,
-  options: UseLocalStorageOptions<T> = {},
+  options: UseStorageOptions<T> = {},
 ): Ref<T> {
-  const {
-    serializer = {
-      read: (v: string) => JSON.parse(v) as T,
-      write: (v: T) => JSON.stringify(v),
-    },
-    onError = (e) => console.error('[useLocalStorage]', e),
-    deep = true,
-  } = options
+  const { serializer = defaultSerializer, onError = console.error, deep = true } = options
 
-  // Инициализация из localStorage
   const data = ref<T>(defaultValue) as Ref<T>
 
+  // Read
   try {
     const raw = localStorage.getItem(key)
-    if (raw !== null) {
-      data.value = serializer.read(raw)
-    }
+    if (raw !== null) data.value = serializer.read(raw)
   } catch (error) {
     onError(error as Error)
   }
 
-  // Watch для автосохранения
+  // Auto-save
   watch(
     data,
     (newValue) => {
       try {
         if (newValue === null || newValue === undefined) {
-          removeFromStorage(key)
+          localStorage.removeItem(key)
         } else {
-          const serialized = serializer.write(newValue)
-          localStorage.setItem(key, serialized)
+          localStorage.setItem(key, serializer.write(newValue))
         }
       } catch (error) {
         onError(error as Error)
@@ -81,85 +60,17 @@ export function useLocalStorage<T>(
   return data
 }
 
-/**
- * useRecentSearches
- *
- * Специализированный composable для recent searches
- *
- * @example
- * ```ts
- * const { searches, addSearch, removeSearch, clearSearches } = useRecentSearches()
- *
- * addSearch('nature')
- * removeSearch('old search')
- * ```
- */
-export function useRecentSearches(maxItems: number = 10) {
-  const searches = useLocalStorage<string[]>('pinterest_recent_searches', [])
-
-  const addSearch = (query: string) => {
-    const trimmed = query.trim()
-    if (!trimmed) return
-
-    // Удаляем если уже есть
-    searches.value = searches.value.filter((s) => s !== trimmed)
-
-    // Добавляем в начало
-    searches.value.unshift(trimmed)
-
-    // Ограничиваем длину
-    if (searches.value.length > maxItems) {
-      searches.value = searches.value.slice(0, maxItems)
-    }
-  }
-
-  const removeSearch = (query: string) => {
-    searches.value = searches.value.filter((s) => s !== query)
-  }
-
-  const clearSearches = () => {
-    searches.value = []
-  }
-
-  return {
-    searches,
-    addSearch,
-    removeSearch,
-    clearSearches,
-  }
-}
-
-/**
- * useSessionStorage
- *
- * То же самое, но для sessionStorage
- *
- * @example
- * ```ts
- * const scrollPosition = useSessionStorage('scroll-pos', 0)
- * ```
- */
 export function useSessionStorage<T>(
   key: string,
   defaultValue: T,
-  options: UseLocalStorageOptions<T> = {},
+  options: UseStorageOptions<T> = {},
 ): Ref<T> {
-  const {
-    serializer = {
-      read: (v: string) => JSON.parse(v) as T,
-      write: (v: T) => JSON.stringify(v),
-    },
-    onError = (e) => console.error('[useSessionStorage]', e),
-    deep = true,
-  } = options
-
+  const { serializer = defaultSerializer, onError = console.error, deep = true } = options
   const data = ref<T>(defaultValue) as Ref<T>
 
   try {
     const raw = sessionStorage.getItem(key)
-    if (raw !== null) {
-      data.value = serializer.read(raw)
-    }
+    if (raw !== null) data.value = serializer.read(raw)
   } catch (error) {
     onError(error as Error)
   }
@@ -171,8 +82,7 @@ export function useSessionStorage<T>(
         if (newValue === null || newValue === undefined) {
           sessionStorage.removeItem(key)
         } else {
-          const serialized = serializer.write(newValue)
-          sessionStorage.setItem(key, serialized)
+          sessionStorage.setItem(key, serializer.write(newValue))
         }
       } catch (error) {
         onError(error as Error)
@@ -182,4 +92,26 @@ export function useSessionStorage<T>(
   )
 
   return data
+}
+
+export function useRecentSearches(maxItems = 10) {
+  const searches = useLocalStorage<string[]>(STORAGE_KEYS.RECENT_SEARCHES, [])
+
+  return {
+    searches,
+    add: (query: string) => {
+      const trimmed = query.trim()
+      if (!trimmed) return
+      searches.value = [
+        trimmed,
+        ...searches.value.filter((s) => s.toLowerCase() !== trimmed.toLowerCase()),
+      ].slice(0, maxItems)
+    },
+    remove: (query: string) => {
+      searches.value = searches.value.filter((s) => s !== query)
+    },
+    clear: () => {
+      searches.value = []
+    },
+  }
 }

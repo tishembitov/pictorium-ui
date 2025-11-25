@@ -1,122 +1,101 @@
+// src/composables/api/useStorage.ts
 /**
- * useStorage Composable
+ * useStorage - Уникальный composable (нет store)
  *
- * Composable для работы с Storage Service
+ * Работа с Storage Service для загрузки изображений
  */
 
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { storageApi } from '@/api/storage.api'
-import { useApiCall } from '@/composables/core/useApiCall'
 import type { ImageUploadRequest, ImageMetadata } from '@/types'
 
-export interface UseStorageReturn {
-  uploadedImageUrl: ReturnType<typeof computed<string | null>>
-  uploadProgress: ReturnType<typeof computed<number>>
-  isUploading: ReturnType<typeof computed<boolean>>
-
-  uploadImage: (params: ImageUploadRequest) => Promise<string>
-  downloadImage: (imageId: string) => Promise<Blob>
-  getImageUrl: (imageId: string, expiry?: number) => Promise<string>
-  getImageMetadata: (imageId: string) => Promise<ImageMetadata>
-  listImages: (category?: string) => Promise<ImageMetadata[]>
-  deleteImage: (imageId: string) => Promise<void>
-}
-
-export function useStorage(): UseStorageReturn {
-  const uploadedImageUrl = ref<string | null>(null)
+export function useStorage() {
+  const isUploading = ref(false)
   const uploadProgress = ref(0)
+  const uploadedUrl = ref<string | null>(null)
+  const error = ref<string | null>(null)
 
-  // Upload Image
-  const { execute: uploadImage, isLoading: isUploading } = useApiCall(
-    async (params: ImageUploadRequest) => {
+  async function uploadImage(params: ImageUploadRequest): Promise<string> {
+    try {
+      isUploading.value = true
       uploadProgress.value = 0
+      error.value = null
 
       const response = await storageApi.uploadImage(params)
 
-      uploadedImageUrl.value = response.imageUrl
+      uploadedUrl.value = response.imageUrl
       uploadProgress.value = 100
 
       return response.imageUrl
-    },
-    {
-      showSuccessToast: true,
-      successMessage: 'Image uploaded!',
-      showErrorToast: true,
-      errorMessage: 'Failed to upload image',
-    },
-  )
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Upload failed'
+      throw err
+    } finally {
+      isUploading.value = false
+    }
+  }
 
-  // Download Image
-  const { execute: downloadImage } = useApiCall(
-    (imageId: string) => storageApi.downloadImage(imageId),
-    { showErrorToast: true, errorMessage: 'Failed to download image' },
-  )
+  async function downloadImage(imageId: string): Promise<Blob> {
+    return await storageApi.downloadImage(imageId)
+  }
 
-  // Get Image URL
-  const { execute: getImageUrl } = useApiCall(
-    (imageId: string, expiry?: number) => storageApi.getImageUrl(imageId, expiry),
-    { showErrorToast: true, errorMessage: 'Failed to get image URL' },
-  )
+  async function getImageUrl(imageId: string, expiry?: number): Promise<string> {
+    return await storageApi.getImageUrl(imageId, expiry)
+  }
 
-  // Get Image Metadata
-  const { execute: getImageMetadata } = useApiCall(
-    (imageId: string) => storageApi.getImageMetadata(imageId),
-    { showErrorToast: true, errorMessage: 'Failed to get image metadata' },
-  )
+  async function getImageMetadata(imageId: string): Promise<ImageMetadata> {
+    return await storageApi.getImageMetadata(imageId)
+  }
 
-  // List Images
-  const { execute: listImages } = useApiCall(
-    (category?: string) => storageApi.listImages(category),
-    { showErrorToast: true, errorMessage: 'Failed to list images' },
-  )
+  async function deleteImage(imageId: string): Promise<void> {
+    return await storageApi.deleteImage(imageId)
+  }
 
-  // Delete Image
-  const { execute: deleteImage } = useApiCall(
-    (imageId: string) => storageApi.deleteImage(imageId),
-    {
-      showSuccessToast: true,
-      successMessage: 'Image deleted!',
-      showErrorToast: true,
-      errorMessage: 'Failed to delete image',
-    },
-  )
+  function reset() {
+    uploadedUrl.value = null
+    uploadProgress.value = 0
+    error.value = null
+  }
 
   return {
-    uploadedImageUrl: computed(() => uploadedImageUrl.value),
-    uploadProgress: computed(() => uploadProgress.value),
     isUploading: computed(() => isUploading.value),
-
-    uploadImage: async (params) => (await uploadImage(params))!,
-    downloadImage: async (imageId) => (await downloadImage(imageId))!,
-    getImageUrl: async (imageId, expiry) => (await getImageUrl(imageId, expiry))!,
-    getImageMetadata: async (imageId) => (await getImageMetadata(imageId))!,
-    listImages: async (category) => (await listImages(category)) || [],
-    deleteImage: async (imageId) => {
-      await deleteImage(imageId)
-    },
+    uploadProgress: computed(() => uploadProgress.value),
+    uploadedUrl: computed(() => uploadedUrl.value),
+    error: computed(() => error.value),
+    uploadImage,
+    downloadImage,
+    getImageUrl,
+    getImageMetadata,
+    deleteImage,
+    reset,
   }
 }
 
 /**
- * useImageUpload - Упрощенный composable для загрузки изображения
+ * useImageUpload - Упрощенный upload с preview
  */
 export function useImageUpload(category = 'uploads') {
-  const { uploadImage, isUploading, uploadedImageUrl, uploadProgress } = useStorage()
+  const storage = useStorage()
 
-  const preview = ref<string | null>(null)
   const file = ref<File | null>(null)
+  const preview = ref<string | null>(null)
 
-  const selectFile = (selectedFile: File) => {
+  function selectFile(selectedFile: File) {
+    // Cleanup previous preview
+    if (preview.value) {
+      URL.revokeObjectURL(preview.value)
+    }
+
     file.value = selectedFile
     preview.value = URL.createObjectURL(selectedFile)
   }
 
-  const upload = async (options?: Partial<ImageUploadRequest>) => {
+  async function upload(options?: Partial<ImageUploadRequest>) {
     if (!file.value) {
       throw new Error('No file selected')
     }
 
-    const imageUrl = await uploadImage({
+    return await storage.uploadImage({
       file: file.value,
       category,
       generateThumbnail: true,
@@ -124,24 +103,30 @@ export function useImageUpload(category = 'uploads') {
       thumbnailHeight: 400,
       ...options,
     })
-
-    return imageUrl
   }
 
-  const reset = () => {
+  function reset() {
     if (preview.value) {
       URL.revokeObjectURL(preview.value)
     }
     file.value = null
     preview.value = null
+    storage.reset()
   }
+
+  onUnmounted(() => {
+    if (preview.value) {
+      URL.revokeObjectURL(preview.value)
+    }
+  })
 
   return {
     file: computed(() => file.value),
     preview: computed(() => preview.value),
-    uploadedImageUrl,
-    uploadProgress,
-    isUploading,
+    uploadedUrl: storage.uploadedUrl,
+    uploadProgress: storage.uploadProgress,
+    isUploading: storage.isUploading,
+    error: storage.error,
     selectFile,
     upload,
     reset,

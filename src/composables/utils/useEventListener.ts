@@ -1,30 +1,15 @@
+// src/composables/utils/useEventListener.ts
 /**
- * useEventListener Composable
+ * useEventListener - Event listener с auto cleanup
  *
- * Удобное добавление event listeners с auto cleanup
+ * НЕТ аналога в directives - это низкоуровневый composable
  */
 
 import { onMounted, onUnmounted, watch, unref, type Ref, ref } from 'vue'
 
-export type TargetRef = Ref<EventTarget | null | undefined> | EventTarget
+type TargetRef = Ref<EventTarget | null | undefined> | EventTarget
 
-/**
- * useEventListener
- *
- * @example
- * ```ts
- * // Window event
- * useEventListener('resize', () => {
- *   console.log('Window resized')
- * })
- *
- * // Element event
- * const buttonRef = ref<HTMLElement>()
- * useEventListener(buttonRef, 'click', () => {
- *   console.log('Button clicked')
- * })
- * ```
- */
+// Overloads
 export function useEventListener<K extends keyof WindowEventMap>(
   target: Window,
   event: K,
@@ -47,37 +32,19 @@ export function useEventListener<K extends keyof HTMLElementEventMap>(
 ): () => void
 
 export function useEventListener(
-  target: TargetRef | Window | Document,
+  target: any,
   event: string,
-  handler: (evt: Event) => void,
-  options?: boolean | AddEventListenerOptions,
-): () => void
-
-export function useEventListener(
-  target: unknown,
-  event: string,
-  handler: unknown,
-  options?: unknown,
-) {
+  handler: any,
+  options?: any,
+): () => void {
   let cleanup: (() => void) | undefined
 
   const register = () => {
-    const targetElement = unref(target)
-    if (!targetElement) return
+    const el = unref(target)
+    if (!el) return
 
-    ;(targetElement as EventTarget).addEventListener(
-      event,
-      handler as EventListener,
-      options as AddEventListenerOptions,
-    )
-
-    cleanup = () => {
-      ;(targetElement as EventTarget).removeEventListener(
-        event,
-        handler as EventListener,
-        options as AddEventListenerOptions,
-      )
-    }
+    el.addEventListener(event, handler, options)
+    cleanup = () => el.removeEventListener(event, handler, options)
   }
 
   const unregister = () => {
@@ -85,10 +52,9 @@ export function useEventListener(
     cleanup = undefined
   }
 
-  // Если target - это ref, watch за изменениями
   if (typeof target === 'object' && target !== null && 'value' in target) {
     watch(
-      () => unref(target) as EventTarget | null | undefined,
+      () => unref(target),
       (newTarget) => {
         unregister()
         if (newTarget) register()
@@ -96,7 +62,6 @@ export function useEventListener(
       { immediate: true },
     )
   } else {
-    // Иначе регистрируем сразу
     onMounted(register)
   }
 
@@ -106,111 +71,61 @@ export function useEventListener(
 }
 
 /**
- * useWindowScroll
- *
- * Reactive window scroll position
- *
- * @example
- * ```ts
- * const { x, y } = useWindowScroll()
- *
- * watch(y, (scrollY) => {
- *   console.log('Scroll Y:', scrollY)
- * })
- * ```
+ * useWindowScroll - Reactive scroll position
  */
 export function useWindowScroll() {
   const x = ref(window.scrollX)
   const y = ref(window.scrollY)
 
-  useEventListener(window, 'scroll', () => {
-    x.value = window.scrollX
-    y.value = window.scrollY
-  })
+  useEventListener(
+    window,
+    'scroll',
+    () => {
+      x.value = window.scrollX
+      y.value = window.scrollY
+    },
+    { passive: true },
+  )
 
   return { x, y }
 }
 
 /**
- * useWindowSize
- *
- * Reactive window size
- *
- * @example
- * ```ts
- * const { width, height } = useWindowSize()
- *
- * watch(width, (w) => {
- *   console.log('Window width:', w)
- * })
- * ```
+ * useWindowSize - Reactive window size
  */
 export function useWindowSize() {
   const width = ref(window.innerWidth)
   const height = ref(window.innerHeight)
 
-  useEventListener(window, 'resize', () => {
-    width.value = window.innerWidth
-    height.value = window.innerHeight
-  })
+  useEventListener(
+    window,
+    'resize',
+    () => {
+      width.value = window.innerWidth
+      height.value = window.innerHeight
+    },
+    { passive: true },
+  )
 
   return { width, height }
 }
 
 /**
- * useMousePosition
- *
- * Reactive mouse position
- *
- * @example
- * ```ts
- * const { x, y } = useMousePosition()
- * ```
+ * useMousePosition - Reactive mouse position
  */
-export function useMousePosition(target: TargetRef = window) {
+export function useMousePosition() {
   const x = ref(0)
   const y = ref(0)
 
-  useEventListener(target, 'mousemove', (event: MouseEvent) => {
-    x.value = event.clientX
-    y.value = event.clientY
-  })
+  useEventListener(
+    window,
+    'mousemove',
+    (event) => {
+      x.value = event.clientX
+      y.value = event.clientY
+    },
+    { passive: true },
+  )
 
   return { x, y }
-}
-
-/**
- * useKeyPress
- *
- * Detect key press
- *
- * @example
- * ```ts
- * const isEscapePressed = useKeyPress('Escape')
- *
- * watch(isEscapePressed, (pressed) => {
- *   if (pressed) closeModal()
- * })
- * ```
- */
-export function useKeyPress(targetKey: string | string[]) {
-  const isPressed = ref(false)
-  const keys = Array.isArray(targetKey) ? targetKey : [targetKey]
-
-  const downHandler = (event: KeyboardEvent) => {
-    if (keys.includes(event.key)) {
-      isPressed.value = true
-    }
-  }
-
-  const upHandler = (event: KeyboardEvent) => {
-    if (keys.includes(event.key)) {
-      isPressed.value = false
-    }
-  }
-
-  useEventListener(window, 'keydown', downHandler)
-  useEventListener(window, 'keyup', upHandler)
-
-  return isPressed
 }

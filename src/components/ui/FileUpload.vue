@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, toRef } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useFileUpload, useDragAndDrop } from '@/composables/features/useFileUpload'
 import { formatFileSize } from '@/utils/formatters'
+import { isGif } from '@/utils/media'
 
 export interface FileUploadProps {
   modelValue: File | null
@@ -36,7 +37,11 @@ const emit = defineEmits<{
   (e: 'validated', file: File): void
 }>()
 
-// File upload composable
+// File input ref
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const dropZoneRef = ref<HTMLElement | null>(null)
+
+// ✅ File upload composable
 const {
   file,
   preview,
@@ -53,8 +58,7 @@ const {
   onError: (err) => emit('error', [err.message]),
 })
 
-// Drag & drop
-const dropZoneRef = ref<HTMLElement | null>(null)
+// ✅ Drag & drop composable
 const { isDragging } = useDragAndDrop(dropZoneRef, {
   accept: props.accept,
   onDrop: async (files) => {
@@ -69,12 +73,9 @@ const { isDragging } = useDragAndDrop(dropZoneRef, {
   onError: (error) => emit('error', [error]),
 })
 
-// File input ref
-const fileInputRef = ref<HTMLInputElement | null>(null)
-
-// Is GIF
+// ✅ Используем isGif из utils/media
 const isGifFile = computed(() => {
-  return file.value?.type === 'image/gif'
+  return file.value ? isGif(file.value) : false
 })
 
 // File info
@@ -86,11 +87,15 @@ const fileInfo = computed(() => {
   }
 })
 
+// Sync with v-model
+watch(file, (newFile) => {
+  emit('update:modelValue', newFile)
+})
+
 // Handle file select from input
 const handleFileSelect = async (event: Event) => {
   const success = await selectFile(event)
   if (success && file.value) {
-    emit('update:modelValue', file.value)
     emit('validated', file.value)
   }
 }
@@ -184,6 +189,7 @@ const removeFile = () => {
         @click="removeFile"
         class="absolute top-2 right-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white rounded-full p-2 transition"
         type="button"
+        aria-label="Remove file"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -200,7 +206,7 @@ const removeFile = () => {
         v-if="isGifFile"
         class="absolute top-2 left-2 bg-gray-200 text-black rounded-2xl px-3 py-1 text-sm z-10"
       >
-        Gif
+        GIF
       </div>
 
       <!-- Image preview -->
@@ -221,11 +227,11 @@ const removeFile = () => {
         autoplay
         loop
         muted
-      ></video>
+      />
 
       <!-- File info -->
       <div v-if="fileInfo" class="mt-2 text-sm text-gray-600 text-center">
-        <p class="truncate">{{ fileInfo.name }}</p>
+        <p class="truncate max-w-xs mx-auto">{{ fileInfo.name }}</p>
         <p>{{ fileInfo.size }}</p>
       </div>
     </div>

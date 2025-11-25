@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { usePopover } from '@/composables/ui/usePopover'
 
 export interface BasePopoverProps {
   modelValue: boolean
@@ -7,7 +8,7 @@ export interface BasePopoverProps {
   offset?: number
   trigger?: 'hover' | 'click'
   closeOnClickOutside?: boolean
-  minDistanceToEdge?: number
+  closeOnEscape?: boolean
 }
 
 const props = withDefaults(defineProps<BasePopoverProps>(), {
@@ -16,7 +17,7 @@ const props = withDefaults(defineProps<BasePopoverProps>(), {
   offset: 10,
   trigger: 'hover',
   closeOnClickOutside: true,
-  minDistanceToEdge: 200,
+  closeOnEscape: true,
 })
 
 const emit = defineEmits<{
@@ -25,89 +26,67 @@ const emit = defineEmits<{
 
 const triggerRef = ref<HTMLElement | null>(null)
 const popoverRef = ref<HTMLElement | null>(null)
-const isTop = ref(false)
-const isLeft = ref(false)
+
+// ✅ Используем usePopover composable
+const { isOpen, open, close, toggle, updatePosition } = usePopover(triggerRef, popoverRef, {
+  position: props.position === 'auto' ? 'bottom' : props.position,
+  offset: props.offset,
+  closeOnClickOutside: props.closeOnClickOutside,
+  closeOnEscape: props.closeOnEscape,
+})
+
+// Sync with v-model
+watch(
+  () => props.modelValue,
+  (newValue) => {
+    if (newValue && !isOpen.value) {
+      open()
+    } else if (!newValue && isOpen.value) {
+      close()
+    }
+  },
+)
+
+watch(isOpen, (newValue) => {
+  emit('update:modelValue', newValue)
+})
+
+// Hover handling с задержкой для плавного перехода на popover
+let hoverTimeout: ReturnType<typeof setTimeout> | undefined
 const insidePopover = ref(false)
 
-const calculatePosition = async () => {
-  await nextTick()
-
-  if (!triggerRef.value) return
-
-  const rect = triggerRef.value.getBoundingClientRect()
-
-  if (props.position === 'auto') {
-    // Вертикальное позиционирование
-    const distanceToBottom = window.innerHeight - rect.bottom
-    isTop.value = distanceToBottom < props.minDistanceToEdge
-
-    // Горизонтальное позиционирование
-    const distanceToRight = window.innerWidth - rect.right
-    isLeft.value = distanceToRight < props.minDistanceToEdge
-  } else {
-    isTop.value = props.position === 'top'
-    isLeft.value = props.position === 'left'
-  }
+const handleTriggerEnter = () => {
+  if (props.trigger !== 'hover') return
+  if (hoverTimeout) clearTimeout(hoverTimeout)
+  open()
 }
 
-const show = async () => {
-  emit('update:modelValue', true)
-  await calculatePosition()
+const handleTriggerLeave = () => {
+  if (props.trigger !== 'hover') return
+  hoverTimeout = setTimeout(() => {
+    if (!insidePopover.value) {
+      close()
+    }
+  }, 100)
 }
 
-const hide = () => {
-  // Задержка для возможности перемещения курсора на popover
-  if (props.trigger === 'hover' && insidePopover.value) {
-    return
-  }
-  emit('update:modelValue', false)
-}
-
-const toggle = async () => {
-  if (props.modelValue) {
-    hide()
-  } else {
-    await show()
-  }
-}
-
-const handleMouseEnterPopover = () => {
+const handlePopoverEnter = () => {
   insidePopover.value = true
+  if (hoverTimeout) clearTimeout(hoverTimeout)
 }
 
-const handleMouseLeavePopover = () => {
+const handlePopoverLeave = () => {
   insidePopover.value = false
   if (props.trigger === 'hover') {
-    hide()
+    close()
   }
 }
 
-const handleClickOutside = (event: MouseEvent) => {
-  if (!props.closeOnClickOutside) return
-
-  const target = event.target as Node
-
-  if (
-    triggerRef.value &&
-    popoverRef.value &&
-    !triggerRef.value.contains(target) &&
-    !popoverRef.value.contains(target)
-  ) {
-    emit('update:modelValue', false)
+const handleTriggerClick = () => {
+  if (props.trigger === 'click') {
+    toggle()
   }
 }
-
-onMounted(() => {
-  if (props.closeOnClickOutside) {
-    document.addEventListener('click', handleClickOutside)
-  }
-})
-
-onBeforeUnmount(() => {
-  if (props.closeOnClickOutside) {
-    document.removeEventListener('click', handleClickOutside)
-  }
-})
 </script>
 
 <template>
@@ -115,9 +94,9 @@ onBeforeUnmount(() => {
     <!-- Trigger -->
     <div
       ref="triggerRef"
-      @mouseenter="trigger === 'hover' && show()"
-      @mouseleave="trigger === 'hover' && hide()"
-      @click="trigger === 'click' && toggle()"
+      @mouseenter="handleTriggerEnter"
+      @mouseleave="handleTriggerLeave"
+      @click="handleTriggerClick"
     >
       <slot name="trigger" />
     </div>
@@ -125,16 +104,11 @@ onBeforeUnmount(() => {
     <!-- Popover -->
     <Transition name="popover-fade">
       <div
-        v-if="modelValue"
+        v-if="isOpen"
         ref="popoverRef"
         class="absolute z-50"
-        :class="[isLeft ? 'right-0' : 'left-0']"
-        :style="{
-          top: isTop ? 'auto' : `calc(100% + ${offset}px)`,
-          bottom: isTop ? `calc(100% + ${offset}px)` : 'auto',
-        }"
-        @mouseenter="handleMouseEnterPopover"
-        @mouseleave="handleMouseLeavePopover"
+        @mouseenter="handlePopoverEnter"
+        @mouseleave="handlePopoverLeave"
       >
         <slot />
       </div>

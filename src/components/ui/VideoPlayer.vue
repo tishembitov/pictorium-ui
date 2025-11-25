@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { formatDuration, formatTimeRemaining } from '@/utils/formatters'
+import { ref, computed } from 'vue'
+import { useVideoPlayer } from '@/composables/features/useVideoPlayer'
 
 export interface VideoPlayerProps {
   src: string
@@ -22,111 +22,57 @@ const props = withDefaults(defineProps<VideoPlayerProps>(), {
 })
 
 const videoRef = ref<HTMLVideoElement | null>(null)
-const isPlaying = ref(true)
-const volume = ref(0)
-const oldVolume = ref(0.5)
-const currentTime = ref(0)
-const duration = ref(0)
-const showControls = ref(false)
-const controlsTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
 
-const formattedTime = computed(() => formatDuration(currentTime.value))
-const formattedDuration = computed(() => formatDuration(duration.value))
-const formattedRemaining = computed(() => formatTimeRemaining(currentTime.value, duration.value))
-
-const progressPercent = computed(() => {
-  if (duration.value === 0) return 0
-  return (currentTime.value / duration.value) * 100
+// ✅ Используем useVideoPlayer composable
+const {
+  isPlaying,
+  currentTime,
+  duration,
+  volume,
+  isMuted,
+  progress,
+  formattedTime,
+  formattedDuration,
+  showControls,
+  togglePlay,
+  seek,
+  setVolume,
+  toggleMute,
+  resetControlsTimeout,
+} = useVideoPlayer(videoRef, {
+  autoplay: props.autoplay,
+  loop: props.loop,
+  muted: props.muted,
+  volume: 0,
+  controlsTimeout: props.hideControlsDelay,
 })
 
-const togglePlayPause = () => {
-  if (!videoRef.value) return
-
-  if (isPlaying.value) {
-    videoRef.value.pause()
-  } else {
-    videoRef.value.play()
-  }
-  isPlaying.value = !isPlaying.value
-}
-
-const toggleMute = () => {
-  if (!videoRef.value) return
-
-  if (volume.value === 0) {
-    volume.value = oldVolume.value
-    videoRef.value.volume = volume.value
-  } else {
-    oldVolume.value = volume.value
-    volume.value = 0
-    videoRef.value.volume = 0
-  }
-}
-
-const updateVolume = () => {
-  if (!videoRef.value) return
-  videoRef.value.volume = volume.value
-}
-
-const updateProgress = () => {
-  if (videoRef.value) {
-    currentTime.value = videoRef.value.currentTime
-  }
-}
-
-const seek = (event: Event) => {
-  if (!videoRef.value) return
+// UI handlers
+const handleSeek = (event: Event) => {
   const input = event.target as HTMLInputElement
-  currentTime.value = parseFloat(input.value)
-  videoRef.value.currentTime = currentTime.value
+  seek(parseFloat(input.value))
 }
 
-const onLoadedMetadata = () => {
-  if (videoRef.value) {
-    duration.value = videoRef.value.duration
-    videoRef.value.volume = volume.value
-  }
-}
-
-const onVideoEnd = () => {
-  isPlaying.value = false
+const handleVolumeChange = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  setVolume(parseFloat(input.value))
 }
 
 const handleMouseMove = () => {
-  if (!props.autoHideControls) return
-
-  showControls.value = true
-
-  if (controlsTimeout.value) {
-    clearTimeout(controlsTimeout.value)
+  if (props.autoHideControls) {
+    resetControlsTimeout()
   }
-
-  controlsTimeout.value = setTimeout(() => {
-    showControls.value = false
-  }, props.hideControlsDelay)
 }
 
 const handleMouseLeave = () => {
-  if (props.autoHideControls) {
-    showControls.value = false
+  if (props.autoHideControls && isPlaying.value) {
+    // Controls will auto-hide via timeout
   }
 }
 
-onMounted(() => {
-  if (props.autoHideControls) {
-    showControls.value = true
-    controlsTimeout.value = setTimeout(() => {
-      showControls.value = false
-    }, props.hideControlsDelay)
-  } else {
-    showControls.value = true
-  }
-})
-
-onBeforeUnmount(() => {
-  if (controlsTimeout.value) {
-    clearTimeout(controlsTimeout.value)
-  }
+// Computed for UI
+const shouldShowControls = computed(() => {
+  return props.controls && (showControls.value || !props.autoHideControls)
 })
 </script>
 
@@ -140,32 +86,29 @@ onBeforeUnmount(() => {
     <video
       ref="videoRef"
       :src="src"
-      class="w-full rounded-3xl"
+      class="w-full rounded-3xl cursor-pointer"
       :autoplay="autoplay"
       :loop="loop"
       :muted="muted"
-      @loadedmetadata="onLoadedMetadata"
-      @timeupdate="updateProgress"
-      @ended="onVideoEnd"
-      @click="togglePlayPause"
-    ></video>
+      @click="togglePlay"
+    />
 
     <!-- Gradient overlay -->
     <div
-      v-if="controls && showControls"
+      v-if="shouldShowControls"
       class="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-red-900 to-transparent rounded-3xl pointer-events-none"
-    ></div>
+    />
 
     <!-- Controls -->
     <Transition name="fade">
-      <div v-if="controls && showControls" class="absolute bottom-0 left-0 right-0 p-4">
+      <div v-if="shouldShowControls" class="absolute bottom-0 left-0 right-0 p-4">
         <!-- Progress bar -->
         <input
           type="range"
           :max="duration"
           :value="currentTime"
           step="0.01"
-          @input="seek"
+          @input="handleSeek"
           class="w-full h-0.5 bg-black rounded-lg cursor-pointer accent-white mb-4"
         />
 
@@ -173,9 +116,9 @@ onBeforeUnmount(() => {
         <div class="flex items-center justify-between text-white">
           <!-- Left controls -->
           <div class="flex items-center gap-3">
-            <button @click.stop="togglePlayPause" class="hover:scale-110 transition">
-              <i v-if="isPlaying" class="pi pi-pause text-xl"></i>
-              <i v-else class="pi pi-play text-xl"></i>
+            <button @click.stop="togglePlay" class="hover:scale-110 transition">
+              <i v-if="isPlaying" class="pi pi-pause text-xl" />
+              <i v-else class="pi pi-play text-xl" />
             </button>
 
             <span class="text-md"> {{ formattedTime }} / {{ formattedDuration }} </span>
@@ -184,14 +127,14 @@ onBeforeUnmount(() => {
           <!-- Right controls -->
           <div class="flex items-center gap-3">
             <button @click.stop="toggleMute" class="hover:scale-110 transition">
-              <i v-if="volume === 0" class="pi pi-volume-off text-xl"></i>
-              <i v-else class="pi pi-volume-up text-xl"></i>
+              <i v-if="isMuted || volume === 0" class="pi pi-volume-off text-xl" />
+              <i v-else class="pi pi-volume-up text-xl" />
             </button>
 
             <input
               type="range"
-              v-model="volume"
-              @input="updateVolume"
+              :value="volume"
+              @input="handleVolumeChange"
               min="0"
               max="1"
               step="0.01"
@@ -202,14 +145,15 @@ onBeforeUnmount(() => {
       </div>
     </Transition>
 
-    <!-- Center play/pause button -->
+    <!-- Center play/pause indicator -->
     <Transition name="flash">
       <div
-        v-if="showControls && controls"
+        v-if="shouldShowControls"
         class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
       >
-        <i v-if="isPlaying" class="pi pi-pause text-5xl text-white glowing-icon"></i>
-        <i v-else class="pi pi-play text-5xl text-white glowing-icon"></i>
+        <i
+          :class="['text-5xl text-white glowing-icon', isPlaying ? 'pi pi-pause' : 'pi pi-play']"
+        />
       </div>
     </Transition>
   </div>
@@ -236,7 +180,13 @@ onBeforeUnmount(() => {
 .flash-enter-from,
 .flash-leave-to {
   opacity: 0;
-  transform: scale(3);
+  transform: translate(-50%, -50%) scale(3);
+}
+
+.flash-enter-to,
+.flash-leave-from {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .glowing-icon {

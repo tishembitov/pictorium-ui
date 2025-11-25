@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed } from 'vue'
 import { scrollToTop as scrollToTopUtil } from '@/utils/scroll'
-import { debounce } from '@/utils/helpers'
-import { DEBOUNCE_DELAY } from '@/utils/constants'
+import { useEventListener } from '@/composables/utils/useEventListener'
+import { useDebouncedFn } from '@/composables/utils/useDebounce'
 
 export interface ScrollToTopProps {
   threshold?: number
@@ -17,34 +17,34 @@ const props = withDefaults(defineProps<ScrollToTopProps>(), {
   behavior: 'smooth',
   position: 'bottom-right',
   offset: 24,
-  debounceDelay: DEBOUNCE_DELAY,
+  debounceDelay: 100,
 })
 
 const showButton = ref(false)
 
-const handleScroll = debounce(() => {
+// ✅ Используем useDebouncedFn с автоматическим cleanup
+const { execute: handleScroll } = useDebouncedFn(() => {
   showButton.value = window.scrollY > props.threshold
 }, props.debounceDelay)
+
+// ✅ Используем useEventListener с автоматическим cleanup
+useEventListener(window, 'scroll', handleScroll, { passive: true })
+
+// Initial check
+handleScroll()
 
 const scrollToTop = () => {
   scrollToTopUtil(props.behavior === 'smooth')
 }
 
-onMounted(() => {
-  window.addEventListener('scroll', handleScroll, { passive: true })
-  // Initial check
-  handleScroll()
+const positionClasses = computed(() => {
+  const classes = {
+    'bottom-right': 'right-6',
+    'bottom-left': 'left-6',
+    'bottom-center': 'left-1/2 -translate-x-1/2',
+  }
+  return classes[props.position]
 })
-
-onBeforeUnmount(() => {
-  window.removeEventListener('scroll', handleScroll)
-})
-
-const positionClasses = {
-  'bottom-right': 'bottom-6 right-6',
-  'bottom-left': 'bottom-6 left-6',
-  'bottom-center': 'bottom-6 left-1/2 -translate-x-1/2',
-}
 </script>
 
 <template>
@@ -55,7 +55,7 @@ const positionClasses = {
       :class="[
         'fixed z-40 p-4 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300',
         'hover:bg-red-50 active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
-        positionClasses[position],
+        positionClasses,
       ]"
       :style="{ bottom: `${offset}px` }"
       aria-label="Scroll to top"

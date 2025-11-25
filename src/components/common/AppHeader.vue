@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useDebouncedRef } from '@/composables/utils/useDebounce'
 
 export interface AppHeaderProps {
   showSearch?: boolean
@@ -16,8 +17,22 @@ const emit = defineEmits<{
 
 const router = useRouter()
 
+// ✅ Используем useDebouncedRef для debounced поиска
 const searchValue = ref('')
+const debouncedSearch = useDebouncedRef('', 300)
 const showSearchSection = ref(false)
+
+// Sync debounced value
+watch(searchValue, (value) => {
+  debouncedSearch.value = value
+})
+
+// Auto-emit на debounced изменения
+watch(debouncedSearch, (value) => {
+  if (value.trim()) {
+    emit('search', value.trim())
+  }
+})
 
 const handleSearch = () => {
   if (searchValue.value.trim()) {
@@ -33,6 +48,7 @@ const handleEnter = () => {
 
 const clearSearch = () => {
   searchValue.value = ''
+  debouncedSearch.value = ''
   showSearchSection.value = false
 }
 </script>
@@ -58,7 +74,7 @@ const clearSearch = () => {
 
         <!-- Search icon -->
         <div class="absolute left-1 top-4 pl-3 flex items-center pointer-events-none">
-          <i class="pi pi-search text-black"></i>
+          <i class="pi pi-search text-black" />
         </div>
 
         <!-- Clear button -->
@@ -66,6 +82,8 @@ const clearSearch = () => {
           v-if="searchValue"
           @click="clearSearch"
           class="absolute right-3 top-1/2 transform -translate-y-1/2 px-3 py-1 rounded-full text-lg text-white bg-black hover:bg-gray-800 transition"
+          type="button"
+          aria-label="Clear search"
         >
           ✕
         </button>

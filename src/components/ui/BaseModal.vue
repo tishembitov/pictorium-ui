@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
+import { useEscapeKey } from '@/composables/utils/useClickOutside'
+import { useFocusTrap } from '@/composables/utils/useFocusTrap'
 
 export interface BaseModalProps {
   modelValue: boolean
@@ -32,6 +34,8 @@ const emit = defineEmits<{
   (e: 'closed'): void
 }>()
 
+const modalRef = ref<HTMLElement | null>(null)
+
 const sizeClasses = {
   sm: 'max-w-md',
   md: 'max-w-2xl',
@@ -53,12 +57,18 @@ const handleOverlayClick = () => {
   }
 }
 
-const handleEscape = (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && props.closable && !props.persistent) {
-    close()
-  }
-}
+// ✅ Используем useEscapeKey с условием
+const canClose = computed(() => props.modelValue && props.closable && !props.persistent)
+useEscapeKey(close, { enabled: canClose })
 
+// ✅ Используем useFocusTrap для accessibility
+const isOpen = computed(() => props.modelValue)
+useFocusTrap(modalRef, {
+  enabled: isOpen,
+  returnFocusOnDeactivate: true,
+})
+
+// Body scroll lock
 watch(
   () => props.modelValue,
   (newValue) => {
@@ -71,86 +81,86 @@ watch(
     }
   },
 )
-
-onMounted(() => {
-  window.addEventListener('keydown', handleEscape)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('keydown', handleEscape)
-  document.body.classList.remove('overflow-hidden')
-})
 </script>
 
 <template>
-  <Transition name="modal-fade">
-    <div
-      v-if="modelValue"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
-      @click.self="handleOverlayClick"
-    >
-      <Transition name="modal-slide">
-        <div
-          v-if="modelValue"
-          :class="[
-            'relative bg-white rounded-2xl shadow-2xl w-full',
-            sizeClasses[size],
-            maxHeight && 'max-h-[90vh] overflow-hidden flex flex-col',
-          ]"
-        >
-          <!-- Header -->
+  <Teleport to="body">
+    <Transition name="modal-fade">
+      <div
+        v-if="modelValue"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
+        @click.self="handleOverlayClick"
+        role="dialog"
+        aria-modal="true"
+        :aria-labelledby="title ? 'modal-title' : undefined"
+      >
+        <Transition name="modal-slide">
           <div
-            v-if="showHeader || $slots.header"
-            class="flex items-center justify-between p-6 border-b border-gray-200"
+            v-if="modelValue"
+            ref="modalRef"
+            :class="[
+              'relative bg-white rounded-2xl shadow-2xl w-full',
+              sizeClasses[size],
+              maxHeight && 'max-h-[90vh] overflow-hidden flex flex-col',
+            ]"
           >
-            <slot name="header">
-              <h2 class="text-xl font-semibold text-gray-900">{{ title }}</h2>
-            </slot>
-
-            <button
-              v-if="closable"
-              @click="close"
-              class="text-gray-400 hover:text-gray-600 transition-colors"
+            <!-- Header -->
+            <div
+              v-if="showHeader || $slots.header"
+              class="flex items-center justify-between p-6 border-b border-gray-200"
             >
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
+              <slot name="header">
+                <h2 id="modal-title" class="text-xl font-semibold text-gray-900">
+                  {{ title }}
+                </h2>
+              </slot>
 
-          <!-- Body -->
-          <div :class="['p-6', maxHeight && 'overflow-y-auto flex-1']">
-            <slot />
-          </div>
-
-          <!-- Footer -->
-          <div
-            v-if="showFooter || $slots.footer"
-            class="flex items-center justify-end gap-3 p-6 border-t border-gray-200"
-          >
-            <slot name="footer">
               <button
+                v-if="closable"
                 @click="close"
-                class="px-6 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition"
+                class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+                aria-label="Close modal"
               >
-                Cancel
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
               </button>
-              <button
-                class="px-6 py-2 text-sm font-medium text-white bg-red-600 rounded-full hover:bg-red-700 transition"
-              >
-                Confirm
-              </button>
-            </slot>
+            </div>
+
+            <!-- Body -->
+            <div :class="['p-6', maxHeight && 'overflow-y-auto flex-1']">
+              <slot />
+            </div>
+
+            <!-- Footer -->
+            <div
+              v-if="showFooter || $slots.footer"
+              class="flex items-center justify-end gap-3 p-6 border-t border-gray-200"
+            >
+              <slot name="footer">
+                <button
+                  @click="close"
+                  class="px-6 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  class="px-6 py-2 text-sm font-medium text-white bg-red-600 rounded-full hover:bg-red-700 transition"
+                >
+                  Confirm
+                </button>
+              </slot>
+            </div>
           </div>
-        </div>
-      </Transition>
-    </div>
-  </Transition>
+        </Transition>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>

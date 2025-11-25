@@ -3,9 +3,12 @@ import type { DirectiveBinding } from 'vue'
 
 interface TooltipElement extends HTMLElement {
   _tooltip?: {
-    element: HTMLElement
+    element: HTMLElement | null
     showHandler: () => void
     hideHandler: () => void
+    text: string
+    position: 'top' | 'bottom' | 'left' | 'right'
+    timeoutId?: ReturnType<typeof setTimeout> // ✅ ДОБАВЛЕНО
   }
 }
 
@@ -19,20 +22,18 @@ export default {
     let tooltipElement: HTMLElement | null = null
 
     const showTooltip = () => {
-      // Удаляем предыдущий tooltip если есть
       if (tooltipElement) {
         hideTooltip()
       }
 
       tooltipElement = document.createElement('div')
       tooltipElement.className =
-        'absolute z-50 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg whitespace-nowrap pointer-events-none transition-opacity duration-200'
+        'fixed z-50 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg whitespace-nowrap pointer-events-none transition-opacity duration-200'
       tooltipElement.textContent = tooltipText
       tooltipElement.style.opacity = '0'
 
       document.body.appendChild(tooltipElement)
 
-      // Вычисляем позицию
       const rect = el.getBoundingClientRect()
       const tooltipRect = tooltipElement.getBoundingClientRect()
 
@@ -58,7 +59,6 @@ export default {
           break
       }
 
-      // Проверяем границы viewport
       const padding = 8
       top = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding))
       left = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding))
@@ -66,7 +66,6 @@ export default {
       tooltipElement.style.top = `${top}px`
       tooltipElement.style.left = `${left}px`
 
-      // Анимация появления
       requestAnimationFrame(() => {
         if (tooltipElement) {
           tooltipElement.style.opacity = '1'
@@ -75,49 +74,61 @@ export default {
     }
 
     const hideTooltip = () => {
+      // ✅ ИСПРАВЛЕНО: очищаем timeout
+      if (el._tooltip?.timeoutId) {
+        clearTimeout(el._tooltip.timeoutId)
+      }
+
       if (tooltipElement) {
-        tooltipElement.style.opacity = '0'
-        setTimeout(() => {
-          if (tooltipElement) {
-            tooltipElement.remove()
-            tooltipElement = null
-          }
-        }, 200) // Ждем завершения анимации
+        const elementToRemove = tooltipElement
+        elementToRemove.style.opacity = '0'
+
+        // ✅ ИСПРАВЛЕНО: сохраняем timeout ID
+        el._tooltip!.timeoutId = setTimeout(() => {
+          elementToRemove.remove()
+        }, 200)
+
+        tooltipElement = null
       }
     }
 
-    // Сохраняем обработчики
     el._tooltip = {
-      element: tooltipElement!,
+      element: tooltipElement,
       showHandler: showTooltip,
       hideHandler: hideTooltip,
+      text: tooltipText,
+      position,
     }
 
     el.addEventListener('mouseenter', showTooltip)
     el.addEventListener('mouseleave', hideTooltip)
-    el.addEventListener('click', hideTooltip) // Скрываем при клике
+    el.addEventListener('click', hideTooltip)
   },
 
   updated(el: TooltipElement, binding: DirectiveBinding) {
-    // Если текст изменился - пересоздаем tooltip
-    if (binding.value !== binding.oldValue) {
-      if (el._tooltip) {
-        el._tooltip.hideHandler()
-      }
-      // Обновляем будет при следующем hover
+    if (binding.value !== binding.oldValue && el._tooltip) {
+      el._tooltip.hideHandler()
+      el._tooltip.text = binding.value
     }
   },
 
   beforeUnmount(el: TooltipElement) {
     if (el._tooltip) {
-      const { showHandler, hideHandler } = el._tooltip
+      const { showHandler, hideHandler, timeoutId } = el._tooltip
+
+      // ✅ ИСПРАВЛЕНО: очищаем timeout при unmount
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
 
       el.removeEventListener('mouseenter', showHandler)
       el.removeEventListener('mouseleave', hideHandler)
       el.removeEventListener('click', hideHandler)
 
-      // Удаляем tooltip элемент
-      hideHandler()
+      // Немедленно удаляем tooltip
+      if (el._tooltip.element) {
+        el._tooltip.element.remove()
+      }
 
       delete el._tooltip
     }

@@ -37,6 +37,11 @@ export const useCommentsStore = defineStore('comments', () => {
     return commentsById.get(commentId) || null
   })
 
+  // ✅ ДОБАВЛЕНО: геттер для pagination info
+  const getRepliesPagination = computed(() => (commentId: string) => {
+    return repliesPaginationCache.get(commentId) || { page: 0, hasMore: true }
+  })
+
   // ============ ACTIONS ============
 
   async function fetchPinComments(pinId: string, page = 0, size = 20, reset = false) {
@@ -80,9 +85,9 @@ export const useCommentsStore = defineStore('comments', () => {
 
   async function loadMoreComments(pinId: string) {
     const pagination = paginationCache.get(pinId)
-    if (!pagination?.hasMore) return
+    if (!pagination?.hasMore) return []
 
-    await fetchPinComments(pinId, pagination.page + 1, 20, false)
+    return await fetchPinComments(pinId, pagination.page + 1, 20, false)
   }
 
   async function createComment(pinId: string, content?: string, imageFile?: File) {
@@ -212,6 +217,14 @@ export const useCommentsStore = defineStore('comments', () => {
     } finally {
       isLoadingReplies.set(commentId, false)
     }
+  }
+
+  // ✅ ДОБАВЛЕНО: loadMoreReplies метод
+  async function loadMoreReplies(commentId: string) {
+    const pagination = repliesPaginationCache.get(commentId)
+    if (!pagination?.hasMore) return []
+
+    return await fetchReplies(commentId, pagination.page + 1, 10, false)
   }
 
   async function createReply(commentId: string, content?: string, imageFile?: File) {
@@ -361,22 +374,29 @@ export const useCommentsStore = defineStore('comments', () => {
   }
 
   return {
+    // State (exposed for debugging, prefer using getters)
     pinCommentsCache,
     repliesCache,
     commentsById,
     isLoading,
     isLoadingReplies,
+
+    // Getters
     getPinComments,
     getCommentReplies,
     getCommentById,
     hasMoreComments,
     hasMoreReplies,
+    getRepliesPagination, // ✅ ДОБАВЛЕНО
+
+    // Actions
     fetchPinComments,
     loadMoreComments,
     createComment,
     updateComment,
     deleteComment,
     fetchReplies,
+    loadMoreReplies, // ✅ ДОБАВЛЕНО
     createReply,
     likeComment,
     unlikeComment,

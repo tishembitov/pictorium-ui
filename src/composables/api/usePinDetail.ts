@@ -6,8 +6,7 @@
  * Предоставляет реактивные данные для конкретного пина
  */
 
-import { computed, watch, onUnmounted } from 'vue'
-import { storeToRefs } from 'pinia'
+import { computed, onUnmounted, ref } from 'vue'
 import { usePinsStore } from '@/stores/pins.store'
 import { useCommentsStore } from '@/stores/comments.store'
 import type { PinWithBlob, CommentWithBlob } from '@/types'
@@ -17,15 +16,20 @@ export interface UsePinDetailOptions {
   loadComments?: boolean
   /** Загружать related pins автоматически */
   loadRelated?: boolean
+  /** Количество related pins для загрузки */
+  relatedPinsSize?: number
 }
 
 export function usePinDetail(pinId: string | (() => string), options: UsePinDetailOptions = {}) {
-  const { loadComments = true, loadRelated = true } = options
+  const { loadComments = true, loadRelated = true, relatedPinsSize = 15 } = options
 
   const pinsStore = usePinsStore()
   const commentsStore = useCommentsStore()
 
   const getId = () => (typeof pinId === 'string' ? pinId : pinId())
+
+  // ============ ERROR STATE ============
+  const error = ref<Error | null>(null)
 
   // ============ REACTIVE DATA ============
 
@@ -35,27 +39,45 @@ export function usePinDetail(pinId: string | (() => string), options: UsePinDeta
   /** Комментарии пина */
   const comments = computed<CommentWithBlob[]>(() => commentsStore.getPinComments(getId()))
 
-  /** Related pins */
-  const relatedPins = computed<PinWithBlob[]>(() => pinsStore.relatedPinsCache.get(getId()) || [])
+  /** ✅ Related pins - теперь работает! */
+  const relatedPins = computed<PinWithBlob[]>(() => pinsStore.getRelatedPins(getId()))
 
   /** Есть ли ещё комментарии */
   const hasMoreComments = computed(() => commentsStore.hasMoreComments(getId()))
+
+  /** ✅ Есть ли ещё related pins */
+  const hasMoreRelatedPins = computed(() => pinsStore.hasMoreRelatedPins(getId()))
+
+  /** ✅ Pagination info для related pins */
+  const relatedPinsPagination = computed(() => pinsStore.getRelatedPinsPagination(getId()))
 
   // ============ LOADING STATES ============
 
   const isLoading = computed(() => pinsStore.isLoading)
   const isLoadingComments = computed(() => commentsStore.isLoading)
+  const isLoadingRelated = computed(() => pinsStore.isLoadingRelated)
 
   // ============ ACTIONS ============
 
   /** Загрузить пин */
   async function fetchPin(forceReload = false) {
-    return await pinsStore.fetchPinById(getId(), forceReload)
+    try {
+      error.value = null
+      return await pinsStore.fetchPinById(getId(), forceReload)
+    } catch (e) {
+      error.value = e as Error
+      throw e
+    }
   }
 
   /** Загрузить комментарии */
   async function fetchComments(page = 0) {
-    return await commentsStore.fetchPinComments(getId(), page)
+    try {
+      return await commentsStore.fetchPinComments(getId(), page)
+    } catch (e) {
+      console.error('[usePinDetail] Failed to fetch comments:', e)
+      throw e
+    }
   }
 
   /** Загрузить больше комментариев */
@@ -63,9 +85,19 @@ export function usePinDetail(pinId: string | (() => string), options: UsePinDeta
     return await commentsStore.loadMoreComments(getId())
   }
 
-  /** Загрузить related pins */
+  /** ✅ Загрузить related pins */
   async function fetchRelatedPins(page = 0) {
-    return await pinsStore.fetchRelatedPins(getId(), page)
+    try {
+      return await pinsStore.fetchRelatedPins(getId(), page, relatedPinsSize)
+    } catch (e) {
+      console.error('[usePinDetail] Failed to fetch related pins:', e)
+      throw e
+    }
+  }
+
+  /** ✅ Загрузить больше related pins */
+  async function loadMoreRelatedPins() {
+    return await pinsStore.loadMoreRelatedPins(getId())
   }
 
   /** Загрузить всё */
@@ -115,6 +147,7 @@ export function usePinDetail(pinId: string | (() => string), options: UsePinDeta
 
   function cleanup() {
     commentsStore.clearPinComments(getId())
+    pinsStore.clearRelatedPins(getId())
   }
 
   onUnmounted(cleanup)
@@ -125,16 +158,23 @@ export function usePinDetail(pinId: string | (() => string), options: UsePinDeta
     comments,
     relatedPins,
     hasMoreComments,
+    hasMoreRelatedPins,
+    relatedPinsPagination,
+
+    // Error
+    error,
 
     // Loading
     isLoading,
     isLoadingComments,
+    isLoadingRelated,
 
     // Actions
     fetchPin,
     fetchComments,
     loadMoreComments,
     fetchRelatedPins,
+    loadMoreRelatedPins,
     fetchAll,
 
     // Pin actions

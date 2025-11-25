@@ -3,7 +3,6 @@ import { defineStore } from 'pinia'
 import { ref, computed, reactive } from 'vue'
 import type { Pin, PinFeed, PinWithBlob, PinFilter, PagePin } from '@/types'
 import { pinsApi, savedPinsApi, likesApi, storageApi } from '@/api'
-// ✅ ИСПРАВЛЕНО: импортируем правильные функции
 import { isVideo, isVideoUrl, isGifUrl, getImageDimensions } from '@/utils/media'
 
 type FeedType = 'all' | 'created' | 'saved' | 'liked'
@@ -26,6 +25,13 @@ export const usePinsStore = defineStore('pins', () => {
   const currentFilter = ref<PinFilter>({ scope: 'ALL' })
   const pageSize = ref(15)
 
+  // ✅ ДОБАВЛЕНО: Related pins cache
+  const relatedPinsCache = reactive(new Map<string, PinWithBlob[]>())
+  const relatedPinsPagination = reactive(
+    new Map<string, { page: number; hasMore: boolean; total: number }>(),
+  )
+  const isLoadingRelated = ref(false)
+
   // ============ GETTERS ============
 
   const activeFeed = computed(() => feeds.get(activeFeedType.value)!)
@@ -33,9 +39,23 @@ export const usePinsStore = defineStore('pins', () => {
   const isLoading = computed(() => activeFeed.value.isLoading)
   const hasMore = computed(() => activeFeed.value.hasMore)
   const currentPage = computed(() => activeFeed.value.page)
+  const totalElements = computed(() => activeFeed.value.totalElements)
 
   const getPinById = computed(() => (pinId: string) => {
     return pinsCache.get(pinId)
+  })
+
+  // ✅ ДОБАВЛЕНО: Related pins getters
+  const getRelatedPins = computed(() => (pinId: string) => {
+    return relatedPinsCache.get(pinId) || []
+  })
+
+  const hasMoreRelatedPins = computed(() => (pinId: string) => {
+    return relatedPinsPagination.get(pinId)?.hasMore ?? true
+  })
+
+  const getRelatedPinsPagination = computed(() => (pinId: string) => {
+    return relatedPinsPagination.get(pinId) || { page: 0, hasMore: true, total: 0 }
   })
 
   // ============ BLOB LOADING ============
@@ -46,7 +66,6 @@ export const usePinsStore = defineStore('pins', () => {
     try {
       const pinWithBlob: PinWithBlob = { ...pin }
 
-      // ✅ ИСПРАВЛЕНО: используем isVideoUrl для строк
       const hasVideoPreview = !!pin.videoPreviewUrl
       const isVideoFile = hasVideoPreview || (pin.imageUrl ? isVideoUrl(pin.imageUrl) : false)
       const isGifFile = pin.imageUrl ? isGifUrl(pin.imageUrl) : false
@@ -153,6 +172,103 @@ export const usePinsStore = defineStore('pins', () => {
     }
   }
 
+  // ✅ ДОБАВЛЕНО: Fetch related pins
+  async function fetchRelatedPins(
+    pinId: string,
+    page = 0,
+    size = 15,
+    reset = false,
+  ): Promise<PinWithBlob[]> {
+    try {
+      // Reset pagination if needed
+      if (reset || page === 0) {
+        relatedPinsPagination.set(pinId, { page: 0, hasMore: true, total: 0 })
+      }
+
+      isLoadingRelated.value = true
+
+      const response: PagePin = await pinsApi.getPins(
+        {
+          relatedTo: pinId,
+          scope: 'RELATED',
+        },
+        {
+          page,
+          size,
+          sort: ['createdAt,desc'],
+        },
+      )
+
+      const pinsWithBlobs = await loadPinsBlobs(response.content)
+
+      // Cache individual pins
+      pinsWithBlobs.forEach((pin) => {
+        pinsCache.set(pin.id, pin)
+      })
+
+      // Update related pins cache
+      if (page === 0 || reset) {
+        // Cleanup old blobs before replacing
+        const oldPins = relatedPinsCache.get(pinId)
+        if (oldPins) {
+          cleanupPinsBlobs(oldPins.filter((p) => !pinsWithBlobs.some((np) => np.id === p.id)))
+        }
+        relatedPinsCache.set(pinId, pinsWithBlobs)
+      } else {
+        const existing = relatedPinsCache.get(pinId) || []
+        relatedPinsCache.set(pinId, [...existing, ...pinsWithBlobs])
+      }
+
+      // Update pagination
+      relatedPinsPagination.set(pinId, {
+        page: response.number,
+        hasMore: !response.last,
+        total: response.totalElements,
+      })
+
+      console.log(`[Pins] Loaded ${pinsWithBlobs.length} related pins for ${pinId}`)
+      return pinsWithBlobs
+    } catch (error) {
+      console.error('[Pins] Failed to fetch related pins:', error)
+      throw error
+    } finally {
+      isLoadingRelated.value = false
+    }
+  }
+
+  // ✅ ДОБАВЛЕНО: Load more related pins
+  async function loadMoreRelatedPins(pinId: string): Promise<PinWithBlob[]> {
+    const pagination = relatedPinsPagination.get(pinId)
+
+    if (!pagination?.hasMore || isLoadingRelated.value) {
+      return []
+    }
+
+    return await fetchRelatedPins(pinId, pagination.page + 1, 15, false)
+  }
+
+  // ✅ ДОБАВЛЕНО: Clear related pins for a specific pin
+  function clearRelatedPins(pinId: string) {
+    const pins = relatedPinsCache.get(pinId)
+    if (pins) {
+      // Only cleanup blobs that aren't in main cache
+      pins.forEach((pin) => {
+        if (!pinsCache.has(pin.id)) {
+          cleanupPinBlobs(pin)
+        }
+      })
+    }
+    relatedPinsCache.delete(pinId)
+    relatedPinsPagination.delete(pinId)
+  }
+
+  // ✅ ДОБАВЛЕНО: Clear all related pins
+  function clearAllRelatedPins() {
+    relatedPinsCache.forEach((pins, pinId) => {
+      clearRelatedPins(pinId)
+    })
+  }
+
   async function createPin(data: {
     file: File
     title?: string
@@ -162,7 +278,6 @@ export const usePinsStore = defineStore('pins', () => {
     rgb?: string
   }) {
     try {
-      // ✅ ИСПРАВЛЕНО: используем isVideo для File
       const isVideoFile = isVideo(data.file)
       let width: number | undefined
       let height: number | undefined
@@ -263,6 +378,14 @@ export const usePinsStore = defineStore('pins', () => {
         if (index !== -1) {
           feed.pins.splice(index, 1)
           feed.totalElements = Math.max(0, feed.totalElements - 1)
+        }
+      })
+
+      // Also remove from related pins caches
+      relatedPinsCache.forEach((pins, key) => {
+        const index = pins.findIndex((p) => p.id === pinId)
+        if (index !== -1) {
+          pins.splice(index, 1)
         }
       })
     } catch (error) {
@@ -390,9 +513,14 @@ export const usePinsStore = defineStore('pins', () => {
 
   function resetFeed(feedType?: FeedType) {
     if (feedType) {
+      const feed = feeds.get(feedType)
+      if (feed) {
+        cleanupPinsBlobs(feed.pins)
+      }
       feeds.set(feedType, createEmptyFeed())
     } else {
-      feeds.forEach((_, type) => {
+      feeds.forEach((feed, type) => {
+        cleanupPinsBlobs(feed.pins)
         feeds.set(type, createEmptyFeed())
       })
     }
@@ -415,6 +543,9 @@ export const usePinsStore = defineStore('pins', () => {
     feeds.forEach((feed) => {
       feed.pins = []
     })
+
+    // Cleanup related pins
+    clearAllRelatedPins()
   }
 
   // ============ HELPERS ============
@@ -428,10 +559,31 @@ export const usePinsStore = defineStore('pins', () => {
     }
   }
 
+  function cleanupPinsBlobs(pins: PinWithBlob[]) {
+    pins.forEach((pin) => cleanupPinBlobs(pin))
+  }
+
   function updatePinInCache(pinId: string, updater: (pin: PinWithBlob) => PinWithBlob) {
     const cached = pinsCache.get(pinId)
     if (cached) {
-      pinsCache.set(pinId, updater(cached))
+      const updated = updater(cached)
+      pinsCache.set(pinId, updated)
+
+      // Also update in feeds
+      feeds.forEach((feed) => {
+        const index = feed.pins.findIndex((p) => p.id === pinId)
+        if (index !== -1) {
+          feed.pins[index] = updated
+        }
+      })
+
+      // Also update in related pins caches
+      relatedPinsCache.forEach((pins) => {
+        const index = pins.findIndex((p) => p.id === pinId)
+        if (index !== -1) {
+          pins[index] = updated
+        }
+      })
     }
   }
 
@@ -468,13 +620,26 @@ export const usePinsStore = defineStore('pins', () => {
     activeFeedType,
     currentFilter,
     pageSize,
+
+    // ✅ ДОБАВЛЕНО: Related pins state
+    relatedPinsCache,
+    relatedPinsPagination,
+    isLoadingRelated,
+
     // Getters
     activeFeed,
     feedPins,
     isLoading,
     hasMore,
     currentPage,
+    totalElements,
     getPinById,
+
+    // ✅ ДОБАВЛЕНО: Related pins getters
+    getRelatedPins,
+    hasMoreRelatedPins,
+    getRelatedPinsPagination,
+
     // Actions
     fetchPins,
     fetchPinById,
@@ -490,5 +655,11 @@ export const usePinsStore = defineStore('pins', () => {
     resetFeed,
     clearPin,
     cleanup,
+
+    // ✅ ДОБАВЛЕНО: Related pins actions
+    fetchRelatedPins,
+    loadMoreRelatedPins,
+    clearRelatedPins,
+    clearAllRelatedPins,
   }
 })

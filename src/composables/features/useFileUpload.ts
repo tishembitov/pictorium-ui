@@ -3,7 +3,7 @@
  * useFileUpload - File upload с preview и validation
  */
 
-import { ref, computed, onUnmounted, type Ref } from 'vue'
+import { ref, computed, watch, onUnmounted, type Ref } from 'vue' // ✅ ИСПРАВЛЕНО: import в начале
 import { useStorage } from '@/composables/api/useStorage'
 import { validateMediaFile, type FileValidationResult } from '@/utils/files'
 import { isImage, isVideo } from '@/utils/media'
@@ -37,6 +37,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   const file = ref<File | null>(null)
   const preview = ref<string | null>(null)
   const validationError = ref<string | null>(null)
+  const uploadError = ref<Error | null>(null) // ✅ ДОБАВЛЕНО: error state
 
   // Computed
   const hasFile = computed(() => file.value !== null)
@@ -57,21 +58,18 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   const createPreview = (selectedFile: File) => {
     cleanupPreview()
 
-    if (isImage(selectedFile)) {
-      preview.value = URL.createObjectURL(selectedFile)
-    } else if (isVideo(selectedFile)) {
+    if (isImage(selectedFile) || isVideo(selectedFile)) {
       preview.value = URL.createObjectURL(selectedFile)
     }
   }
 
   // Select file (from input or drag)
-  const selectFile = async (fileOrEvent: File | Event) => {
+  const selectFile = async (fileOrEvent: File | Event): Promise<boolean> => {
     let selectedFile: File | null = null
 
     if (fileOrEvent instanceof Event) {
       const input = fileOrEvent.target as HTMLInputElement
       selectedFile = input.files?.[0] || null
-      // Reset input to allow re-selecting same file
       input.value = ''
     } else {
       selectedFile = fileOrEvent
@@ -90,6 +88,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     // Set file and create preview
     file.value = selectedFile
     validationError.value = null
+    uploadError.value = null
     createPreview(selectedFile)
 
     // Auto-upload if enabled
@@ -101,12 +100,14 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }
 
   // Upload file
-  const upload = async (uploadOptions?: Partial<ImageUploadRequest>) => {
+  const upload = async (uploadOptions?: Partial<ImageUploadRequest>): Promise<string> => {
     if (!file.value) {
       throw new Error('No file selected')
     }
 
     try {
+      uploadError.value = null
+
       const params: ImageUploadRequest = {
         file: file.value,
         category,
@@ -121,6 +122,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       return url
     } catch (err) {
       const error = err as Error
+      uploadError.value = error
       onError?.(error)
       showError(error.message || 'Upload failed')
       throw err
@@ -132,6 +134,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     cleanupPreview()
     file.value = null
     validationError.value = null
+    uploadError.value = null
     storage.reset()
   }
 
@@ -142,6 +145,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     file,
     preview,
     validationError,
+    uploadError, // ✅ ДОБАВЛЕНО
     uploadedUrl: storage.uploadedUrl,
     uploadProgress: storage.uploadProgress,
     isUploading: storage.isUploading,
@@ -162,9 +166,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 }
 
 /**
- * useImageUpload - Preset для изображений
+ * useMediaUpload - Preset для изображений (переименовано для избежания конфликта)
  */
-export function useImageUpload(options: Omit<UseFileUploadOptions, 'accept'> = {}) {
+export function useMediaUpload(options: Omit<UseFileUploadOptions, 'accept'> = {}) {
   return useFileUpload({
     ...options,
     accept: 'image/jpeg,image/png,image/gif,image/webp',
@@ -239,7 +243,6 @@ export function useDragAndDrop(
 
     let files = Array.from(e.dataTransfer?.files || [])
 
-    // Filter by accept
     if (accept) {
       const rejected = files.filter((f) => !isAcceptedType(f))
       if (rejected.length > 0) {
@@ -248,7 +251,6 @@ export function useDragAndDrop(
       files = files.filter(isAcceptedType)
     }
 
-    // Limit to one if not multiple
     if (!multiple && files.length > 1) {
       files = files.slice(0, 1)
     }
@@ -280,6 +282,3 @@ export function useDragAndDrop(
 
   return { isDragging }
 }
-
-// Need to import watch
-import { watch } from 'vue'

@@ -1,8 +1,8 @@
 // src/composables/api/useStorage.ts
 /**
- * useStorage - Уникальный composable (нет store)
+ * useStorage - Работа с Storage Service
  *
- * Работа с Storage Service для загрузки изображений
+ * NOTE: Для загрузки файлов с preview используйте useFileUpload из features/
  */
 
 import { ref, computed, onUnmounted } from 'vue'
@@ -67,68 +67,6 @@ export function useStorage() {
     getImageUrl,
     getImageMetadata,
     deleteImage,
-    reset,
-  }
-}
-
-/**
- * useImageUpload - Упрощенный upload с preview
- */
-export function useImageUpload(category = 'uploads') {
-  const storage = useStorage()
-
-  const file = ref<File | null>(null)
-  const preview = ref<string | null>(null)
-
-  function selectFile(selectedFile: File) {
-    // Cleanup previous preview
-    if (preview.value) {
-      URL.revokeObjectURL(preview.value)
-    }
-
-    file.value = selectedFile
-    preview.value = URL.createObjectURL(selectedFile)
-  }
-
-  async function upload(options?: Partial<ImageUploadRequest>) {
-    if (!file.value) {
-      throw new Error('No file selected')
-    }
-
-    return await storage.uploadImage({
-      file: file.value,
-      category,
-      generateThumbnail: true,
-      thumbnailWidth: 400,
-      thumbnailHeight: 400,
-      ...options,
-    })
-  }
-
-  function reset() {
-    if (preview.value) {
-      URL.revokeObjectURL(preview.value)
-    }
-    file.value = null
-    preview.value = null
-    storage.reset()
-  }
-
-  onUnmounted(() => {
-    if (preview.value) {
-      URL.revokeObjectURL(preview.value)
-    }
-  })
-
-  return {
-    file: computed(() => file.value),
-    preview: computed(() => preview.value),
-    uploadedUrl: storage.uploadedUrl,
-    uploadProgress: storage.uploadProgress,
-    isUploading: storage.isUploading,
-    error: storage.error,
-    selectFile,
-    upload,
     reset,
   }
 }

@@ -3,7 +3,7 @@
  * useFollow - Простой composable для follow/unfollow
  */
 
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useSubscriptionsStore } from '@/stores/subscriptions.store'
 
 export function useFollow(userId: string | (() => string)) {
@@ -11,19 +11,40 @@ export function useFollow(userId: string | (() => string)) {
 
   const getId = () => (typeof userId === 'string' ? userId : userId())
 
+  // ✅ ДОБАВЛЕНО: error state
+  const error = ref<Error | null>(null)
+
   const isFollowing = computed(() => store.isFollowingUser(getId()))
   const isLoading = computed(() => store.isFollowing)
 
   async function check() {
-    return await store.checkFollow(getId())
+    try {
+      error.value = null
+      return await store.checkFollow(getId())
+    } catch (e) {
+      error.value = e as Error
+      throw e
+    }
   }
 
   async function follow() {
-    return await store.followUser(getId())
+    try {
+      error.value = null
+      return await store.followUser(getId())
+    } catch (e) {
+      error.value = e as Error
+      throw e
+    }
   }
 
   async function unfollow() {
-    return await store.unfollowUser(getId())
+    try {
+      error.value = null
+      return await store.unfollowUser(getId())
+    } catch (e) {
+      error.value = e as Error
+      throw e
+    }
   }
 
   async function toggle() {
@@ -34,9 +55,17 @@ export function useFollow(userId: string | (() => string)) {
     }
   }
 
+  // ✅ ДОБАВЛЕНО: cleanup
+  function cleanup() {
+    error.value = null
+  }
+
+  onUnmounted(cleanup)
+
   return {
     isFollowing,
     isLoading,
+    error,
     check,
     follow,
     unfollow,

@@ -1,5 +1,14 @@
+// src/utils/jwt.ts
+
+/**
+ * JWT Utilities
+ *
+ * NOTE: Для работы с Keycloak используйте plugins/keycloak.ts
+ * Эти утилиты для работы с произвольными JWT токенами
+ */
+
 export interface JWTPayload {
-  sub: string // Keycloak subject (user ID)
+  sub: string
   email?: string
   name?: string
   preferred_username?: string
@@ -8,21 +17,22 @@ export interface JWTPayload {
   realm_access?: {
     roles: string[]
   }
-  resource_access?: {
-    [key: string]: {
-      roles: string[]
-    }
-  }
+  resource_access?: Record<string, { roles: string[] }>
   exp: number
   iat: number
   iss: string
   [key: string]: unknown
 }
 
-// Decode JWT token (из старого кода)
+/**
+ * Декодировать JWT токен (без верификации подписи)
+ */
 export function decodeJWT(token: string): JWTPayload | null {
   try {
-    const base64Url = token.split('.')[1]
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+
+    const base64Url = parts[1]
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
     const jsonPayload = decodeURIComponent(
       atob(base64)
@@ -33,27 +43,33 @@ export function decodeJWT(token: string): JWTPayload | null {
 
     return JSON.parse(jsonPayload)
   } catch (error) {
-    console.error('Error decoding JWT:', error)
+    console.error('[JWT] Error decoding token:', error)
     return null
   }
 }
 
-// Get user ID from token
+/**
+ * Получить user ID из токена
+ */
 export function getUserIdFromToken(token: string): string | null {
   const payload = decodeJWT(token)
-  return payload?.sub || null
+  return payload?.sub ?? null
 }
 
-// Check if token is expired
-export function isTokenExpired(token: string): boolean {
+/**
+ * Проверить, истёк ли токен
+ */
+export function isTokenExpired(token: string, bufferSeconds: number = 0): boolean {
   const payload = decodeJWT(token)
   if (!payload?.exp) return true
 
   const now = Math.floor(Date.now() / 1000)
-  return payload.exp < now
+  return payload.exp - bufferSeconds < now
 }
 
-// Get token expiration time
+/**
+ * Получить время истечения токена
+ */
 export function getTokenExpiration(token: string): Date | null {
   const payload = decodeJWT(token)
   if (!payload?.exp) return null
@@ -61,44 +77,13 @@ export function getTokenExpiration(token: string): Date | null {
   return new Date(payload.exp * 1000)
 }
 
-// Check if user has role (Keycloak)
-export function hasRole(token: string, role: string): boolean {
+/**
+ * Получить время до истечения в секундах
+ */
+export function getTimeToExpiration(token: string): number | null {
   const payload = decodeJWT(token)
-  if (!payload) return false
+  if (!payload?.exp) return null
 
-  // Check realm roles
-  if (payload.realm_access?.roles?.includes(role)) return true
-
-  // Check resource roles
-  if (payload.resource_access) {
-    for (const resource of Object.values(payload.resource_access)) {
-      if (resource.roles?.includes(role)) return true
-    }
-  }
-
-  return false
-}
-
-// Get all user roles
-export function getUserRoles(token: string): string[] {
-  const payload = decodeJWT(token)
-  if (!payload) return []
-
-  const roles: string[] = []
-
-  // Add realm roles
-  if (payload.realm_access?.roles) {
-    roles.push(...payload.realm_access.roles)
-  }
-
-  // Add resource roles
-  if (payload.resource_access) {
-    for (const resource of Object.values(payload.resource_access)) {
-      if (resource.roles) {
-        roles.push(...resource.roles)
-      }
-    }
-  }
-
-  return [...new Set(roles)] // Remove duplicates
+  const now = Math.floor(Date.now() / 1000)
+  return Math.max(0, payload.exp - now)
 }

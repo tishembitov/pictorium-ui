@@ -1,6 +1,10 @@
+// src/utils/storage.ts
 import { STORAGE_KEYS } from './constants'
 
-// Generic localStorage wrapper
+// ============================================================================
+// GENERIC STORAGE
+// ============================================================================
+
 export function getFromStorage<T>(key: string, defaultValue: T): T {
   try {
     const item = localStorage.getItem(key)
@@ -35,16 +39,19 @@ export function clearStorage(): void {
   }
 }
 
-// Recent searches (из старого SearchBar.vue)
+// ============================================================================
+// RECENT SEARCHES
+// ============================================================================
+
 export function getRecentSearches(): string[] {
   return getFromStorage<string[]>(STORAGE_KEYS.RECENT_SEARCHES, [])
 }
 
-export function addRecentSearch(query: string): void {
+export function addRecentSearch(query: string, maxItems: number = 10): void {
   const searches = getRecentSearches()
-  const filtered = searches.filter((s) => s !== query)
+  const filtered = searches.filter((s) => s.toLowerCase() !== query.toLowerCase())
   filtered.unshift(query)
-  setToStorage(STORAGE_KEYS.RECENT_SEARCHES, filtered.slice(0, 10)) // Keep last 10
+  setToStorage(STORAGE_KEYS.RECENT_SEARCHES, filtered.slice(0, maxItems))
 }
 
 export function removeRecentSearch(query: string): void {
@@ -59,16 +66,10 @@ export function clearRecentSearches(): void {
   removeFromStorage(STORAGE_KEYS.RECENT_SEARCHES)
 }
 
-// Theme (для будущего dark mode)
-export function getTheme(): 'light' | 'dark' {
-  return getFromStorage<'light' | 'dark'>(STORAGE_KEYS.THEME, 'light')
-}
+// ============================================================================
+// CHAT SETTINGS
+// ============================================================================
 
-export function setTheme(theme: 'light' | 'dark'): void {
-  setToStorage(STORAGE_KEYS.THEME, theme)
-}
-
-// Chat settings (из старого WebsocketChat)
 export function getChatSize(): number {
   return getFromStorage<number>(STORAGE_KEYS.CHAT_SIZE, 400)
 }

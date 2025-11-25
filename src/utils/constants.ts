@@ -1,3 +1,5 @@
+// src/utils/constants.ts
+
 // API URLs (из .env)
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
@@ -17,9 +19,9 @@ export const MAX_IMAGE_SIZE = 10 * 1024 * 1024 // 10MB
 export const MAX_VIDEO_SIZE = 50 * 1024 * 1024 // 50MB
 export const MAX_VIDEO_DURATION = 30 // seconds
 
+// ✅ ИСПРАВЛЕНО: убран невалидный 'image/jpg'
 export const ALLOWED_IMAGE_TYPES = [
   'image/jpeg',
-  'image/jpg',
   'image/gif',
   'image/webp',
   'image/png',
@@ -30,7 +32,7 @@ export const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm'] as const
 
 export const ALLOWED_MEDIA_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES] as const
 
-// Pin constraints (из старого кода)
+// Pin constraints
 export const MIN_IMAGE_WIDTH = 200
 export const MIN_IMAGE_HEIGHT = 300
 
@@ -63,7 +65,9 @@ export const CONFETTI_DURATION = 5000 // ms
 // localStorage keys
 export const STORAGE_KEYS = {
   RECENT_SEARCHES: 'pinterest_recent_searches',
-  THEME: 'pinterest_theme',
+  THEME: 'theme', // ✅ Унифицировано с plugins/theme.ts
+  SIDEBAR_COLLAPSED: 'sidebarCollapsed',
+  SIDEBAR_WIDTH: 'sidebarWidth',
   CHAT_SIZE: 'pinterest_chat_size',
   CHAT_SIDE: 'pinterest_chat_side',
   CHAT_COLOR: 'pinterest_chat_color',
@@ -102,35 +106,33 @@ export type ChatColor = keyof typeof CHAT_COLORS
 // Routes
 export const ROUTES = {
   HOME: '/',
+  LANDING: '/landing',
   PIN_DETAIL: '/pin/:id',
   CREATE_PIN: '/create-pin',
   USER_PROFILE: '/user/:username',
+  EDIT_PROFILE: '/settings/profile',
   BOARD_DETAIL: '/board/:id',
   MESSAGES: '/messages',
-  RECOMMENDATIONS: '/recommendations/:id',
+  NOTIFICATIONS: '/notifications',
   SEARCH: '/search',
+  TAG: '/tag/:name',
+  CATEGORIES: '/categories',
+  SAVED: '/saved',
   PORTFOLIO: '/portfolio',
+  UNAUTHORIZED: '/unauthorized',
+  FORBIDDEN: '/forbidden',
   NOT_FOUND: '/:pathMatch(.*)*',
 } as const
 
-/**
- * Карта разрешений к ролям
- */
+// Permissions
 export const PERMISSIONS = {
-  // Pins
   CREATE_PIN: 'create:pin',
   EDIT_PIN: 'edit:pin',
   DELETE_PIN: 'delete:pin',
-
-  // Boards
   CREATE_BOARD: 'create:board',
   EDIT_BOARD: 'edit:board',
   DELETE_BOARD: 'delete:board',
-
-  // Comments
   DELETE_COMMENT: 'delete:comment',
-
-  // Admin
   BAN_USER: 'ban:user',
   VIEW_ANALYTICS: 'view:analytics',
 } as const

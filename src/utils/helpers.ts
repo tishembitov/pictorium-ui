@@ -1,11 +1,13 @@
-// Общие helper функции
+// src/utils/helpers.ts
 
-// Wait/sleep
+// ============================================================================
+// ASYNC HELPERS
+// ============================================================================
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-// Retry function with exponential backoff
 export async function retry<T>(
   fn: () => Promise<T>,
   options: {
@@ -32,12 +34,14 @@ export async function retry<T>(
   throw lastError
 }
 
-// Deep clone
+// ============================================================================
+// OBJECT HELPERS
+// ============================================================================
+
 export function deepClone<T>(obj: T): T {
   return structuredClone(obj)
 }
 
-// Check if object is empty
 export function isEmpty(obj: unknown): boolean {
   if (obj == null) return true
   if (Array.isArray(obj)) return obj.length === 0
@@ -45,12 +49,44 @@ export function isEmpty(obj: unknown): boolean {
   return false
 }
 
-// Remove duplicates from array
+export function omit<T extends Record<string, unknown>, K extends keyof T>(
+  obj: T,
+  keys: K[],
+): Omit<T, K> {
+  const result = { ...obj }
+  keys.forEach((key) => delete result[key])
+  return result as Omit<T, K>
+}
+
+export function pick<T extends Record<string, unknown>, K extends keyof T>(
+  obj: T,
+  keys: K[],
+): Pick<T, K> {
+  const result = {} as Pick<T, K>
+  keys.forEach((key) => {
+    if (key in obj) {
+      result[key] = obj[key]
+    }
+  })
+  return result
+}
+
+export function safeJsonParse<T>(json: string, defaultValue: T): T {
+  try {
+    return JSON.parse(json) as T
+  } catch {
+    return defaultValue
+  }
+}
+
+// ============================================================================
+// ARRAY HELPERS
+// ============================================================================
+
 export function removeDuplicates<T>(arr: T[]): T[] {
   return [...new Set(arr)]
 }
 
-// Group array by key
 export function groupBy<T>(arr: T[], key: keyof T): Record<string, T[]> {
   return arr.reduce(
     (result, item) => {
@@ -63,7 +99,6 @@ export function groupBy<T>(arr: T[], key: keyof T): Record<string, T[]> {
   )
 }
 
-// Chunk array
 export function chunk<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = []
   for (let i = 0; i < arr.length; i += size) {
@@ -72,27 +107,35 @@ export function chunk<T>(arr: T[], size: number): T[][] {
   return chunks
 }
 
-// Random integer
+export function randomItem<T>(arr: T[]): T | undefined {
+  if (arr.length === 0) return undefined
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+// ============================================================================
+// NUMBER HELPERS
+// ============================================================================
+
 export function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
-// Random item from array
-export function randomItem<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
-}
-
-// Clamp number
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
 
-// Generate unique ID
+// ============================================================================
+// STRING/ID HELPERS
+// ============================================================================
+
 export function generateId(prefix: string = 'id'): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 }
 
-// Copy to clipboard
+// ============================================================================
+// BROWSER HELPERS
+// ============================================================================
+
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text)
@@ -103,7 +146,6 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-// Download JSON
 export function downloadJSON(data: unknown, filename: string = 'data.json'): void {
   const json = JSON.stringify(data, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
@@ -115,78 +157,19 @@ export function downloadJSON(data: unknown, filename: string = 'data.json'): voi
   URL.revokeObjectURL(url)
 }
 
-// Throttle function
-export function throttle<T extends (...args: unknown[]) => unknown>(
-  func: T,
-  limit: number,
-): (...args: Parameters<T>) => void {
-  let inThrottle: boolean
-  return function (this: unknown, ...args: Parameters<T>) {
-    if (!inThrottle) {
-      func.apply(this, args)
-      inThrottle = true
-      setTimeout(() => (inThrottle = false), limit)
-    }
-  }
-}
-
-export function debounce<T extends (...args: unknown[]) => unknown>(
-  func: T,
-  delay: number,
-  options: { leading?: boolean; trailing?: boolean } = {},
-): (...args: Parameters<T>) => void {
-  const { leading = false, trailing = true } = options
-
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
-  let lastArgs: Parameters<T> | undefined
-
-  return function (this: unknown, ...args: Parameters<T>) {
-    const context = this
-
-    const later = () => {
-      timeoutId = undefined
-      if (trailing && lastArgs) {
-        func.apply(context, lastArgs)
-        lastArgs = undefined
-      }
-    }
-
-    const callNow = leading && !timeoutId
-
-    if (timeoutId) {
-      clearTimeout(timeoutId)
-    }
-
-    lastArgs = args
-    timeoutId = setTimeout(later, delay)
-
-    if (callNow) {
-      func.apply(context, args)
-    }
-  }
-}
-
-/**
- * Cancel debounced function
- */
-export function cancelDebounce(debouncedFn: any): void {
-  if (debouncedFn && typeof debouncedFn.cancel === 'function') {
-    debouncedFn.cancel()
-  }
-}
-
-// Check if running in browser
 export function isBrowser(): boolean {
-  return typeof globalThis.window !== 'undefined'
+  return typeof window !== 'undefined'
 }
 
-// Get base URL
 export function getBaseURL(): string {
   if (!isBrowser()) return ''
-  return globalThis.location.origin
+  return window.location.origin
 }
 
-// Parse query string
+// ============================================================================
+// URL HELPERS
+// ============================================================================
+
 export function parseQueryString(queryString: string): Record<string, string> {
   const params = new URLSearchParams(queryString)
   const result: Record<string, string> = {}
@@ -196,7 +179,6 @@ export function parseQueryString(queryString: string): Record<string, string> {
   return result
 }
 
-// Build query string
 export function buildQueryString(params: Record<string, unknown>): string {
   const searchParams = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
@@ -207,41 +189,133 @@ export function buildQueryString(params: Record<string, unknown>): string {
   return searchParams.toString()
 }
 
-/**
- * Safe JSON parse
- */
-export function safeJsonParse<T>(json: string, defaultValue: T): T {
-  try {
-    return JSON.parse(json) as T
-  } catch {
-    return defaultValue
+// ============================================================================
+// THROTTLE & DEBOUNCE
+// ============================================================================
+
+export function throttle<T extends (...args: unknown[]) => unknown>(
+  func: T,
+  limit: number,
+): (...args: Parameters<T>) => void {
+  let inThrottle = false
+
+  return function (this: unknown, ...args: Parameters<T>) {
+    if (!inThrottle) {
+      func.apply(this, args)
+      inThrottle = true
+      setTimeout(() => (inThrottle = false), limit)
+    }
   }
 }
 
-/**
- * Omit keys from object
- */
-export function omit<T extends Record<string, unknown>, K extends keyof T>(
-  obj: T,
-  keys: K[],
-): Omit<T, K> {
-  const result = { ...obj }
-  keys.forEach((key) => delete result[key])
-  return result as Omit<T, K>
+// ✅ ИСПРАВЛЕНО: debounce с поддержкой cancel и flush
+export interface DebouncedFunction<T extends (...args: unknown[]) => unknown> {
+  (...args: Parameters<T>): void
+  cancel: () => void
+  flush: () => void
 }
 
-/**
- * Pick keys from object
- */
-export function pick<T extends Record<string, unknown>, K extends keyof T>(
-  obj: T,
-  keys: K[],
-): Pick<T, K> {
-  const result = {} as Pick<T, K>
-  keys.forEach((key) => {
-    if (key in obj) {
-      result[key] = obj[key]
+export function debounce<T extends (...args: unknown[]) => unknown>(
+  func: T,
+  delay: number,
+  options: { leading?: boolean; trailing?: boolean } = {},
+): DebouncedFunction<T> {
+  const { leading = false, trailing = true } = options
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  let lastArgs: Parameters<T> | undefined
+  let lastThis: unknown
+  let lastCallTime: number | undefined
+  let lastInvokeTime = 0
+  let result: ReturnType<T> | undefined
+
+  function invokeFunc(time: number): ReturnType<T> | undefined {
+    const args = lastArgs!
+    const thisArg = lastThis
+
+    lastArgs = undefined
+    lastThis = undefined
+    lastInvokeTime = time
+    result = func.apply(thisArg, args) as ReturnType<T>
+    return result
+  }
+
+  function shouldInvoke(time: number): boolean {
+    const timeSinceLastCall = lastCallTime === undefined ? 0 : time - lastCallTime
+    const timeSinceLastInvoke = time - lastInvokeTime
+
+    return (
+      lastCallTime === undefined ||
+      timeSinceLastCall >= delay ||
+      timeSinceLastCall < 0 ||
+      timeSinceLastInvoke >= delay
+    )
+  }
+
+  function trailingEdge(time: number): ReturnType<T> | undefined {
+    timeoutId = undefined
+
+    if (trailing && lastArgs) {
+      return invokeFunc(time)
     }
-  })
-  return result
+    lastArgs = undefined
+    lastThis = undefined
+    return result
+  }
+
+  function timerExpired(): void {
+    const time = Date.now()
+    if (shouldInvoke(time)) {
+      trailingEdge(time)
+      return
+    }
+
+    const timeSinceLastCall = lastCallTime ? time - lastCallTime : 0
+    const remaining = delay - timeSinceLastCall
+    timeoutId = setTimeout(timerExpired, remaining)
+  }
+
+  function leadingEdge(time: number): ReturnType<T> | undefined {
+    lastInvokeTime = time
+    timeoutId = setTimeout(timerExpired, delay)
+    return leading ? invokeFunc(time) : result
+  }
+
+  function debounced(this: unknown, ...args: Parameters<T>): void {
+    const time = Date.now()
+    const isInvoking = shouldInvoke(time)
+
+    lastArgs = args
+    lastThis = this
+    lastCallTime = time
+
+    if (isInvoking) {
+      if (timeoutId === undefined) {
+        leadingEdge(time)
+        return
+      }
+    }
+
+    timeoutId ??= setTimeout(timerExpired, delay)
+  }
+
+  debounced.cancel = function (): void {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId)
+    }
+    lastInvokeTime = 0
+    lastArgs = undefined
+    lastCallTime = undefined
+    lastThis = undefined
+    timeoutId = undefined
+  }
+
+  debounced.flush = function (): void {
+    if (timeoutId !== undefined && lastArgs) {
+      trailingEdge(Date.now())
+      debounced.cancel()
+    }
+  }
+
+  return debounced
 }

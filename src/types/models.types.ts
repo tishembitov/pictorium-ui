@@ -100,7 +100,7 @@ export interface PinFilter {
   relatedTo?: string
   createdFrom?: string
   createdTo?: string
-  scope?: PinScope | string
+  scope?: PinScope
 }
 
 // ============================================================================

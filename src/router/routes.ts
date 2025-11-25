@@ -1,23 +1,24 @@
-// import { RouteRecordRaw } from 'vue-router'
+// // src/router/routes.ts
+// import type { RouteRecordRaw } from 'vue-router'
 
 // const routes: RouteRecordRaw[] = [
-//   // Landing (Guest)
+//   // ============================================================================
+//   // PUBLIC ROUTES (Guest)
+//   // ============================================================================
 //   {
 //     path: '/landing',
 //     name: 'landing',
-//     component: () => import('@/views/Landing.vue'),
+//     component: () => import('@/views/LandingView.vue'),
 //     meta: {
 //       requiresAuth: false,
 //       layout: 'guest',
 //       title: 'Welcome',
 //     },
 //   },
-
-//   // Portfolio (Guest)
 //   {
 //     path: '/portfolio',
 //     name: 'portfolio',
-//     component: () => import('@/views/Portfolio.vue'),
+//     component: () => import('@/views/PortfolioView.vue'),
 //     meta: {
 //       requiresAuth: false,
 //       layout: 'guest',
@@ -25,171 +26,143 @@
 //     },
 //   },
 
-//   // Home (Auth)
+//   // ============================================================================
+//   // AUTHENTICATED ROUTES
+//   // ============================================================================
 //   {
 //     path: '/',
 //     name: 'home',
-//     component: () => import('@/views/Home.vue'),
+//     component: () => import('@/views/HomeView.vue'),
 //     meta: {
 //       requiresAuth: true,
-//       layout: 'auth',
+//       layout: 'default',
 //       keepAlive: true,
 //       title: 'Home',
 //     },
 //   },
-
-//   // Pin Detail (Auth)
 //   {
 //     path: '/pin/:id',
 //     name: 'pin',
-//     component: () => import('@/views/PinDetail.vue'),
+//     component: () => import('@/views/PinDetailView.vue'),
 //     meta: {
 //       requiresAuth: true,
-//       layout: 'auth',
-//       keepAlive: true,
+//       layout: 'default',
 //       title: 'Pin',
 //     },
+//     props: true,
 //   },
-
-//   // Create Pin (Auth)
 //   {
 //     path: '/create-pin',
 //     name: 'create-pin',
-//     component: () => import('@/views/CreatePin.vue'),
+//     component: () => import('@/views/CreatePinView.vue'),
 //     meta: {
 //       requiresAuth: true,
-//       layout: 'auth',
+//       layout: 'default',
 //       title: 'Create Pin',
 //     },
 //   },
-
-//   // User Profile (Auth)
 //   {
 //     path: '/user/:username',
-//     name: 'user',
-//     component: () => import('@/views/UserProfile.vue'),
+//     name: 'user-profile',
+//     component: () => import('@/views/UserProfileView.vue'),
 //     meta: {
 //       requiresAuth: true,
-//       layout: 'auth',
+//       layout: 'default',
 //       keepAlive: true,
 //       title: 'Profile',
 //     },
+//     props: true,
 //   },
-
-//   // Edit Profile (Auth)
 //   {
 //     path: '/settings/profile',
 //     name: 'edit-profile',
-//     component: () => import('@/views/EditProfile.vue'),
+//     component: () => import('@/views/EditProfileView.vue'),
 //     meta: {
 //       requiresAuth: true,
-//       layout: 'auth',
+//       layout: 'default',
 //       title: 'Edit Profile',
 //     },
 //   },
-
-//   // Board Detail (Auth)
 //   {
 //     path: '/board/:id',
 //     name: 'board',
-//     component: () => import('@/views/BoardDetail.vue'),
+//     component: () => import('@/views/BoardDetailView.vue'),
 //     meta: {
 //       requiresAuth: true,
-//       layout: 'auth',
+//       layout: 'default',
 //       title: 'Board',
 //     },
+//     props: true,
 //   },
-
-//   // Search Results (Auth)
 //   {
 //     path: '/search',
 //     name: 'search',
-//     component: () => import('@/views/SearchResults.vue'),
+//     component: () => import('@/views/SearchView.vue'),
 //     meta: {
 //       requiresAuth: true,
-//       layout: 'auth',
+//       layout: 'default',
 //       title: 'Search',
 //     },
 //   },
-
-//   // Tag Pins (Auth)
 //   {
 //     path: '/tag/:name',
 //     name: 'tag',
-//     component: () => import('@/views/TagPins.vue'),
+//     component: () => import('@/views/TagPinsView.vue'),
 //     meta: {
 //       requiresAuth: true,
-//       layout: 'auth',
+//       layout: 'default',
 //       title: 'Tag',
 //     },
+//     props: true,
 //   },
-
-//   // Categories (Auth)
 //   {
 //     path: '/categories',
 //     name: 'categories',
-//     component: () => import('@/views/Categories.vue'),
+//     component: () => import('@/views/CategoriesView.vue'),
 //     meta: {
 //       requiresAuth: true,
-//       layout: 'auth',
+//       layout: 'default',
 //       title: 'Categories',
 //     },
 //   },
-
-//   // Saved Pins (Auth)
 //   {
 //     path: '/saved',
 //     name: 'saved',
-//     component: () => import('@/views/SavedPins.vue'),
+//     component: () => import('@/views/SavedPinsView.vue'),
 //     meta: {
 //       requiresAuth: true,
-//       layout: 'auth',
+//       layout: 'default',
 //       title: 'Saved',
 //     },
 //   },
-
-//   // Messages (Auth)
 //   {
 //     path: '/messages',
 //     name: 'messages',
-//     component: () => import('@/views/Messages.vue'),
+//     component: () => import('@/views/MessagesView.vue'),
 //     meta: {
 //       requiresAuth: true,
-//       layout: 'auth',
+//       layout: 'default',
 //       title: 'Messages',
 //     },
 //   },
-
-//   // Notifications (Auth)
 //   {
 //     path: '/notifications',
 //     name: 'notifications',
-//     component: () => import('@/views/Notifications.vue'),
+//     component: () => import('@/views/NotificationsView.vue'),
 //     meta: {
 //       requiresAuth: true,
-//       layout: 'auth',
+//       layout: 'default',
 //       title: 'Notifications',
 //     },
 //   },
 
-//   // Recommendations (Auth)
-//   {
-//     path: '/recommendations/:id',
-//     name: 'recommendations',
-//     component: () => import('@/views/Recommendations.vue'),
-//     meta: {
-//       requiresAuth: true,
-//       layout: 'auth',
-//       keepAlive: true,
-//       title: 'Recommendations',
-//     },
-//   },
-
-//   // Error Pages
+//   // ============================================================================
+//   // ERROR ROUTES
+//   // ============================================================================
 //   {
 //     path: '/unauthorized',
 //     name: 'unauthorized',
-//     component: () => import('@/views/Unauthorized.vue'),
+//     component: () => import('@/views/errors/UnauthorizedView.vue'),
 //     meta: {
 //       requiresAuth: false,
 //       layout: 'guest',
@@ -199,7 +172,7 @@
 //   {
 //     path: '/forbidden',
 //     name: 'forbidden',
-//     component: () => import('@/views/Forbidden.vue'),
+//     component: () => import('@/views/errors/ForbiddenView.vue'),
 //     meta: {
 //       requiresAuth: false,
 //       layout: 'guest',
@@ -209,7 +182,7 @@
 //   {
 //     path: '/:pathMatch(.*)*',
 //     name: 'not-found',
-//     component: () => import('@/views/NotFound.vue'),
+//     component: () => import('@/views/errors/NotFoundView.vue'),
 //     meta: {
 //       requiresAuth: false,
 //       layout: 'guest',

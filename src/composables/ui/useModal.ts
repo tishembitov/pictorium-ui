@@ -13,21 +13,6 @@ export interface ModalOptions {
   onClose?: () => void
 }
 
-/**
- * useModal
- *
- * Глобальное управление модалками
- *
- * @example
- * ```ts
- * const { openModal, closeModal, isOpen } = useModal('create-pin')
- *
- * openModal({
- *   component: CreatePinModal,
- *   props: { initialData: {} }
- * })
- * ```
- */
 export function useModal(id: string) {
   const uiStore = useUIStore()
 
@@ -71,18 +56,6 @@ export function useModal(id: string) {
   }
 }
 
-/**
- * useCreatePinModal
- *
- * Специализированная модалка создания пина
- *
- * @example
- * ```ts
- * const { open, close, isOpen } = useCreatePinModal()
- *
- * open({ boardId: '123' })
- * ```
- */
 export function useCreatePinModal() {
   const { openModal, closeModal, isOpen } = useModal('create-pin')
 
@@ -101,21 +74,6 @@ export function useCreatePinModal() {
   }
 }
 
-/**
- * useBoardSelectorModal
- *
- * Модалка выбора доски
- *
- * @example
- * ```ts
- * const { open, close } = useBoardSelectorModal()
- *
- * open({
- *   pinId: '123',
- *   onSelect: (boardId) => console.log('Selected:', boardId)
- * })
- * ```
- */
 export function useBoardSelectorModal() {
   const { openModal, closeModal, isOpen } = useModal('board-selector')
 
@@ -139,21 +97,6 @@ export function useBoardSelectorModal() {
   }
 }
 
-/**
- * useImagePreviewModal
- *
- * Модалка fullscreen превью изображения
- *
- * @example
- * ```ts
- * const { open, close } = useImagePreviewModal()
- *
- * open({
- *   imageUrl: 'https://example.com/image.jpg',
- *   alt: 'Pin image'
- * })
- * ```
- */
 export function useImagePreviewModal() {
   const { openModal, closeModal, isOpen } = useModal('image-preview')
 
@@ -177,21 +120,6 @@ export function useImagePreviewModal() {
   }
 }
 
-/**
- * useLikesModal
- *
- * Модалка списка лайков
- *
- * @example
- * ```ts
- * const { open } = useLikesModal()
- *
- * open({
- *   pinId: '123',
- *   type: 'pin'
- * })
- * ```
- */
 export function useLikesModal() {
   const { openModal, closeModal, isOpen } = useModal('likes')
 
@@ -293,20 +221,6 @@ export function useEditProfileModal() {
   }
 }
 
-/**
- * useModals
- *
- * Управление всеми модалками
- *
- * @example
- * ```ts
- * const { closeAll, isAnyOpen } = useModals()
- *
- * if (isAnyOpen.value) {
- *   closeAll()
- * }
- * ```
- */
 export function useModals() {
   const uiStore = useUIStore()
 

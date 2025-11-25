@@ -7,20 +7,6 @@
 import { ref, computed, type Ref } from 'vue'
 import { useUIStore } from '@/stores/ui.store'
 
-/**
- * useLoading
- *
- * Локальный loading state
- *
- * @example
- * ```ts
- * const { isLoading, startLoading, stopLoading, withLoading } = useLoading()
- *
- * const handleSubmit = withLoading(async () => {
- *   await createPin(data)
- * })
- * ```
- */
 export function useLoading(initialValue = false) {
   const isLoading = ref(initialValue)
 
@@ -59,20 +45,6 @@ export function useLoading(initialValue = false) {
   }
 }
 
-/**
- * useGlobalLoading
- *
- * Глобальный loading через UI store
- *
- * @example
- * ```ts
- * const { showLoading, hideLoading } = useGlobalLoading()
- *
- * showLoading('Creating pin...')
- * await createPin(data)
- * hideLoading()
- * ```
- */
 export function useGlobalLoading() {
   const uiStore = useUIStore()
 
@@ -110,23 +82,6 @@ export function useGlobalLoading() {
   }
 }
 
-/**
- * useAsyncState
- *
- * Управление async операциями с состоянием
- *
- * @example
- * ```ts
- * const { state, isLoading, error, execute } = useAsyncState(
- *   async (pinId: string) => {
- *     return await fetchPin(pinId)
- *   }
- * )
- *
- * await execute('123')
- * console.log(state.value) // Pin data
- * ```
- */
 export function useAsyncState<T, Args extends unknown[] = unknown[]>(
   asyncFn: (...args: Args) => Promise<T>,
   initialValue?: T,
@@ -176,22 +131,6 @@ export function useAsyncState<T, Args extends unknown[] = unknown[]>(
   }
 }
 
-/**
- * useLoadingStates
- *
- * Множественные loading states
- *
- * @example
- * ```ts
- * const { isLoading, setLoading, getLoading } = useLoadingStates()
- *
- * setLoading('pins', true)
- * setLoading('comments', true)
- *
- * console.log(isLoading.value) // true (если хотя бы один loading)
- * console.log(getLoading('pins')) // true
- * ```
- */
 export function useLoadingStates() {
   const states = ref<Map<string, boolean>>(new Map())
 
@@ -219,22 +158,6 @@ export function useLoadingStates() {
   }
 }
 
-/**
- * useProgress
- *
- * Progress tracking для загрузок
- *
- * @example
- * ```ts
- * const { progress, setProgress, reset } = useProgress()
- *
- * // Пример с file upload
- * onUploadProgress: (progressEvent) => {
- *   const percent = (progressEvent.loaded / progressEvent.total) * 100
- *   setProgress(percent)
- * }
- * ```
- */
 export function useProgress(initialValue = 0) {
   const progress = ref(initialValue)
 

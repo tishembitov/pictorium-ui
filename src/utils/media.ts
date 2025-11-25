@@ -1,8 +1,9 @@
+// src/utils/media.ts
 import { MIN_IMAGE_WIDTH, MIN_IMAGE_HEIGHT, MAX_VIDEO_DURATION } from './constants'
 
-/**
- * Media utilities
- */
+// ============================================================================
+// FILE-BASED CHECKS
+// ============================================================================
 
 /**
  * Проверка, является ли файл видео
@@ -24,6 +25,72 @@ export function isImage(file: File): boolean {
 export function isGif(file: File): boolean {
   return file.type === 'image/gif'
 }
+
+// ============================================================================
+// URL-BASED CHECKS (NEW)
+// ============================================================================
+
+const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'flv', 'wmv']
+const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'avif']
+const GIF_EXTENSION = 'gif'
+
+/**
+ * Получить расширение файла из URL или пути
+ */
+export function getFileExtension(url: string): string {
+  if (!url) return ''
+  // Убираем query params и hash
+  const cleanUrl = url.split('?')[0]?.split('#')[0] || ''
+  const match = cleanUrl.match(/\.([^.]+)$/)
+  return match ? match[1].toLowerCase() : ''
+}
+
+/**
+ * Проверка, является ли URL видео (по расширению)
+ */
+export function isVideoUrl(url: string): boolean {
+  const ext = getFileExtension(url)
+  return VIDEO_EXTENSIONS.includes(ext)
+}
+
+/**
+ * Проверка, является ли URL изображением (по расширению)
+ */
+export function isImageUrl(url: string): boolean {
+  const ext = getFileExtension(url)
+  return IMAGE_EXTENSIONS.includes(ext)
+}
+
+/**
+ * Проверка, является ли URL GIF
+ */
+export function isGifUrl(url: string): boolean {
+  return getFileExtension(url) === GIF_EXTENSION
+}
+
+/**
+ * Универсальная проверка - принимает File или string
+ */
+export function isVideoMedia(media: File | string): boolean {
+  if (typeof media === 'string') {
+    return isVideoUrl(media)
+  }
+  return isVideo(media)
+}
+
+/**
+ * Универсальная проверка - принимает File или string
+ */
+export function isImageMedia(media: File | string): boolean {
+  if (typeof media === 'string') {
+    return isImageUrl(media)
+  }
+  return isImage(media)
+}
+
+// ============================================================================
+// DIMENSION HELPERS
+// ============================================================================
 
 /**
  * Получить размеры изображения
@@ -91,7 +158,7 @@ export function validateFileSize(file: File, maxSizeInMB: number): boolean {
 }
 
 /**
- * Получить превью видео
+ * Получить превью видео (thumbnail)
  */
 export function getVideoThumbnail(file: File, seekTo = 0): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -101,7 +168,7 @@ export function getVideoThumbnail(file: File, seekTo = 0): Promise<Blob> {
     const url = URL.createObjectURL(file)
 
     video.onloadedmetadata = () => {
-      video.currentTime = seekTo
+      video.currentTime = Math.min(seekTo, video.duration)
     }
 
     video.onseeked = () => {
@@ -111,12 +178,12 @@ export function getVideoThumbnail(file: File, seekTo = 0): Promise<Blob> {
 
       canvas.toBlob(
         (blob) => {
+          URL.revokeObjectURL(url)
           if (blob) {
             resolve(blob)
           } else {
             reject(new Error('Failed to create thumbnail'))
           }
-          URL.revokeObjectURL(url)
         },
         'image/jpeg',
         0.75,
@@ -149,7 +216,7 @@ export async function validateImageDimensions(
     }
 
     return { valid: true }
-  } catch (error) {
+  } catch {
     return {
       valid: false,
       error: 'Failed to read image dimensions',
@@ -163,36 +230,31 @@ export async function validateImageDimensions(
 export async function validateVideoDuration(
   file: File,
 ): Promise<{ valid: boolean; error?: string }> {
-  try {
+  return new Promise((resolve) => {
     const video = document.createElement('video')
     const url = URL.createObjectURL(file)
 
-    const duration = await new Promise<number>((resolve, reject) => {
-      video.onloadedmetadata = () => {
-        resolve(video.duration)
-        URL.revokeObjectURL(url)
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(url)
+
+      if (video.duration > MAX_VIDEO_DURATION) {
+        resolve({
+          valid: false,
+          error: `Video must be ${MAX_VIDEO_DURATION} seconds or less`,
+        })
+      } else {
+        resolve({ valid: true })
       }
+    }
 
-      video.onerror = () => {
-        URL.revokeObjectURL(url)
-        reject(new Error('Failed to load video'))
-      }
-
-      video.src = url
-    })
-
-    if (duration > MAX_VIDEO_DURATION) {
-      return {
+    video.onerror = () => {
+      URL.revokeObjectURL(url)
+      resolve({
         valid: false,
-        error: `Video must be ${MAX_VIDEO_DURATION} seconds or less`,
-      }
+        error: 'Failed to read video duration',
+      })
     }
 
-    return { valid: true }
-  } catch (error) {
-    return {
-      valid: false,
-      error: 'Failed to read video duration',
-    }
-  }
+    video.src = url
+  })
 }

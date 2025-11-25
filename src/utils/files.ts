@@ -5,7 +5,13 @@ import {
   MAX_IMAGE_SIZE,
   MAX_VIDEO_SIZE,
 } from './constants'
-import { isImage, isVideo, validateImageDimensions, validateVideoDuration } from './media'
+import {
+  isImage,
+  isVideo,
+  validateFileSize,
+  validateImageDimensions,
+  validateVideoDuration,
+} from './media'
 
 export interface FileValidationResult {
   valid: boolean
@@ -15,11 +21,6 @@ export interface FileValidationResult {
 // Validate file type
 export function validateFileType(file: File, allowedTypes: readonly string[]): boolean {
   return allowedTypes.includes(file.type)
-}
-
-// Validate file size
-export function validateFileSize(file: File, maxSize: number): boolean {
-  return file.size <= maxSize
 }
 
 // Comprehensive media file validation (из старого кода)

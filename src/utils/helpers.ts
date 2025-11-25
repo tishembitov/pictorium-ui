@@ -207,32 +207,6 @@ export function buildQueryString(params: Record<string, unknown>): string {
   return searchParams.toString()
 }
 
-// ... существующий код ...
-
-/**
- * Get file extension from URL or filename
- */
-export function getFileExtension(url: string): string {
-  const match = url.match(/\.([^.?#]+)(?:[?#]|$)/)
-  return match ? match[1] : ''
-}
-
-/**
- * Check if URL is video by extension
- */
-export function isVideoUrl(url: string): boolean {
-  const ext = getFileExtension(url).toLowerCase()
-  return ['mp4', 'webm', 'mov', 'avi'].includes(ext)
-}
-
-/**
- * Check if URL is image by extension
- */
-export function isImageUrl(url: string): boolean {
-  const ext = getFileExtension(url).toLowerCase()
-  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
-}
-
 /**
  * Safe JSON parse
  */

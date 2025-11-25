@@ -3,7 +3,8 @@ import { defineStore } from 'pinia'
 import { ref, computed, reactive } from 'vue'
 import type { Pin, PinFeed, PinWithBlob, PinFilter, PagePin } from '@/types'
 import { pinsApi, savedPinsApi, likesApi, storageApi } from '@/api'
-import { isVideo, getImageDimensions } from '@/utils/media'
+// ✅ ИСПРАВЛЕНО: импортируем правильные функции
+import { isVideo, isVideoUrl, isGifUrl, getImageDimensions } from '@/utils/media'
 
 type FeedType = 'all' | 'created' | 'saved' | 'liked'
 
@@ -45,8 +46,10 @@ export const usePinsStore = defineStore('pins', () => {
     try {
       const pinWithBlob: PinWithBlob = { ...pin }
 
-      const isVideoFile = pin.videoPreviewUrl ? true : pin.imageUrl ? isVideo(pin.imageUrl) : false
-      const isGifFile = pin.imageUrl?.toLowerCase().endsWith('.gif')
+      // ✅ ИСПРАВЛЕНО: используем isVideoUrl для строк
+      const hasVideoPreview = !!pin.videoPreviewUrl
+      const isVideoFile = hasVideoPreview || (pin.imageUrl ? isVideoUrl(pin.imageUrl) : false)
+      const isGifFile = pin.imageUrl ? isGifUrl(pin.imageUrl) : false
 
       pinWithBlob.isVideo = isVideoFile
       pinWithBlob.isGif = isGifFile
@@ -54,6 +57,7 @@ export const usePinsStore = defineStore('pins', () => {
 
       const promises: Promise<void>[] = []
 
+      // Загружаем изображение (если не видео)
       if (pin.imageUrl && !isVideoFile) {
         promises.push(
           storageApi.downloadImage(pin.imageUrl).then((blob) => {
@@ -62,6 +66,7 @@ export const usePinsStore = defineStore('pins', () => {
         )
       }
 
+      // Загружаем превью видео
       if (pin.videoPreviewUrl) {
         promises.push(
           storageApi.downloadImage(pin.videoPreviewUrl).then((blob) => {
@@ -157,6 +162,7 @@ export const usePinsStore = defineStore('pins', () => {
     rgb?: string
   }) {
     try {
+      // ✅ ИСПРАВЛЕНО: используем isVideo для File
       const isVideoFile = isVideo(data.file)
       let width: number | undefined
       let height: number | undefined
@@ -386,7 +392,7 @@ export const usePinsStore = defineStore('pins', () => {
     if (feedType) {
       feeds.set(feedType, createEmptyFeed())
     } else {
-      feeds.forEach((feed, type) => {
+      feeds.forEach((_, type) => {
         feeds.set(type, createEmptyFeed())
       })
     }
@@ -456,17 +462,20 @@ export const usePinsStore = defineStore('pins', () => {
   }
 
   return {
+    // State
     pinsCache,
     feeds,
     activeFeedType,
     currentFilter,
     pageSize,
+    // Getters
     activeFeed,
     feedPins,
     isLoading,
     hasMore,
     currentPage,
     getPinById,
+    // Actions
     fetchPins,
     fetchPinById,
     createPin,

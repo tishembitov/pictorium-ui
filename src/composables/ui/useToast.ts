@@ -14,20 +14,6 @@ export interface ShowToastOptions extends Partial<ToastOptions> {
   position?: ToastOptions['position']
 }
 
-/**
- * useToast
- *
- * Wrapper для vue-toastification с нашими дефолтами
- *
- * @example
- * ```ts
- * const { showToast, success, error, warning, info } = useToast()
- *
- * success('Pin created!')
- * error('Failed to delete pin')
- * showToast('Custom message', 'info', { duration: 5000 })
- * ```
- */
 export function useToast() {
   const toast = useVueToast()
 
@@ -100,22 +86,6 @@ export function useToast() {
   }
 }
 
-/**
- * useErrorToast
- *
- * Специализированный toast для ошибок API
- *
- * @example
- * ```ts
- * const { showError, showValidationError, showNetworkError } = useErrorToast()
- *
- * try {
- *   await createPin(data)
- * } catch (error) {
- *   showError(error)
- * }
- * ```
- */
 export function useErrorToast() {
   const { error: showErrorToast } = useToast()
 
@@ -161,19 +131,6 @@ export function useErrorToast() {
   }
 }
 
-/**
- * useSuccessToast
- *
- * Предопределенные success toasts
- *
- * @example
- * ```ts
- * const { pinCreated, pinDeleted, profileUpdated } = useSuccessToast()
- *
- * await createPin(data)
- * pinCreated()
- * ```
- */
 export function useSuccessToast() {
   const { success } = useToast()
 

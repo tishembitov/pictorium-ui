@@ -28,27 +28,6 @@ const confirmState: Ref<ConfirmState> = ref({
   resolve: null,
 })
 
-/**
- * useConfirm
- *
- * Programmatic confirm dialog
- *
- * @example
- * ```ts
- * const { confirm, confirmState } = useConfirm()
- *
- * const result = await confirm({
- *   title: 'Delete Pin',
- *   message: 'Are you sure you want to delete this pin?',
- *   confirmText: 'Delete',
- *   type: 'danger'
- * })
- *
- * if (result) {
- *   await deletePin(pinId)
- * }
- * ```
- */
 export function useConfirm() {
   const confirm = (options: ConfirmOptions): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -96,21 +75,6 @@ export function useConfirm() {
   }
 }
 
-/**
- * useDeleteConfirm
- *
- * Предопределенный confirm для удаления
- *
- * @example
- * ```ts
- * const { confirmDelete } = useDeleteConfirm()
- *
- * const confirmed = await confirmDelete('pin')
- * if (confirmed) {
- *   await deletePin(pinId)
- * }
- * ```
- */
 export function useDeleteConfirm() {
   const { confirm } = useConfirm()
 
@@ -148,22 +112,6 @@ export function useDeleteConfirm() {
   }
 }
 
-/**
- * useUnsavedChangesConfirm
- *
- * Confirm для несохраненных изменений
- *
- * @example
- * ```ts
- * const { confirmLeave } = useUnsavedChangesConfirm()
- *
- * // В router guard или beforeUnmount
- * if (hasUnsavedChanges.value) {
- *   const canLeave = await confirmLeave()
- *   if (!canLeave) return false
- * }
- * ```
- */
 export function useUnsavedChangesConfirm() {
   const { confirm } = useConfirm()
 

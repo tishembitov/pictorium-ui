@@ -1,7 +1,4 @@
-/**
- * Storage/Images API
- */
-
+// src/api/storage.api.ts
 import { storageServiceClient } from './client'
 import type {
   UploadImageResponse,
@@ -47,12 +44,23 @@ export const storageApi = {
 
   /**
    * Получить URL изображения
+   * ✅ ИСПРАВЛЕНО: обрабатываем разные форматы ответа
    */
   getImageUrl: async (imageId: string, expiry?: number): Promise<string> => {
     const { data } = await storageServiceClient.get(`${BASE_PATH}/${imageId}/url`, {
       params: { expiry },
     })
-    return data
+
+    // API может вернуть строку или объект { url: string }
+    if (typeof data === 'string') {
+      return data
+    }
+
+    if (data && typeof data === 'object' && 'url' in data) {
+      return data.url as string
+    }
+
+    throw new Error('Unexpected response format from getImageUrl')
   },
 
   /**

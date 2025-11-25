@@ -22,23 +22,6 @@ export interface PopoverOptions {
   closeOnEscape?: boolean
 }
 
-/**
- * usePopover
- *
- * Управление popover с positioning
- *
- * @example
- * ```ts
- * const triggerRef = ref<HTMLElement>()
- * const popoverRef = ref<HTMLElement>()
- *
- * const { isOpen, open, close, toggle } = usePopover(triggerRef, popoverRef, {
- *   position: 'bottom',
- *   offset: 10,
- *   closeOnClickOutside: true
- * })
- * ```
- */
 export function usePopover(
   triggerRef: Ref<HTMLElement | null | undefined>,
   popoverRef: Ref<HTMLElement | null | undefined>,
@@ -138,19 +121,6 @@ export function usePopover(
   }
 }
 
-/**
- * useDropdown
- *
- * Specialized popover для dropdown меню
- *
- * @example
- * ```ts
- * const buttonRef = ref<HTMLElement>()
- * const menuRef = ref<HTMLElement>()
- *
- * const { isOpen, toggle } = useDropdown(buttonRef, menuRef)
- * ```
- */
 export function useDropdown(
   triggerRef: Ref<HTMLElement | null | undefined>,
   menuRef: Ref<HTMLElement | null | undefined>,
@@ -162,21 +132,6 @@ export function useDropdown(
   })
 }
 
-/**
- * useTooltip
- *
- * Tooltip с hover behavior
- *
- * @example
- * ```ts
- * const targetRef = ref<HTMLElement>()
- * const tooltipRef = ref<HTMLElement>()
- *
- * const { isVisible } = useTooltip(targetRef, tooltipRef, {
- *   delay: 200
- * })
- * ```
- */
 export function useTooltip(
   targetRef: Ref<HTMLElement | null | undefined>,
   tooltipRef: Ref<HTMLElement | null | undefined>,
@@ -246,19 +201,6 @@ export function useTooltip(
   }
 }
 
-/**
- * useContextMenu
- *
- * Context menu (right-click menu)
- *
- * @example
- * ```ts
- * const targetRef = ref<HTMLElement>()
- * const menuRef = ref<HTMLElement>()
- *
- * const { isOpen, position } = useContextMenu(targetRef, menuRef)
- * ```
- */
 export function useContextMenu(
   targetRef: Ref<HTMLElement | null | undefined>,
   menuRef: Ref<HTMLElement | null | undefined>,

@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { randomTagColor } from '@/utils/colors'
 import { validateTag, getTagError } from '@/utils/validators'
-import { useTagSearch } from '@/composables/api/useTags'
+import { useTagSearch } from '@/composables/api/useTagSearch'
 
 export interface TagInputProps {
   modelValue: string[]

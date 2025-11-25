@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import NotificationBadge from './NotificationBadge.vue'
@@ -19,6 +20,7 @@ const props = defineProps<NavigationProps>()
 const emit = defineEmits<{
   (e: 'logout'): void
   (e: 'createPin'): void
+  (e: 'openUpdates'): void
 }>()
 
 const route = useRoute()
@@ -26,6 +28,10 @@ const route = useRoute()
 const isActive = (name: string) => {
   return route.name === name
 }
+
+const totalUnread = computed(() => {
+  return (props.unreadMessages || 0) + (props.unreadUpdates || 0)
+})
 </script>
 
 <template>
@@ -44,6 +50,7 @@ const isActive = (name: string) => {
           'relative p-3 rounded-2xl transition-all hover:bg-gray-100',
           isActive('home') && 'bg-black',
         ]"
+        title="Home"
       >
         <i :class="['pi pi-home text-2xl', isActive('home') ? 'text-white' : 'text-gray-700']"></i>
       </RouterLink>
@@ -55,6 +62,7 @@ const isActive = (name: string) => {
           'relative p-3 rounded-2xl transition-all hover:bg-gray-100',
           isActive('messages') && 'bg-black',
         ]"
+        title="Messages"
       >
         <i
           :class="[
@@ -70,30 +78,27 @@ const isActive = (name: string) => {
       </RouterLink>
 
       <!-- Create Pin -->
-      <button @click="emit('createPin')" class="p-3 rounded-2xl transition-all hover:bg-gray-100">
+      <button
+        @click="emit('createPin')"
+        class="p-3 rounded-2xl transition-all hover:bg-gray-100"
+        title="Create Pin"
+      >
         <i class="pi pi-plus text-2xl text-gray-700"></i>
       </button>
 
-      <!-- Notifications -->
-      <RouterLink
-        to="/notifications"
-        :class="[
-          'relative p-3 rounded-2xl transition-all hover:bg-gray-100',
-          isActive('notifications') && 'bg-black',
-        ]"
+      <!-- Updates/Notifications (кнопка вместо ссылки) -->
+      <button
+        @click="emit('openUpdates')"
+        class="relative p-3 rounded-2xl transition-all hover:bg-gray-100"
+        title="Updates"
       >
-        <i
-          :class="[
-            'pi pi-bell text-2xl',
-            isActive('notifications') ? 'text-white' : 'text-gray-700',
-          ]"
-        ></i>
+        <i class="pi pi-bell text-2xl text-gray-700"></i>
         <NotificationBadge
           v-if="unreadUpdates"
           :count="unreadUpdates"
           class="absolute -top-1 -right-1"
         />
-      </RouterLink>
+      </button>
     </nav>
 
     <!-- User profile -->
@@ -106,12 +111,17 @@ const isActive = (name: string) => {
           'p-1 rounded-2xl transition-all',
           isActive('user') && route.params.username === user.username && 'ring-2 ring-black',
         ]"
+        title="Profile"
       >
         <BaseAvatar :src="userImage" :alt="user.username" size="lg" />
       </RouterLink>
 
       <!-- Logout -->
-      <button @click="emit('logout')" class="p-3 rounded-2xl transition-all hover:bg-red-100">
+      <button
+        @click="emit('logout')"
+        class="p-3 rounded-2xl transition-all hover:bg-red-100"
+        title="Logout"
+      >
         <i class="pi pi-sign-out text-2xl text-red-600"></i>
       </button>
     </div>

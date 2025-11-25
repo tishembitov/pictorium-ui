@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { validateMediaFile, validateMediaFileSync } from '@/utils/files'
-import { isImage, isVideo, isGif, createPreviewUrl } from '@/utils/media'
+import { isImage, isVideo, isGif } from '@/utils/media'
 import { formatFileSize } from '@/utils/formatters'
 
 export interface FileUploadProps {
   modelValue: File | null
   accept?: string
   maxSize?: number
+  minWidth?: number
+  minHeight?: number
+  maxVideoDuration?: number
   disabled?: boolean
   dragDrop?: boolean
   showPreview?: boolean
@@ -19,6 +22,9 @@ export interface FileUploadProps {
 const props = withDefaults(defineProps<FileUploadProps>(), {
   accept: '.jpg,.jpeg,.gif,.webp,.png,.bmp,.mp4,.webm',
   maxSize: 50 * 1024 * 1024, // 50MB
+  minWidth: 200,
+  minHeight: 300,
+  maxVideoDuration: 30,
   disabled: false,
   dragDrop: true,
   showPreview: true,
@@ -50,10 +56,55 @@ const fileInfo = computed(() => {
   }
 })
 
+const validateImageDimensions = (file: File): Promise<{ valid: boolean; errors: string[] }> => {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      URL.revokeObjectURL(img.src)
+      if (img.width < props.minWidth || img.height < props.minHeight) {
+        resolve({
+          valid: false,
+          errors: [`Image must be at least ${props.minWidth}x${props.minHeight} pixels`],
+        })
+      } else {
+        resolve({ valid: true, errors: [] })
+      }
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(img.src)
+      resolve({ valid: false, errors: ['Failed to load image'] })
+    }
+    img.src = URL.createObjectURL(file)
+  })
+}
+
+const validateVideoDuration = (file: File): Promise<{ valid: boolean; errors: string[] }> => {
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(video.src)
+      if (video.duration > props.maxVideoDuration) {
+        resolve({
+          valid: false,
+          errors: [`Video must be ${props.maxVideoDuration} seconds or less`],
+        })
+      } else {
+        resolve({ valid: true, errors: [] })
+      }
+    }
+    video.onerror = () => {
+      URL.revokeObjectURL(video.src)
+      resolve({ valid: false, errors: ['Failed to load video'] })
+    }
+    video.src = URL.createObjectURL(file)
+  })
+}
+
 const handleFile = async (file: File) => {
   validating.value = true
 
-  // Quick sync validation
+  // Quick sync validation (type, size)
   const syncResult = validateMediaFileSync(file)
   if (!syncResult.valid) {
     emit('error', syncResult.errors)
@@ -61,19 +112,32 @@ const handleFile = async (file: File) => {
     return
   }
 
-  // Async validation if needed
+  // Async validation
   if (props.validateAsync) {
-    const asyncResult = await validateMediaFile(file)
-    if (!asyncResult.valid) {
-      emit('error', asyncResult.errors)
-      validating.value = false
-      return
+    // Image dimension validation
+    if (isImage(file)) {
+      const dimensionResult = await validateImageDimensions(file)
+      if (!dimensionResult.valid) {
+        emit('error', dimensionResult.errors)
+        validating.value = false
+        return
+      }
+    }
+
+    // Video duration validation
+    if (isVideo(file)) {
+      const durationResult = await validateVideoDuration(file)
+      if (!durationResult.valid) {
+        emit('error', durationResult.errors)
+        validating.value = false
+        return
+      }
     }
   }
 
   // Create preview
   if (props.showPreview) {
-    previewUrl.value = createPreviewUrl(file)
+    previewUrl.value = createPreview(file)
     isImagePreview.value = isImage(file)
     isVideoPreview.value = isVideo(file)
     isGifPreview.value = isGif(file)
@@ -101,7 +165,9 @@ const handleDrop = async (event: DragEvent) => {
 }
 
 const handleDragOver = () => {
-  isDragging.value = true
+  if (!props.disabled) {
+    isDragging.value = true
+  }
 }
 
 const handleDragLeave = () => {
@@ -120,7 +186,9 @@ const removeFile = () => {
 }
 
 const triggerFileInput = () => {
-  fileInputRef.value?.click()
+  if (!props.disabled) {
+    fileInputRef.value?.click()
+  }
 }
 </script>
 
@@ -160,8 +228,10 @@ const triggerFileInput = () => {
         {{ isDragging ? 'Drop file here' : 'Drag & Drop or Click to Upload' }}
       </p>
 
-      <p class="mt-2 text-sm text-gray-700">Images must be at least 200x300 pixels</p>
-      <p class="text-sm text-gray-700">Videos must be 30 seconds or less</p>
+      <p class="mt-2 text-sm text-gray-700">
+        Images must be at least {{ minWidth }}x{{ minHeight }} pixels
+      </p>
+      <p class="text-sm text-gray-700">Videos must be {{ maxVideoDuration }} seconds or less</p>
       <p class="mt-2 text-xs text-gray-700">
         {{ accept }}
       </p>
@@ -171,7 +241,11 @@ const triggerFileInput = () => {
     <div
       v-if="!dragDrop && !modelValue"
       @click="triggerFileInput"
-      class="border-2 border-gray-300 rounded-3xl p-6 text-center cursor-pointer hover:bg-gray-50 transition"
+      :class="[
+        'border-2 border-gray-300 rounded-3xl p-6 text-center cursor-pointer',
+        'hover:bg-gray-50 transition',
+        disabled && 'opacity-50 cursor-not-allowed',
+      ]"
     >
       <p class="text-gray-600">Click to upload file</p>
       <p class="text-sm text-gray-500 mt-2">{{ accept }}</p>
@@ -192,7 +266,7 @@ const triggerFileInput = () => {
       <!-- Loading overlay -->
       <div
         v-if="validating"
-        class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg z-10"
+        class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-3xl z-10"
       >
         <span class="loader2"></span>
       </div>
@@ -201,6 +275,7 @@ const triggerFileInput = () => {
       <button
         @click="removeFile"
         class="absolute top-2 right-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white rounded-full p-2 transition"
+        type="button"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -226,7 +301,7 @@ const triggerFileInput = () => {
         :src="previewUrl"
         alt="Preview"
         :style="{ width: previewWidth, height: previewHeight }"
-        class="rounded-lg object-cover"
+        class="rounded-3xl object-cover mx-auto"
       />
 
       <!-- Video preview -->
@@ -234,14 +309,14 @@ const triggerFileInput = () => {
         v-if="isVideoPreview && previewUrl"
         :src="previewUrl"
         :style="{ width: previewWidth, height: previewHeight }"
-        class="rounded-lg object-cover"
+        class="rounded-3xl object-cover mx-auto"
         autoplay
         loop
         muted
       ></video>
 
       <!-- File info -->
-      <div v-if="fileInfo" class="mt-2 text-sm text-gray-600">
+      <div v-if="fileInfo" class="mt-2 text-sm text-gray-600 text-center">
         <p class="truncate">{{ fileInfo.name }}</p>
         <p>{{ fileInfo.size }}</p>
       </div>

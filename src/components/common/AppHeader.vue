@@ -10,7 +10,9 @@ const props = withDefaults(defineProps<AppHeaderProps>(), {
   showSearch: true,
 })
 
-const emit = defineEmits<(e: 'search', value: string) => void>()
+const emit = defineEmits<{
+  (e: 'search', value: string): void
+}>()
 
 const router = useRouter()
 
@@ -20,7 +22,7 @@ const showSearchSection = ref(false)
 const handleSearch = () => {
   if (searchValue.value.trim()) {
     emit('search', searchValue.value.trim())
-    router.push(`/search?q=${encodeURIComponent(searchValue.value.trim())}`)
+    router.push(`/?search=${encodeURIComponent(searchValue.value.trim())}`)
   }
 }
 
@@ -61,7 +63,7 @@ const clearSearch = () => {
 
         <!-- Clear button -->
         <button
-          v-if="showSearchSection"
+          v-if="searchValue"
           @click="clearSearch"
           class="absolute right-3 top-1/2 transform -translate-y-1/2 px-3 py-1 rounded-full text-lg text-white bg-black hover:bg-gray-800 transition"
         >

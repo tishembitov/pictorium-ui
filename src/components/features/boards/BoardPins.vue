@@ -1,99 +1,208 @@
+<!-- src/components/features/boards/BoardPins.vue -->
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
-import PinMasonry from '@/components/features/pins/PinMasonry.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import BaseLoader from '@/components/ui/BaseLoader.vue'
-import { useBoards } from '@/composables/api/useBoards'
-import type { Pin } from '@/types'
+/**
+ * BoardPins - Пины доски с Masonry layout
+ *
+ * ✅ Визуальный стиль из старого PinsByBoard.vue:
+ * - v-masonry с transition-duration="0.4s"
+ * - Batch loading (showAllPins per group)
+ * - Placeholder с rgb цветом
+ * - w-1/5 для карточек
+ */
+
+import { ref, computed, watch, onMounted, onBeforeUnmount, onActivated, onDeactivated } from 'vue'
+import { useBoardPins } from '@/composables/api/useBoards'
+import type { PinWithBlob } from '@/types'
 
 export interface BoardPinsProps {
   boardId: string
-  canEdit?: boolean
   boardName?: string
+  canEdit?: boolean
 }
 
 const props = withDefaults(defineProps<BoardPinsProps>(), {
   canEdit: false,
 })
 
-const emit = defineEmits<(e: 'pinDeleted', pinId: string) => void>()
+const emit = defineEmits<{
+  (e: 'pinClick', pin: PinWithBlob): void
+  (e: 'pinRemove', pinId: string): void
+}>()
 
-const { currentBoardPins, isLoadingPins, hasBoardPinsMore, fetchBoardById, loadMoreBoardPins } =
-  useBoards()
+const { pins, hasMore, isLoading, fetch, loadMore, removePin, cleanup } = useBoardPins(
+  () => props.boardId,
+)
 
-const loadingMore = ref(false)
+// Tracking для batch loading (как в старом проекте)
+const cntLoading = ref(0)
+const limitCntLoading = ref<number | null>(null)
+const showNoPins = ref(false)
 
-// Computed для удобства
-const pins = computed(() => currentBoardPins.value)
-const isLoading = computed(() => isLoadingPins.value)
+interface PinGroup {
+  pins: PinWithBlob[]
+  showAllPins: boolean
+}
 
+const pinGroups = ref<PinGroup[]>([])
+
+// Scroll handler
+const handleScroll = () => {
+  const scrollableHeight = document.documentElement.scrollHeight
+  const currentScrollPosition = window.innerHeight + window.scrollY
+
+  if (currentScrollPosition + 200 >= scrollableHeight) {
+    handleLoadMore()
+  }
+}
+
+const handleLoadMore = async () => {
+  if (!hasMore.value || isLoading.value) return
+
+  const prevLength = pins.value.length
+  await loadMore()
+
+  // Добавляем новые пины как группу
+  const newPins = pins.value.slice(prevLength)
+  if (newPins.length > 0) {
+    pinGroups.value.push({ pins: newPins, showAllPins: false })
+    limitCntLoading.value = newPins.length
+    cntLoading.value = 0
+  }
+}
+
+// Initial load
 onMounted(async () => {
-  await fetchBoardById(props.boardId, 0, 15)
+  await fetch(0, 10)
+
+  if (pins.value.length === 0) {
+    showNoPins.value = true
+  } else {
+    pinGroups.value = [{ pins: [...pins.value], showAllPins: false }]
+    limitCntLoading.value = pins.value.length
+  }
+
   window.addEventListener('scroll', handleScroll)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', handleScroll)
+  cleanup()
 })
 
+onActivated(() => {
+  window.addEventListener('scroll', handleScroll)
+})
+
+onDeactivated(() => {
+  window.removeEventListener('scroll', handleScroll)
+})
+
+// Reset when board changes
 watch(
   () => props.boardId,
-  async (newId) => {
-    if (newId) {
-      await fetchBoardById(newId, 0, 15)
+  async () => {
+    pinGroups.value = []
+    showNoPins.value = false
+    cntLoading.value = 0
+    limitCntLoading.value = null
+
+    await fetch(0, 10)
+
+    if (pins.value.length === 0) {
+      showNoPins.value = true
+    } else {
+      pinGroups.value = [{ pins: [...pins.value], showAllPins: false }]
+      limitCntLoading.value = pins.value.length
     }
   },
 )
 
-const handleScroll = () => {
-  const scrollableHeight = document.documentElement.scrollHeight
-  const currentScrollPosition = window.innerHeight + window.scrollY
-
-  if (currentScrollPosition + 200 >= scrollableHeight && !loadingMore.value) {
-    loadMore()
+const handlePinLoaded = (groupIndex: number) => {
+  cntLoading.value++
+  if (cntLoading.value === limitCntLoading.value && pinGroups.value[groupIndex]) {
+    pinGroups.value[groupIndex].showAllPins = true
+    cntLoading.value = 0
   }
 }
 
-const loadMore = async () => {
-  if (!hasBoardPinsMore.value || isLoading.value) return
-
+const handleRemovePin = async (pinId: string) => {
   try {
-    loadingMore.value = true
-    await loadMoreBoardPins()
-  } finally {
-    loadingMore.value = false
+    await removePin(pinId)
+    // Remove from local groups
+    pinGroups.value.forEach((group) => {
+      group.pins = group.pins.filter((p) => p.id !== pinId)
+    })
+    emit('pinRemove', pinId)
+  } catch (error) {
+    console.error('[BoardPins] Remove failed:', error)
   }
-}
-
-const handleDelete = (pinId: string) => {
-  emit('pinDeleted', pinId)
 }
 </script>
 
 <template>
-  <div class="mt-10 min-h-[500px]">
-    <h2 v-if="boardName" class="text-2xl font-bold text-center mb-6">{{ boardName }}</h2>
+  <!-- Masonry layout (точно как в старом PinsByBoard.vue) -->
+  <div class="mt-10" v-masonry transition-duration="0.4s" item-selector=".item" stagger="0.03s">
+    <div v-for="(pinGroup, groupIndex) in pinGroups" :key="groupIndex">
+      <div v-for="pin in pinGroup.pins" :key="pin.id" v-masonry-tile class="item w-1/5 p-2">
+        <!-- Pin Card -->
+        <div
+          class="relative block transition-transform transform hover:scale-105 cursor-pointer group"
+          @click="emit('pinClick', pin)"
+        >
+          <!-- Remove button (если canEdit) -->
+          <button
+            v-if="canEdit"
+            @click.stop="handleRemovePin(pin.id)"
+            class="absolute z-10 top-2 right-2 px-3 py-2 text-sm bg-red-500 hover:bg-red-600 text-white rounded-full transition opacity-0 group-hover:opacity-100"
+          >
+            Remove
+          </button>
 
-    <div v-if="isLoading && pins.length === 0" class="flex justify-center py-8">
-      <BaseLoader variant="spinner" size="lg" />
+          <!-- Placeholder (показывается пока не загружен, с rgb цветом) -->
+          <div
+            v-show="!pinGroup.showAllPins"
+            class="w-full rounded-3xl"
+            :style="{ backgroundColor: pin.rgb || '#e5e7eb', height: (pin.height || 200) + 'px' }"
+          />
+
+          <!-- Image -->
+          <img
+            v-if="pin.isImage !== false"
+            v-show="pinGroup.showAllPins"
+            :src="pin.imageBlobUrl"
+            @load="handlePinLoaded(groupIndex)"
+            :alt="pin.title || 'Pin'"
+            class="w-full h-auto rounded-3xl"
+          />
+
+          <!-- Video -->
+          <video
+            v-else
+            v-show="pinGroup.showAllPins"
+            :src="pin.videoBlobUrl || pin.imageBlobUrl"
+            @loadeddata="handlePinLoaded(groupIndex)"
+            class="w-full h-auto rounded-3xl"
+            autoplay
+            loop
+            muted
+          />
+        </div>
+
+        <!-- Title -->
+        <p v-if="pin.title" class="mt-2 text-sm">{{ pin.title }}</p>
+      </div>
     </div>
+  </div>
 
-    <EmptyState
-      v-else-if="!isLoading && pins.length === 0"
-      title="No pins on board"
-      message="Start adding pins to this board"
-      image="https://i.pinimg.com/736x/40/f1/b0/40f1b01bf3df9bc24bdbad4589125023.jpg"
-    />
-
-    <PinMasonry
-      v-else
-      :pins="pins"
-      :variant="canEdit ? 'board' : 'default'"
-      :can-delete="canEdit"
-      :loading="loadingMore"
-      :has-more="hasBoardPinsMore"
-      @load-more="loadMore"
-      @delete="handleDelete"
-    />
+  <!-- No pins message (из старого проекта) -->
+  <div v-show="showNoPins" class="mt-10">
+    <section class="text-center flex flex-col justify-center items-center relative">
+      <h1 class="text-2xl font-bold mb-4">no pins on board</h1>
+      <img
+        class="h-72 rounded-xl"
+        src="https://i.pinimg.com/736x/40/f1/b0/40f1b01bf3df9bc24bdbad4589125023.jpg"
+        alt="not found image"
+      />
+    </section>
   </div>
 </template>

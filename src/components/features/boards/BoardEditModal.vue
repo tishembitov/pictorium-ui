@@ -1,12 +1,13 @@
+<!-- src/components/features/boards/BoardEditModal.vue -->
 <script setup lang="ts">
+/**
+ * BoardEditModal - Редактирование доски
+ *
+ * Стиль соответствует BoardCreateModal
+ */
+
 import { ref, watch } from 'vue'
-import BaseModal from '@/components/ui/BaseModal.vue'
-import BaseInput from '@/components/ui/BaseInput.vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import { useBoards } from '@/composables/api/useBoards'
 import { useToast } from '@/composables/ui/useToast'
-import { useForm } from '@/composables/form/useForm'
-import { boardTitleValidator } from '@/composables/form/useFormValidation'
 import type { Board } from '@/types'
 
 export interface BoardEditModalProps {
@@ -21,91 +22,101 @@ const emit = defineEmits<{
   (e: 'updated', board: Board): void
 }>()
 
-const { updateBoard } = useBoards()
-const { showToast } = useToast()
+const { success, error: showError } = useToast()
 
-const isSubmitting = ref(false)
+const boardName = ref('')
+const isLoading = ref(false)
 
-const { values, errors, setFieldValue, validateForm, reset } = useForm({
-  initialValues: {
-    title: '',
-  },
-  validationRules: {
-    title: boardTitleValidator,
-  },
-})
-
-// Watch board changes to update form
+// Sync with board prop
 watch(
   () => props.board,
-  (newBoard) => {
-    if (newBoard) {
-      setFieldValue('title', newBoard.title)
+  (board) => {
+    if (board) {
+      boardName.value = board.title
     }
   },
   { immediate: true },
 )
 
-const handleSubmit = async () => {
-  if (!props.board) return
+// Reset on close
+watch(
+  () => props.modelValue,
+  (isOpen) => {
+    if (!isOpen && props.board) {
+      boardName.value = props.board.title
+    }
+  },
+)
 
-  try {
-    isSubmitting.value = true
-
-    const isValid = await validateForm()
-    if (!isValid) return
-
-    // API вызов (нужно добавить в boards.api.ts и useBoards)
-    // const updatedBoard = await updateBoard(props.board.id, { title: values.title })
-
-    // Временно эмулируем
-    const updatedBoard = { ...props.board, title: values.title }
-
-    showToast('Board updated successfully!', 'success')
-    emit('updated', updatedBoard)
-    emit('update:modelValue', false)
-  } catch (error) {
-    console.error('[BoardEditModal] Update failed:', error)
-    showToast('Failed to update board', 'error')
-  } finally {
-    isSubmitting.value = false
-  }
+const closeModal = () => {
+  emit('update:modelValue', false)
 }
 
-const handleCancel = () => {
-  reset()
-  emit('update:modelValue', false)
+const handleSave = async () => {
+  if (!props.board || !boardName.value.trim()) return
+
+  // Если название не изменилось - просто закрываем
+  if (boardName.value.trim() === props.board.title) {
+    closeModal()
+    return
+  }
+
+  try {
+    isLoading.value = true
+
+    // TODO: Добавить API для обновления когда будет готово
+    // await boardsApi.update(props.board.id, { title: boardName.value.trim() })
+
+    const updatedBoard: Board = {
+      ...props.board,
+      title: boardName.value.trim(),
+    }
+
+    success('Board updated!')
+    emit('updated', updatedBoard)
+    closeModal()
+  } catch (e) {
+    showError('Failed to update board')
+    console.error('[BoardEditModal] Update failed:', e)
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
 
 <template>
-  <BaseModal
-    :model-value="modelValue"
-    @update:model-value="emit('update:modelValue', $event)"
-    title="Edit Board"
-    size="sm"
+  <div
+    v-if="modelValue"
+    class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-40 backdrop-blur-sm"
+    @click.self="closeModal"
   >
-    <div class="space-y-4">
-      <BaseInput
-        :model-value="values.title"
-        @update:model-value="setFieldValue('title', $event)"
-        label="Board Name"
-        placeholder="Enter board name"
-        :error="errors.title"
-        :max-length="200"
-        :disabled="isSubmitting"
-        required
+    <div class="bg-white p-6 rounded-2xl shadow-lg w-96 max-w-full z-50 ml-20">
+      <h2 class="text-xl font-bold mb-4 text-gray-800">Edit Board</h2>
+
+      <input
+        type="text"
+        v-model="boardName"
+        placeholder="Board name"
+        class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-700"
+        @keydown.enter="handleSave"
       />
+
+      <div class="flex justify-end gap-3 mt-5">
+        <button
+          @click="closeModal"
+          class="px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition"
+          :disabled="isLoading"
+        >
+          Cancel
+        </button>
+        <button
+          @click="handleSave"
+          class="px-5 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition"
+          :disabled="isLoading || !boardName.trim()"
+        >
+          {{ isLoading ? 'Saving...' : 'Save' }}
+        </button>
+      </div>
     </div>
-
-    <template #footer>
-      <BaseButton variant="secondary" @click="handleCancel" :disabled="isSubmitting">
-        Cancel
-      </BaseButton>
-
-      <BaseButton variant="primary" @click="handleSubmit" :loading="isSubmitting">
-        Save Changes
-      </BaseButton>
-    </template>
-  </BaseModal>
+  </div>
 </template>

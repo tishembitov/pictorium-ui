@@ -120,6 +120,19 @@ export const url =
   (value) =>
     value ? getUrlError(value) : null
 
+export const boardTitleValidator: ValidationRule<string> = (value) => {
+  if (!value?.trim()) {
+    return 'Board name is required'
+  }
+  if (value.trim().length < 1) {
+    return 'Board name must be at least 1 character'
+  }
+  if (value.length > 50) {
+    return 'Board name must be less than 50 characters'
+  }
+  return null
+}
+
 // ============================================================================
 // PREDEFINED VALIDATORS (используют utils/validators.ts)
 // ============================================================================
@@ -140,6 +153,10 @@ export const validators = {
   comment: (value: string) => getCommentError(value),
   tag: (value: string) => getTagError(value),
 
+  // Board validators
+  boardTitle: boardTitleValidator,
+  boardTitleField: [required('Board name is required'), boardTitleValidator],
+
   // Composite validators
   usernameField: [required('Username is required'), (value: string) => getUsernameError(value)],
   emailField: [required('Email is required'), email()],
@@ -147,11 +164,4 @@ export const validators = {
     required('Password is required'),
     minLength(8, 'Password must be at least 8 characters'),
   ],
-}
-
-/**
- * useValidators - Helper для доступа к валидаторам
- */
-export function useValidators() {
-  return validators
 }

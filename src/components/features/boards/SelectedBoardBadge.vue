@@ -1,18 +1,23 @@
+<!-- src/components/features/boards/SelectedBoardBadge.vue -->
 <script setup lang="ts">
+/**
+ * SelectedBoardBadge - Badge выбранной доски
+ *
+ * Показывает куда будет сохранен пин (из старого Pin.vue)
+ */
+
 import { computed } from 'vue'
-import { useSelectedBoardStore } from '@/stores/selectedBoard.store'
+import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
 
 export interface SelectedBoardBadgeProps {
   variant?: 'text' | 'badge' | 'button'
   size?: 'sm' | 'md' | 'lg'
-  showIcon?: boolean
   clickable?: boolean
 }
 
 const props = withDefaults(defineProps<SelectedBoardBadgeProps>(), {
   variant: 'button',
   size: 'md',
-  showIcon: true,
   clickable: true,
 })
 
@@ -20,20 +25,21 @@ const emit = defineEmits<{
   (e: 'click'): void
 }>()
 
-const selectedBoardStore = useSelectedBoardStore()
+const { boardTitle, hasSelected, isLoading } = useSelectedBoard()
 
-const displayText = computed(() => {
-  return selectedBoardStore.selectedBoard ? selectedBoardStore.selectedBoard.title : 'Profile'
+const displayText = computed(() => boardTitle.value)
+
+const sizeClasses = computed(() => {
+  const sizes = {
+    sm: 'text-xs px-4 py-2',
+    md: 'text-sm px-6 py-3',
+    lg: 'text-md px-8 py-4',
+  }
+  return sizes[props.size]
 })
 
-const sizeClasses = {
-  sm: 'text-xs px-3 py-1.5',
-  md: 'text-sm px-6 py-3',
-  lg: 'text-base px-8 py-4',
-}
-
 const handleClick = () => {
-  if (props.clickable) {
+  if (props.clickable && !isLoading.value) {
     emit('click')
   }
 }
@@ -43,10 +49,13 @@ const handleClick = () => {
   <!-- Text variant -->
   <span
     v-if="variant === 'text'"
-    :class="['font-medium text-gray-700', clickable && 'cursor-pointer hover:underline']"
+    :class="[
+      'font-medium',
+      hasSelected ? 'text-red-600' : 'text-gray-700',
+      clickable && !isLoading && 'cursor-pointer hover:underline',
+    ]"
     @click="handleClick"
   >
-    <i v-if="showIcon" class="pi pi-folder mr-2"></i>
     {{ displayText }}
   </span>
 
@@ -54,28 +63,28 @@ const handleClick = () => {
   <span
     v-else-if="variant === 'badge'"
     :class="[
-      'inline-flex items-center gap-2 rounded-full bg-gray-200 text-gray-800 font-medium',
-      sizeClasses[size],
-      clickable && 'cursor-pointer hover:bg-gray-300 transition',
+      'inline-flex items-center gap-2 rounded-full font-medium',
+      sizeClasses,
+      hasSelected ? 'bg-red-100 text-red-700' : 'bg-gray-200 text-gray-700',
+      clickable && !isLoading && 'cursor-pointer hover:opacity-80 transition',
     ]"
     @click="handleClick"
   >
-    <i v-if="showIcon" class="pi pi-folder"></i>
+    <i :class="['pi', hasSelected ? 'pi-folder' : 'pi-user']"></i>
     {{ displayText }}
   </span>
 
-  <!-- Button variant (из старого кода) -->
+  <!-- Button variant (стиль из старого Pin.vue) -->
   <button
     v-else
     @click="handleClick"
     :class="[
-      'bg-gray-800 hover:bg-black text-white rounded-3xl transition',
-      sizeClasses[size],
-      !clickable && 'cursor-default',
+      'bg-gray-800 hover:bg-black text-white rounded-3xl transition cursor-pointer',
+      sizeClasses,
+      isLoading && 'opacity-50 cursor-wait',
     ]"
-    :disabled="!clickable"
+    :disabled="isLoading"
   >
-    <i v-if="showIcon" class="pi pi-folder mr-2"></i>
-    {{ displayText }}
+    {{ isLoading ? 'Loading...' : displayText }}
   </button>
 </template>

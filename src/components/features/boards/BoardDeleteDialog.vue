@@ -1,29 +1,62 @@
+<!-- src/components/features/boards/BoardDeleteDialog.vue -->
 <script setup lang="ts">
+/**
+ * BoardDeleteDialog - Подтверждение удаления доски
+ */
+
+import { ref, computed } from 'vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
-import type { Board } from '@/types'
+import { useBoards } from '@/composables/api/useBoards'
+import { useToast } from '@/composables/ui/useToast'
+import type { BoardWithPins } from '@/types'
 
 export interface BoardDeleteDialogProps {
   modelValue: boolean
-  board: Board | null
-  loading?: boolean
+  board: BoardWithPins | null
 }
 
-const props = withDefaults(defineProps<BoardDeleteDialogProps>(), {
-  loading: false,
-})
+const props = defineProps<BoardDeleteDialogProps>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'confirm'): void
-  (e: 'cancel'): void
+  (e: 'deleted', boardId: string): void
 }>()
 
-const handleConfirm = () => {
-  emit('confirm')
+const { deleteBoard } = useBoards()
+const { success, error: showError } = useToast()
+
+const isDeleting = ref(false)
+
+const boardTitle = computed(() => props.board?.title || 'this board')
+
+const message = computed(() => {
+  const pinsCount = props.board?.pinsCount || props.board?.pins?.length || 0
+
+  if (pinsCount > 0) {
+    return `This board contains ${pinsCount} pin${pinsCount !== 1 ? 's' : ''}. They will be removed from this board but not deleted.`
+  }
+
+  return 'Are you sure you want to delete this board? This action cannot be undone.'
+})
+
+const handleConfirm = async () => {
+  if (!props.board) return
+
+  try {
+    isDeleting.value = true
+    await deleteBoard(props.board.id)
+    success('Board deleted!')
+    emit('deleted', props.board.id)
+    emit('update:modelValue', false)
+  } catch (e) {
+    showError('Failed to delete board')
+    console.error('[BoardDeleteDialog] Delete failed:', e)
+  } finally {
+    isDeleting.value = false
+  }
 }
 
 const handleCancel = () => {
-  emit('cancel')
   emit('update:modelValue', false)
 }
 </script>
@@ -32,28 +65,13 @@ const handleCancel = () => {
   <ConfirmDialog
     :model-value="modelValue"
     @update:model-value="emit('update:modelValue', $event)"
-    :title="`Delete ${board?.title || 'Board'}?`"
-    message="Are you sure you want to delete this board? All pins will be removed from this board. This action cannot be undone."
-    confirm-text="Delete Board"
+    :title="`Delete '${boardTitle}'?`"
+    :message="message"
+    confirm-text="Delete"
     cancel-text="Cancel"
     variant="danger"
-    :loading="loading"
+    :loading="isDeleting"
     @confirm="handleConfirm"
     @cancel="handleCancel"
-  >
-    <template v-if="board && board.pinsCount" #default>
-      <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
-        <div class="flex items-start gap-3">
-          <i class="pi pi-exclamation-triangle text-yellow-600 text-xl"></i>
-          <div class="flex-1 text-left">
-            <p class="font-semibold text-yellow-800 mb-1">Warning</p>
-            <p class="text-sm text-yellow-700">
-              This board contains {{ board.pinsCount }} pin{{ board.pinsCount !== 1 ? 's' : '' }}.
-              They will be removed from this board but not deleted.
-            </p>
-          </div>
-        </div>
-      </div>
-    </template>
-  </ConfirmDialog>
+  />
 </template>

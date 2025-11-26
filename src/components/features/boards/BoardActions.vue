@@ -1,7 +1,10 @@
+<!-- src/components/features/boards/BoardActions.vue -->
 <script setup lang="ts">
+/**
+ * BoardActions - Действия над доской (edit, delete)
+ */
+
 import { ref } from 'vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import { useConfirm } from '@/composables/ui/useConfirm'
 import type { Board } from '@/types'
 
 export interface BoardActionsProps {
@@ -22,8 +25,6 @@ const emit = defineEmits<{
   (e: 'delete'): void
 }>()
 
-const { confirmDelete } = useConfirm()
-
 const showDropdown = ref(false)
 
 const handleEdit = () => {
@@ -31,11 +32,8 @@ const handleEdit = () => {
   showDropdown.value = false
 }
 
-const handleDelete = async () => {
-  const confirmed = await confirmDelete('board', props.board.title)
-  if (confirmed) {
-    emit('delete')
-  }
+const handleDelete = () => {
+  emit('delete')
   showDropdown.value = false
 }
 </script>
@@ -43,34 +41,34 @@ const handleDelete = async () => {
 <template>
   <!-- Inline Variant -->
   <div v-if="variant === 'inline'" class="flex items-center gap-2">
-    <BaseButton v-if="canEdit" variant="outline" size="sm" @click="handleEdit">
-      <template #icon>
-        <i class="pi pi-pencil"></i>
-      </template>
+    <button
+      v-if="canEdit"
+      @click="handleEdit"
+      class="px-3 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition text-sm"
+    >
       Edit
-    </BaseButton>
-
-    <BaseButton v-if="canDelete" variant="danger" size="sm" @click="handleDelete">
-      <template #icon>
-        <i class="pi pi-trash"></i>
-      </template>
+    </button>
+    <button
+      v-if="canDelete"
+      @click="handleDelete"
+      class="px-3 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition text-sm"
+    >
       Delete
-    </BaseButton>
+    </button>
   </div>
 
   <!-- Dropdown Variant -->
-  <div v-else-if="variant === 'dropdown'" class="relative">
+  <div v-else class="relative">
     <button
       @click="showDropdown = !showDropdown"
       class="p-2 hover:bg-gray-100 rounded-full transition"
     >
-      <i class="pi pi-ellipsis-h text-xl"></i>
+      <i class="pi pi-ellipsis-h text-xl text-gray-600"></i>
     </button>
 
-    <Transition name="fade">
+    <Transition name="dropdown">
       <div
         v-if="showDropdown"
-        v-click-outside="() => (showDropdown = false)"
         class="absolute right-0 top-12 bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-[150px] z-10"
       >
         <button
@@ -96,13 +94,14 @@ const handleDelete = async () => {
 </template>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.2s ease;
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.dropdown-enter-from,
+.dropdown-leave-to {
   opacity: 0;
+  transform: translateY(-10px);
 }
 </style>

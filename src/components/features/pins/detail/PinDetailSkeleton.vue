@@ -1,94 +1,77 @@
+<!-- src/components/features/pins/detail/PinDetailSkeleton.vue -->
 <script setup lang="ts">
+/**
+ * PinDetailSkeleton - Loading skeleton для детальной страницы
+ * Использует: BaseSkeleton, BaseLoader
+ */
+
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
+import BaseLoader from '@/components/ui/BaseLoader.vue'
+
+export interface PinDetailSkeletonProps {
+  variant?: 'full' | 'info-only'
+}
+
+withDefaults(defineProps<PinDetailSkeletonProps>(), {
+  variant: 'full',
+})
 </script>
 
 <template>
-  <div class="flex items-start justify-center min-h-screen p-6 pt-20">
-    <div
-      class="flex flex-col lg:flex-row gap-8 w-full max-w-7xl bg-white rounded-3xl shadow-2xl overflow-hidden p-6"
-    >
-      <!-- Left: Media Skeleton -->
-      <div class="lg:w-1/2 flex flex-col gap-4">
-        <!-- Main image skeleton -->
-        <BaseSkeleton variant="rounded" height="600px" width="100%" animation="wave" />
-      </div>
+  <!-- Full page skeleton -->
+  <div v-if="variant === 'full'" class="grid grid-cols-2 gap-10 mx-60 bg-gray-100 rounded-3xl p-6">
+    <!-- Left column: Media skeleton -->
+    <div class="flex justify-center items-center">
+      <BaseSkeleton variant="rounded" width="100%" :height="500" animation="pulse" />
+    </div>
 
-      <!-- Right: Info Skeleton -->
-      <div class="lg:w-1/2 flex flex-col gap-4">
-        <!-- Actions row skeleton -->
-        <div class="flex items-center justify-between mb-4">
-          <div class="flex items-center gap-2">
-            <BaseSkeleton variant="circular" width="40px" height="40px" />
-            <BaseSkeleton variant="circular" width="40px" height="40px" />
-          </div>
-          <BaseSkeleton variant="rounded" width="100px" height="40px" />
+    <!-- Right column: Info skeleton -->
+    <div class="flex flex-col space-y-4 p-4">
+      <!-- Actions row -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+          <BaseSkeleton variant="circular" :width="32" :height="32" />
+          <BaseSkeleton variant="text" :width="50" height="1.5rem" />
         </div>
-
-        <!-- Title skeleton -->
-        <BaseSkeleton variant="text" width="80%" height="32px" />
-        <BaseSkeleton variant="text" width="60%" height="32px" />
-
-        <!-- Description skeleton -->
-        <div class="space-y-2 mt-4">
-          <BaseSkeleton variant="text" width="100%" height="16px" count="3" />
-          <BaseSkeleton variant="text" width="70%" height="16px" />
-        </div>
-
-        <!-- Tags skeleton -->
-        <div class="flex gap-2 mt-4">
-          <BaseSkeleton variant="rounded" width="80px" height="28px" />
-          <BaseSkeleton variant="rounded" width="100px" height="28px" />
-          <BaseSkeleton variant="rounded" width="90px" height="28px" />
-        </div>
-
-        <!-- Stats skeleton -->
-        <div class="flex gap-6 mt-6">
-          <BaseSkeleton variant="text" width="60px" height="20px" />
-          <BaseSkeleton variant="text" width="60px" height="20px" />
-          <BaseSkeleton variant="text" width="60px" height="20px" />
-        </div>
-
-        <!-- Divider -->
-        <div class="border-t my-6"></div>
-
-        <!-- User info skeleton -->
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <BaseSkeleton variant="circular" width="48px" height="48px" />
-            <div class="space-y-2">
-              <BaseSkeleton variant="text" width="120px" height="16px" />
-              <BaseSkeleton variant="text" width="80px" height="14px" />
-            </div>
-          </div>
-          <BaseSkeleton variant="rounded" width="90px" height="36px" />
-        </div>
-
-        <!-- Divider -->
-        <div class="border-t my-6"></div>
-
-        <!-- Like button skeleton -->
-        <div class="flex items-center gap-4">
-          <BaseSkeleton variant="circular" width="40px" height="40px" />
-          <BaseSkeleton variant="text" width="60px" height="24px" />
-        </div>
-
-        <!-- Divider -->
-        <div class="border-t my-6"></div>
-
-        <!-- Comments skeleton -->
-        <div class="space-y-4">
-          <BaseSkeleton variant="text" width="120px" height="20px" />
-
-          <!-- Comment items -->
-          <div v-for="i in 3" :key="i" class="flex gap-3">
-            <BaseSkeleton variant="circular" width="32px" height="32px" />
-            <div class="flex-1 space-y-2">
-              <BaseSkeleton variant="text" width="100px" height="14px" />
-              <BaseSkeleton variant="text" width="100%" height="12px" count="2" />
-            </div>
-          </div>
+        <div class="flex gap-2">
+          <BaseSkeleton variant="rounded" :width="100" :height="44" />
+          <BaseSkeleton variant="rounded" :width="80" :height="44" />
         </div>
       </div>
+
+      <!-- Title -->
+      <BaseSkeleton variant="text" width="70%" height="2rem" />
+
+      <!-- Description -->
+      <div class="space-y-2">
+        <BaseSkeleton variant="text" width="100%" height="1rem" />
+        <BaseSkeleton variant="text" width="85%" height="1rem" />
+        <BaseSkeleton variant="text" width="60%" height="1rem" />
+      </div>
+
+      <!-- Tags -->
+      <div class="flex flex-wrap gap-2 mt-4">
+        <BaseSkeleton v-for="i in 4" :key="i" variant="rounded" :width="80" :height="32" />
+      </div>
+
+      <!-- User info -->
+      <div class="flex items-center mt-4 gap-3">
+        <BaseSkeleton variant="circular" :width="40" :height="40" />
+        <BaseSkeleton variant="text" :width="120" height="1rem" />
+      </div>
+
+      <!-- Comments section -->
+      <div class="mt-6 space-y-3">
+        <BaseSkeleton variant="text" :width="150" height="1.5rem" />
+        <BaseSkeleton variant="rounded" width="100%" :height="48" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Info only skeleton -->
+  <div v-else class="flex flex-col w-full h-full p-2">
+    <div class="flex items-center justify-center w-full h-full">
+      <BaseLoader variant="spinner" size="lg" />
     </div>
   </div>
 </template>

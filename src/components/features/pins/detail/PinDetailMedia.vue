@@ -1,256 +1,392 @@
+<!-- src/components/features/pins/detail/PinDetailMedia.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { storageApi } from '@/api/storage.api'
+/**
+ * PinDetailMedia - Медиа компонент с кастомным видеоплеером
+ * Использует: useVideoPlayer, useHover, formatDuration из utils
+ * Анимация лайка встроена напрямую (без отдельного компонента)
+ */
+
+import { ref, computed, onActivated, onDeactivated } from 'vue'
 import { useVideoPlayer } from '@/composables/features/useVideoPlayer'
+import { useHover } from '@/composables/features/useHover'
 import { formatDuration } from '@/utils/formatters'
-import type { Pin } from '@/types'
 
 export interface PinDetailMediaProps {
-  pin: Pin
+  imageSrc?: string | null
+  videoSrc?: string | null
+  alt?: string
+  rgb?: string | null
+  href?: string | null
+  isGif?: boolean
 }
 
 const props = defineProps<PinDetailMediaProps>()
 
 const emit = defineEmits<{
-  (e: 'fullscreen'): void
+  (e: 'load'): void
+  (e: 'openFullscreen'): void
+  (e: 'doubleTap'): void
 }>()
 
-// State
-const mediaBlobUrl = ref<string | null>(null)
-const isLoading = ref(true)
+// Refs
+const containerRef = ref<HTMLElement | null>(null)
 const videoRef = ref<HTMLVideoElement | null>(null)
 
-const isImage = computed(() => {
-  return !props.pin.videoPreviewUrl && !!props.pin.imageUrl
-})
+// State
+const isMediaLoaded = ref(false)
+const showViewLarge = ref(false)
 
-const isVideo = computed(() => {
-  return !!props.pin.videoPreviewUrl
-})
+// Like animation state (встроенная анимация)
+const showLikeAnimation = ref(false)
+const showDislikeAnimation = ref(false)
 
-const isGif = computed(() => {
-  return props.pin.contentType === 'image/gif'
-})
+// Hover
+const { isHovered } = useHover(containerRef, { enterDelay: 0, leaveDelay: 0 })
 
-// Video player
-const {
-  isPlaying,
-  currentTime,
-  duration,
-  volume,
-  isMuted,
-  progress,
-  formattedCurrentTime,
-  formattedDuration,
-  play,
-  pause,
-  togglePlay,
-  seek,
-  seekToPercent,
-  toggleMute,
-  setVolume,
-  showControls,
-  resetControlsTimeout,
-} = useVideoPlayer(videoRef, {
-  autoplay: false,
-  muted: false,
-  volume: 0.7,
-  controlsTimeout: 3000,
-})
+// Video player composable
+const videoPlayer = props.videoSrc
+  ? useVideoPlayer(videoRef, {
+      autoplay: true,
+      loop: true,
+      muted: true,
+      volume: 0,
+      controlsTimeout: 2000,
+    })
+  : null
 
-// Load media
-onMounted(async () => {
-  try {
-    const mediaId = props.pin.videoPreviewUrl || props.pin.imageUrl
-    if (!mediaId) {
-      isLoading.value = false
-      return
-    }
+// Computed
+const isVideo = computed(() => !!props.videoSrc)
+const isImage = computed(() => !!props.imageSrc && !props.videoSrc)
 
-    const blob = await storageApi.downloadImage(mediaId)
-    mediaBlobUrl.value = URL.createObjectURL(blob)
-  } catch (error) {
-    console.error('[PinDetailMedia] Load failed:', error)
-  } finally {
-    isLoading.value = false
+const formattedTime = computed(() => videoPlayer?.formattedTime.value || '0:00')
+const formattedVideoDuration = computed(() => videoPlayer?.formattedDuration.value || '0:00')
+
+// Simulate hover on load (из старого проекта)
+function simulateHover() {
+  showViewLarge.value = true
+  setTimeout(() => {
+    showViewLarge.value = false
+  }, 2000)
+}
+
+// Handlers
+function onImageLoad() {
+  isMediaLoaded.value = true
+  simulateHover()
+  emit('load')
+}
+
+function onVideoLoad() {
+  isMediaLoaded.value = true
+  emit('load')
+}
+
+function handleOpenFullscreen() {
+  if (isImage.value) {
+    emit('openFullscreen')
+  }
+}
+
+// Double tap detection
+let lastTap = 0
+function handleTap() {
+  const now = Date.now()
+  if (now - lastTap < 300) {
+    emit('doubleTap')
+    lastTap = 0
+  } else {
+    lastTap = now
+  }
+}
+
+function handleVideoClick() {
+  videoPlayer?.togglePlay()
+  handleTap()
+}
+
+function handleVolumeChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  videoPlayer?.setVolume(parseFloat(input.value))
+}
+
+function handleSeek(event: Event) {
+  const input = event.target as HTMLInputElement
+  videoPlayer?.seek(parseFloat(input.value))
+}
+
+// KeepAlive lifecycle
+onActivated(() => {
+  if (videoPlayer && videoRef.value) {
+    videoPlayer.play()
+    videoPlayer.resetControlsTimeout()
   }
 })
 
-// Cleanup
-onBeforeUnmount(() => {
-  if (mediaBlobUrl.value && mediaBlobUrl.value.startsWith('blob:')) {
-    URL.revokeObjectURL(mediaBlobUrl.value)
-  }
+onDeactivated(() => {
+  videoPlayer?.pause()
 })
 
-const handleProgressClick = (event: MouseEvent) => {
-  if (!isVideo.value) return
-
-  const progressBar = event.currentTarget as HTMLElement
-  const rect = progressBar.getBoundingClientRect()
-  const percent = ((event.clientX - rect.left) / rect.width) * 100
-  seekToPercent(percent)
-}
-
-const handleVolumeChange = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  setVolume(Number(target.value))
-}
+// Expose для parent
+defineExpose({
+  triggerLikeAnimation: () => {
+    showLikeAnimation.value = true
+    showDislikeAnimation.value = false
+    setTimeout(() => {
+      showLikeAnimation.value = false
+    }, 500)
+  },
+  triggerDislikeAnimation: () => {
+    showDislikeAnimation.value = true
+    showLikeAnimation.value = false
+    setTimeout(() => {
+      showDislikeAnimation.value = false
+    }, 500)
+  },
+})
 </script>
 
 <template>
-  <div class="relative w-full h-full flex items-center justify-center group">
-    <!-- Loading -->
-    <div v-if="isLoading" class="flex items-center justify-center w-full h-96">
-      <BaseLoader variant="spinner" size="lg" color="white" />
+  <div ref="containerRef" class="relative w-full max-w-2xl mx-auto">
+    <!-- Image -->
+    <div v-if="isImage" class="relative">
+      <img
+        :src="imageSrc!"
+        :alt="alt || 'Pin image'"
+        class="h-auto w-full rounded-3xl"
+        @load="onImageLoad"
+        @click="handleTap"
+      />
+
+      <!-- Like Animation (встроенная из старого проекта) -->
+      <div
+        class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+      >
+        <div class="relative flex items-center justify-center w-12 h-12">
+          <Transition name="flash2">
+            <i
+              v-if="showDislikeAnimation"
+              class="absolute pi pi-heart text-8xl text-white glowing-icon"
+            />
+          </Transition>
+          <Transition name="flash2">
+            <i
+              v-if="showLikeAnimation"
+              class="absolute pi pi-heart-fill text-8xl text-white glowing-icon"
+            />
+          </Transition>
+        </div>
+      </div>
+
+      <!-- View larger button -->
+      <div
+        class="absolute right-2 bottom-2 cursor-pointer"
+        @mouseover="showViewLarge = true"
+        @click="handleOpenFullscreen"
+        @mouseleave="showViewLarge = false"
+      >
+        <div
+          :class="[
+            'bg-white rounded-2xl bg-opacity-80 hover:bg-opacity-100 p-4 flex items-center justify-center transition-all duration-200 ease-in origin-right h-12',
+            showViewLarge ? 'w-40' : 'w-12',
+          ]"
+          class="min-w-[3rem]"
+        >
+          <span
+            v-if="showViewLarge"
+            class="mr-2 transition-opacity duration-300 ease-in-out text-md text-nowrap truncate"
+          >
+            View larger
+          </span>
+          <i class="pi pi-arrow-up-right-and-arrow-down-left-from-center rotate-90" />
+        </div>
+      </div>
+
+      <!-- Visit site button -->
+      <div v-if="href && isHovered" class="absolute left-2 bottom-2 cursor-pointer font-semibold">
+        <a :href="href" target="_blank" rel="noopener noreferrer" class="w-full inline-block">
+          <div
+            class="bg-white rounded-full bg-opacity-80 hover:bg-opacity-100 p-4 flex items-center justify-center transition-all duration-200 ease-in origin-right h-12"
+          >
+            <i class="pi pi-arrow-up-right mr-2" />
+            <span
+              class="mr-2 transition-opacity duration-300 ease-in-out text-md text-nowrap truncate"
+            >
+              Visit site
+            </span>
+          </div>
+        </a>
+      </div>
     </div>
 
-    <!-- Image -->
-    <div v-else-if="isImage && mediaBlobUrl" class="relative max-w-full max-h-[90vh]">
+    <!-- Video с custom controls -->
+    <div
+      v-if="isVideo && videoPlayer"
+      class="relative"
+      @mousemove="videoPlayer.resetControlsTimeout()"
+    >
+      <video
+        ref="videoRef"
+        :src="videoSrc!"
+        class="w-full rounded-3xl block cursor-pointer"
+        loop
+        @loadeddata="onVideoLoad"
+        @click="handleVideoClick"
+      />
+
       <!-- GIF Badge -->
       <div
         v-if="isGif"
-        class="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-black rounded-2xl px-4 py-2 text-sm font-semibold z-10"
+        class="absolute top-2 left-2 bg-gray-200 text-black rounded-2xl px-3 py-1 text-sm z-10"
       >
         GIF
       </div>
 
-      <!-- Image -->
-      <img
-        :src="mediaBlobUrl"
-        :alt="pin.title || 'Pin image'"
-        class="max-w-full max-h-[90vh] object-contain cursor-zoom-in"
-        @click="emit('fullscreen')"
+      <!-- Gradient Overlay -->
+      <div
+        v-if="videoPlayer.showControls.value"
+        class="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-red-900 to-transparent rounded-3xl"
       />
 
-      <!-- Fullscreen Button -->
-      <button
-        @click="emit('fullscreen')"
-        class="absolute top-4 right-4 p-3 bg-black/50 hover:bg-black/70 text-white rounded-full transition opacity-0 group-hover:opacity-100"
+      <!-- Controls -->
+      <div
+        v-if="videoPlayer.showControls.value"
+        class="absolute bottom-10 left-4 right-4 flex items-center justify-between text-white"
       >
-        <i class="pi pi-window-maximize text-xl"></i>
-      </button>
-    </div>
-
-    <!-- Video -->
-    <div
-      v-else-if="isVideo && mediaBlobUrl"
-      class="relative w-full max-h-[90vh]"
-      @mousemove="resetControlsTimeout"
-    >
-      <video
-        ref="videoRef"
-        :src="mediaBlobUrl"
-        class="w-full max-h-[90vh] object-contain"
-        @click="togglePlay"
-      />
-
-      <!-- Video Controls Overlay -->
-      <Transition name="fade">
-        <div
-          v-if="showControls || !isPlaying"
-          class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40 pointer-events-none"
-        >
-          <!-- Play/Pause Center Button -->
-          <div
-            v-if="!isPlaying"
-            class="absolute inset-0 flex items-center justify-center pointer-events-auto"
-          >
-            <button
-              @click="play"
-              class="w-20 h-20 flex items-center justify-center bg-white/30 backdrop-blur-sm rounded-full hover:bg-white/50 transition"
-            >
-              <i class="pi pi-play text-4xl text-white ml-1"></i>
-            </button>
-          </div>
-
-          <!-- Bottom Controls -->
-          <div class="absolute bottom-0 left-0 right-0 p-6 pointer-events-auto">
-            <!-- Progress Bar -->
-            <div
-              @click="handleProgressClick"
-              class="w-full h-2 bg-white/30 rounded-full cursor-pointer mb-4 group/progress"
-            >
-              <div
-                class="h-full bg-red-500 rounded-full transition-all group-hover/progress:bg-red-600"
-                :style="{ width: `${progress}%` }"
-              ></div>
-            </div>
-
-            <!-- Controls Row -->
-            <div class="flex items-center justify-between text-white">
-              <!-- Left: Play/Pause + Time -->
-              <div class="flex items-center gap-4">
-                <button
-                  @click="togglePlay"
-                  class="w-10 h-10 flex items-center justify-center hover:bg-white/20 rounded-full transition"
-                >
-                  <i :class="['pi', isPlaying ? 'pi-pause' : 'pi-play', 'text-xl']"></i>
-                </button>
-
-                <span class="text-sm font-medium">
-                  {{ formattedCurrentTime }} / {{ formattedDuration }}
-                </span>
-              </div>
-
-              <!-- Right: Volume + Fullscreen -->
-              <div class="flex items-center gap-4">
-                <!-- Volume -->
-                <div class="flex items-center gap-2 group/volume">
-                  <button
-                    @click="toggleMute"
-                    class="w-10 h-10 flex items-center justify-center hover:bg-white/20 rounded-full transition"
-                  >
-                    <i
-                      :class="[
-                        'pi',
-                        isMuted || volume === 0 ? 'pi-volume-off' : 'pi-volume-up',
-                        'text-xl',
-                      ]"
-                    ></i>
-                  </button>
-
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    :value="volume"
-                    @input="handleVolumeChange"
-                    class="w-0 group-hover/volume:w-24 transition-all duration-300 accent-red-500"
-                  />
-                </div>
-
-                <!-- Fullscreen -->
-                <button
-                  @click="emit('fullscreen')"
-                  class="w-10 h-10 flex items-center justify-center hover:bg-white/20 rounded-full transition"
-                >
-                  <i class="pi pi-window-maximize text-xl"></i>
-                </button>
-              </div>
-            </div>
-          </div>
+        <!-- Left: Play/Pause and Time -->
+        <div class="flex items-center gap-3">
+          <i
+            v-if="videoPlayer.isPlaying.value"
+            @click.stop="videoPlayer.pause()"
+            class="pi pi-pause cursor-pointer text-xl"
+          />
+          <i v-else @click.stop="videoPlayer.play()" class="pi pi-play cursor-pointer text-xl" />
+          <span class="text-md">{{ formattedTime }} / {{ formattedVideoDuration }}</span>
         </div>
-      </Transition>
-    </div>
 
-    <!-- Fallback -->
-    <div v-else class="text-white text-center">
-      <i class="pi pi-image text-6xl mb-4 opacity-50"></i>
-      <p>Media not available</p>
+        <!-- Right: Volume -->
+        <div class="flex items-center gap-3 text-white">
+          <i
+            v-if="videoPlayer.isMuted.value || videoPlayer.volume.value === 0"
+            @click.stop="videoPlayer.toggleMute()"
+            class="pi pi-volume-off text-xl cursor-pointer"
+          />
+          <i
+            v-else
+            @click.stop="videoPlayer.toggleMute()"
+            class="pi pi-volume-up text-xl cursor-pointer"
+          />
+          <input
+            type="range"
+            class="w-20 h-0.5 bg-black rounded-lg cursor-pointer accent-white"
+            min="0"
+            max="1"
+            step="0.0005"
+            :value="videoPlayer.volume.value"
+            @input="handleVolumeChange"
+          />
+        </div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div v-if="videoPlayer.showControls.value" class="absolute bottom-4 left-4 right-4">
+        <input
+          type="range"
+          class="w-full h-0.5 bg-black rounded-lg cursor-pointer accent-white"
+          :max="videoPlayer.duration.value"
+          min="0"
+          step="0.01"
+          :value="videoPlayer.currentTime.value"
+          @input="handleSeek"
+        />
+      </div>
+
+      <!-- Center Play/Pause indicator -->
+      <div
+        v-if="videoPlayer.showControls.value"
+        class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+      >
+        <Transition name="flash">
+          <i
+            v-if="videoPlayer.isPlaying.value"
+            class="pi pi-pause text-5xl text-white glowing-icon"
+          />
+        </Transition>
+        <Transition name="flash">
+          <i
+            v-if="!videoPlayer.isPlaying.value"
+            class="pi pi-play text-5xl text-white glowing-icon"
+          />
+        </Transition>
+      </div>
+
+      <!-- Like Animation on video -->
+      <div
+        class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+      >
+        <div class="relative flex items-center justify-center w-12 h-12">
+          <Transition name="flash2">
+            <i
+              v-if="showDislikeAnimation"
+              class="absolute pi pi-heart text-8xl text-white glowing-icon"
+            />
+          </Transition>
+          <Transition name="flash2">
+            <i
+              v-if="showLikeAnimation"
+              class="absolute pi pi-heart-fill text-8xl text-white glowing-icon"
+            />
+          </Transition>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
+/* Анимация play/pause */
+.flash-enter-active,
+.flash-leave-active {
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.flash-enter-from,
+.flash-leave-to {
   opacity: 0;
+  transform: scale(3);
+}
+
+.flash-enter-to,
+.flash-leave-from {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Анимация лайка из старого проекта */
+.flash2-enter-active,
+.flash2-leave-active {
+  transition:
+    opacity 0.5s ease-out,
+    transform 0.5s cubic-bezier(0.3, 0.8, 0.2, 1);
+}
+
+.flash2-enter-from,
+.flash2-leave-to {
+  opacity: 0;
+  transform: scale(3);
+}
+
+.flash2-enter-to,
+.flash2-leave-from {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.glowing-icon {
+  text-shadow:
+    0 0 15px rgba(255, 0, 0, 0.7),
+    0 0 25px rgba(255, 0, 0, 0.6),
+    0 0 35px rgba(255, 0, 0, 0.5);
 }
 </style>

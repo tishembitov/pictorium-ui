@@ -1,107 +1,202 @@
+<!-- src/components/features/pins/detail/PinFullscreen.vue -->
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
-import { useKeyboardShortcuts } from '@/composables/utils'
-import PinDetailMedia from './PinDetailMedia.vue'
-import type { Pin } from '@/types'
+/**
+ * PinFullscreen - Полноэкранный просмотр изображения
+ * Использует: useEscapeKey, useSelectedBoard
+ */
+
+import { ref, computed, watch } from 'vue'
+import { useEscapeKey } from '@/composables/utils/useClickOutside'
+import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
+import { usePinActions } from '@/composables/api/usePinActions'
+import { useSuccessToast, useErrorToast } from '@/composables/ui/useToast'
 
 export interface PinFullscreenProps {
   modelValue: boolean
-  pin: Pin
+  src: string
+  alt?: string
+  pinId: string
+  rgb?: string
 }
 
-const props = defineProps<PinFullscreenProps>()
+const props = withDefaults(defineProps<PinFullscreenProps>(), {
+  alt: 'Fullscreen image',
+})
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'close'): void
+  (e: 'openBoardSelector'): void
 }>()
 
-const containerRef = ref<HTMLElement | null>(null)
+// Composables
+const { boardTitle } = useSelectedBoard()
+const { save } = usePinActions(props.pinId)
+const { pinSaved } = useSuccessToast()
+const { showError } = useErrorToast()
 
-const close = () => {
+// State
+const zoom = ref(1)
+const minZoom = 0.2
+const maxZoom = 3
+const zoomStep = 0.1
+const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+// Close handler
+function close() {
   emit('update:modelValue', false)
-  emit('close')
+  zoom.value = 1
 }
 
-// Keyboard shortcuts
-useKeyboardShortcuts([
-  {
-    key: 'Escape',
-    handler: close,
-  },
-  {
-    key: 'f',
-    handler: close,
-  },
-])
+// Escape key
+const isOpen = computed(() => props.modelValue)
+useEscapeKey(close, { enabled: isOpen })
 
-// Lock body scroll
-onMounted(() => {
-  if (props.modelValue) {
-    document.body.classList.add('overflow-hidden')
+// Zoom controls
+function increaseZoom() {
+  zoom.value = Math.min(maxZoom, zoom.value + zoomStep)
+}
+
+function decreaseZoom() {
+  zoom.value = Math.max(minZoom, zoom.value - zoomStep)
+}
+
+function handleWheel(event: WheelEvent) {
+  event.preventDefault()
+  if (event.deltaY < 0) {
+    increaseZoom()
+  } else {
+    decreaseZoom()
+  }
+}
+
+// Save handler
+async function handleSave() {
+  if (saveState.value === 'saving') return
+
+  saveState.value = 'saving'
+  try {
+    await save()
+    saveState.value = 'saved'
+    pinSaved()
+  } catch (error: any) {
+    if (error?.response?.status === 409) {
+      saveState.value = 'error'
+    } else {
+      saveState.value = 'idle'
+      showError(error)
+    }
+  }
+}
+
+// Save button text
+const saveButtonText = computed(() => {
+  switch (saveState.value) {
+    case 'saving':
+      return 'Saving...'
+    case 'saved':
+      return 'Saved'
+    case 'error':
+      return 'Already saved!'
+    default:
+      return 'Save'
   }
 })
 
-onBeforeUnmount(() => {
-  document.body.classList.remove('overflow-hidden')
-})
-
+// Body scroll lock
 watch(
   () => props.modelValue,
   (isOpen) => {
-    if (isOpen) {
-      document.body.classList.add('overflow-hidden')
-    } else {
-      document.body.classList.remove('overflow-hidden')
-    }
+    document.body.classList.toggle('overflow-hidden', isOpen)
   },
 )
 </script>
 
 <template>
-  <Transition name="fullscreen-fade">
-    <div
-      v-if="modelValue"
-      ref="containerRef"
-      class="fixed inset-0 z-[100] bg-black flex items-center justify-center"
-      @click.self="close"
-    >
-      <!-- Close Button -->
-      <button
-        @click="close"
-        class="absolute top-6 right-6 z-10 p-3 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-full transition-all"
-        title="Close (Esc)"
-      >
-        <i class="pi pi-times text-2xl"></i>
-      </button>
-
-      <!-- Fullscreen Media -->
-      <div class="w-full h-full flex items-center justify-center p-8">
-        <PinDetailMedia :pin="pin" @fullscreen="close" />
-      </div>
-
-      <!-- Hint -->
+  <Teleport to="body">
+    <Transition name="fade">
       <div
-        class="absolute bottom-6 left-1/2 transform -translate-x-1/2 text-white/70 text-sm font-medium"
+        v-if="modelValue"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80"
+        @click.self="close"
+        @wheel="handleWheel"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="alt"
       >
-        Press <kbd class="px-2 py-1 bg-white/10 rounded">Esc</kbd> to close
+        <!-- Close button -->
+        <button
+          @click="close"
+          class="absolute top-4 left-4 bg-white bg-opacity-80 rounded-full p-2 focus:outline-none justify-center text-center items-center flex hover:bg-opacity-100 transition z-10"
+          aria-label="Close fullscreen"
+        >
+          <i class="pi pi-times text-3xl font-bold" />
+        </button>
+
+        <!-- Actions (правый верхний угол) -->
+        <div class="absolute top-4 right-4 flex flex-row gap-1 z-10">
+          <button
+            @click.stop="emit('openBoardSelector')"
+            class="px-6 py-3 text-sm bg-gray-800 hover:bg-black text-white rounded-3xl transition cursor-pointer"
+          >
+            {{ boardTitle || 'Profile' }}
+          </button>
+          <button
+            @click="handleSave"
+            :style="{ backgroundColor: saveState === 'idle' ? rgb || '#dc2626' : '#000' }"
+            class="px-6 py-3 text-sm text-white rounded-3xl transition transform hover:scale-105"
+            :disabled="saveState === 'saving'"
+          >
+            {{ saveButtonText }}
+          </button>
+        </div>
+
+        <!-- Image с zoom -->
+        <img
+          :src="src"
+          :alt="alt"
+          class="max-h-full max-w-full rounded-3xl transition-transform duration-300 select-none"
+          :style="{ transform: `scale(${zoom})` }"
+          draggable="false"
+        />
+
+        <!-- Zoom controls -->
+        <div class="absolute bottom-4 right-4 flex flex-col gap-2">
+          <button
+            @click="increaseZoom"
+            :disabled="zoom >= maxZoom"
+            class="bg-white bg-opacity-80 rounded-full p-2 focus:outline-none justify-center text-center items-center flex hover:bg-opacity-100 transition disabled:opacity-50"
+            aria-label="Zoom in"
+          >
+            <i class="pi pi-plus text-2xl font-bold" />
+          </button>
+
+          <button
+            @click="decreaseZoom"
+            :disabled="zoom <= minZoom"
+            class="bg-white bg-opacity-80 rounded-full p-2 focus:outline-none justify-center text-center items-center flex hover:bg-opacity-100 transition disabled:opacity-50"
+            aria-label="Zoom out"
+          >
+            <i class="pi pi-minus text-2xl font-bold" />
+          </button>
+        </div>
+
+        <!-- Zoom hint -->
+        <div class="absolute bottom-4 left-4 text-white text-sm opacity-60">
+          Scroll to zoom • {{ Math.round(zoom * 100) }}%
+        </div>
       </div>
-    </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
-.fullscreen-fade-enter-active,
-.fullscreen-fade-leave-active {
+.fade-enter-active,
+.fade-leave-active {
   transition: opacity 0.3s ease;
 }
 
-.fullscreen-fade-enter-from,
-.fullscreen-fade-leave-to {
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
-}
-
-kbd {
-  font-family: monospace;
 }
 </style>

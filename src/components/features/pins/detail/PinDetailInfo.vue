@@ -1,321 +1,290 @@
+<!-- src/components/features/pins/detail/PinDetailInfo.vue -->
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseBadge from '@/components/ui/BaseBadge.vue'
-import UserAvatar from '@/components/common/UserAvatar.vue'
-import PinLikeButton from '@/components/features/pins/likes/PinLikeButton.vue'
-import PinComments from '@/components/features/pins/comments/PinComments.vue'
-import PinEditForm from '@/components/features/pins/PinEditForm.vue'
-import UserPopover from '@/components/features/user/UserPopover.vue'
-import { usePins } from '@/composables/api/usePins'
-import { useAuth } from '@/composables/auth/useAuth'
-import { useFollow } from '@/composables/api/useUsers'
-import { useConfirm } from '@/composables/ui/useConfirm'
-import { useToast } from '@/composables/ui/useToast'
-import { useDateFormat } from '@/composables/utils'
-import { formatCompactNumber } from '@/utils/formatters'
-import { copyToClipboard } from '@/utils/helpers'
-import type { Pin } from '@/types'
+/**
+ * PinDetailInfo - Информационная панель детальной страницы
+ * Использует: usePinActions, useUserProfile, useTagsStore, randomTagColor
+ */
+
+import { ref, computed, onMounted } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+import type { PinWithBlob } from '@/types'
+import { useUserStore } from '@/stores/user.store'
+import { useTagsStore } from '@/stores/tags.store'
+import { usePinActions } from '@/composables/api/usePinActions'
+import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
+import { useSuccessToast, useErrorToast } from '@/composables/ui/useToast'
+import { randomTagColor } from '@/utils/colors'
+import PinLikesPopover from '@/components/features/likes/PinLikesPopover.vue'
+import PinComments from '@/components/features/comments/PinComments.vue'
+import BaseAvatar from '@/components/ui/BaseAvatar.vue'
+import TagBadge from '@/components/ui/TagBadge.vue'
 
 export interface PinDetailInfoProps {
-  pin: Pin
+  pin: PinWithBlob
 }
 
 const props = defineProps<PinDetailInfoProps>()
 
 const emit = defineEmits<{
-  (e: 'deleted'): void
-  (e: 'updated', pin: Pin): void
+  (e: 'like'): void
+  (e: 'unlike'): void
+  (e: 'showLikesModal'): void
+  (e: 'openBoardSelector'): void
+  (e: 'tagClick', tagName: string): void
 }>()
 
 const router = useRouter()
-const { user } = useAuth()
-const { deletePin, savePin, unsavePin } = usePins()
-const { isFollowing, toggle: toggleFollow } = useFollow(props.pin.userId)
-const { confirm } = useConfirm()
-const { showToast } = useToast()
-const { full: createdDate } = useDateFormat(props.pin.createdAt)
+
+// Stores
+const userStore = useUserStore()
+const tagsStore = useTagsStore()
+
+// Composables
+const { like, unlike, save, isLiked, isSaved } = usePinActions(props.pin.id)
+const { boardTitle } = useSelectedBoard()
+const { pinSaved } = useSuccessToast()
+const { showError } = useErrorToast()
 
 // State
-const showEditModal = ref(false)
-const showUserPopover = ref(false)
-const isSaving = ref(false)
+const pinUser = ref<any>(null)
+const pinUserImage = ref<string | null>(null)
+const tags = ref<Array<{ id: string; name: string; color: string }>>([])
+const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+// Like state
+const localIsLiked = ref(props.pin.isLiked)
+const localLikeCount = ref(props.pin.likeCount)
+const isLikeProcessing = ref(false)
+
+// Popover state
+const showLikesPopover = ref(false)
+const insideLikesPopover = ref(false)
 
 // Computed
-const isOwner = computed(() => user.value?.id === props.pin.userId)
-const canEdit = computed(() => isOwner.value)
-const canDelete = computed(() => isOwner.value)
+const accentColor = computed(() => props.pin.rgb || '#ef4444')
 
-const displayStats = computed(() => ({
-  views: formatCompactNumber(props.pin.viewCount || 0),
-  likes: formatCompactNumber(props.pin.likeCount),
-  comments: formatCompactNumber(props.pin.commentCount),
-  saves: formatCompactNumber(props.pin.saveCount),
-}))
+const saveButtonText = computed(() => {
+  switch (saveState.value) {
+    case 'saving':
+      return 'Saving...'
+    case 'saved':
+      return 'Saved'
+    case 'error':
+      return 'Already saved!'
+    default:
+      return 'Save'
+  }
+})
 
-// Actions
-const handleSave = async () => {
+// Load user data
+onMounted(async () => {
+  if (!props.pin.userId) return
+
   try {
-    isSaving.value = true
-    if (props.pin.isSaved) {
-      await unsavePin(props.pin.id)
-      showToast('Removed from saved', 'success')
+    pinUser.value = await userStore.loadUserById(props.pin.userId)
+    pinUserImage.value = userStore.getAvatarUrl(props.pin.userId) || null
+  } catch (error) {
+    console.error('[PinDetailInfo] Failed to load user:', error)
+  }
+
+  // Load tags
+  try {
+    const pinTags = await tagsStore.fetchPinTags(props.pin.id)
+    tags.value = pinTags.map((tag) => ({
+      id: tag.id,
+      name: tag.name,
+      color: randomTagColor(),
+    }))
+  } catch (error) {
+    console.error('[PinDetailInfo] Failed to load tags:', error)
+  }
+})
+
+// Handle like
+async function handleLike() {
+  if (isLikeProcessing.value) return
+
+  const wasLiked = localIsLiked.value
+  isLikeProcessing.value = true
+
+  // Optimistic update
+  localIsLiked.value = !wasLiked
+  localLikeCount.value += wasLiked ? -1 : 1
+
+  try {
+    if (wasLiked) {
+      await unlike()
+      emit('unlike')
     } else {
-      await savePin(props.pin.id)
-      showToast('Pin saved!', 'success')
+      await like()
+      emit('like')
     }
   } catch (error) {
-    console.error('[PinDetailInfo] Save failed:', error)
-    showToast('Failed to save pin', 'error')
+    // Rollback
+    localIsLiked.value = wasLiked
+    localLikeCount.value += wasLiked ? 1 : -1
+    showError(error)
   } finally {
-    isSaving.value = false
+    isLikeProcessing.value = false
   }
 }
 
-const handleEdit = () => {
-  showEditModal.value = true
-}
+// Handle save
+async function handleSave() {
+  if (saveState.value === 'saving') return
 
-const handleDelete = async () => {
-  const confirmed = await confirm({
-    title: 'Delete Pin',
-    message: 'Are you sure you want to delete this pin? This action cannot be undone.',
-    confirmText: 'Delete',
-    type: 'danger',
-  })
-
-  if (!confirmed) return
-
+  saveState.value = 'saving'
   try {
-    await deletePin(props.pin.id)
-    showToast('Pin deleted successfully!', 'success')
-    emit('deleted')
-  } catch (error) {
-    console.error('[PinDetailInfo] Delete failed:', error)
-    showToast('Failed to delete pin', 'error')
+    await save()
+    saveState.value = 'saved'
+    pinSaved()
+  } catch (error: any) {
+    if (error?.response?.status === 409) {
+      saveState.value = 'error'
+    } else {
+      saveState.value = 'idle'
+      showError(error)
+    }
   }
 }
 
-const handleShare = async () => {
-  const url = `${window.location.origin}/pin/${props.pin.id}`
-  const success = await copyToClipboard(url)
-  if (success) {
-    showToast('Link copied to clipboard!', 'success')
-  } else {
-    showToast('Failed to copy link', 'error')
+function handleLikesCountClick() {
+  emit('showLikesModal')
+}
+
+function handleMouseLeaveLikes() {
+  if (!insideLikesPopover.value) {
+    showLikesPopover.value = false
   }
 }
 
-const handleVisitLink = () => {
-  if (props.pin.href) {
-    window.open(props.pin.href, '_blank')
-  }
-}
-
-const handleUserClick = () => {
-  router.push(`/user/${props.pin.userId}`)
+function handleTagClick(tagName: string) {
+  router.push({ path: '/', query: { tag: tagName } })
+  emit('tagClick', tagName)
 }
 </script>
 
 <template>
-  <div class="flex flex-col h-full overflow-y-auto p-6">
-    <!-- Header Actions -->
-    <div class="flex items-center justify-between mb-6">
-      <!-- Share + More -->
-      <div class="flex items-center gap-2">
-        <button
-          @click="handleShare"
-          class="p-3 hover:bg-gray-100 rounded-full transition"
-          title="Share"
-        >
-          <i class="pi pi-share-alt text-xl"></i>
-        </button>
+  <div class="flex flex-col">
+    <!-- Top actions row -->
+    <div class="flex items-center justify-between w-full p-2">
+      <!-- Like button and count -->
+      <div class="flex items-center space-x-4 relative">
+        <!-- Like button -->
+        <i
+          v-if="localIsLiked"
+          @click="handleLike"
+          :style="{ color: accentColor }"
+          class="pi pi-heart-fill text-2xl cursor-pointer transition-transform duration-200 transform hover:scale-150"
+          :class="{ 'opacity-50 pointer-events-none': isLikeProcessing }"
+        />
+        <i
+          v-else
+          @click="handleLike"
+          :style="{ color: accentColor }"
+          class="pi pi-heart text-2xl cursor-pointer transition-transform duration-200 transform hover:scale-150"
+          :class="{ 'opacity-50 pointer-events-none': isLikeProcessing }"
+        />
 
-        <button
-          v-if="canEdit || canDelete"
-          class="p-3 hover:bg-gray-100 rounded-full transition"
-          title="More options"
+        <!-- Like count with popover -->
+        <div
+          v-if="localLikeCount > 0"
+          class="font-bold text-2xl relative cursor-pointer"
+          @click="handleLikesCountClick"
+          @mouseover="showLikesPopover = true"
+          @mouseleave="handleMouseLeaveLikes"
         >
-          <i class="pi pi-ellipsis-h text-xl"></i>
-        </button>
+          <span :style="{ color: accentColor }">{{ localLikeCount }}</span>
+
+          <div
+            v-if="showLikesPopover"
+            @mouseover="insideLikesPopover = true"
+            @mouseleave="
+              insideLikesPopover = false
+              showLikesPopover = false
+            "
+            class="absolute top-[30px] left-[-50px] z-50"
+          >
+            <PinLikesPopover :pin-id="pin.id" />
+          </div>
+        </div>
       </div>
 
-      <!-- Save Button -->
-      <BaseButton
-        :variant="pin.isSaved ? 'secondary' : 'primary'"
-        size="md"
-        @click="handleSave"
-        :loading="isSaving"
-      >
-        {{ pin.isSaved ? 'Saved' : 'Save' }}
-      </BaseButton>
-    </div>
+      <!-- Save actions -->
+      <div class="flex flex-row gap-1">
+        <button
+          @click.stop="emit('openBoardSelector')"
+          class="px-6 py-3 text-sm bg-gray-800 hover:bg-black text-white rounded-3xl transition cursor-pointer"
+        >
+          {{ boardTitle || 'Profile' }}
+        </button>
 
-    <!-- Link (if exists) -->
-    <div v-if="pin.href" class="mb-6">
-      <button
-        @click="handleVisitLink"
-        class="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
-      >
-        <i class="pi pi-external-link"></i>
-        <span class="truncate">{{ pin.href }}</span>
-      </button>
+        <button
+          @click="handleSave"
+          :style="{ backgroundColor: saveState === 'idle' ? accentColor : '#000' }"
+          class="px-6 py-3 text-sm text-white rounded-3xl transition transform hover:scale-105"
+          :disabled="saveState === 'saving'"
+        >
+          {{ saveButtonText }}
+        </button>
+      </div>
     </div>
 
     <!-- Title -->
-    <h1 v-if="pin.title" class="text-3xl font-bold text-gray-900 mb-4">
-      {{ pin.title }}
-    </h1>
+    <div v-if="pin.title">
+      <span :style="{ color: accentColor }" class="font-bold text-2xl">
+        {{ pin.title }}
+      </span>
+    </div>
 
     <!-- Description -->
-    <p v-if="pin.description" class="text-gray-700 mb-6 whitespace-pre-wrap">
-      {{ pin.description }}
-    </p>
+    <div v-if="pin.description" class="mt-2">
+      <span>{{ pin.description }}</span>
+    </div>
+
+    <!-- Visit site button -->
+    <div v-if="pin.href" class="mt-4 mr-5">
+      <a
+        target="_blank"
+        rel="noopener noreferrer"
+        :href="pin.href"
+        class="w-full inline-block text-center py-3 bg-neutral-200 text-black font-medium rounded-full hover:bg-neutral-300 transition duration-300"
+      >
+        Visit site
+      </a>
+    </div>
 
     <!-- Tags -->
-    <div v-if="pin.tags && pin.tags.length > 0" class="flex flex-wrap gap-2 mb-6">
+    <div v-if="tags.length > 0" class="flex flex-wrap gap-2 my-2" v-auto-animate>
+      <TagBadge
+        v-for="tag in tags"
+        :key="tag.id"
+        :label="tag.name"
+        :color="tag.color"
+        size="md"
+        clickable
+        @click="handleTagClick(tag.name)"
+      />
+    </div>
+
+    <!-- User info -->
+    <div v-if="pinUser">
       <RouterLink
-        v-for="tag in pin.tags"
-        :key="tag"
-        :to="`/search?tag=${encodeURIComponent(tag)}`"
-        class="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-full transition"
+        :to="`/user/${pinUser.username}`"
+        class="inline-flex items-center mt-2 hover:underline cursor-pointer"
       >
-        #{{ tag }}
+        <BaseAvatar v-if="pinUserImage" :src="pinUserImage" :alt="pinUser.username" size="md" />
+        <div
+          v-else
+          class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold"
+        >
+          {{ pinUser.username.charAt(0).toUpperCase() }}
+        </div>
+        <span class="ml-2 text-md font-medium">@{{ pinUser.username }}</span>
       </RouterLink>
     </div>
 
-    <!-- Stats -->
-    <div class="flex items-center gap-6 mb-6 text-sm text-gray-600">
-      <div class="flex items-center gap-2">
-        <i class="pi pi-eye"></i>
-        <span>{{ displayStats.views }}</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <i class="pi pi-heart"></i>
-        <span>{{ displayStats.likes }}</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <i class="pi pi-comments"></i>
-        <span>{{ displayStats.comments }}</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <i class="pi pi-bookmark"></i>
-        <span>{{ displayStats.saves }}</span>
-      </div>
-    </div>
-
-    <!-- Created Date -->
-    <p class="text-sm text-gray-500 mb-6">Created {{ createdDate }}</p>
-
-    <!-- Divider -->
-    <hr class="mb-6" />
-
-    <!-- User Info -->
-    <div class="flex items-center justify-between mb-6">
-      <div class="flex items-center gap-3 flex-1">
-        <div class="relative">
-          <UserAvatar
-            :user="{ id: pin.userId, username: pin.userId }"
-            size="lg"
-            :clickable="true"
-            @click="showUserPopover = !showUserPopover"
-          />
-          <UserPopover v-model="showUserPopover" :user-id="pin.userId" position="bottom" />
-        </div>
-
-        <div class="flex-1 min-w-0">
-          <p
-            @click="handleUserClick"
-            class="font-semibold text-gray-900 cursor-pointer hover:underline truncate"
-          >
-            {{ pin.userId }}
-          </p>
-          <p class="text-sm text-gray-500">Creator</p>
-        </div>
-      </div>
-
-      <!-- Follow Button -->
-      <BaseButton
-        v-if="!isOwner"
-        :variant="isFollowing ? 'secondary' : 'primary'"
-        size="sm"
-        @click="toggleFollow"
-      >
-        {{ isFollowing ? 'Following' : 'Follow' }}
-      </BaseButton>
-    </div>
-
-    <!-- Action Buttons (Edit/Delete) -->
-    <div v-if="canEdit || canDelete" class="flex items-center gap-2 mb-6">
-      <BaseButton v-if="canEdit" variant="outline" size="md" full-width @click="handleEdit">
-        <template #icon>
-          <i class="pi pi-pencil"></i>
-        </template>
-        Edit
-      </BaseButton>
-
-      <BaseButton v-if="canDelete" variant="danger" size="md" full-width @click="handleDelete">
-        <template #icon>
-          <i class="pi pi-trash"></i>
-        </template>
-        Delete
-      </BaseButton>
-    </div>
-
-    <!-- Divider -->
-    <hr class="mb-6" />
-
-    <!-- Like Button -->
-    <div class="mb-6">
-      <PinLikeButton
-        :pin-id="pin.id"
-        :is-liked="pin.isLiked"
-        :like-count="pin.likeCount"
-        size="lg"
-        :show-count="true"
-        :show-popover="true"
-      />
-    </div>
-
-    <!-- Divider -->
-    <hr class="mb-6" />
-
-    <!-- Comments Section -->
-    <div class="flex-1">
-      <PinComments
-        :pin-id="pin.id"
-        :comment-count="pin.commentCount"
-        :auto-expand="true"
-        :show-title="true"
-        max-height="40rem"
-        @comment-added="/* refresh pin */"
-        @comments-count-changed="/* update count */"
-      />
-    </div>
-
-    <!-- Edit Modal -->
-    <PinEditForm v-model="showEditModal" :pin="pin" @success="emit('updated', $event)" />
+    <!-- Comments section -->
+    <PinComments :pin-id="pin.id" :comment-count="pin.commentCount" :accent-color="accentColor" />
   </div>
 </template>
-
-<style scoped>
-/* Custom scrollbar */
-.overflow-y-auto::-webkit-scrollbar {
-  width: 8px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-</style>

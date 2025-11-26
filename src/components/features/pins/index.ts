@@ -1,5 +1,6 @@
-// src/components/features/pin/index.ts
+// src/components/features/pins/index.ts
 
+// Base components
 export { default as PinMedia } from './PinMedia.vue'
 export { default as PinActions } from './PinActions.vue'
 export { default as PinUserInfo } from './PinUserInfo.vue'
@@ -12,6 +13,14 @@ export { default as PinCreateForm } from './PinCreateForm.vue'
 export { default as PinEditForm } from './PinEditForm.vue'
 export { default as PinVariants } from './PinVariants.vue'
 
+// Detail components
+export { default as PinDetailView } from './detail/PinDetailView.vue'
+export { default as PinDetailMedia } from './detail/PinDetailMedia.vue'
+export { default as PinDetailInfo } from './detail/PinDetailInfo.vue'
+export { default as PinFullscreen } from './detail/PinFullscreen.vue'
+export { default as RelatedPins } from './detail/RelatedPins.vue'
+export { default as PinDetailSkeleton } from './detail/PinDetailSkeleton.vue'
+
 // Re-export types
 export type { PinMediaProps } from './PinMedia.vue'
 export type { PinActionsProps } from './PinActions.vue'
@@ -23,3 +32,9 @@ export type { PinMasonryProps, PinGroup } from './PinMasonry.vue'
 export type { PinGridProps } from './PinGrid.vue'
 export type { PinEditFormProps } from './PinEditForm.vue'
 export type { PinVariantsProps } from './PinVariants.vue'
+export type { PinDetailViewProps } from './detail/PinDetailView.vue'
+export type { PinDetailMediaProps } from './detail/PinDetailMedia.vue'
+export type { PinDetailInfoProps } from './detail/PinDetailInfo.vue'
+export type { PinFullscreenProps } from './detail/PinFullscreen.vue'
+export type { RelatedPinsProps } from './detail/RelatedPins.vue'
+export type { PinDetailSkeletonProps } from './detail/PinDetailSkeleton.vue'

@@ -1,224 +1,211 @@
+<!-- src/components/pin/likes/PinLikeButton.vue -->
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseBadge from '@/components/ui/BaseBadge.vue'
-import PinLikesPopover from './PinLikesPopover.vue'
-import PinLikesModal from './PinLikesModal.vue'
-import { useLikes } from '@/composables/api/useLikes'
-import { useLikeAnimation } from '@/composables/features/useAnimations'
+import { ref, computed, watch } from 'vue'
+import { usePinActions } from '@/composables/api/usePinActions'
+import { useLikeAnimation, useHeartBurst } from '@/composables/features/useAnimations'
 
 export interface PinLikeButtonProps {
   pinId: string
-  isLiked: boolean
-  likeCount: number
+  isLiked?: boolean
+  likeCount?: number
   color?: string
   size?: 'sm' | 'md' | 'lg'
   showCount?: boolean
-  showPopover?: boolean
+  showAnimation?: boolean
 }
 
 const props = withDefaults(defineProps<PinLikeButtonProps>(), {
-  color: '#e11d48',
+  isLiked: false,
+  likeCount: 0,
+  color: '#ef4444',
   size: 'md',
   showCount: true,
-  showPopover: true,
+  showAnimation: true,
 })
 
 const emit = defineEmits<{
   (e: 'like'): void
   (e: 'unlike'): void
+  (e: 'countClick'): void
+  (e: 'update:isLiked', value: boolean): void
+  (e: 'update:likeCount', value: number): void
 }>()
 
-const { likePinAction, unlikePinAction } = useLikes()
-
-// Local state
-const isLikedLocal = ref(props.isLiked)
-const likeCountLocal = ref(props.likeCount)
-const isLoading = ref(false)
-
-// Animation
+// Refs
 const buttonRef = ref<HTMLElement | null>(null)
-const { isAnimating, animate } = useLikeAnimation(buttonRef)
+const containerRef = ref<HTMLElement | null>(null)
 
-// Popover state
-const showPopover = ref(false)
-const insidePopover = ref(false)
+// Actions from store
+const { toggleLike } = usePinActions(props.pinId)
 
-// Modal state
-const showModal = ref(false)
+// Local state for optimistic UI
+const localIsLiked = ref(props.isLiked)
+const localCount = ref(props.likeCount)
+const isProcessing = ref(false)
 
-// Icon sizes
-const iconSizes = {
-  sm: 'text-lg',
-  md: 'text-2xl',
-  lg: 'text-3xl',
-}
+// Sync with props
+watch(
+  () => props.isLiked,
+  (val) => {
+    localIsLiked.value = val
+  },
+)
+watch(
+  () => props.likeCount,
+  (val) => {
+    localCount.value = val
+  },
+)
 
-// Handle like/unlike
-const handleLike = async () => {
-  if (isLoading.value || isAnimating.value) return
+// Animations
+const { isAnimating: isLikeAnimating, animate: animateLike } = useLikeAnimation(buttonRef)
+const { burst: burstHearts } = useHeartBurst(containerRef)
 
-  isLoading.value = true
+// Animation states for flash effect
+const showLikeAnimation = ref(false)
+const showUnlikeAnimation = ref(false)
+
+// Size classes
+const sizeClasses = computed(
+  () =>
+    ({
+      sm: 'text-lg',
+      md: 'text-2xl',
+      lg: 'text-3xl',
+    })[props.size],
+)
+
+const countSizeClasses = computed(
+  () =>
+    ({
+      sm: 'text-sm',
+      md: 'text-xl',
+      lg: 'text-2xl',
+    })[props.size],
+)
+
+// Handle like
+async function handleLike() {
+  if (isProcessing.value) return
+
+  const wasLiked = localIsLiked.value
+
+  // Optimistic update
+  localIsLiked.value = !wasLiked
+  localCount.value += wasLiked ? -1 : 1
+  isProcessing.value = true
+
+  // Emit updates
+  emit('update:isLiked', localIsLiked.value)
+  emit('update:likeCount', localCount.value)
+
+  // Trigger animations
+  if (props.showAnimation) {
+    if (!wasLiked) {
+      showLikeAnimation.value = true
+      animateLike()
+      burstHearts()
+      setTimeout(() => {
+        showLikeAnimation.value = false
+      }, 500)
+      emit('like')
+    } else {
+      showUnlikeAnimation.value = true
+      setTimeout(() => {
+        showUnlikeAnimation.value = false
+      }, 500)
+      emit('unlike')
+    }
+  }
 
   try {
-    // Trigger animation
-    await animate()
-
-    if (isLikedLocal.value) {
-      // Unlike
-      await unlikePinAction(props.pinId)
-      isLikedLocal.value = false
-      likeCountLocal.value = Math.max(0, likeCountLocal.value - 1)
-      emit('unlike')
-    } else {
-      // Like
-      await likePinAction(props.pinId)
-      isLikedLocal.value = true
-      likeCountLocal.value += 1
-      emit('like')
-    }
+    await toggleLike()
   } catch (error) {
-    console.error('[PinLikeButton] Like action failed:', error)
-    // Revert optimistic update
-    isLikedLocal.value = props.isLiked
-    likeCountLocal.value = props.likeCount
+    // Rollback on error
+    localIsLiked.value = wasLiked
+    localCount.value += wasLiked ? 1 : -1
+    emit('update:isLiked', localIsLiked.value)
+    emit('update:likeCount', localCount.value)
+    console.error('[PinLikeButton] Failed to toggle like:', error)
   } finally {
-    isLoading.value = false
+    isProcessing.value = false
   }
 }
 
-// Handle popover
-const handleMouseEnter = () => {
-  if (props.showPopover && likeCountLocal.value > 0) {
-    showPopover.value = true
-  }
-}
-
-const handleMouseLeave = () => {
-  if (!insidePopover.value) {
-    showPopover.value = false
-  }
-}
-
-// Handle modal
-const handleCountClick = () => {
-  if (likeCountLocal.value > 0) {
-    showModal.value = true
+function handleCountClick() {
+  if (localCount.value > 0) {
+    emit('countClick')
   }
 }
 </script>
 
 <template>
-  <div class="flex items-center gap-4 relative">
-    <!-- Like button -->
+  <div ref="containerRef" class="flex items-center space-x-2 relative">
+    <!-- Like Button -->
     <button
       ref="buttonRef"
       @click="handleLike"
-      :disabled="isLoading"
-      :style="{ color: color }"
-      :class="[
-        'transition-all duration-200 transform hover:scale-125 focus:outline-none',
-        iconSizes[size],
-        isLoading && 'opacity-50 cursor-not-allowed',
-      ]"
-      :aria-label="isLikedLocal ? 'Unlike' : 'Like'"
-      :aria-pressed="isLikedLocal"
+      :disabled="isLikeAnimating || isProcessing"
+      class="transition-transform duration-200 transform hover:scale-125 focus:outline-none disabled:opacity-50"
+      :aria-label="localIsLiked ? 'Unlike' : 'Like'"
+      :aria-pressed="localIsLiked"
     >
       <i
-        :class="['pi', isLikedLocal ? 'pi-heart-fill' : 'pi-heart', isAnimating && 'animate-ping']"
-      ></i>
+        :class="['pi', localIsLiked ? 'pi-heart-fill' : 'pi-heart', sizeClasses]"
+        :style="{ color: color }"
+      />
     </button>
 
-    <!-- Like count with popover -->
-    <div
-      v-if="showCount && likeCountLocal > 0"
-      @mouseenter="handleMouseEnter"
-      @mouseleave="handleMouseLeave"
-      class="relative"
+    <!-- Like Count -->
+    <button
+      v-if="showCount && localCount > 0"
+      @click="handleCountClick"
+      :class="['font-bold cursor-pointer hover:underline transition-colors', countSizeClasses]"
+      :style="{ color: color }"
+      type="button"
     >
-      <PinLikesPopover
-        v-if="showPopover"
-        :pinId="pinId"
-        v-model="showPopover"
-        @mouseenter="insidePopover = true"
-        @mouseleave="
-          () => {
-            insidePopover = false
-            showPopover = false
-          }
-        "
-      >
-        <template #trigger>
-          <button
-            @click="handleCountClick"
-            :style="{ color: color }"
-            class="font-bold text-2xl cursor-pointer hover:underline transition-opacity hover:opacity-80"
-          >
-            {{ likeCountLocal }}
-          </button>
-        </template>
-      </PinLikesPopover>
+      {{ localCount }}
+    </button>
 
-      <!-- Without popover -->
-      <button
-        v-else
-        @click="handleCountClick"
-        :style="{ color: color }"
-        class="font-bold text-2xl cursor-pointer hover:underline transition-opacity hover:opacity-80"
-      >
-        {{ likeCountLocal }}
-      </button>
+    <!-- Flash Animation Overlay -->
+    <div
+      v-if="showAnimation"
+      class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+    >
+      <Transition name="flash">
+        <i v-if="showLikeAnimation" class="pi pi-heart-fill text-6xl text-white glowing-icon" />
+      </Transition>
+      <Transition name="flash">
+        <i v-if="showUnlikeAnimation" class="pi pi-heart text-6xl text-white glowing-icon" />
+      </Transition>
     </div>
-
-    <!-- Likes Modal -->
-    <PinLikesModal
-      :pinId="pinId"
-      v-model="showModal"
-      :likeCount="likeCountLocal"
-      @update:modelValue="showModal = $event"
-    />
   </div>
 </template>
 
-<script setup lang="ts">
-// Добавить emit для анимации на медиа
-const emit = defineEmits<{
-  (e: 'like'): void
-  (e: 'unlike'): void
-  (e: 'animate', type: 'like' | 'unlike'): void // ✅ Новый emit
-}>()
-
-const handleLike = async () => {
-  // ...
-  if (isLikedLocal.value) {
-    await unlikePinAction(props.pinId)
-    emit('animate', 'unlike') // ✅
-    emit('unlike')
-  } else {
-    await likePinAction(props.pinId)
-    emit('animate', 'like') // ✅
-    emit('like')
-  }
-}
-</script>
-
 <style scoped>
-@keyframes ping {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+.flash-enter-active,
+.flash-leave-active {
+  transition:
+    opacity 0.5s ease-out,
+    transform 0.5s cubic-bezier(0.3, 0.8, 0.2, 1);
 }
 
-.animate-ping {
-  animation: ping 0.5s ease-in-out;
+.flash-enter-from,
+.flash-leave-to {
+  opacity: 0;
+  transform: scale(3);
+}
+
+.flash-enter-to,
+.flash-leave-from {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.glowing-icon {
+  text-shadow:
+    0 0 15px rgba(255, 0, 0, 0.7),
+    0 0 25px rgba(255, 0, 0, 0.6),
+    0 0 35px rgba(255, 0, 0, 0.5);
 }
 </style>

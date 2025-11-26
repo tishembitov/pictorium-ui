@@ -1,110 +1,204 @@
+<!-- src/components/pin/likes/PinLikesModal.vue -->
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
-import BaseModal from '@/components/ui/BaseModal.vue'
+import { ref, computed, watch } from 'vue'
+import { usePinLikes } from '@/composables/api/usePinLikes'
+import { useInfiniteScroll } from '@/composables/utils/useIntersectionObserver'
+import { useEscapeKey } from '@/composables/utils/useClickOutside'
 import BaseSpinner from '@/components/ui/BaseSpinner.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
 import LikeUserItem from './LikeUserItem.vue'
-import { usePinLikes } from '@/composables/api/useLikes'
-import { useIntersectionObserver } from '@/composables'
 
 export interface PinLikesModalProps {
-  pinId: string
   modelValue: boolean
-  likeCount: number
+  pinId: string
+  likeCount?: number
 }
 
 const props = withDefaults(defineProps<PinLikesModalProps>(), {
-  modelValue: false,
   likeCount: 0,
 })
 
-const emit = defineEmits<(e: 'update:modelValue', value: boolean) => void>()
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: boolean): void
+}>()
 
-const { likes, isLoading, hasMore, fetchLikes, loadMore } = usePinLikes(props.pinId)
+// Composable для загрузки лайков
+const { users, isLoading, hasMore, totalElements, fetch, loadMore, reset } = usePinLikes(
+  props.pinId,
+  {
+    pageSize: 7,
+    immediate: false,
+  },
+)
 
-// Load more trigger element
-const loadMoreRef = ref<HTMLElement | null>(null)
+// Infinite scroll trigger
+const triggerRef = ref<HTMLElement | null>(null)
 
-// Intersection observer for infinite scroll
-const { isIntersecting } = useIntersectionObserver(loadMoreRef, {
-  threshold: 0.1,
+const { isLoading: isLoadingMore } = useInfiniteScroll(triggerRef, loadMore, {
+  disabled: computed(() => !hasMore.value || isLoading.value),
+  distance: 100,
 })
 
-// Load more when intersecting
-watch(isIntersecting, (intersecting) => {
-  if (intersecting && hasMore.value && !isLoading.value) {
-    loadMore()
-  }
-})
+// Close function
+function close() {
+  emit('update:modelValue', false)
+}
 
-// Initial fetch when modal opens
+// Escape key handler
+const isOpen = computed(() => props.modelValue)
+useEscapeKey(close, { enabled: isOpen })
+
+// Load when modal opens
 watch(
   () => props.modelValue,
-  async (isOpen) => {
-    if (isOpen && likes.value.length === 0) {
-      await fetchLikes()
+  (open) => {
+    if (open) {
+      reset()
+      fetch()
+      // Lock body scroll
+      document.body.classList.add('overflow-hidden')
+    } else {
+      // Unlock body scroll
+      document.body.classList.remove('overflow-hidden')
     }
   },
 )
+
+// Display count (from props or loaded total)
+const displayCount = computed(() => {
+  return props.likeCount || totalElements.value || 0
+})
 </script>
 
 <template>
-  <BaseModal
-    :modelValue="modelValue"
-    @update:modelValue="emit('update:modelValue', $event)"
-    size="custom"
-    :closable="true"
-    :closeOnOverlay="true"
-    :showHeader="false"
-    :maxHeight="true"
-    class="pin-likes-modal"
-  >
-    <!-- Custom header -->
-    <div class="flex flex-col items-center justify-center py-6 border-b border-gray-700">
-      <h1 class="text-7xl font-bold mb-2 text-white">{{ likeCount }} ❤️</h1>
-      <p class="text-gray-400">{{ likeCount === 1 ? 'Like' : 'Likes' }}</p>
-    </div>
+  <Teleport to="body">
+    <Transition name="fade" appear>
+      <div
+        v-if="modelValue"
+        class="fixed inset-0 bg-black bg-opacity-75 z-50 p-6"
+        @click.self="close"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="likes-modal-title"
+      >
+        <div class="flex justify-center items-center min-h-screen">
+          <!-- Modal Content -->
+          <div
+            class="flex flex-col bg-black shadow-2xl h-auto max-h-[600px] text-2xl rounded-3xl text-white z-50 w-[600px] overflow-hidden"
+            style="
+              box-shadow:
+                0 0 15px rgba(255, 255, 255, 0.8),
+                0 0 30px rgba(255, 255, 255, 0.6);
+            "
+          >
+            <!-- Header with count -->
+            <h1 id="likes-modal-title" class="text-7xl text-center py-6 border-b border-gray-800">
+              {{ displayCount }} ❤️
+            </h1>
 
-    <div class="py-4">
-      <div v-if="isLoading && likes.length === 0" class="flex justify-center py-8">
-        <BaseSpinner size="lg" color="white" />
-      </div>
+            <!-- Scrollable users list -->
+            <div class="overflow-y-auto flex-1 min-h-0">
+              <!-- Initial loading -->
+              <div v-if="isLoading && users.length === 0" class="flex justify-center py-12">
+                <span class="loader2"></span>
+              </div>
 
-      <div v-else-if="likes.length > 0" class="space-y-4">
-        <LikeUserItem
-          v-for="user in likes"
-          :key="user.id"
-          :user="user"
-          size="xl"
-          class="px-6 text-white"
-        />
+              <!-- Users list -->
+              <div class="py-2">
+                <LikeUserItem
+                  v-for="user in users"
+                  :key="user.id"
+                  :user="user"
+                  :avatar-url="user.avatarBlobUrl"
+                  size="lg"
+                  class="text-white hover:bg-gray-900 transition-colors"
+                />
+              </div>
 
-        <div v-if="hasMore" ref="loadMoreRef" class="flex justify-center py-4">
-          <BaseSpinner size="md" color="white" />
+              <!-- Infinite scroll trigger -->
+              <div ref="triggerRef" class="h-4" />
+
+              <!-- Loading more -->
+              <div
+                v-if="isLoadingMore || (isLoading && users.length > 0)"
+                class="flex justify-center py-4"
+              >
+                <BaseSpinner size="md" color="white" />
+              </div>
+
+              <!-- Empty state -->
+              <div v-if="!isLoading && users.length === 0" class="text-center py-12 text-gray-400">
+                <i class="pi pi-heart text-6xl mb-4 block opacity-50" />
+                <p>No likes yet</p>
+                <p class="text-sm mt-2">Be the first to like this pin!</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Close button -->
+          <button
+            @click="close"
+            class="absolute right-20 top-20 text-white text-4xl cursor-pointer transition-transform duration-200 transform hover:scale-150 focus:outline-none"
+            style="
+              text-shadow:
+                0 0 20px rgba(255, 255, 255, 0.9),
+                0 0 40px rgba(255, 255, 255, 0.8),
+                0 0 80px rgba(255, 255, 255, 0.7);
+            "
+            aria-label="Close"
+          >
+            <i class="pi pi-times" />
+          </button>
         </div>
-
-        <div v-else class="text-center text-gray-500 text-sm py-4">No more likes</div>
       </div>
-
-      <EmptyState
-        v-else
-        title="No likes yet"
-        message="Be the first to like this pin!"
-        icon="pi-heart"
-        variant="minimal"
-        class="text-white"
-      />
-    </div>
-  </BaseModal>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
-.pin-likes-modal :deep(.bg-white) {
-  background-color: #000 !important;
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Loader from old project */
+.loader2 {
+  width: 48px;
+  height: 48px;
+  background: #f3f4f6;
+  border-radius: 50%;
+  display: inline-block;
+  position: relative;
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+}
+
+.loader2::after {
+  content: '';
+  box-sizing: border-box;
+  position: absolute;
+  left: 6px;
+  top: 10px;
+  width: 12px;
+  height: 12px;
+  color: #ff3d00;
+  background: currentColor;
+  border-radius: 50%;
   box-shadow:
-    0 0 15px rgba(255, 255, 255, 0.8),
-    0 0 30px rgba(255, 255, 255, 0.6);
-  max-width: 600px;
-  max-height: 600px;
+    25px 2px,
+    10px 22px;
+}
+
+@keyframes rotation {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>

@@ -1,94 +1,68 @@
+<!-- src/components/pin/likes/PinLikesPopover.vue -->
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import BasePopover from '@/components/ui/BasePopover.vue'
-import BaseSpinner from '@/components/ui/BaseSpinner.vue'
+import { ref, onMounted } from 'vue'
+import { usePinLikes } from '@/composables/api/usePinLikes'
 import LikeUserItem from './LikeUserItem.vue'
-import { usePinLikes } from '@/composables/api/useLikes'
+import BaseSpinner from '@/components/ui/BaseSpinner.vue'
 
 export interface PinLikesPopoverProps {
   pinId: string
-  modelValue: boolean
   maxUsers?: number
 }
 
 const props = withDefaults(defineProps<PinLikesPopoverProps>(), {
-  modelValue: false,
   maxUsers: 5,
 })
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-}>()
+// Composable для загрузки лайков
+const { users, isLoading, hasMore, fetch, loadMore } = usePinLikes(props.pinId, {
+  pageSize: props.maxUsers,
+  immediate: true,
+})
 
-const { likes, isLoading, fetchLikes } = usePinLikes(props.pinId)
+// Scroll container ref
+const scrollContainer = ref<HTMLElement | null>(null)
 
-// Fetch likes when popover opens
-watch(
-  () => props.modelValue,
-  async (isOpen) => {
-    if (isOpen && likes.value.length === 0) {
-      await fetchLikes(0, props.maxUsers)
-    }
-  },
-)
+// Handle scroll for infinite loading
+function handleScroll(event: Event) {
+  const container = event.target as HTMLElement
+  const isNearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 10
+
+  if (isNearBottom && hasMore.value && !isLoading.value) {
+    loadMore()
+  }
+}
 </script>
 
 <template>
-  <BasePopover
-    :modelValue="modelValue"
-    @update:modelValue="emit('update:modelValue', $event)"
-    position="auto"
-    :offset="10"
-    trigger="hover"
-    :closeOnClickOutside="true"
+  <div
+    ref="scrollContainer"
+    @scroll="handleScroll"
+    class="flex flex-col gap-2 bg-black shadow-2xl h-auto max-h-60 text-sm rounded-3xl text-white z-50 w-60 overflow-y-auto py-2"
   >
-    <template #trigger>
-      <slot name="trigger" />
-    </template>
-
-    <!-- Popover content -->
-    <div
-      class="flex flex-col gap-2 bg-black shadow-2xl h-auto max-h-60 text-sm rounded-3xl text-white z-50 w-60 overflow-y-auto py-2"
-    >
-      <!-- Loading state -->
-      <div v-if="isLoading" class="flex items-center justify-center py-4">
-        <BaseSpinner size="sm" color="white" />
-      </div>
-
-      <!-- Users list -->
-      <div v-else-if="likes.length > 0" class="px-2 space-y-2">
-        <LikeUserItem
-          v-for="user in likes"
-          :key="user.id"
-          :user="user"
-          size="sm"
-          class="text-white hover:text-white"
-        />
-      </div>
-
-      <!-- Empty state -->
-      <div v-else class="text-center py-4 text-gray-400">No likes yet</div>
+    <!-- Loading state -->
+    <div v-if="isLoading && users.length === 0" class="flex justify-center py-4">
+      <BaseSpinner size="sm" color="white" />
     </div>
-  </BasePopover>
+
+    <!-- Users list -->
+    <LikeUserItem
+      v-for="user in users"
+      :key="user.id"
+      :user="user"
+      :avatar-url="user.avatarBlobUrl"
+      size="sm"
+      class="text-white"
+    />
+
+    <!-- Loading more indicator -->
+    <div v-if="isLoading && users.length > 0" class="flex justify-center py-2">
+      <BaseSpinner size="sm" color="white" />
+    </div>
+
+    <!-- Empty state -->
+    <div v-if="!isLoading && users.length === 0" class="text-center py-4 text-gray-400 text-sm">
+      No likes yet
+    </div>
+  </div>
 </template>
-
-<style scoped>
-/* Custom scrollbar for dark background */
-.overflow-y-auto::-webkit-scrollbar {
-  width: 6px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
-}
-</style>

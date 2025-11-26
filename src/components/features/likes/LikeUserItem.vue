@@ -1,61 +1,81 @@
+<!-- src/components/pin/likes/LikeUserItem.vue -->
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import UserAvatar from '@/components/common/UserAvatar.vue'
-import type { User } from '@/types'
 
 export interface LikeUserItemProps {
   user: {
     id: string
     username: string
-    imageUrl?: string
+    imageUrl?: string | null
   }
+  avatarUrl?: string
   size?: 'sm' | 'md' | 'lg'
-  showAvatar?: boolean
+  showLink?: boolean
 }
 
 const props = withDefaults(defineProps<LikeUserItemProps>(), {
   size: 'md',
-  showAvatar: true,
+  showLink: true,
 })
 
-const avatarSizes = {
-  sm: 'sm', // 40px
-  md: 'md', // 48px
-  lg: 'lg', // 64px
-  xl: 'xl', // 80px ✅
-}
+// Map sizes to UserAvatar sizes
+const avatarSize = computed(() => {
+  return {
+    sm: 'sm' as const,
+    md: 'lg' as const,
+    lg: 'xl' as const,
+  }[props.size]
+})
 
-const textSizes = {
-  sm: 'text-sm',
-  md: 'text-base',
-  lg: 'text-xl',
-  xl: 'text-2xl', // ✅ 1.5rem
-}
+const textClasses = computed(() => {
+  return {
+    sm: 'text-sm',
+    md: 'text-base',
+    lg: 'text-2xl',
+  }[props.size]
+})
 
-const gaps = {
-  sm: 'gap-2',
-  md: 'gap-3',
-  lg: 'gap-5',
-  xl: 'gap-5', // ✅ 1.25rem
-}
+const spacing = computed(() => {
+  return {
+    sm: 'gap-2',
+    md: 'gap-3',
+    lg: 'gap-5',
+  }[props.size]
+})
+
+const paddingClasses = computed(() => {
+  return {
+    sm: 'py-1 px-2',
+    md: 'py-2 px-3',
+    lg: 'py-3 px-6',
+  }[props.size]
+})
 </script>
 
 <template>
-  <RouterLink
-    :to="`/user/${user.username}`"
+  <component
+    :is="showLink ? RouterLink : 'div'"
+    :to="showLink ? `/user/${user.username}` : undefined"
     :class="[
-      'flex items-center hover:underline transition-opacity duration-200 hover:opacity-80',
-      gaps[size],
+      'flex items-center hover:underline cursor-pointer transition-opacity hover:opacity-80',
+      spacing,
+      paddingClasses,
     ]"
   >
     <UserAvatar
-      v-if="showAvatar"
-      :user="user"
-      :imageUrl="user.imageUrl"
-      :size="avatarSizes[size]"
+      :user="{
+        id: user.id,
+        username: user.username,
+        imageUrl: avatarUrl || user.imageUrl || undefined,
+      }"
+      :image-url="avatarUrl"
+      :size="avatarSize"
       :clickable="false"
     />
-
-    <span :class="['truncate font-medium', textSizes[size]]">{{ user.username }}</span>
-  </RouterLink>
+    <span :class="['truncate font-medium', textClasses]">
+      {{ user.username }}
+    </span>
+  </component>
 </template>

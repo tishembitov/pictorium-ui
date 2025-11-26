@@ -69,9 +69,9 @@ export function useIntersectionObserver(
 /**
  * useInfiniteScroll - Бесконечная прокрутка
  */
-export function useInfiniteScroll(
+export function useInfiniteScroll<T = void>(
   target: MaybeElementRef,
-  onLoadMore: () => void | Promise<void>,
+  onLoadMore: () => T | Promise<T>,
   options: { distance?: number; disabled?: Ref<boolean> } = {},
 ) {
   const { distance = 200, disabled } = options

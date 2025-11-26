@@ -2,14 +2,14 @@
 <script setup lang="ts">
 /**
  * PinDetailView - Главный контейнер детальной страницы пина
- * Использует: usePinDetail, useDocumentTitle, useIntersectionObserver, useMyBoards
+ * Композиция всех компонентов, сохраняет UI из старого PinView.vue
  */
 
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { usePinDetail } from '@/composables/api/usePinDetail'
-import { useMyBoards } from '@/composables/api/useBoardDetail'
 import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
+import { useMyBoards } from '@/composables/api/useBoardDetail'
 import { useDocumentTitle } from '@/composables/utils/useDocumentTitle'
 import { useIntersectionObserver } from '@/composables/utils/useIntersectionObserver'
 import PinDetailMedia from './PinDetailMedia.vue'
@@ -18,10 +18,9 @@ import PinFullscreen from './PinFullscreen.vue'
 import PinDetailSkeleton from './PinDetailSkeleton.vue'
 import RelatedPins from './RelatedPins.vue'
 import PinLikesModal from '@/components/features/likes/PinLikesModal.vue'
+import BoardSelectorModal from '@/components/features/boards/BoardSelectorModal.vue'
 import BackButton from '@/components/common/BackButton.vue'
 import AppHeader from '@/components/common/AppHeader.vue'
-import BaseModal from '@/components/ui/BaseModal.vue'
-import BaseLoader from '@/components/ui/BaseLoader.vue'
 
 export interface PinDetailViewProps {
   pinId: string
@@ -30,22 +29,22 @@ export interface PinDetailViewProps {
 const props = defineProps<PinDetailViewProps>()
 
 const router = useRouter()
+const route = useRoute()
 
 // Composables
-const { pin, isLoading, fetchPin, like, unlike } = usePinDetail(() => props.pinId, {
-  loadComments: false,
-  loadRelated: false,
-})
+const { pin, comments, relatedPins, isLoading, isLoadingComments, fetchPin, like, unlike } =
+  usePinDetail(() => props.pinId)
 
+const { board: selectedBoard } = useSelectedBoard()
 const { boards, fetch: fetchBoards, isLoading: isLoadingBoards } = useMyBoards()
-const { select: selectBoard, deselect: deselectBoard } = useSelectedBoard()
 
 // Refs
 const mediaRef = ref<InstanceType<typeof PinDetailMedia> | null>(null)
 const relatedObserverTarget = ref<HTMLElement | null>(null)
 
 // State
-const mediaLoaded = ref(false)
+const pinImageLoaded = ref(false)
+const pinVideoLoaded = ref(false)
 const showFullscreen = ref(false)
 const showLikesModal = ref(false)
 const showBoardsModal = ref(false)
@@ -64,6 +63,9 @@ const { isIntersecting } = useIntersectionObserver(relatedObserverTarget, {
 watch(isIntersecting, (visible) => {
   showMoreExplore.value = !visible
 })
+
+// Media loaded state
+const mediaLoaded = computed(() => pinImageLoaded.value || pinVideoLoaded.value)
 
 // Accent color
 const accentColor = computed(() => pin.value?.rgb || '#ef4444')
@@ -103,9 +105,13 @@ function handleDoubleTap() {
   }
 }
 
-// Media load handler
+// Media load handlers
 function handleMediaLoad() {
-  mediaLoaded.value = true
+  if (pin.value?.videoPreviewUrl) {
+    pinVideoLoaded.value = true
+  } else {
+    pinImageLoaded.value = true
+  }
 }
 
 // Fullscreen
@@ -121,19 +127,9 @@ async function openBoardSelector() {
   }
 }
 
-async function handleSelectBoard(board: any) {
-  await selectBoard(board.id)
-  showBoardsModal.value = false
-}
-
-async function handleSelectProfile() {
-  await deselectBoard()
-  showBoardsModal.value = false
-}
-
 // Tag click
 function handleTagClick(tagName: string) {
-  router.push({ path: '/', query: { tag: tagName } })
+  router.push(`/?tag=${tagName}`)
 }
 
 // Scroll to related
@@ -186,65 +182,12 @@ function handleHasRelated() {
   <PinLikesModal v-if="pin" v-model="showLikesModal" :pin-id="pin.id" :like-count="pin.likeCount" />
 
   <!-- Board selector modal -->
-  <BaseModal v-model="showBoardsModal" size="lg" :show-header="false" :show-footer="false">
-    <div v-if="isLoadingBoards" class="min-h-[300px] flex items-center justify-center">
-      <BaseLoader variant="spinner" size="lg" />
-    </div>
-
-    <div v-else class="p-6">
-      <h2 class="text-xl font-semibold mb-4 text-center text-black">Choose where to save</h2>
-      <div class="flex justify-center">
-        <button
-          @click="handleSelectProfile"
-          class="w-1/2 px-6 py-3 text-md bg-gray-800 hover:bg-black text-white rounded-3xl transition cursor-pointer"
-        >
-          Profile
-        </button>
-      </div>
-
-      <h2 class="text-xl font-semibold mb-4 mt-4 text-center text-black">Boards</h2>
-
-      <div class="columns-2 gap-4">
-        <div
-          v-for="board in boards"
-          :key="board.id"
-          class="mb-4 break-inside-avoid relative rounded-md cursor-pointer min-h-24 overflow-hidden transform transition-transform hover:scale-105"
-          @click="handleSelectBoard(board)"
-        >
-          <div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-            <h3
-              class="text-3xl font-semibold text-white text-center px-4 py-2 bg-black/70 rounded-lg shadow-lg"
-            >
-              {{ board.title }}
-            </h3>
-          </div>
-
-          <div class="columns-2 gap-1 relative z-0">
-            <div
-              v-for="(boardPin, index) in board.pins?.slice(0, 4)"
-              :key="index"
-              class="mb-2 break-inside-avoid"
-            >
-              <img
-                v-if="boardPin.isImage"
-                :src="boardPin.imageBlobUrl"
-                :alt="boardPin.title || 'Pin'"
-                class="w-full object-cover rounded-md"
-              />
-              <video
-                v-else-if="boardPin.isVideo"
-                :src="boardPin.videoBlobUrl"
-                class="w-full object-cover rounded-md"
-                autoplay
-                loop
-                muted
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </BaseModal>
+  <BoardSelectorModal
+    v-model="showBoardsModal"
+    :boards="boards"
+    :is-loading="isLoadingBoards"
+    @select="() => (showBoardsModal = false)"
+  />
 
   <!-- Header -->
   <AppHeader />
@@ -285,8 +228,10 @@ function handleHasRelated() {
 
       <!-- Right column: Info -->
       <div v-if="pin" v-show="!isLoading">
+        <!-- Info skeleton while loading additional data -->
         <PinDetailSkeleton v-if="isLoading" variant="info-only" />
 
+        <!-- Info content -->
         <PinDetailInfo
           v-else
           :pin="pin"

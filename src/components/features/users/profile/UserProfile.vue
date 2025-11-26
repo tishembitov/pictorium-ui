@@ -1,153 +1,233 @@
+<!-- src/components/features/user/profile/UserProfile.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+/**
+ * UserProfile - Обёртка профиля пользователя
+ * Объединяет все компоненты профиля
+ */
+
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useUserProfile, useCurrentUser } from '@/composables/api/useUserProfile'
+import { useDocumentTitle } from '@/composables/utils/useDocumentTitle'
+import { useIntersectionObserver } from '@/composables/utils/useIntersectionObserver'
 import UserHeader from './UserHeader.vue'
 import UserTabs from './UserTabs.vue'
 import UserPins from './UserPins.vue'
 import UserBoards from './UserBoards.vue'
 import UserEditModal from './UserEditModal.vue'
 import UserAvatarUpload from './UserAvatarUpload.vue'
+import UserBannerUpload from '../UserBannerUpload.vue'
 import FollowersModal from '../follow/FollowersModal.vue'
 import FollowingModal from '../follow/FollowingModal.vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import { useAuthStore } from '@/stores/auth.store'
-import { subscriptionsApi } from '@/api/subscriptions.api'
-import type { User, UserTab } from '@/types'
+import SendMessageModal from './SendMessageModal.vue'
+import AboutUserModal from './AboutUserModal.vue'
+import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BackButton from '@/components/common/BackButton.vue'
+import AppHeader from '@/components/common/AppHeader.vue'
 
 export interface UserProfileProps {
-  user: User
+  username: string
 }
 
 const props = defineProps<UserProfileProps>()
 
-const authStore = useAuthStore()
 const router = useRouter()
 
-const activeTab = ref<UserTab>('created')
-const followersCount = ref(0)
-const followingCount = ref(0)
-const hasChat = ref(false)
+// Composables
+const {
+  user,
+  isCurrentUser,
+  isFollowing,
+  avatarUrl,
+  pins,
+  followers,
+  following,
+  isLoading,
+  fetchUser,
+  fetchPins,
+  follow,
+  unfollow,
+} = useUserProfile(() => props.username)
 
-// Modals
-const showEditModal = ref(false)
-const showAvatarUpload = ref(false)
-const showBannerUpload = ref(false)
+const { bannerUrl } = useCurrentUser()
+
+// Document title
+const pageTitle = computed(() => user.value?.username || 'Profile')
+useDocumentTitle(pageTitle)
+
+// State
+const activeTab = ref<'created' | 'saved' | 'liked' | 'boards'>('created')
 const showFollowersModal = ref(false)
 const showFollowingModal = ref(false)
+const showEditModal = ref(false)
+const showAvatarModal = ref(false)
+const showBannerModal = ref(false)
+const showMessageModal = ref(false)
+const showAboutModal = ref(false)
+const checkUserChat = ref(false)
 
-const isMe = computed(() => authStore.userId === props.user.id)
-const hasBanner = computed(() => !!props.user.bannerImageUrl)
-const layout = computed(() => (hasBanner.value ? 'with-banner' : 'default'))
+// Header sticky state
+const observerTargetHeader = ref<HTMLElement | null>(null)
+const showStickyHeader = ref(false)
 
-const scopeMap = {
-  created: 'CREATED',
-  saved: 'SAVED',
-  liked: 'LIKED',
-  boards: null,
-} as const
-
-const currentScope = computed(() => {
-  return activeTab.value === 'boards' ? null : scopeMap[activeTab.value]
+const { isIntersecting } = useIntersectionObserver(observerTargetHeader, {
+  threshold: 1,
+  rootMargin: '-20px 0px 0px 0px',
 })
 
-// Load user stats
+watch(isIntersecting, (visible) => {
+  showStickyHeader.value = !visible
+})
+
+// Counts
+const followersCount = computed(() => followers.value?.length || 0)
+const followingCount = computed(() => following.value?.length || 0)
+
+// Load user on mount
 onMounted(async () => {
   try {
-    const [followersRes, followingRes] = await Promise.all([
-      subscriptionsApi.getFollowers(props.user.id, { page: 0, size: 1, sort: [] }),
-      subscriptionsApi.getFollowing(props.user.id, { page: 0, size: 1, sort: [] }),
-    ])
-
-    followersCount.value = followersRes.totalElements
-    followingCount.value = followingRes.totalElements
-
-    // TODO: Check if chat exists with this user
-    // hasChat.value = await checkUserChat(props.user.id)
+    await fetchUser()
   } catch (error) {
-    console.error('[UserProfile] Load stats failed:', error)
+    router.push('/not-found')
   }
 })
 
-const handleEditProfile = () => {
-  showEditModal.value = true
+// Tab change
+function handleTabChange(tab: 'created' | 'saved' | 'liked' | 'boards') {
+  activeTab.value = tab
 }
 
-const handleSendMessage = () => {
-  // TODO: Open send message modal or create chat
-  console.log('Send message to', props.user.username)
+// Message handlers
+function handleSendMessage() {
+  showMessageModal.value = true
 }
 
-const handleGoToChat = () => {
-  // TODO: Navigate to chat
+function handleGoToChat() {
+  // Navigate to chat
   router.push('/messages')
 }
 
-const handleProfileUpdated = () => {
-  // Refresh user data if needed
-  window.location.reload()
+// Edit handlers
+function handleEditProfile() {
+  showEditModal.value = true
+}
+
+function handleEditImage() {
+  showAvatarModal.value = true
+}
+
+function handleEditBanner() {
+  showBannerModal.value = true
 }
 </script>
 
 <template>
-  <div class="min-h-screen pb-20">
-    <!-- User Header -->
-    <UserHeader
-      :user="user"
-      :followers-count="followersCount"
-      :following-count="followingCount"
-      :has-chat="hasChat"
-      :layout="layout"
-      @followers-click="showFollowersModal = true"
-      @following-click="showFollowingModal = true"
-      @edit-profile="handleEditProfile"
-      @send-message="handleSendMessage"
-      @go-to-chat="handleGoToChat"
-      @edit-banner="showBannerUpload = true"
+  <!-- Modals -->
+  <FollowersModal
+    v-if="user"
+    v-model="showFollowersModal"
+    :user-id="user.id"
+    :count="followersCount"
+  />
+
+  <FollowingModal
+    v-if="user"
+    v-model="showFollowingModal"
+    :user-id="user.id"
+    :count="followingCount"
+  />
+
+  <UserEditModal
+    v-if="user && isCurrentUser"
+    v-model="showEditModal"
+    :user="user"
+    @updated="fetchUser()"
+  />
+
+  <UserAvatarUpload v-if="isCurrentUser" v-model="showAvatarModal" @uploaded="fetchUser()" />
+
+  <UserBannerUpload v-if="isCurrentUser" v-model="showBannerModal" @uploaded="fetchUser()" />
+
+  <AboutUserModal
+    v-if="user"
+    v-model="showAboutModal"
+    :user="user"
+    :followers-count="followersCount"
+    :following-count="followingCount"
+    :is-current-user="isCurrentUser"
+    :is-following="isFollowing"
+    :has-chat="checkUserChat"
+    @show-followers="showFollowersModal = true"
+    @show-following="showFollowingModal = true"
+    @send-message="handleSendMessage"
+    @go-to-chat="handleGoToChat"
+    @follow="follow()"
+    @unfollow="unfollow()"
+  />
+
+  <!-- Header -->
+  <AppHeader />
+
+  <div class="flex items-center justify-center mt-20 ml-20">
+    <!-- Loading -->
+    <BaseLoader v-if="isLoading" variant="spinner" size="lg" color="red" />
+
+    <div v-else-if="user">
+      <!-- Back button -->
+      <BackButton position="absolute" class="ml-20 mt-20" />
+
+      <!-- Sticky header (когда основной header уходит из view) -->
+      <div
+        v-if="showStickyHeader"
+        class="fixed left-20 right-0 top-14 w-full z-20 bg-white bg-opacity-20 backdrop-blur-sm"
+      >
+        <div class="ml-[140px] flex items-center gap-4">
+          <img v-if="avatarUrl" :src="avatarUrl" class="w-12 h-12 rounded-full object-cover" />
+          <span class="text-2xl font-semibold text-black">{{ user.username }}</span>
+
+          <div class="ml-[195px]">
+            <UserTabs :active-tab="activeTab" variant="sticky" @change="handleTabChange" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Main header -->
+      <div ref="observerTargetHeader">
+        <UserHeader
+          :user="user"
+          :avatar-url="avatarUrl"
+          :banner-url="bannerUrl"
+          :followers-count="followersCount"
+          :following-count="followingCount"
+          :is-current-user="isCurrentUser"
+          :is-following="isFollowing"
+          :has-chat="checkUserChat"
+          @show-followers="showFollowersModal = true"
+          @show-following="showFollowingModal = true"
+          @show-more-bio="showAboutModal = true"
+          @send-message="handleSendMessage"
+          @go-to-chat="handleGoToChat"
+          @edit-profile="handleEditProfile"
+          @edit-image="handleEditImage"
+          @edit-banner="handleEditBanner"
+        />
+      </div>
+
+      <!-- Tabs -->
+      <div class="mt-6">
+        <UserTabs :active-tab="activeTab" @change="handleTabChange" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="min-h-[500px]">
+    <UserPins
+      v-if="user && (activeTab === 'created' || activeTab === 'saved' || activeTab === 'liked')"
+      :user-id="user.id"
+      :variant="activeTab"
     />
 
-    <!-- Edit Profile Buttons (for me) -->
-    <div v-if="isMe" class="flex items-center justify-center gap-3 mt-6">
-      <BaseButton variant="outline" size="sm" @click="showEditModal = true">
-        Edit Information
-      </BaseButton>
-      <BaseButton variant="outline" size="sm" @click="showAvatarUpload = true">
-        Change Avatar
-      </BaseButton>
-      <BaseButton variant="outline" size="sm" @click="showBannerUpload = true">
-        Change Banner
-      </BaseButton>
-    </div>
-
-    <!-- Tabs -->
-    <UserTabs v-model="activeTab" :show-liked="isMe" />
-
-    <!-- Content -->
-    <div class="max-w-7xl mx-auto px-4">
-      <!-- Pins (Created/Saved/Liked) -->
-      <UserPins
-        v-if="activeTab !== 'boards' && currentScope"
-        :key="`${user.id}-${activeTab}`"
-        :user-id="user.id"
-        :scope="currentScope"
-      />
-
-      <!-- Boards -->
-      <UserBoards v-if="activeTab === 'boards'" :key="`${user.id}-boards`" :user-id="user.id" />
-    </div>
-
-    <!-- Modals -->
-    <UserEditModal v-model="showEditModal" :user="user" @updated="handleProfileUpdated" />
-
-    <UserAvatarUpload v-model="showAvatarUpload" @uploaded="handleProfileUpdated" />
-
-    <!-- TODO: Create UserBannerUpload component -->
-    <!-- <UserBannerUpload
-      v-model="showBannerUpload"
-      @uploaded="handleProfileUpdated"
-    /> -->
-
-    <FollowersModal v-model="showFollowersModal" :user-id="user.id" :count="followersCount" />
-
-    <FollowingModal v-model="showFollowingModal" :user-id="user.id" :count="followingCount" />
+    <UserBoards v-if="user && activeTab === 'boards'" :user-id="user.id" />
   </div>
 </template>

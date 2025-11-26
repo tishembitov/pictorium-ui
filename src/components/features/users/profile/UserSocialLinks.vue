@@ -1,4 +1,10 @@
+<!-- src/components/features/user/profile/UserSocialLinks.vue -->
 <script setup lang="ts">
+/**
+ * UserSocialLinks - Социальные ссылки пользователя
+ * Визуальный стиль из старого UserView.vue
+ */
+
 import { computed } from 'vue'
 
 export interface UserSocialLinksProps {
@@ -6,79 +12,98 @@ export interface UserSocialLinksProps {
   tiktok?: string | null
   telegram?: string | null
   pinterest?: string | null
-  compact?: boolean
-  maxWidth?: string
+  variant?: 'inline' | 'full'
 }
 
 const props = withDefaults(defineProps<UserSocialLinksProps>(), {
-  compact: false,
-  maxWidth: '100px',
+  variant: 'inline',
 })
 
+// Format link (убираем https://)
 const formatLink = (url: string) => {
   return url.replace(/^https?:\/\//, '')
 }
 
-const socialLinks = computed(() => {
-  const links = []
-
-  if (props.instagram) {
-    links.push({
-      icon: 'pi-instagram',
-      url: props.instagram,
-      name: 'Instagram',
-    })
-  }
-
-  if (props.telegram) {
-    links.push({
-      icon: 'pi-telegram',
-      url: props.telegram,
-      name: 'Telegram',
-    })
-  }
-
-  if (props.tiktok) {
-    links.push({
-      icon: 'pi-tiktok',
-      url: props.tiktok,
-      name: 'TikTok',
-    })
-  }
-
-  if (props.pinterest) {
-    links.push({
-      icon: 'pi-pinterest',
-      url: props.pinterest,
-      name: 'Pinterest',
-    })
-  }
-
-  return links
+const hasLinks = computed(() => {
+  return props.instagram || props.tiktok || props.telegram || props.pinterest
 })
 </script>
 
 <template>
+  <!-- Inline variant (миниатюрные ссылки) -->
   <div
-    v-if="socialLinks.length > 0"
-    :class="['flex gap-2 mt-2', compact ? 'flex-row flex-wrap' : 'flex-col space-y-2']"
+    v-if="variant === 'inline' && hasLinks"
+    class="flex flex-row gap-2 text-md text-black max-w-[500px] mt-2"
   >
     <a
-      v-for="link in socialLinks"
-      :key="link.name"
-      :href="link.url"
+      v-if="instagram"
+      :href="instagram"
+      class="truncate inline-block max-w-[100px]"
       target="_blank"
       rel="noopener noreferrer"
-      :class="[
-        'flex items-center gap-2 text-gray-700 hover:text-black transition',
-        compact && 'truncate',
-      ]"
-      :style="compact ? { maxWidth: maxWidth } : {}"
     >
-      <i :class="['pi', link.icon]"></i>
-      <span :class="compact ? 'truncate' : ''">
-        {{ formatLink(link.url) }}
-      </span>
+      <i class="pi pi-instagram" /> {{ formatLink(instagram) }}
+    </a>
+    <a
+      v-if="telegram"
+      :href="telegram"
+      class="truncate inline-block max-w-[100px]"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <i class="pi pi-telegram" /> {{ formatLink(telegram) }}
+    </a>
+    <a
+      v-if="tiktok"
+      :href="tiktok"
+      class="truncate inline-block max-w-[100px]"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <i class="pi pi-tiktok" /> {{ formatLink(tiktok) }}
+    </a>
+    <a
+      v-if="pinterest"
+      :href="pinterest"
+      class="truncate inline-block max-w-[100px]"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <i class="pi pi-pinterest" /> {{ formatLink(pinterest) }}
+    </a>
+  </div>
+
+  <!-- Full variant (для модалки About) -->
+  <div v-else-if="variant === 'full' && hasLinks" class="space-y-6 text-md ml-4 mb-6">
+    <a
+      v-if="instagram"
+      :href="instagram"
+      class="block w-full"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <i class="pi pi-instagram mr-5" /> {{ formatLink(instagram) }}
+    </a>
+    <a
+      v-if="telegram"
+      :href="telegram"
+      class="block w-full"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <i class="pi pi-telegram mr-5" /> {{ formatLink(telegram) }}
+    </a>
+    <a v-if="tiktok" :href="tiktok" class="block w-full" target="_blank" rel="noopener noreferrer">
+      <i class="pi pi-tiktok mr-5" /> {{ formatLink(tiktok) }}
+    </a>
+    <a
+      v-if="pinterest"
+      :href="pinterest"
+      class="block w-full"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <i class="pi pi-pinterest mr-5" /> {{ formatLink(pinterest) }}
     </a>
   </div>
 </template>

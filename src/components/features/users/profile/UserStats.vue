@@ -1,48 +1,62 @@
+<!-- src/components/features/user/profile/UserStats.vue -->
 <script setup lang="ts">
+/**
+ * UserStats - Followers, Following, Pins count
+ * Визуальный стиль из старого UserView.vue
+ */
+
 export interface UserStatsProps {
   followersCount: number
   followingCount: number
   pinsCount?: number
-  clickable?: boolean
+  boardsCount?: number
+  variant?: 'inline' | 'column'
 }
 
 const props = withDefaults(defineProps<UserStatsProps>(), {
-  pinsCount: 0,
-  clickable: true,
+  variant: 'inline',
 })
 
 const emit = defineEmits<{
-  (e: 'followers-click'): void
-  (e: 'following-click'): void
+  (e: 'showFollowers'): void
+  (e: 'showFollowing'): void
 }>()
 </script>
 
 <template>
-  <div class="flex items-center gap-4 text-sm md:text-base">
-    <button
+  <!-- Inline variant (для профиля без баннера) -->
+  <div v-if="variant === 'inline'" class="flex gap-4 mt-4">
+    <a
       v-if="followersCount > 0"
-      @click="emit('followers-click')"
-      :class="[
-        'font-bold text-gray-900 transition-all duration-200',
-        clickable && 'hover:underline cursor-pointer hover:scale-105',
-      ]"
+      @click="emit('showFollowers')"
+      class="text-black cursor-pointer hover:underline font-extrabold"
     >
-      {{ followersCount }} <span class="font-normal text-gray-600">followers</span>
-    </button>
-
-    <button
+      {{ followersCount }} follower{{ followersCount !== 1 ? 's' : '' }}
+    </a>
+    <a
       v-if="followingCount > 0"
-      @click="emit('following-click')"
-      :class="[
-        'font-bold text-gray-900 transition-all duration-200',
-        clickable && 'hover:underline cursor-pointer hover:scale-105',
-      ]"
+      @click="emit('showFollowing')"
+      class="text-black cursor-pointer hover:underline font-extrabold"
     >
-      {{ followingCount }} <span class="font-normal text-gray-600">following</span>
-    </button>
+      {{ followingCount }} following
+    </a>
+  </div>
 
-    <div v-if="pinsCount > 0" class="font-bold text-gray-900">
-      {{ pinsCount }} <span class="font-normal text-gray-600">pins</span>
-    </div>
+  <!-- Column variant (для профиля с баннером) -->
+  <div v-else class="flex gap-4 mt-4 justify-left">
+    <a
+      v-if="followersCount > 0"
+      @click="emit('showFollowers')"
+      class="cursor-pointer hover:underline font-extrabold text-black"
+    >
+      {{ followersCount }} follower{{ followersCount !== 1 ? 's' : '' }}
+    </a>
+    <a
+      v-if="followingCount > 0"
+      @click="emit('showFollowing')"
+      class="cursor-pointer hover:underline font-extrabold text-black"
+    >
+      {{ followingCount }} following
+    </a>
   </div>
 </template>

@@ -1,80 +1,70 @@
+<!-- src/components/features/user/UserCard.vue -->
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+/**
+ * UserCard - Карточка пользователя
+ */
+
 import { RouterLink } from 'vue-router'
-import UserAvatar from '@/components/common/UserAvatar.vue'
+import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import FollowButton from './follow/FollowButton.vue'
-import { useAuthStore } from '@/stores/auth.store'
-import { storageApi } from '@/api/storage.api'
-import type { User } from '@/types'
 
 export interface UserCardProps {
-  user: User
+  user: {
+    id: string
+    username: string
+    imageUrl?: string | null
+    description?: string | null
+    verified?: boolean
+  }
+  avatarUrl?: string | null
+  followersCount?: number
   showFollowButton?: boolean
-  showStats?: boolean
+  variant?: 'default' | 'compact'
 }
 
 const props = withDefaults(defineProps<UserCardProps>(), {
+  followersCount: 0,
   showFollowButton: true,
-  showStats: false,
-})
-
-const authStore = useAuthStore()
-const userImage = ref<string | null>(null)
-
-const isMe = computed(() => authStore.userId === props.user.id)
-
-onMounted(async () => {
-  if (props.user.imageUrl) {
-    try {
-      const blob = await storageApi.downloadImage(props.user.imageUrl)
-      userImage.value = URL.createObjectURL(blob)
-    } catch (error) {
-      console.error('[UserCard] Avatar load failed:', error)
-    }
-  }
+  variant: 'default',
 })
 </script>
 
 <template>
-  <div class="bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow duration-200 p-6">
-    <RouterLink :to="`/user/${user.username}`" class="flex flex-col items-center text-center group">
-      <!-- Avatar -->
-      <div class="relative mb-4">
-        <UserAvatar
-          :user="user"
-          :image-url="userImage"
-          size="xl"
-          class="group-hover:scale-105 transition-transform duration-200"
-        />
-        <i
-          v-if="user.verified"
-          class="absolute -top-1 -right-1 pi pi-verified text-blue-500 text-xl"
-        ></i>
-      </div>
+  <div
+    :class="[
+      'bg-white rounded-2xl p-4 shadow-md hover:shadow-lg transition',
+      variant === 'compact' && 'p-3',
+    ]"
+  >
+    <RouterLink :to="`/user/${user.username}`" class="flex items-center gap-3">
+      <BaseAvatar
+        :src="avatarUrl || user.imageUrl || undefined"
+        :alt="user.username"
+        :size="variant === 'compact' ? 'md' : 'lg'"
+      />
 
-      <!-- Username -->
-      <h3 class="text-lg font-bold text-gray-900 mb-1 group-hover:text-red-600 transition">
-        {{ user.username }}
-      </h3>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="font-semibold truncate">{{ user.username }}</span>
+          <i v-if="user.verified" class="pi pi-verified text-blue-500 text-sm" />
+        </div>
 
-      <!-- Description -->
-      <p v-if="user.description" class="text-sm text-gray-600 line-clamp-2 mb-4">
-        {{ user.description }}
-      </p>
+        <p v-if="user.description && variant === 'default'" class="text-sm text-gray-500 truncate">
+          {{ user.description }}
+        </p>
 
-      <!-- Stats -->
-      <div v-if="showStats" class="flex items-center gap-4 text-sm text-gray-500 mb-4">
-        <span>{{ user.followersCount || 0 }} followers</span>
-        <span>{{ user.pinsCount || 0 }} pins</span>
+        <p v-if="followersCount > 0" class="text-sm text-gray-400">
+          {{ followersCount }} followers
+        </p>
       </div>
     </RouterLink>
 
-    <!-- Follow Button -->
     <FollowButton
-      v-if="showFollowButton && !isMe"
+      v-if="showFollowButton"
       :user-id="user.id"
       size="sm"
-      class="w-full mt-4"
+      variant="outline"
+      class="mt-3 w-full"
     />
   </div>
 </template>

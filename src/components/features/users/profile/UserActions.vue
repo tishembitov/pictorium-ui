@@ -1,53 +1,78 @@
+<!-- src/components/features/user/profile/UserActions.vue -->
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth.store'
-import BaseButton from '@/components/ui/BaseButton.vue'
+/**
+ * UserActions - Follow, Message, Edit buttons
+ * Визуальный стиль из старого UserView.vue
+ */
+
+import { ref } from 'vue'
 import FollowButton from '../follow/FollowButton.vue'
 
 export interface UserActionsProps {
   userId: string
-  username: string
+  isCurrentUser: boolean
+  isFollowing?: boolean
   hasChat?: boolean
+  variant?: 'default' | 'modal'
 }
 
 const props = withDefaults(defineProps<UserActionsProps>(), {
+  isFollowing: false,
   hasChat: false,
+  variant: 'default',
 })
 
 const emit = defineEmits<{
-  (e: 'edit-profile'): void
-  (e: 'send-message'): void
-  (e: 'go-to-chat'): void
+  (e: 'sendMessage'): void
+  (e: 'goToChat'): void
+  (e: 'editProfile'): void
 }>()
 
-const authStore = useAuthStore()
-const router = useRouter()
-
-const isMe = computed(() => authStore.userId === props.userId)
-
-const handleMessageClick = () => {
-  if (props.hasChat) {
-    emit('go-to-chat')
-  } else {
-    emit('send-message')
-  }
-}
+const showEditButtons = ref(false)
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center gap-3 mt-6">
-    <!-- Edit Profile (для своего профиля) -->
-    <BaseButton v-if="isMe" variant="secondary" size="md" @click="emit('edit-profile')">
+  <!-- For other users -->
+  <div v-if="!isCurrentUser" class="flex flex-row gap-4 mt-4">
+    <!-- Message button -->
+    <button
+      v-if="!hasChat"
+      @click="emit('sendMessage')"
+      class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-black rounded-2xl transition"
+    >
+      Send Message
+    </button>
+    <button
+      v-else
+      @click="emit('goToChat')"
+      class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-black rounded-2xl transition"
+    >
+      Go to Chat
+    </button>
+
+    <!-- Follow button -->
+    <FollowButton :user-id="userId" :initial-following="isFollowing" size="md" variant="primary" />
+  </div>
+
+  <!-- For current user (edit profile) -->
+  <div v-else class="flex flex-col items-center">
+    <button
+      @click="showEditButtons = !showEditButtons"
+      class="px-5 py-2 bg-red-600 text-white font-medium rounded-full transition duration-300 hover:bg-red-700 focus:outline-none"
+    >
       Edit Profile
-    </BaseButton>
+    </button>
 
-    <!-- Follow Button (для чужого профиля) -->
-    <FollowButton v-if="!isMe" :user-id="userId" variant="primary" size="md" />
-
-    <!-- Message Button (для чужого профиля) -->
-    <BaseButton v-if="!isMe" variant="outline" size="md" @click="handleMessageClick">
-      {{ hasChat ? 'Go to Chat' : 'Send Message' }}
-    </BaseButton>
+    <!-- Edit sub-buttons -->
+    <div v-if="showEditButtons" class="mt-4 flex space-x-3">
+      <slot name="edit-buttons">
+        <button
+          @click="emit('editProfile')"
+          class="px-5 py-2 bg-gray-100 text-gray-800 font-medium rounded-full transition duration-300 hover:bg-gray-200 focus:outline-none"
+        >
+          Information
+        </button>
+      </slot>
+    </div>
   </div>
 </template>

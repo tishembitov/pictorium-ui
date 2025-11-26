@@ -1,182 +1,219 @@
+<!-- src/components/features/user/profile/UserHeader.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import UserAvatar from '@/components/common/UserAvatar.vue'
+/**
+ * UserHeader - Header с avatar и optional banner
+ * Визуальный стиль из старого UserView.vue
+ */
+
+import { computed } from 'vue'
+import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import UserStats from './UserStats.vue'
 import UserBio from './UserBio.vue'
 import UserSocialLinks from './UserSocialLinks.vue'
 import UserActions from './UserActions.vue'
-import { storageApi } from '@/api/storage.api'
-import type { User } from '@/types'
 
 export interface UserHeaderProps {
-  user: User
+  user: {
+    id: string
+    username: string
+    description?: string | null
+    instagram?: string | null
+    tiktok?: string | null
+    telegram?: string | null
+    pinterest?: string | null
+    verified?: boolean
+  }
+  avatarUrl?: string | null
+  bannerUrl?: string | null
   followersCount: number
   followingCount: number
-  pinsCount?: number
+  isCurrentUser: boolean
+  isFollowing?: boolean
   hasChat?: boolean
-  layout?: 'default' | 'with-banner'
 }
 
-const props = withDefaults(defineProps<UserHeaderProps>(), {
-  pinsCount: 0,
-  hasChat: false,
-  layout: 'default',
-})
+const props = defineProps<UserHeaderProps>()
 
 const emit = defineEmits<{
-  (e: 'followers-click'): void
-  (e: 'following-click'): void
-  (e: 'edit-profile'): void
-  (e: 'send-message'): void
-  (e: 'go-to-chat'): void
-  (e: 'edit-banner'): void
+  (e: 'showFollowers'): void
+  (e: 'showFollowing'): void
+  (e: 'showMoreBio'): void
+  (e: 'sendMessage'): void
+  (e: 'goToChat'): void
+  (e: 'editProfile'): void
+  (e: 'editImage'): void
+  (e: 'editBanner'): void
 }>()
 
-const userImage = ref<string | null>(null)
-const bannerImage = ref<string | null>(null)
-const isLoadingImages = ref(true)
-
-onMounted(async () => {
-  try {
-    // Load avatar
-    if (props.user.imageUrl) {
-      const avatarBlob = await storageApi.downloadImage(props.user.imageUrl)
-      userImage.value = URL.createObjectURL(avatarBlob)
-    }
-
-    // Load banner
-    if (props.user.bannerImageUrl) {
-      const bannerBlob = await storageApi.downloadImage(props.user.bannerImageUrl)
-      bannerImage.value = URL.createObjectURL(bannerBlob)
-    }
-  } catch (error) {
-    console.error('[UserHeader] Load images failed:', error)
-  } finally {
-    isLoadingImages.value = false
-  }
-})
-
-const hasBanner = computed(() => !!bannerImage.value)
+const hasBanner = computed(() => !!props.bannerUrl)
 </script>
 
 <template>
-  <!-- Layout with Banner (2 columns) -->
-  <div v-if="layout === 'with-banner' && hasBanner" class="grid grid-cols-2 gap-6 px-4 py-6">
-    <!-- Left Column: Profile Info -->
-    <div class="flex flex-col">
-      <!-- Avatar + Username -->
-      <div class="flex items-center gap-4">
-        <div class="relative">
-          <i
-            v-if="user.verified"
-            class="absolute -top-1 -right-1 pi pi-verified text-blue-500 text-2xl z-10"
-          ></i>
-          <UserAvatar :user="user" :image-url="userImage" size="xl" />
-        </div>
-
-        <h1 class="text-3xl font-bold text-gray-900">{{ user.username }}</h1>
-      </div>
-
-      <!-- Stats -->
-      <UserStats
-        :followers-count="followersCount"
-        :following-count="followingCount"
-        :pins-count="pinsCount"
-        class="mt-4"
-        @followers-click="emit('followers-click')"
-        @following-click="emit('following-click')"
-      />
-
-      <!-- Bio -->
-      <UserBio :description="user.description" class="mt-4" />
-
-      <!-- Social Links -->
-      <UserSocialLinks
-        :instagram="user.instagram"
-        :tiktok="user.tiktok"
-        :telegram="user.telegram"
-        :pinterest="user.pinterest"
-        class="mt-4"
-      />
-
-      <!-- Actions -->
-      <UserActions
-        :user-id="user.id"
-        :username="user.username"
-        :has-chat="hasChat"
-        @edit-profile="emit('edit-profile')"
-        @send-message="emit('send-message')"
-        @go-to-chat="emit('go-to-chat')"
-      />
-    </div>
-
-    <!-- Right Column: Banner -->
-    <div class="flex items-center justify-center">
-      <div class="relative group">
-        <img
-          v-if="bannerImage"
-          :src="bannerImage"
-          alt="Profile Banner"
-          class="rounded-2xl h-[400px] w-[600px] object-cover shadow-lg"
-        />
-
-        <!-- Edit Banner Button (visible on hover) -->
-        <button
-          v-if="$slots['edit-banner']"
-          @click="emit('edit-banner')"
-          class="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-2xl flex items-center justify-center"
-        >
-          <i class="pi pi-camera text-white text-4xl"></i>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Default Layout (centered) -->
-  <div v-else class="flex flex-col items-center text-center py-6">
-    <!-- Avatar -->
+  <!-- Without banner (centered layout) -->
+  <div v-if="!hasBanner" class="flex flex-col items-center">
+    <!-- Avatar with verified badge -->
     <div class="relative">
-      <i
-        v-if="user.verified"
-        class="absolute -top-1 left-28 pi pi-verified text-blue-500 text-2xl z-10"
-      ></i>
-      <UserAvatar :user="user" :image-url="userImage" size="xl" />
+      <i v-if="user.verified" class="absolute top-0 left-28 pi pi-verified text-2xl" />
+      <BaseAvatar
+        :src="avatarUrl || undefined"
+        :alt="user.username"
+        size="xl"
+        class="!w-32 !h-32 border-4 border-white"
+      />
     </div>
 
     <!-- Username -->
-    <h1 class="mt-4 text-3xl font-bold text-gray-900">{{ user.username }}</h1>
+    <p class="mt-4 text-3xl font-extrabold">{{ user.username }}</p>
 
     <!-- Bio -->
-    <UserBio :description="user.description" class="mt-4 max-w-lg" />
+    <UserBio :description="user.description" @show-more="emit('showMoreBio')" />
 
-    <!-- Social Links (compact) -->
+    <!-- Social links -->
     <UserSocialLinks
       :instagram="user.instagram"
       :tiktok="user.tiktok"
       :telegram="user.telegram"
       :pinterest="user.pinterest"
-      compact
-      class="mt-4"
+      variant="inline"
     />
 
     <!-- Stats -->
     <UserStats
       :followers-count="followersCount"
       :following-count="followingCount"
-      :pins-count="pinsCount"
-      class="mt-4"
-      @followers-click="emit('followers-click')"
-      @following-click="emit('following-click')"
+      @show-followers="emit('showFollowers')"
+      @show-following="emit('showFollowing')"
     />
 
     <!-- Actions -->
     <UserActions
       :user-id="user.id"
-      :username="user.username"
+      :is-current-user="isCurrentUser"
+      :is-following="isFollowing"
       :has-chat="hasChat"
-      @edit-profile="emit('edit-profile')"
-      @send-message="emit('send-message')"
-      @go-to-chat="emit('go-to-chat')"
-    />
+      @send-message="emit('sendMessage')"
+      @go-to-chat="emit('goToChat')"
+      @edit-profile="emit('editProfile')"
+    >
+      <template #edit-buttons>
+        <button
+          @click="emit('editProfile')"
+          class="px-5 py-2 bg-gray-100 text-gray-800 font-medium rounded-full transition duration-300 hover:bg-gray-200"
+        >
+          Information
+        </button>
+        <button
+          @click="emit('editImage')"
+          class="px-5 py-2 bg-gray-100 text-gray-800 font-medium rounded-full transition duration-300 hover:bg-gray-200"
+        >
+          Profile Image
+        </button>
+        <button
+          @click="emit('editBanner')"
+          class="px-5 py-2 bg-gray-100 text-gray-800 font-medium rounded-full transition duration-300 hover:bg-gray-200"
+        >
+          Banner
+        </button>
+      </template>
+    </UserActions>
+  </div>
+
+  <!-- With banner (two column layout) -->
+  <div v-else class="grid grid-cols-2 gap-6 px-4 py-6">
+    <!-- Left column: User info -->
+    <div class="ml-10">
+      <!-- Avatar with username -->
+      <div class="relative flex items-center">
+        <i v-if="user.verified" class="absolute top-0 left-28 pi pi-verified text-2xl text-black" />
+        <BaseAvatar
+          :src="avatarUrl || undefined"
+          :alt="user.username"
+          size="xl"
+          class="!w-32 !h-32"
+        />
+        <p class="ml-4 text-3xl font-extrabold text-gray-800">{{ user.username }}</p>
+      </div>
+
+      <!-- Stats -->
+      <UserStats
+        :followers-count="followersCount"
+        :following-count="followingCount"
+        variant="column"
+        @show-followers="emit('showFollowers')"
+        @show-following="emit('showFollowing')"
+      />
+
+      <!-- Bio -->
+      <div class="mt-4">
+        <p v-if="user.description" class="description-box mt-4 text-md w-[500px]">
+          {{ user.description }}
+        </p>
+        <span
+          v-if="user.description && user.description.length > 200"
+          class="text-black cursor-pointer flex justify-left font-extrabold mt-2"
+          @click="emit('showMoreBio')"
+        >
+          More
+        </span>
+      </div>
+
+      <!-- Social links -->
+      <UserSocialLinks
+        :instagram="user.instagram"
+        :tiktok="user.tiktok"
+        :telegram="user.telegram"
+        :pinterest="user.pinterest"
+        variant="inline"
+        class="justify-left"
+      />
+
+      <!-- Actions -->
+      <UserActions
+        :user-id="user.id"
+        :is-current-user="isCurrentUser"
+        :is-following="isFollowing"
+        :has-chat="hasChat"
+        class="justify-left"
+        @send-message="emit('sendMessage')"
+        @go-to-chat="emit('goToChat')"
+        @edit-profile="emit('editProfile')"
+      >
+        <template #edit-buttons>
+          <button
+            @click="emit('editProfile')"
+            class="px-5 py-2 bg-gray-100 text-gray-800 font-medium rounded-full transition duration-300 hover:bg-gray-200"
+          >
+            Information
+          </button>
+          <button
+            @click="emit('editImage')"
+            class="px-5 py-2 bg-gray-100 text-gray-800 font-medium rounded-full transition duration-300 hover:bg-gray-200"
+          >
+            Profile Image
+          </button>
+          <button
+            @click="emit('editBanner')"
+            class="px-5 py-2 bg-gray-100 text-gray-800 font-medium rounded-full transition duration-300 hover:bg-gray-200"
+          >
+            Banner
+          </button>
+        </template>
+      </UserActions>
+    </div>
+
+    <!-- Right column: Banner -->
+    <div class="flex items-center justify-center">
+      <img :src="bannerUrl" alt="Banner" class="rounded-2xl h-[400px] w-[600px] object-cover" />
+    </div>
   </div>
 </template>
+
+<style scoped>
+.description-box {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+</style>

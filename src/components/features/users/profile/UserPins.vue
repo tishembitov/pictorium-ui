@@ -1,132 +1,138 @@
+<!-- src/components/features/user/profile/UserPins.vue -->
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import PinGrid from '@/components/features/pin/PinGrid.vue'
-import BaseLoader from '@/components/ui/BaseLoader.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import { pinsApi } from '@/api/pins.api'
-import type { Pin, PinScope } from '@/types'
+/**
+ * UserPins - Пины пользователя с infinite scroll
+ * Использует: usePinsStore, PinMasonry
+ */
+
+import { ref, watch, onMounted, onBeforeUnmount, onActivated, onDeactivated } from 'vue'
+import { usePinsStore } from '@/stores/pins.store'
+import PinMasonry from '@/components/features/pins/PinMasonry.vue'
+import type { PinGroup } from '@/components/features/pins/PinMasonry.vue'
+import type { PinWithBlob } from '@/types'
 
 export interface UserPinsProps {
   userId: string
-  scope: PinScope // 'CREATED' | 'SAVED' | 'LIKED'
-  autoLoad?: boolean
+  variant: 'created' | 'saved' | 'liked'
+  authUserId?: string
 }
 
-const props = withDefaults(defineProps<UserPinsProps>(), {
-  autoLoad: true,
-})
+const props = defineProps<UserPinsProps>()
 
-const pins = ref<Pin[]>([])
+const emit = defineEmits<{
+  (e: 'delete', pinId: string): void
+}>()
+
+// Store
+const pinsStore = usePinsStore()
+
+// State
+const pinGroups = ref<PinGroup[]>([])
 const isLoading = ref(false)
 const hasMore = ref(true)
-const currentPage = ref(0)
-const pageSize = 15
+const page = ref(0)
+const showNoPins = ref(false)
 
-const loadPins = async (page = 0) => {
-  if (isLoading.value) return
+// Fetch pins based on variant
+async function fetchPins(pageNum: number, reset = false) {
+  if (isLoading.value || (!hasMore.value && !reset)) return
+
+  isLoading.value = true
 
   try {
-    isLoading.value = true
-
     const filter = {
-      scope: props.scope,
-      authorId: props.scope === 'CREATED' ? props.userId : undefined,
-      savedBy: props.scope === 'SAVED' ? props.userId : undefined,
-      likedBy: props.scope === 'LIKED' ? props.userId : undefined,
+      authorId: props.variant === 'created' ? props.userId : undefined,
+      savedBy: props.variant === 'saved' ? props.userId : undefined,
+      likedBy: props.variant === 'liked' ? props.userId : undefined,
+      scope: props.variant.toUpperCase() as 'CREATED' | 'SAVED' | 'LIKED',
     }
 
-    const response = await pinsApi.getPins(filter, {
-      page,
-      size: pageSize,
-      sort: ['createdAt,desc'],
-    })
+    const pins = await pinsStore.fetchPins(filter, pageNum, 15)
 
-    if (page === 0) {
-      pins.value = response.content
+    if (pins.length === 0 && pageNum === 0) {
+      showNoPins.value = true
+      return
+    }
+
+    if (pins.length < 15) {
+      hasMore.value = false
+    }
+
+    const groupId = `group-${pageNum}-${Date.now()}`
+
+    if (reset) {
+      pinGroups.value = [{ id: groupId, pins, showAllPins: false }]
     } else {
-      pins.value.push(...response.content)
+      pinGroups.value.push({ id: groupId, pins, showAllPins: false })
     }
 
-    currentPage.value = page
-    hasMore.value = !response.last
+    page.value = pageNum
+    showNoPins.value = false
   } catch (error) {
-    console.error('[UserPins] Load pins failed:', error)
+    console.error('[UserPins] Failed to fetch pins:', error)
   } finally {
     isLoading.value = false
   }
 }
 
-const loadMore = () => {
-  if (hasMore.value) {
-    loadPins(currentPage.value + 1)
+// Load more
+function handleLoadMore() {
+  if (!hasMore.value || isLoading.value) return
+  fetchPins(page.value + 1)
+}
+
+// Group loaded handler
+function handleGroupLoaded(groupId: string) {
+  const group = pinGroups.value.find((g) => g.id === groupId)
+  if (group) {
+    group.showAllPins = true
   }
 }
 
-const refresh = () => {
-  pins.value = []
-  currentPage.value = 0
-  hasMore.value = true
-  loadPins(0)
+// Delete handler
+function handleDelete(pinId: string) {
+  emit('delete', pinId)
 }
 
-// Watch for scope changes
-watch(() => props.scope, refresh)
-
+// Initial load
 onMounted(() => {
-  if (props.autoLoad) {
-    loadPins()
-  }
+  fetchPins(0, true)
 })
 
-defineExpose({
-  refresh,
-  loadMore,
+// Watch for userId or variant changes
+watch([() => props.userId, () => props.variant], () => {
+  pinGroups.value = []
+  page.value = 0
+  hasMore.value = true
+  showNoPins.value = false
+  fetchPins(0, true)
 })
 
-const emptyStateConfig = computed(() => {
-  const configs = {
-    CREATED: {
-      title: 'No pins created yet',
-      message: 'Start creating pins to see them here',
-      icon: 'pi-plus-circle',
-    },
-    SAVED: {
-      title: 'No saved pins',
-      message: 'Save pins you like to see them here',
-      icon: 'pi-bookmark',
-    },
-    LIKED: {
-      title: 'No liked pins',
-      message: 'Like pins to see them here',
-      icon: 'pi-heart',
-    },
-  }
-  return configs[props.scope] || configs.CREATED
-})
+// Determine card variant
+const cardVariant = props.variant === 'saved' ? 'saved' : 'created'
 </script>
 
 <template>
-  <div class="py-6">
-    <!-- Loading State (initial) -->
-    <div v-if="isLoading && pins.length === 0" class="flex justify-center py-12">
-      <BaseLoader variant="spinner" size="lg" />
-    </div>
+  <!-- Masonry grid -->
+  <PinMasonry
+    v-if="pinGroups.length > 0"
+    :pin-groups="pinGroups"
+    :variant="cardVariant"
+    :empty-title="`No ${variant} pins`"
+    @group-loaded="handleGroupLoaded"
+    @load-more="handleLoadMore"
+    @delete="handleDelete"
+  />
 
-    <!-- Pins Grid -->
-    <PinGrid v-else-if="pins.length > 0" :pins="pins" />
-
-    <!-- Empty State -->
-    <EmptyState
-      v-else-if="!isLoading && pins.length === 0"
-      :title="emptyStateConfig.title"
-      :message="emptyStateConfig.message"
-      :icon="emptyStateConfig.icon"
-      variant="default"
-    />
-
-    <!-- Load More Trigger -->
-    <div v-if="hasMore && pins.length > 0" class="flex justify-center py-8">
-      <BaseLoader v-if="isLoading" variant="spinner" size="md" />
-    </div>
+  <!-- No pins message -->
+  <div v-if="showNoPins" class="mt-10">
+    <section class="text-center flex flex-col justify-center items-center relative">
+      <h1 class="text-2xl font-bold mb-4">no pins</h1>
+      <img
+        class="h-72 rounded-xl"
+        src="https://i.pinimg.com/736x/40/f1/b0/40f1b01bf3df9bc24bdbad4589125023.jpg"
+        alt="not found image"
+      />
+    </section>
   </div>
 </template>

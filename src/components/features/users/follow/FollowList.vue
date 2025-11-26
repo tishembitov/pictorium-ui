@@ -1,73 +1,124 @@
+<!-- src/components/features/user/follow/FollowList.vue -->
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+/**
+ * FollowList - Список с пагинацией при скролле
+ * Использует: useSubscriptionsStore, scroll handler
+ * Визуальный стиль из старого FollowersSection.vue
+ */
+
+import { ref, computed, onMounted, watch } from 'vue'
+import { useSubscriptionsStore } from '@/stores/subscriptions.store'
+import { useUserStore } from '@/stores/user.store'
 import FollowUserItem from './FollowUserItem.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import { useInfiniteScroll } from '@/composables/features/useInfiniteScroll'
-import type { User } from '@/types'
 
 export interface FollowListProps {
   userId: string
   type: 'followers' | 'following'
-  fetchUsers: (page: number, size: number) => Promise<{ items: User[]; total: number }>
+  limit?: number
 }
 
-const props = defineProps<FollowListProps>()
+const props = withDefaults(defineProps<FollowListProps>(), {
+  limit: 7,
+})
 
-const containerRef = ref<HTMLElement | null>(null)
-const users = ref<User[]>([])
+// Stores
+const subscriptionsStore = useSubscriptionsStore()
+const userStore = useUserStore()
+
+// State
+const users = ref<Array<{ id: string; username: string; imageUrl?: string; image?: string }>>([])
+const page = ref(0)
 const isLoading = ref(false)
-const currentPage = ref(0)
-const hasMore = ref(true)
-const pageSize = 20
+const canLoad = ref(true)
 
-const loadUsers = async () => {
-  if (isLoading.value || !hasMore.value) return
+// Load users with avatars
+async function loadUsers() {
+  if (isLoading.value || !canLoad.value) return
+
+  isLoading.value = true
 
   try {
-    isLoading.value = true
-    const response = await props.fetchUsers(currentPage.value, pageSize)
+    let response: any[]
 
-    users.value.push(...response.items)
-    currentPage.value++
-    hasMore.value = response.items.length === pageSize
+    if (props.type === 'followers') {
+      response = await subscriptionsStore.fetchFollowers(props.userId, page.value, props.limit)
+    } else {
+      response = await subscriptionsStore.fetchFollowing(props.userId, page.value, props.limit)
+    }
+
+    if (response.length < props.limit) {
+      canLoad.value = false
+    }
+
+    // Load avatars for each user
+    for (const user of response) {
+      let avatarUrl: string | undefined
+
+      try {
+        avatarUrl = await userStore.loadUserAvatarById(user.id, user.imageUrl)
+      } catch (error) {
+        console.error('[FollowList] Failed to load avatar:', error)
+      }
+
+      users.value.push({
+        id: user.id,
+        username: user.username,
+        imageUrl: user.imageUrl,
+        image: avatarUrl || undefined,
+      })
+    }
+
+    page.value++
   } catch (error) {
-    console.error('[FollowList] Load users failed:', error)
+    console.error('[FollowList] Failed to load users:', error)
   } finally {
     isLoading.value = false
   }
 }
 
-const handleScroll = (event: Event) => {
+// Scroll handler (как в старом проекте)
+function handleScroll(event: Event) {
   const container = event.target as HTMLElement
   if (container.scrollTop + container.clientHeight >= container.scrollHeight - 10) {
     loadUsers()
   }
 }
 
+// Initial load
 onMounted(() => {
   loadUsers()
 })
+
+// Reset on userId change
+watch(
+  () => props.userId,
+  () => {
+    users.value = []
+    page.value = 0
+    canLoad.value = true
+    loadUsers()
+  },
+)
 </script>
 
 <template>
-  <div ref="containerRef" @scroll="handleScroll" class="overflow-y-auto max-h-[500px] px-2">
-    <!-- Users List -->
-    <div v-if="users.length > 0" class="space-y-2">
-      <FollowUserItem v-for="user in users" :key="user.id" :user="user" />
-    </div>
-
-    <!-- Loading -->
-    <div v-if="isLoading" class="flex justify-center py-4">
-      <BaseLoader variant="spinner" size="md" />
-    </div>
-
-    <!-- Empty State -->
-    <EmptyState
-      v-if="!isLoading && users.length === 0"
-      :title="`No ${type}`"
-      icon="pi-users"
-      variant="minimal"
+  <div @scroll="handleScroll" class="overflow-y-auto max-h-[500px]">
+    <FollowUserItem
+      v-for="user in users"
+      :key="user.id"
+      :user="user"
+      :avatar-blob-url="user.image"
     />
+
+    <!-- Loading indicator -->
+    <div v-if="isLoading" class="flex justify-center py-4">
+      <BaseLoader variant="spinner" size="sm" />
+    </div>
+
+    <!-- Empty state -->
+    <div v-if="!isLoading && users.length === 0" class="text-center py-8 text-gray-500">
+      <p>{{ type === 'followers' ? 'No followers yet' : 'Not following anyone yet' }}</p>
+    </div>
   </div>
 </template>

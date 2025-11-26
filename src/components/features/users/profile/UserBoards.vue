@@ -1,75 +1,40 @@
+<!-- src/components/features/user/profile/UserBoards.vue -->
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import BoardGrid from '@/components/features/board/BoardGrid.vue'
-import BaseLoader from '@/components/ui/BaseLoader.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import { boardsApi } from '@/api/boards.api'
+/**
+ * UserBoards - Доски пользователя
+ * Использует: BoardList component
+ */
+
+import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth.store'
-import type { Board } from '@/types'
+import BoardList from '@/components/features/boards/BoardList.vue'
 
 export interface UserBoardsProps {
   userId: string
-  autoLoad?: boolean
+  authUserId?: string
 }
 
-const props = withDefaults(defineProps<UserBoardsProps>(), {
-  autoLoad: true,
-})
+const props = defineProps<UserBoardsProps>()
+
+const emit = defineEmits<{
+  (e: 'selectBoard', boardId: string): void
+  (e: 'createBoard'): void
+}>()
 
 const authStore = useAuthStore()
-const boards = ref<Board[]>([])
-const isLoading = ref(false)
 
-const isMe = computed(() => authStore.userId === props.userId)
-
-const loadBoards = async () => {
-  try {
-    isLoading.value = true
-
-    if (isMe.value) {
-      boards.value = await boardsApi.getMyBoards()
-    } else {
-      boards.value = await boardsApi.getUserBoards(props.userId)
-    }
-  } catch (error) {
-    console.error('[UserBoards] Load boards failed:', error)
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const refresh = () => {
-  loadBoards()
-}
-
-onMounted(() => {
-  if (props.autoLoad) {
-    loadBoards()
-  }
-})
-
-defineExpose({
-  refresh,
+const isCurrentUser = computed(() => {
+  return props.userId === authStore.userId
 })
 </script>
 
 <template>
-  <div class="py-6">
-    <!-- Loading State -->
-    <div v-if="isLoading" class="flex justify-center py-12">
-      <BaseLoader variant="spinner" size="lg" />
-    </div>
-
-    <!-- Boards Grid -->
-    <BoardGrid v-else-if="boards.length > 0" :boards="boards" />
-
-    <!-- Empty State -->
-    <EmptyState
-      v-else-if="!isLoading && boards.length === 0"
-      title="No boards yet"
-      message="Create a board to organize your pins"
-      icon="pi-folder"
-      variant="default"
-    />
-  </div>
+  <BoardList
+    :user-id="userId"
+    :variant="isCurrentUser ? 'my' : 'user'"
+    :can-edit="isCurrentUser"
+    :show-create-button="isCurrentUser"
+    @select="(board) => emit('selectBoard', board.id)"
+    @create="emit('createBoard')"
+  />
 </template>

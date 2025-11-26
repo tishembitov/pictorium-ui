@@ -1,86 +1,84 @@
+<!-- src/components/features/user/profile/UserTabs.vue -->
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-
-export type UserTab = 'created' | 'saved' | 'liked' | 'boards'
+/**
+ * UserTabs - Created, Saved, Liked, Boards tabs
+ * Визуальный стиль из старого UserView.vue (animated-border)
+ */
 
 export interface UserTabsProps {
-  modelValue?: UserTab
-  showLiked?: boolean
+  activeTab: 'created' | 'saved' | 'liked' | 'boards'
+  variant?: 'default' | 'sticky'
 }
 
 const props = withDefaults(defineProps<UserTabsProps>(), {
-  modelValue: 'created',
-  showLiked: true,
+  variant: 'default',
 })
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: UserTab): void
+  (e: 'change', tab: 'created' | 'saved' | 'liked' | 'boards'): void
 }>()
 
-const activeTab = ref<UserTab>(props.modelValue)
-
-watch(
-  () => props.modelValue,
-  (newValue) => {
-    activeTab.value = newValue
-  },
-)
-
-const selectTab = (tab: UserTab) => {
-  activeTab.value = tab
-  emit('update:modelValue', tab)
-}
+const tabs = [
+  { id: 'created' as const, label: 'Created' },
+  { id: 'saved' as const, label: 'Saved' },
+  { id: 'liked' as const, label: 'Liked' },
+  { id: 'boards' as const, label: 'Boards' },
+]
 </script>
 
 <template>
-  <div class="flex items-center justify-center gap-4 mt-6 border-b border-gray-200">
+  <div class="flex items-center justify-center space-x-4" :class="variant === 'sticky' && 'py-2'">
     <button
-      @click="selectTab('created')"
+      v-for="tab in tabs"
+      :key="tab.id"
+      @click="emit('change', tab.id)"
+      class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border rounded-t-2xl"
       :class="[
-        'relative px-6 py-3 font-semibold transition-all duration-200',
-        activeTab === 'created'
-          ? 'text-black border-b-2 border-red-600'
-          : 'text-gray-600 hover:text-black',
+        activeTab === tab.id && 'active scale-105',
+        variant === 'default' && 'hover:bg-gray-100',
       ]"
     >
-      Created
-    </button>
-
-    <button
-      @click="selectTab('saved')"
-      :class="[
-        'relative px-6 py-3 font-semibold transition-all duration-200',
-        activeTab === 'saved'
-          ? 'text-black border-b-2 border-red-600'
-          : 'text-gray-600 hover:text-black',
-      ]"
-    >
-      Saved
-    </button>
-
-    <button
-      v-if="showLiked"
-      @click="selectTab('liked')"
-      :class="[
-        'relative px-6 py-3 font-semibold transition-all duration-200',
-        activeTab === 'liked'
-          ? 'text-black border-b-2 border-red-600'
-          : 'text-gray-600 hover:text-black',
-      ]"
-    >
-      Liked
-    </button>
-
-    <button
-      @click="selectTab('boards')"
-      :class="[
-        'relative px-6 py-3 font-semibold transition-all duration-200',
-        activeTab === 'boards'
-          ? 'text-black border-b-2 border-red-600'
-          : 'text-gray-600 hover:text-black',
-      ]"
-    >
-      Boards
+      {{ tab.label }}
     </button>
   </div>
 </template>
+
+<style scoped>
+.animated-border {
+  position: relative;
+  transition:
+    color 0.3s ease-in-out,
+    transform 0.2s ease-out;
+}
+
+.animated-border::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background-color: red;
+  transition:
+    width 0.3s ease-out,
+    transform 0.3s ease-out;
+  transform: translateX(-50%);
+}
+
+.active::after {
+  width: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.animated-border:hover {
+  color: red;
+  transform: scale(1.05);
+}
+
+.animated-border:hover::after {
+  width: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+</style>

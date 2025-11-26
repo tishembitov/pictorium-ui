@@ -15,11 +15,11 @@ import BaseLoader from '@/components/ui/BaseLoader.vue'
 export interface FollowListProps {
   userId: string
   type: 'followers' | 'following'
-  limit?: number
+  pageSize?: number
 }
 
 const props = withDefaults(defineProps<FollowListProps>(), {
-  limit: 7,
+  pageSize: 7,
 })
 
 // Stores
@@ -42,12 +42,22 @@ async function loadUsers() {
     let response: any[]
 
     if (props.type === 'followers') {
-      response = await subscriptionsStore.fetchFollowers(props.userId, page.value, props.limit)
+      response = await subscriptionsStore.fetchFollowers(
+        props.userId,
+        page.value,
+        props.pageSize,
+        page.value === 0,
+      )
     } else {
-      response = await subscriptionsStore.fetchFollowing(props.userId, page.value, props.limit)
+      response = await subscriptionsStore.fetchFollowing(
+        props.userId,
+        page.value,
+        props.pageSize,
+        page.value === 0,
+      )
     }
 
-    if (response.length < props.limit) {
+    if (response.length < props.pageSize) {
       canLoad.value = false
     }
 

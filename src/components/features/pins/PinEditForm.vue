@@ -1,166 +1,194 @@
+<!-- src/components/features/pin/PinEditForm.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { usePinsStore } from '@/stores/pins.store'
+import { useTagsStore } from '@/stores/tags.store'
+import { useForm } from '@/composables/form/useForm'
+import { useSuccessToast, useErrorToast } from '@/composables/ui/useToast'
+import { randomTagColor } from '@/utils/colors'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseTextarea from '@/components/ui/BaseTextarea.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseModal from '@/components/ui/BaseModal.vue'
-import TagInput from '@/components/features/tag/TagInput.vue'
-import PinMedia from './PinMedia.vue'
-import { useForm } from '@/composables/form/useForm'
-import { usePins } from '@/composables/api/usePins'
-import { useToast } from '@/composables/ui/useToast'
+import TagBadge from '@/components/ui/TagBadge.vue'
 import type { Pin } from '@/types'
 
 export interface PinEditFormProps {
-  modelValue: boolean
   pin: Pin
 }
 
 const props = defineProps<PinEditFormProps>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-  (e: 'success', pin: Pin): void
+  (e: 'saved', pin: Pin): void
+  (e: 'cancel'): void
 }>()
 
-const { updatePin } = usePins()
-const { showToast } = useToast()
+// Stores
+const pinsStore = usePinsStore()
+const tagsStore = useTagsStore()
 
-const isSubmitting = ref(false)
+// Toasts
+const { pinUpdated } = useSuccessToast()
+const { showError } = useErrorToast()
 
-const { values, errors, isValid, setFieldValue, validateForm, reset } = useForm({
+// Form state
+const { values, isSubmitting, handleSubmit } = useForm({
   initialValues: {
     title: props.pin.title || '',
     description: props.pin.description || '',
     href: props.pin.href || '',
-    tags: props.pin.tags || [],
   },
-  validationRules: {
-    title: [
-      (value: string) => {
-        if (value && value.length > 200) {
-          return 'Title must be at most 200 characters'
-        }
-        return null
-      },
-    ],
-    description: [
-      (value: string) => {
-        if (value && value.length > 400) {
-          return 'Description must be at most 400 characters'
-        }
-        return null
-      },
-    ],
-  },
+  onSubmit: save,
 })
 
-// Load initial data
-onMounted(() => {
-  reset()
+// Tags
+const selectedTags = ref<string[]>([...props.pin.tags])
+const availableTags = ref<Array<{ id: string; name: string; color: string }>>([])
+const searchValue = ref('')
+
+// Computed
+const filteredTags = computed(() => {
+  const query = searchValue.value.trim().toLowerCase()
+  if (!query) return availableTags.value
+  return availableTags.value.filter((tag) => tag.name.toLowerCase().includes(query))
 })
 
-const handleTagsChange = (tags: string[]) => {
-  setFieldValue('tags', tags)
-}
+const hasChanges = computed(() => {
+  return (
+    values.title !== (props.pin.title || '') ||
+    values.description !== (props.pin.description || '') ||
+    values.href !== (props.pin.href || '') ||
+    JSON.stringify([...selectedTags.value].sort()) !== JSON.stringify([...props.pin.tags].sort())
+  )
+})
 
-const handleSubmit = async () => {
+// Load available tags
+onMounted(async () => {
   try {
-    isSubmitting.value = true
+    await tagsStore.fetchAllTags(0, 100)
+    availableTags.value = tagsStore.allTags.map((tag) => ({
+      id: tag.id,
+      name: tag.name,
+      color: randomTagColor(),
+    }))
 
-    const isFormValid = await validateForm()
-    if (!isFormValid) {
-      showToast('Please fix validation errors', 'error')
-      return
-    }
-
-    const updated = await updatePin(props.pin.id, {
-      title: values.title || undefined,
-      description: values.description || undefined,
-      href: values.href || undefined,
-      tags: values.tags,
+    // Ensure current tags are in the list
+    props.pin.tags.forEach((tagName) => {
+      if (!availableTags.value.some((t) => t.name === tagName)) {
+        availableTags.value.unshift({
+          id: `existing-${tagName}`,
+          name: tagName,
+          color: randomTagColor(),
+        })
+      }
     })
-
-    showToast('Pin updated successfully!', 'success')
-    emit('success', updated)
-    emit('update:modelValue', false)
   } catch (error) {
-    console.error('[PinEditForm] Submit failed:', error)
-    showToast('Failed to update pin', 'error')
-  } finally {
-    isSubmitting.value = false
+    console.error('[PinEditForm] Failed to load tags:', error)
+  }
+})
+
+// Methods
+function toggleTag(tagName: string) {
+  const index = selectedTags.value.indexOf(tagName)
+  if (index === -1) {
+    selectedTags.value.push(tagName)
+  } else {
+    selectedTags.value.splice(index, 1)
   }
 }
 
-const handleCancel = () => {
-  emit('update:modelValue', false)
+function isTagSelected(tagName: string) {
+  return selectedTags.value.includes(tagName)
+}
+
+async function save() {
+  if (!hasChanges.value) {
+    emit('cancel')
+    return
+  }
+
+  try {
+    const updated = await pinsStore.updatePin(props.pin.id, {
+      title: values.title.trim() || undefined,
+      description: values.description.trim() || undefined,
+      href: values.href.trim() || undefined,
+      tags: selectedTags.value.length > 0 ? selectedTags.value : undefined,
+    })
+
+    pinUpdated()
+    emit('saved', updated)
+  } catch (error) {
+    showError(error)
+  }
+}
+
+function cancel() {
+  emit('cancel')
 }
 </script>
 
 <template>
-  <BaseModal
-    :model-value="modelValue"
-    @update:model-value="emit('update:modelValue', $event)"
-    title="Edit Pin"
-    size="lg"
-    :closable="!isSubmitting"
-  >
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Left: Preview -->
-      <div>
-        <PinMedia :pin="pin" :auto-play="false" :show-controls="false" />
-      </div>
+  <div class="space-y-6 p-6">
+    <h2 class="text-xl font-bold text-gray-900">Edit Pin</h2>
 
-      <!-- Right: Form -->
-      <div class="space-y-4">
-        <!-- Title -->
-        <BaseInput
-          v-model="values.title"
-          label="Title"
-          placeholder="Add a title"
-          :error="errors.title"
-          :max-length="200"
-        />
+    <!-- Title -->
+    <BaseInput v-model="values.title" label="Title" placeholder="Add a title" rounded="lg" />
 
-        <!-- Description -->
-        <BaseTextarea
-          v-model="values.description"
-          label="Description"
-          placeholder="Tell everyone what your pin is about"
-          :error="errors.description"
-          :max-length="400"
-          :rows="4"
-        />
+    <!-- Description -->
+    <BaseTextarea
+      v-model="values.description"
+      label="Description"
+      placeholder="Tell everyone what your Pin is about"
+      :rows="4"
+      rounded="lg"
+    />
 
-        <!-- Link -->
-        <BaseInput
-          v-model="values.href"
-          label="Link (optional)"
-          placeholder="Add a destination link"
-          type="url"
-          :error="errors.href"
-        />
+    <!-- Link -->
+    <BaseInput
+      v-model="values.href"
+      type="url"
+      label="Website link"
+      placeholder="Add a link"
+      rounded="lg"
+    />
 
-        <!-- Tags -->
-        <TagInput
-          :model-value="values.tags"
-          @update:model-value="handleTagsChange"
-          label="Tags"
-          placeholder="Add tags"
-          :max-tags="10"
+    <!-- Tags -->
+    <div>
+      <label class="block mb-2 text-sm font-medium text-gray-900">Tags</label>
+
+      <BaseInput
+        v-model="searchValue"
+        placeholder="Search or add tags"
+        rounded="lg"
+        size="sm"
+        class="mb-3"
+      />
+
+      <div class="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+        <TagBadge
+          v-for="tag in filteredTags"
+          :key="tag.id"
+          :label="tag.name"
+          :color="tag.color"
+          :selected="isTagSelected(tag.name)"
+          size="sm"
+          clickable
+          @click="toggleTag(tag.name)"
         />
       </div>
     </div>
 
-    <!-- Footer Actions -->
-    <template #footer>
-      <BaseButton variant="secondary" @click="handleCancel" :disabled="isSubmitting">
-        Cancel
-      </BaseButton>
-
-      <BaseButton variant="primary" @click="handleSubmit" :loading="isSubmitting">
+    <!-- Actions -->
+    <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+      <BaseButton variant="ghost" @click="cancel"> Cancel </BaseButton>
+      <BaseButton
+        variant="primary"
+        :loading="isSubmitting"
+        :disabled="!hasChanges"
+        @click="handleSubmit"
+      >
         Save Changes
       </BaseButton>
-    </template>
-  </BaseModal>
+    </div>
+  </div>
 </template>

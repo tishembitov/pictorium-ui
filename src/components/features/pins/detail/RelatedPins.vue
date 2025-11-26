@@ -18,9 +18,7 @@ const props = withDefaults(defineProps<RelatedPinsProps>(), {
   gap: 16,
 })
 
-const emit = defineEmits<{
-  (e: 'pinClick', pinId: string): void
-}>()
+const emit = defineEmits<(e: 'pinClick', pinId: string) => void>()
 
 // Filter out current pin from related
 const filteredPins = computed(() => {

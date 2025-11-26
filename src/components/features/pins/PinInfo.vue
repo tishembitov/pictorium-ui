@@ -1,53 +1,93 @@
+<!-- src/components/features/pin/PinInfo.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { randomTagColor } from '@/utils/colors'
 import { truncateText } from '@/utils/formatters'
-import type { Pin } from '@/types'
+import TagBadge from '@/components/ui/TagBadge.vue'
 
 export interface PinInfoProps {
-  pin: Pin
-  maxTitleLength?: number
+  title?: string | null
+  description?: string | null
+  href?: string | null
+  tags?: string[]
+  rgb?: string | null
+  variant?: 'card' | 'detail'
   maxDescriptionLength?: number
-  showTags?: boolean
 }
 
 const props = withDefaults(defineProps<PinInfoProps>(), {
-  maxTitleLength: 200,
-  maxDescriptionLength: 400,
-  showTags: false,
+  tags: () => [],
+  variant: 'card',
+  maxDescriptionLength: 200,
 })
 
-const displayTitle = computed(() => {
-  if (!props.pin.title) return ''
-  return truncateText(props.pin.title, props.maxTitleLength)
-})
+const router = useRouter()
+
+// Computed
+const tagsWithColors = computed(() =>
+  props.tags.map((tag) => ({
+    name: tag,
+    color: randomTagColor(),
+  })),
+)
 
 const displayDescription = computed(() => {
-  if (!props.pin.description) return ''
-  return truncateText(props.pin.description, props.maxDescriptionLength)
+  if (!props.description) return null
+  return truncateText(props.description, props.maxDescriptionLength)
 })
+
+const titleColor = computed(() => props.rgb || '#111827')
+
+// Methods
+function handleTagClick(tagName: string) {
+  router.push({ path: '/', query: { tag: tagName } })
+}
 </script>
 
 <template>
-  <div class="space-y-1">
-    <!-- Title -->
-    <p v-if="pin.title" class="text-sm font-medium text-gray-900">
-      {{ displayTitle }}
+  <!-- Card variant (minimal - just title) -->
+  <div v-if="variant === 'card'" class="mt-2">
+    <p v-if="title" class="text-sm font-medium truncate text-gray-900">
+      {{ title }}
     </p>
+  </div>
+
+  <!-- Detail variant (full info) -->
+  <div v-else class="space-y-4">
+    <!-- Title -->
+    <h1 v-if="title" :style="{ color: titleColor }" class="font-bold text-2xl">
+      {{ title }}
+    </h1>
 
     <!-- Description -->
-    <p v-if="pin.description" class="text-sm text-gray-600">
+    <p v-if="description" class="text-gray-700 leading-relaxed">
       {{ displayDescription }}
     </p>
 
+    <!-- External link -->
+    <a
+      v-if="href"
+      :href="href"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="block w-full text-center py-3 bg-neutral-200 text-black font-medium rounded-full hover:bg-neutral-300 transition duration-300"
+    >
+      <i class="pi pi-external-link mr-2" />
+      Visit site
+    </a>
+
     <!-- Tags -->
-    <div v-if="showTags && pin.tags && pin.tags.length > 0" class="flex flex-wrap gap-2 mt-2">
-      <span
-        v-for="tag in pin.tags"
-        :key="tag"
-        class="px-2 py-1 text-xs bg-gray-100 rounded-full hover:bg-gray-200 cursor-pointer"
-      >
-        #{{ tag }}
-      </span>
+    <div v-if="tags.length > 0" class="flex flex-wrap gap-2" v-auto-animate>
+      <TagBadge
+        v-for="tag in tagsWithColors"
+        :key="tag.name"
+        :label="tag.name"
+        :color="tag.color"
+        size="md"
+        clickable
+        @click="handleTagClick(tag.name)"
+      />
     </div>
   </div>
 </template>

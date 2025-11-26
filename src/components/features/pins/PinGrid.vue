@@ -1,40 +1,71 @@
+<!-- src/components/features/pin/PinGrid.vue -->
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
-import { useWindowSize } from '@/composables/utils'
-import { calculateColumnsCount } from '@/utils/masonry'
+import { computed } from 'vue'
+import PinCard from './PinCard.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import type { PinWithBlob } from '@/types'
 
 export interface PinGridProps {
-  columnWidth?: number
-  gap?: number
-  minColumns?: number
-  maxColumns?: number
+  pins: PinWithBlob[]
+  columns?: 2 | 3 | 4 | 5 | 6
+  showUser?: boolean
+  variant?: 'default' | 'created' | 'saved' | 'deletable' | 'board'
+  emptyTitle?: string
+  emptyMessage?: string
+  emptyImage?: string
 }
 
 const props = withDefaults(defineProps<PinGridProps>(), {
-  columnWidth: 272,
-  gap: 16,
-  minColumns: 1,
-  maxColumns: Infinity,
+  columns: 5,
+  showUser: true,
+  variant: 'default',
+  emptyTitle: 'No pins',
+  emptyMessage: '',
+  emptyImage: 'https://i.pinimg.com/736x/40/f1/b0/40f1b01bf3df9bc24bdbad4589125023.jpg',
 })
 
-const containerRef = ref<HTMLElement | null>(null)
-const { width: windowWidth } = useWindowSize()
+const emit = defineEmits<{
+  (e: 'delete', pinId: string): void
+  (e: 'openBoardSelector', pinId: string): void
+  (e: 'pinLoad', pinId: string): void
+}>()
 
-// Calculate columns based on window width
-const columnsCount = computed(() => {
-  const cols = calculateColumnsCount(windowWidth.value, props.columnWidth, props.gap)
-  return Math.max(props.minColumns, Math.min(props.maxColumns, cols))
-})
+const gridClass = computed(
+  () =>
+    ({
+      2: 'grid-cols-2',
+      3: 'grid-cols-3',
+      4: 'grid-cols-4',
+      5: 'grid-cols-5',
+      6: 'grid-cols-6',
+    })[props.columns],
+)
 
-const gridStyle = computed(() => ({
-  display: 'grid',
-  gridTemplateColumns: `repeat(${columnsCount.value}, 1fr)`,
-  gap: `${props.gap}px`,
-}))
+const isEmpty = computed(() => props.pins.length === 0)
 </script>
 
 <template>
-  <div ref="containerRef" :style="gridStyle" class="w-full">
-    <slot />
+  <!-- Empty state -->
+  <EmptyState
+    v-if="isEmpty"
+    :title="emptyTitle"
+    :message="emptyMessage"
+    :image="emptyImage"
+    class="mt-10"
+  />
+
+  <!-- Grid -->
+  <div v-else :class="['grid gap-4', gridClass]">
+    <PinCard
+      v-for="pin in pins"
+      :key="pin.id"
+      :pin="pin"
+      :show-user="showUser"
+      :variant="variant"
+      class="!w-full !p-0"
+      @load="emit('pinLoad', pin.id)"
+      @delete="emit('delete', pin.id)"
+      @open-board-selector="emit('openBoardSelector', pin.id)"
+    />
   </div>
 </template>

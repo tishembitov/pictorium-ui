@@ -1,220 +1,244 @@
+<!-- src/components/features/pin/PinCreateForm.vue -->
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useCreatePin } from '@/composables/api/useCreatePin'
+import { useCategories } from '@/composables/api/useTagSearch'
+import { useToast } from '@/composables/ui/useToast'
+import { useForm } from '@/composables/form/useForm'
+import { randomTagColor } from '@/utils/colors'
+import FileUpload from '@/components/ui/FileUpload.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseTextarea from '@/components/ui/BaseTextarea.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import FileUpload from '@/components/ui/FileUpload.vue'
-import TagInput from '@/components/features/tag/TagInput.vue'
-import { useForm } from '@/composables/form/useForm'
-import { usePins } from '@/composables/api/usePins'
-import { useToast } from '@/composables/ui/useToast'
-import { useRouter } from 'vue-router'
-import { extractDominantColor } from '@/utils/colors'
-import { getImageDimensions } from '@/utils/media'
-import type { PinCreateRequest } from '@/types'
-
-const emit = defineEmits<{
-  (e: 'success', pin: Pin): void
-  (e: 'cancel'): void
-}>()
+import BaseLoader from '@/components/ui/BaseLoader.vue'
+import TagBadge from '@/components/ui/TagBadge.vue'
+import BackButton from '@/components/common/BackButton.vue'
+import MediaErrorDialog from '@/components/ui/MediaErrorDialog.vue'
 
 const router = useRouter()
-const { createPin } = usePins()
-const { showToast } = useToast()
+const { error: showError, success } = useToast()
 
-// Form state
-const mediaFile = ref<File | null>(null)
-const previewUrl = ref<string | null>(null)
-const isSubmitting = ref(false)
+// Composables
+const createPin = useCreatePin()
+const { categories, fetch: fetchCategories, isLoading: isLoadingCategories } = useCategories()
 
-const { values, errors, isValid, setFieldValue, setFieldError, validateForm } = useForm({
+// Form with validation
+const {
+  values: formValues,
+  handleSubmit,
+  isSubmitting,
+} = useForm({
   initialValues: {
     title: '',
     description: '',
     href: '',
-    tags: [] as string[],
   },
-  validationRules: {
-    title: [
-      (value: string) => {
-        if (value && value.length > 200) {
-          return 'Title must be at most 200 characters'
-        }
-        return null
-      },
-    ],
-    description: [
-      (value: string) => {
-        if (value && value.length > 400) {
-          return 'Description must be at most 400 characters'
-        }
-        return null
-      },
-    ],
-  },
+  onSubmit: submitPin,
+})
+
+// Tags state
+const tagToAdd = ref('')
+const searchValue = ref('')
+const selectedTags = ref<string[]>([])
+const availableTags = ref<Array<{ id: string; name: string; color: string }>>([])
+
+// Error dialog
+const showFileError = ref(false)
+
+// Computed
+const filteredTags = computed(() => {
+  const query = searchValue.value.trim().toLowerCase()
+  if (!query) return availableTags.value
+  return availableTags.value.filter((tag) => tag.name.toLowerCase().includes(query))
 })
 
 const canSubmit = computed(() => {
-  return mediaFile.value !== null && !isSubmitting.value
+  return createPin.file.value !== null && !createPin.isCreating.value
 })
 
-const handleMediaChange = (file: File | null) => {
-  mediaFile.value = file
-  if (file) {
-    previewUrl.value = URL.createObjectURL(file)
+// Load categories/tags
+onMounted(async () => {
+  try {
+    await fetchCategories(50)
+    availableTags.value = categories.value.map((cat) => ({
+      id: cat.tagId,
+      name: cat.tagName,
+      color: randomTagColor(),
+    }))
+  } catch (error) {
+    console.error('[PinCreateForm] Failed to load tags:', error)
+  }
+})
+
+// Methods
+function addCustomTag() {
+  const trimmed = tagToAdd.value.trim()
+  if (!trimmed) return
+
+  // Add to available if not exists
+  const exists = availableTags.value.some((t) => t.name.toLowerCase() === trimmed.toLowerCase())
+  if (!exists) {
+    availableTags.value.unshift({
+      id: `custom-${Date.now()}`,
+      name: trimmed,
+      color: randomTagColor(),
+    })
+  }
+
+  // Add to selected
+  if (!selectedTags.value.includes(trimmed)) {
+    selectedTags.value.push(trimmed)
+  }
+
+  tagToAdd.value = ''
+}
+
+function toggleTag(tagName: string) {
+  const index = selectedTags.value.indexOf(tagName)
+  if (index === -1) {
+    selectedTags.value.push(tagName)
   } else {
-    previewUrl.value = null
+    selectedTags.value.splice(index, 1)
   }
 }
 
-const handleMediaError = (errors: string[]) => {
-  showToast(errors[0] || 'Invalid file', 'error')
+function isTagSelected(tagName: string) {
+  return selectedTags.value.includes(tagName)
 }
 
-const handleTagsChange = (tags: string[]) => {
-  setFieldValue('tags', tags)
-}
-
-const handleSubmit = async () => {
-  if (!canSubmit.value) return
+async function submitPin() {
+  if (!canSubmit.value) {
+    showError('Please upload a file')
+    return
+  }
 
   try {
-    isSubmitting.value = true
-
-    // Validate form
-    const isFormValid = await validateForm()
-    if (!isFormValid) {
-      showToast('Please fix validation errors', 'error')
-      return
-    }
-
-    // Extract color and dimensions
-    let rgb: string | undefined
-    let width: number | undefined
-    let height: number | undefined
-
-    if (previewUrl.value) {
-      try {
-        rgb = await extractDominantColor(previewUrl.value)
-      } catch (error) {
-        console.warn('Failed to extract color:', error)
-      }
-
-      try {
-        const dimensions = await getImageDimensions(mediaFile.value!)
-        width = dimensions.width
-        height = dimensions.height
-      } catch (error) {
-        console.warn('Failed to get dimensions:', error)
-      }
-    }
-
-    // Create pin
-    const pin = await createPin({
-      file: mediaFile.value!,
-      title: values.title || undefined,
-      description: values.description || undefined,
-      href: values.href || undefined,
-      tags: values.tags,
-      rgb,
+    const pin = await createPin.create({
+      title: formValues.title.trim() || undefined,
+      description: formValues.description.trim() || undefined,
+      href: formValues.href.trim() || undefined,
+      tags: selectedTags.value.length > 0 ? selectedTags.value : undefined,
     })
 
-    showToast('Pin created successfully!', 'success')
-    emit('success', pin)
-
-    // Redirect to pin detail
+    success('Pin created!')
     router.push(`/pin/${pin.id}`)
-  } catch (error) {
-    console.error('[PinCreateForm] Submit failed:', error)
-    showToast('Failed to create pin', 'error')
-  } finally {
-    isSubmitting.value = false
+  } catch (error: any) {
+    if (error?.response?.status === 415) {
+      showFileError.value = true
+    } else {
+      showError(error?.message || 'Failed to create pin')
+    }
   }
 }
 
-const handleCancel = () => {
-  emit('cancel')
+function handleFileError(errors: string[]) {
+  showError(errors[0] || 'Invalid file')
+}
+
+function goBack() {
   router.back()
 }
-
-onBeforeUnmount(() => {
-  if (previewUrl.value) {
-    URL.revokeObjectURL(previewUrl.value)
-  }
-})
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto p-6">
-    <h1 class="text-3xl font-bold mb-6">Create Pin</h1>
+  <!-- File error dialog -->
+  <MediaErrorDialog v-model="showFileError" />
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-      <!-- Left: Media Upload -->
-      <div>
-        <FileUpload
-          v-model="mediaFile"
-          :validate-async="true"
-          :drag-drop="true"
-          :show-preview="true"
-          @error="handleMediaError"
-          class="mb-4"
-        />
+  <div class="ml-20 mt-20">
+    <!-- Loading spinner -->
+    <BaseLoader v-if="createPin.isCreating.value" variant="colorful" size="lg" fullscreen />
+
+    <div v-else class="grid grid-cols-2 mt-10 mr-72 gap-10">
+      <!-- Back button -->
+      <BackButton class="absolute top-4 left-20 ml-20 mt-20" />
+
+      <!-- Left column: File upload -->
+      <div class="ml-56">
+        <label for="pin-media-upload" class="cursor-pointer block">
+          <FileUpload
+            v-model="createPin.file.value"
+            :show-preview="true"
+            preview-width="271.84px"
+            :min-width="200"
+            :min-height="300"
+            :max-video-duration="30"
+            @error="handleFileError"
+          />
+        </label>
+
+        <BaseButton
+          @click="handleSubmit"
+          :loading="createPin.isCreating.value"
+          :disabled="!canSubmit"
+          full-width
+          variant="primary"
+          class="mt-10"
+        >
+          Create Pin
+        </BaseButton>
       </div>
 
-      <!-- Right: Form Fields -->
-      <div class="space-y-4">
+      <!-- Right column: Form fields -->
+      <div class="space-y-7 mt-2 mb-10">
         <!-- Title -->
-        <BaseInput
-          v-model="values.title"
-          label="Title"
-          placeholder="Add a title"
-          :error="errors.title"
-          :max-length="200"
-        />
+        <BaseInput v-model="formValues.title" placeholder="Add title" rounded="full" size="md" />
 
         <!-- Description -->
         <BaseTextarea
-          v-model="values.description"
-          label="Description"
-          placeholder="Tell everyone what your pin is about"
-          :error="errors.description"
-          :max-length="400"
-          :rows="4"
+          v-model="formValues.description"
+          placeholder="Add description"
+          :rows="3"
+          rounded="xl"
         />
 
         <!-- Link -->
         <BaseInput
-          v-model="values.href"
-          label="Link (optional)"
-          placeholder="Add a destination link"
+          v-model="formValues.href"
           type="url"
-          :error="errors.href"
+          placeholder="Add link (any website link)"
+          rounded="full"
+          size="md"
         />
 
-        <!-- Tags -->
-        <TagInput
-          :model-value="values.tags"
-          @update:model-value="handleTagsChange"
-          label="Tags"
-          placeholder="Add tags"
-          :max-tags="10"
-        />
+        <!-- Tags section -->
+        <div class="mt-5">
+          <h3 class="text-md mb-2 text-gray-600">Add Tags to Pin</h3>
 
-        <!-- Actions -->
-        <div class="flex items-center gap-3 pt-4">
-          <BaseButton variant="secondary" @click="handleCancel" :disabled="isSubmitting">
-            Cancel
-          </BaseButton>
+          <!-- Create new tag -->
+          <div class="flex items-center space-x-2 mb-4">
+            <BaseButton variant="primary" size="sm" @click="addCustomTag"> Create </BaseButton>
+            <BaseInput
+              v-model="tagToAdd"
+              placeholder="Create Tag"
+              rounded="full"
+              size="sm"
+              class="flex-1"
+              @enter="addCustomTag"
+            />
+          </div>
 
-          <BaseButton
-            variant="primary"
-            @click="handleSubmit"
-            :loading="isSubmitting"
-            :disabled="!canSubmit"
-            full-width
-          >
-            Create Pin
-          </BaseButton>
+          <!-- Search tags -->
+          <BaseInput
+            v-model="searchValue"
+            placeholder="Search Tag"
+            rounded="full"
+            size="sm"
+            class="mb-4"
+          />
+
+          <!-- Tags list -->
+          <div class="flex flex-wrap gap-2" v-auto-animate>
+            <TagBadge
+              v-for="tag in filteredTags"
+              :key="tag.id"
+              :label="tag.name"
+              :color="tag.color"
+              :selected="isTagSelected(tag.name)"
+              clickable
+              @click="toggleTag(tag.name)"
+            />
+          </div>
         </div>
       </div>
     </div>

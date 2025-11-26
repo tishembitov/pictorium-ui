@@ -24,7 +24,10 @@ export function validateFileType(file: File, allowedTypes: readonly string[]): b
 }
 
 // Comprehensive media file validation (из старого кода)
-export async function validateMediaFile(file: File): Promise<FileValidationResult> {
+export async function validateMediaFile(
+  file: File,
+  p0: { maxVideoDuration: any },
+): Promise<FileValidationResult> {
   const errors: string[] = []
 
   // Check file type

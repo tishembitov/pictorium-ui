@@ -1,170 +1,159 @@
+<!-- src/components/features/comments/PinComments.vue -->
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+/**
+ * PinComments - Главный контейнер комментариев
+ * Гибрид: composables + MediaErrorDialog + стиль старого проекта
+ */
+
+import { ref, onMounted, nextTick, watch } from 'vue'
+import { usePinComments } from '@/composables/api/usePinComments'
+import { useToast } from '@/composables/ui/useToast'
 import CommentList from './CommentList.vue'
 import CommentInput from './CommentInput.vue'
-import ErrorMessage from '@/components/common/ErrorMessage.vue'
-import { useComments } from '@/composables/api/useComments'
-import { useToast } from '@/composables/ui/useToast'
+import MediaErrorDialog from '@/components/ui/MediaErrorDialog.vue'
 
 export interface PinCommentsProps {
   pinId: string
-  commentCount: number
-  autoExpand?: boolean
-  showTitle?: boolean
-  maxHeight?: string
+  commentCount?: number
+  accentColor?: string
 }
 
 const props = withDefaults(defineProps<PinCommentsProps>(), {
-  autoExpand: false,
-  showTitle: true,
-  maxHeight: '24rem',
+  commentCount: 0,
+  accentColor: '#000',
 })
 
-const emit = defineEmits<{
-  (e: 'commentAdded'): void
-  (e: 'commentsCountChanged', count: number): void
-}>()
+const emit = defineEmits<(e: 'countChange', count: number) => void>()
 
-const { createComment } = useComments()
-const { showToast } = useToast()
+// ✅ usePinComments composable
+const { comments, hasMore, isLoading, fetch, loadMore, add } = usePinComments(props.pinId)
+const { error: showError } = useToast()
 
 // State
-const isExpanded = ref(props.autoExpand || props.commentCount > 0)
-const commentContent = ref('')
-const mediaFile = ref<File | null>(null)
+const showComments = ref(false)
 const isSubmitting = ref(false)
-const submitError = ref<string | null>(null)
 const localCommentCount = ref(props.commentCount)
+const isInitialLoad = ref(true)
 
-// Computed
-const hasContent = computed(() => commentContent.value.trim() !== '' || mediaFile.value !== null)
+// ✅ MediaErrorDialog
+const showMediaError = ref(false)
 
-const titleText = computed(() => {
-  if (localCommentCount.value === 0) return 'Your opinion?'
-  return `${localCommentCount.value} Comment${localCommentCount.value === 1 ? '' : 's'}`
-})
+// Initialize
+if (props.commentCount > 0) {
+  showComments.value = true
+}
 
-// Watch comment count prop
 watch(
   () => props.commentCount,
-  (newCount) => {
-    localCommentCount.value = newCount
+  (val) => {
+    localCommentCount.value = val
   },
 )
 
-// Handlers
-const toggleExpanded = () => {
-  isExpanded.value = !isExpanded.value
+// Methods
+async function handleLoadMore() {
+  if (!hasMore.value || isLoading.value) return
+  await loadMore()
 }
 
-const handleSubmit = async () => {
-  if (!hasContent.value || isSubmitting.value) return
+async function handleSubmitComment(content: string, file: File | null) {
+  if (!content.trim() && !file) return
+
+  isSubmitting.value = true
 
   try {
-    isSubmitting.value = true
-    submitError.value = null
+    await add(content.trim() || undefined, file || undefined)
 
-    // Create comment
-    await createComment(props.pinId, {
-      content: commentContent.value.trim() || undefined,
-      imageUrl: mediaFile.value ? 'temp' : undefined,
-    })
-
-    // Success
-    showToast('Comment added!', 'success')
-    commentContent.value = ''
-    mediaFile.value = null
     localCommentCount.value += 1
+    emit('countChange', localCommentCount.value)
 
-    // Expand comments
-    if (!isExpanded.value) {
-      isExpanded.value = true
+    showComments.value = false
+    await nextTick()
+    showComments.value = true
+  } catch (err: any) {
+    if (err?.response?.status === 415) {
+      showMediaError.value = true
+    } else {
+      showError('Failed to add comment')
     }
-
-    emit('commentAdded')
-    emit('commentsCountChanged', localCommentCount.value)
-  } catch (error) {
-    console.error('[PinComments] Submit failed:', error)
-    submitError.value = 'Failed to add comment. Please try again.'
-    showToast('Failed to add comment', 'error')
   } finally {
     isSubmitting.value = false
   }
 }
 
-const handleCancel = () => {
-  commentContent.value = ''
-  mediaFile.value = null
-  submitError.value = null
+function handleMediaError(message: string) {
+  showMediaError.value = true
 }
 
-const handleMediaChange = (file: File | null) => {
-  mediaFile.value = file
+function handleCommentDeleted(commentId: string) {
+  localCommentCount.value = Math.max(0, localCommentCount.value - 1)
+  emit('countChange', localCommentCount.value)
 }
 
-const handleMediaError = (errors: string[]) => {
-  showToast(errors[0] || 'Invalid file', 'error')
+function toggleComments() {
+  showComments.value = !showComments.value
 }
 
-const handleCommentsLoaded = (count: number) => {
-  localCommentCount.value = count
-  emit('commentsCountChanged', count)
-}
+onMounted(async () => {
+  if (showComments.value) {
+    await fetch(0)
+    isInitialLoad.value = false
+  }
+})
+
+watch(showComments, async (show) => {
+  if (show && comments.value.length === 0) {
+    await fetch(0)
+    isInitialLoad.value = false
+  }
+})
 </script>
 
 <template>
   <div class="w-full">
-    <!-- Title / Toggle -->
-    <div
-      v-if="showTitle"
-      @click="localCommentCount > 0 && toggleExpanded()"
-      :class="[
-        'mt-5 mb-2 flex items-center justify-between',
-        localCommentCount > 0 && 'cursor-pointer',
-      ]"
-    >
-      <h1 class="text-xl font-medium">{{ titleText }}</h1>
+    <!-- ✅ MediaErrorDialog (стиль из старого проекта) -->
+    <MediaErrorDialog v-model="showMediaError" />
 
-      <!-- Expand/Collapse icon -->
-      <span
-        v-if="localCommentCount > 0"
-        class="transition-transform duration-300 mr-5"
-        :class="{ 'rotate-180': isExpanded }"
-      >
-        <i class="pi pi-angle-down text-xl"></i>
+    <!-- ✅ Comments Header (из старого PinView) -->
+    <div
+      v-if="localCommentCount > 0"
+      class="mt-5 mb-2 flex items-center justify-between cursor-pointer"
+      @click="toggleComments"
+    >
+      <h1 class="text-xl">{{ localCommentCount }} Comments</h1>
+      <span class="transition-transform duration-300 mr-5" :class="{ 'rotate-180': showComments }">
+        <i class="pi pi-angle-down text-xl" />
       </span>
     </div>
 
-    <!-- Comments List -->
-    <CommentList
-      v-if="isExpanded && localCommentCount > 0"
-      :pinId="pinId"
-      :maxHeight="maxHeight"
-      @commentsLoaded="handleCommentsLoaded"
-      class="mb-5"
-    />
+    <!-- ✅ No comments (из старого PinView) -->
+    <div v-else class="mt-5 mb-1">
+      <h1 class="text-md text-black ml-1">Your opinion?</h1>
+    </div>
 
-    <!-- Submit Error -->
-    <ErrorMessage
-      v-if="submitError"
-      :error="submitError"
-      variant="inline"
-      :closable="true"
-      @close="submitError = null"
-      class="mb-3"
-    />
+    <!-- ✅ Comments container (из старого CommentSection) -->
+    <div
+      v-if="showComments"
+      class="flex flex-col gap-1 bg-gray-100 text-sm font-medium text-black h-auto max-h-96 w-full overflow-y-auto border-2 border-gray-300 rounded-3xl mb-5"
+    >
+      <CommentList
+        :comments="comments"
+        :is-loading="isLoading"
+        :is-initial-load="isInitialLoad"
+        @load-more="handleLoadMore"
+        @comment-deleted="handleCommentDeleted"
+      />
+    </div>
 
-    <!-- Comment Input -->
-    <CommentInput
-      v-model="commentContent"
-      :placeholder="localCommentCount === 0 ? 'Be the first to comment...' : 'Add a comment...'"
-      :loading="isSubmitting"
-      :showMediaUpload="true"
-      :showEmojiPicker="true"
-      @submit="handleSubmit"
-      @cancel="handleCancel"
-      @mediaChange="handleMediaChange"
-      @mediaError="handleMediaError"
-    />
+    <!-- ✅ Comment Input (из старого PinView) -->
+    <div class="flex items-center justify-center space-x-2 mb-4 mr-6 mt-2">
+      <CommentInput
+        placeholder="Add Comment"
+        :loading="isSubmitting"
+        :accent-color="accentColor"
+        @submit="handleSubmitComment"
+        @media-error="handleMediaError"
+      />
+    </div>
   </div>
 </template>

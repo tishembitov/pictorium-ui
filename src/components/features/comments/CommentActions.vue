@@ -1,92 +1,125 @@
+<!-- src/components/features/comments/CommentActions.vue -->
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useDateFormat } from '@/composables/utils'
+/**
+ * CommentActions - Действия комментария
+ * Гибрид: composables + formatters + стиль/анимации старого проекта
+ */
+
+import { ref, computed, watch } from 'vue'
+import { useCommentThread } from '@/composables/api/useCommentThread'
+import { useOwnership } from '@/composables/auth/usePermissions'
+import { formatRelativeTime, formatCompactNumber } from '@/utils/formatters'
 import CommentLikesPopover from './CommentLikesPopover.vue'
-import { useLikes } from '@/composables/api/useLikes'
 
 export interface CommentActionsProps {
   commentId: string
-  createdAt: string
+  userId: string
   isLiked: boolean
   likeCount: number
-  canDelete?: boolean
-  showReply?: boolean
+  createdAt: string
+  showReplyButton?: boolean
+  showDeleteButton?: boolean
 }
 
 const props = withDefaults(defineProps<CommentActionsProps>(), {
-  canDelete: false,
-  showReply: true,
+  showReplyButton: true,
+  showDeleteButton: true,
 })
 
 const emit = defineEmits<{
-  (e: 'like'): void
-  (e: 'unlike'): void
   (e: 'reply'): void
   (e: 'delete'): void
+  (e: 'likeChange', isLiked: boolean, count: number): void
 }>()
 
-const { likeCommentAction, unlikeCommentAction } = useLikes()
-const { relative: timeAgo } = useDateFormat(props.createdAt)
+// ✅ Composables
+const { like, unlike } = useCommentThread(props.commentId)
+const { canDelete } = useOwnership(ref(props.userId))
 
 // Local state
-const isLikedLocal = ref(props.isLiked)
-const likeCountLocal = ref(props.likeCount)
-const isLoading = ref(false)
+const localIsLiked = ref(props.isLiked)
+const localLikeCount = ref(props.likeCount)
+const isProcessing = ref(false)
 
-// Popover
-const showPopover = ref(false)
-const insidePopover = ref(false)
-
-// Like animation
+// ✅ Анимации из старого проекта
 const showLikeAnimation = ref(false)
 const showDislikeAnimation = ref(false)
 
-const handleLike = async () => {
-  if (isLoading.value) return
+// Popover state
+const showPopover = ref(false)
+const insidePopover = ref(false)
+const likesPopoverEl = ref<HTMLElement | null>(null)
+const likesIsTop = ref(true)
 
-  isLoading.value = true
+// Sync with props
+watch(
+  () => props.isLiked,
+  (val) => {
+    localIsLiked.value = val
+  },
+)
+watch(
+  () => props.likeCount,
+  (val) => {
+    localLikeCount.value = val
+  },
+)
+
+// ✅ formatters из utils
+const formattedTime = computed(() => formatRelativeTime(props.createdAt))
+const formattedLikeCount = computed(() => formatCompactNumber(localLikeCount.value))
+
+// Methods
+async function handleLike() {
+  if (isProcessing.value) return
+
+  const wasLiked = localIsLiked.value
+  isProcessing.value = true
+
+  // Optimistic update
+  localIsLiked.value = !wasLiked
+  localLikeCount.value += wasLiked ? -1 : 1
+
+  // ✅ Анимация из старого проекта
+  if (wasLiked) {
+    showDislikeAnimation.value = true
+    showLikeAnimation.value = false
+  } else {
+    showLikeAnimation.value = true
+    showDislikeAnimation.value = false
+  }
+
+  setTimeout(() => {
+    showLikeAnimation.value = false
+    showDislikeAnimation.value = false
+  }, 500)
 
   try {
-    if (isLikedLocal.value) {
-      // Unlike
-      await unlikeCommentAction(props.commentId)
-      showDislikeAnimation.value = true
-      showLikeAnimation.value = false
-      isLikedLocal.value = false
-      likeCountLocal.value = Math.max(0, likeCountLocal.value - 1)
-      emit('unlike')
+    if (wasLiked) {
+      await unlike()
     } else {
-      // Like
-      await likeCommentAction(props.commentId)
-      showLikeAnimation.value = true
-      showDislikeAnimation.value = false
-      isLikedLocal.value = true
-      likeCountLocal.value += 1
-      emit('like')
+      await like()
     }
-
-    // Reset animation after 500ms
-    setTimeout(() => {
-      showLikeAnimation.value = false
-      showDislikeAnimation.value = false
-    }, 500)
+    emit('likeChange', localIsLiked.value, localLikeCount.value)
   } catch (error) {
+    // Rollback
+    localIsLiked.value = wasLiked
+    localLikeCount.value += wasLiked ? 1 : -1
     console.error('[CommentActions] Like failed:', error)
-    // Revert
-    isLikedLocal.value = props.isLiked
-    likeCountLocal.value = props.likeCount
   } finally {
-    isLoading.value = false
+    isProcessing.value = false
   }
 }
 
-const handleMouseEnter = () => {
-  if (likeCountLocal.value > 0) {
-    showPopover.value = true
+function loadLikesPopover() {
+  if (likesPopoverEl.value) {
+    const rect = likesPopoverEl.value.getBoundingClientRect()
+    const distanceToBottom = window.innerHeight - rect.bottom
+    likesIsTop.value = distanceToBottom >= 250
   }
 }
 
-const handleMouseLeave = () => {
+function handleMouseLeave() {
   if (!insidePopover.value) {
     showPopover.value = false
   }
@@ -94,93 +127,93 @@ const handleMouseLeave = () => {
 </script>
 
 <template>
-  <div class="flex items-center gap-2 ml-12 mt-2 text-sm text-gray-600 relative">
-    <!-- Timestamp -->
-    <span class="font-medium">{{ timeAgo }}</span>
+  <!-- ✅ Структура из старого проекта -->
+  <div class="flex items-center space-x-2 relative">
+    <!-- ✅ Animation overlay (точно из старого проекта) -->
+    <div class="absolute top-[-20px] left-10 pointer-events-none">
+      <Transition name="flash2">
+        <i
+          v-if="showDislikeAnimation"
+          class="pi pi-heart text-5xl text-white glowing-icon"
+          aria-hidden="true"
+        />
+      </Transition>
+      <Transition name="flash2">
+        <i
+          v-if="showLikeAnimation"
+          class="pi pi-heart-fill text-5xl text-white glowing-icon"
+          aria-hidden="true"
+        />
+      </Transition>
+    </div>
+
+    <!-- Time -->
+    <span class="font-medium text-gray-600">{{ formattedTime }}</span>
 
     <!-- Reply button -->
-    <button
-      v-if="showReply"
+    <span
+      v-if="showReplyButton"
       @click="emit('reply')"
-      class="hover:underline hover:text-rose-400 cursor-pointer transition"
+      class="text-md hover:underline hover:text-rose-400 cursor-pointer"
     >
       Reply
-    </button>
+    </span>
 
-    <!-- Like button -->
-    <div class="flex items-center gap-2 relative">
-      <!-- Heart icon animation container -->
-      <div class="relative">
-        <Transition name="flash2">
-          <i
-            v-if="showDislikeAnimation"
-            class="pi pi-heart text-3xl text-white glowing-icon absolute top-[-10px] left-[-10px] opacity-0"
-          ></i>
-        </Transition>
-        <Transition name="flash2">
-          <i
-            v-if="showLikeAnimation"
-            class="pi pi-heart-fill text-3xl text-white glowing-icon absolute top-[-10px] left-[-10px] opacity-0"
-          ></i>
-        </Transition>
-      </div>
-
-      <!-- Heart button -->
-      <button
+    <!-- Like section -->
+    <div class="flex items-center space-x-2">
+      <i
+        v-if="localIsLiked"
         @click="handleLike"
-        :disabled="isLoading"
-        class="transition-transform duration-200 transform hover:scale-150"
-      >
-        <i
-          :class="[
-            'pi',
-            isLikedLocal ? 'pi-heart-fill text-red-600' : 'pi-heart text-red-600',
-            'text-base cursor-pointer',
-          ]"
-        ></i>
-      </button>
+        class="text-red-600 pi pi-heart-fill text-md cursor-pointer transition-transform duration-200 transform hover:scale-150"
+        :class="{ 'opacity-50 pointer-events-none': isProcessing }"
+      />
+      <i
+        v-else
+        @click="handleLike"
+        class="text-red-600 pi pi-heart text-md cursor-pointer transition-transform duration-200 transform hover:scale-150"
+        :class="{ 'opacity-50 pointer-events-none': isProcessing }"
+      />
 
-      <!-- Like count with popover -->
+      <!-- ✅ Like count с popover (структура из старого проекта) -->
       <div
-        v-if="likeCountLocal > 0"
-        @mouseenter="handleMouseEnter"
+        v-if="localLikeCount > 0"
+        class="font-medium text-md relative cursor-pointer"
+        @mouseover="
+          loadLikesPopover()
+          showPopover = true
+        "
         @mouseleave="handleMouseLeave"
-        class="font-medium text-base relative cursor-pointer"
       >
-        <span>{{ likeCountLocal }}</span>
+        <span ref="likesPopoverEl">{{ formattedLikeCount }}</span>
 
-        <!-- Popover -->
-        <CommentLikesPopover
+        <div
           v-if="showPopover"
-          :commentId="commentId"
-          v-model="showPopover"
-          @mouseenter="insidePopover = true"
+          @mouseover="insidePopover = true"
           @mouseleave="
-            () => {
-              insidePopover = false
-              showPopover = false
-            }
+            insidePopover = false
+            showPopover = false
           "
+          class="absolute left-[-100px]"
+          :style="{ top: likesIsTop ? '20px' : 'auto', bottom: likesIsTop ? 'auto' : '20px' }"
         >
-          <template #trigger>
-            <span></span>
-          </template>
-        </CommentLikesPopover>
+          <CommentLikesPopover :comment-id="commentId" />
+        </div>
       </div>
     </div>
 
     <!-- Delete button -->
-    <button
-      v-if="canDelete"
+    <span
+      v-if="showDeleteButton && canDelete"
       @click="emit('delete')"
-      class="hover:underline hover:text-rose-400 cursor-pointer transition"
+      class="text-md hover:underline hover:text-rose-400 cursor-pointer"
     >
       Delete
-    </button>
+    </span>
   </div>
 </template>
 
 <style scoped>
+/* ✅ Анимации из старого проекта */
 .flash2-enter-active,
 .flash2-leave-active {
   transition:

@@ -1,205 +1,229 @@
+<!-- src/components/features/comments/CommentItem.vue -->
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
-import UserAvatar from '@/components/common/UserAvatar.vue'
+/**
+ * CommentItem - Один комментарий
+ * Гибрид: composables + ImagePreview + стиль старого проекта
+ */
+
+import { ref, computed, nextTick, watch } from 'vue'
+import { RouterLink } from 'vue-router'
+import type { CommentWithBlob } from '@/types'
+import { useCommentThread } from '@/composables/api/useCommentThread'
+import { useToast } from '@/composables/ui/useToast'
+import { isVideoUrl } from '@/utils/media'
+import ImagePreview from '@/components/ui/ImagePreview.vue'
+import MediaErrorDialog from '@/components/ui/MediaErrorDialog.vue'
+import BaseLoader from '@/components/ui/BaseLoader.vue'
 import CommentActions from './CommentActions.vue'
 import CommentInput from './CommentInput.vue'
 import CommentReplies from './CommentReplies.vue'
-import ErrorMessage from '@/components/common/ErrorMessage.vue'
-import { useComments } from '@/composables/api/useComments'
-import { useToast } from '@/composables/ui/useToast'
-import { isImageUrl, isVideoUrl } from '@/utils/helpers'
-import type { Comment } from '@/types'
 
 export interface CommentItemProps {
-  comment: Comment
-  canDelete?: boolean
-  isReply?: boolean // ← ДОБАВЛЕНО для унификации
+  comment: CommentWithBlob
+  userImage?: string | null
+  username?: string
 }
 
-const props = withDefaults(defineProps<CommentItemProps>(), {
-  canDelete: false,
-  isReply: false, // ← ДОБАВЛЕНО
-})
+const props = defineProps<CommentItemProps>()
 
 const emit = defineEmits<{
   (e: 'deleted', commentId: string): void
+  (e: 'replyAdded', commentId: string): void
 }>()
 
-const { createReply } = useComments()
-const { showToast } = useToast()
+// ✅ Composables
+const { addReply, deleteComment } = useCommentThread(props.comment.id)
+const { error: showError, success } = useToast()
 
 // State
-const showReplyInput = ref(false)
+const showReply = ref(false)
 const showReplies = ref(props.comment.replyCount > 0)
-const replyContent = ref('')
-const replyMediaFile = ref<File | null>(null)
 const isSubmitting = ref(false)
-const submitError = ref<string | null>(null)
+const localReplyCount = ref(props.comment.replyCount)
 
-// Computed - ИСПРАВЛЕНИЕ: используем utils
-const isImage = computed(() => {
-  return props.comment.imageUrl ? isImageUrl(props.comment.imageUrl) : false
-})
+// ✅ Для MediaErrorDialog и ImagePreview
+const showMediaError = ref(false)
+const showImagePreview = ref(false)
 
-const isVideo = computed(() => {
-  return props.comment.imageUrl ? isVideoUrl(props.comment.imageUrl) : false
-})
-
-// Стили в зависимости от типа (комментарий или ответ)
-const marginLeft = computed(() => (props.isReply ? 'ml-10' : 'ml-12'))
-const avatarSize = computed(() => (props.isReply ? 'sm' : 'md'))
-const mediaSize = computed(() => (props.isReply ? 'h-24 w-24' : 'h-32 w-32'))
-const showReplyButton = computed(() => !props.isReply)
-
-const hasReplyContent = computed(
-  () => replyContent.value.trim() !== '' || replyMediaFile.value !== null,
+watch(
+  () => props.comment.replyCount,
+  (val) => {
+    localReplyCount.value = val
+  },
 )
 
-// Handlers
-const handleReply = () => {
-  if (!showReplyButton.value) return
-  showReplyInput.value = !showReplyInput.value
-}
+// ✅ isVideoUrl из utils/media
+const isVideo = computed(() => {
+  if (!props.comment.imageUrl) return false
+  return isVideoUrl(props.comment.imageUrl)
+})
 
-const handleCancelReply = () => {
-  showReplyInput.value = false
-  replyContent.value = ''
-  replyMediaFile.value = null
-  submitError.value = null
-}
+const isImage = computed(() => props.comment.imageBlobUrl && !isVideo.value)
 
-const handleSubmitReply = async () => {
-  if (!hasReplyContent.value) return
+// Methods
+async function handleSubmitReply(content: string, file: File | null) {
+  if (!content.trim() && !file) return
+
+  isSubmitting.value = true
 
   try {
-    isSubmitting.value = true
-    submitError.value = null
+    await addReply(content.trim() || undefined, file || undefined)
 
-    await createReply(props.comment.id, {
-      content: replyContent.value.trim() || undefined,
-      imageUrl: replyMediaFile.value ? 'temp' : undefined,
-    })
+    localReplyCount.value += 1
 
-    showToast('Reply added!', 'success')
-    replyContent.value = ''
-    replyMediaFile.value = null
-    showReplyInput.value = false
-
-    // Refresh replies
     showReplies.value = false
     await nextTick()
     showReplies.value = true
-  } catch (error) {
-    console.error('[CommentItem] Submit reply failed:', error)
-    submitError.value = 'Failed to add reply. Please try again.'
+    showReply.value = false
+
+    emit('replyAdded', props.comment.id)
+  } catch (err: any) {
+    if (err?.response?.status === 415) {
+      showMediaError.value = true
+    } else {
+      showError('Failed to add reply')
+    }
   } finally {
     isSubmitting.value = false
   }
 }
 
-const handleMediaChange = (file: File | null) => {
-  replyMediaFile.value = file
+function handleMediaError(message: string) {
+  showMediaError.value = true
 }
 
-const handleMediaError = (errors: string[]) => {
-  showToast(errors[0] || 'Invalid file', 'error')
+function handleCancelReply() {
+  showReply.value = false
 }
 
-const handleDelete = () => {
-  emit('deleted', props.comment.id)
+async function handleDelete() {
+  try {
+    await deleteComment()
+    success('Comment deleted')
+    emit('deleted', props.comment.id)
+  } catch (err) {
+    showError('Failed to delete comment')
+  }
 }
 
-const toggleReplies = () => {
+function toggleReplies() {
   showReplies.value = !showReplies.value
+}
+
+function openImagePreview() {
+  if (isImage.value && props.comment.imageBlobUrl) {
+    showImagePreview.value = true
+  }
 }
 </script>
 
 <template>
   <div class="flex flex-col">
-    <!-- User info -->
+    <!-- ✅ MediaErrorDialog (стиль из старого проекта) -->
+    <MediaErrorDialog v-model="showMediaError" />
+
+    <!-- ✅ ImagePreview для просмотра изображений -->
+    <ImagePreview
+      v-if="comment.imageBlobUrl && isImage"
+      v-model="showImagePreview"
+      :src="comment.imageBlobUrl"
+      alt="Comment image"
+    />
+
+    <!-- ✅ User info (структура из старого проекта) -->
     <RouterLink
-      :to="`/user/${comment.userId}`"
-      class="flex items-center gap-2 hover:underline cursor-pointer"
+      :to="`/user/${username}`"
+      class="flex items-center space-x-2 hover:underline cursor-pointer"
     >
-      <UserAvatar :user="{ id: comment.userId, username: comment.userId }" :size="avatarSize" />
-      <span :class="['font-bold', isReply ? 'text-sm' : 'text-base']">{{ comment.userId }}</span>
+      <img
+        v-if="userImage"
+        :src="userImage"
+        alt="User Image"
+        class="w-10 h-10 rounded-full object-cover"
+      />
+      <div
+        v-else
+        class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold"
+      >
+        {{ username?.charAt(0).toUpperCase() || '?' }}
+      </div>
+      <span class="font-bold">{{ username }}</span>
     </RouterLink>
 
-    <!-- Content -->
-    <p
-      v-if="comment.content"
-      :class="['font-medium mr-12 text-wrap break-words mt-1', marginLeft, isReply && 'text-sm']"
-    >
+    <span v-if="comment.content" class="font-medium ml-12 mr-12 text-wrap truncate">
       {{ comment.content }}
-    </p>
+    </span>
 
-    <!-- Media -->
-    <div v-if="comment.imageUrl" :class="['flex flex-row mt-2', marginLeft]">
+    <!-- ✅ Media (с возможностью просмотра через ImagePreview) -->
+    <div v-if="comment.imageBlobUrl" class="flex flex-row ml-12">
       <img
         v-if="isImage"
-        :src="comment.imageUrl"
-        alt="Comment media"
-        :class="['object-cover rounded-lg', mediaSize]"
+        :src="comment.imageBlobUrl"
+        alt="comment image"
+        class="h-32 w-32 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+        @click="openImagePreview"
       />
       <video
         v-if="isVideo"
-        :src="comment.imageUrl"
-        :class="['object-cover rounded-lg', mediaSize]"
+        :src="comment.imageBlobUrl"
+        alt="comment video"
+        class="h-32 w-32 object-cover rounded-lg"
         autoplay
         loop
         muted
-      ></video>
-    </div>
-
-    <!-- Actions -->
-    <CommentActions
-      :commentId="comment.id"
-      :createdAt="comment.createdAt"
-      :isLiked="comment.isLiked"
-      :likeCount="comment.likeCount"
-      :canDelete="canDelete"
-      :showReply="showReplyButton"
-      @reply="handleReply"
-      @delete="handleDelete"
-    />
-
-    <!-- Reply Input (только для главных комментариев) -->
-    <div v-if="showReplyInput && !isReply" :class="['mt-2', marginLeft]">
-      <ErrorMessage v-if="submitError" :error="submitError" variant="inline" :closable="true" />
-
-      <CommentInput
-        v-model="replyContent"
-        placeholder="Add a reply..."
-        :loading="isSubmitting"
-        :showMediaUpload="true"
-        :showEmojiPicker="true"
-        @submit="handleSubmitReply"
-        @cancel="handleCancelReply"
-        @mediaChange="handleMediaChange"
-        @mediaError="handleMediaError"
       />
     </div>
 
-    <!-- Replies toggle (только для главных комментариев) -->
-    <div
-      v-if="comment.replyCount > 0 && !isReply"
-      @click="toggleReplies"
-      :class="[
-        'text-gray-700 text-sm mt-4 italic cursor-pointer mb-2 flex items-center justify-between',
-        marginLeft,
-      ]"
-    >
-      <h1 v-if="!showReplies">⎯⎯ View {{ comment.replyCount }} replies</h1>
-      <h1 v-else>⎯⎯ Hide replies</h1>
+    <!-- ✅ Reply Input (структура из старого проекта) -->
+    <div v-if="showReply && !isSubmitting" class="flex items-center space-x-2 ml-12 mr-4 mt-2">
+      <i
+        @click="handleCancelReply"
+        class="pi pi-times text-xs cursor-pointer p-2 text-white bg-black rounded-full hover:bg-gray-800 transition"
+      />
+      <CommentInput
+        placeholder="Add Reply"
+        :loading="isSubmitting"
+        @submit="handleSubmitReply"
+        @media-error="handleMediaError"
+      />
+    </div>
 
+    <!-- ✅ Loading (colorful loader из старого проекта) -->
+    <div v-if="isSubmitting" class="flex items-center space-x-2 ml-12 mr-4 mt-2 justify-center">
+      <BaseLoader variant="colorful" size="md" :fullscreen="false" />
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center space-x-2 ml-12 mt-2">
+      <CommentActions
+        :comment-id="comment.id"
+        :user-id="comment.userId"
+        :is-liked="comment.isLiked"
+        :like-count="comment.likeCount"
+        :created-at="comment.createdAt"
+        @reply="showReply = !showReply"
+        @delete="handleDelete"
+      />
+    </div>
+
+    <!-- ✅ Replies toggle (стиль из старого проекта) -->
+    <div
+      v-if="localReplyCount > 0"
+      class="ml-12 text-gray-700 text-sm mt-4 italic cursor-pointer mb-2 flex items-center justify-between"
+      @click="toggleReplies"
+    >
+      <h1 v-if="!showReplies">⎯⎯ View {{ localReplyCount }} replies</h1>
+      <h1 v-else>⎯⎯ Hide replies</h1>
       <span class="transition-transform duration-300 mr-5" :class="{ 'rotate-180': showReplies }">
-        <i class="pi pi-angle-down text-sm"></i>
+        <i class="pi pi-angle-down text-sm" />
       </span>
     </div>
 
-    <!-- Replies (только для главных комментариев) -->
-    <div v-if="comment.replyCount > 0 && !isReply" :class="marginLeft">
-      <CommentReplies :commentId="comment.id" v-model="showReplies" />
+    <div v-if="showReplies" class="ml-12">
+      <CommentReplies
+        :comment-id="comment.id"
+        @reply-deleted="localReplyCount = Math.max(0, localReplyCount - 1)"
+      />
     </div>
   </div>
 </template>

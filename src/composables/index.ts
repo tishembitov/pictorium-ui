@@ -10,7 +10,7 @@
 export * from './api/usePinDetail'
 export * from './api/usePinActions'
 export * from './api/usePinComments'
-export * from './api/useRelatedPins' // ✅ ДОБАВЛЕНО
+export * from './api/useRelatedPins'
 export * from './api/useBoardDetail'
 export * from './api/useCommentThread'
 export * from './api/useFollow'
@@ -18,8 +18,10 @@ export * from './api/useUserProfile'
 export * from './api/useTagSearch'
 export * from './api/useStorage'
 export * from './api/useSelectedBoard'
-export * from './api/useSavedPins' // ✅ ДОБАВЛЕНО
-export * from './api/useCreatePin' // ✅ ДОБАВЛЕНО
+export * from './api/useSavedPins'
+export * from './api/useCreatePin'
+export * from './api/useCommentLikes'
+export * from './api/usePinLikes'
 
 // ============================================================================
 // AUTH COMPOSABLES

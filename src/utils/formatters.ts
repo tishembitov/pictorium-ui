@@ -1,3 +1,7 @@
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import utc from 'dayjs/plugin/utc'
+
 // File size formatter (из старого кода - был в ImageUploadResponse)
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes'
@@ -5,6 +9,9 @@ export function formatFileSize(bytes: number): string {
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+  dayjs.extend(relativeTime)
+  dayjs.extend(utc)
 
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
 }
@@ -53,4 +60,15 @@ export function formatUsername(username: string, withAt: boolean = true): string
 // Percentage formatter
 export function formatPercentage(value: number, decimals: number = 0): string {
   return `${value.toFixed(decimals)}%`
+}
+
+/**
+ * Форматирование относительного времени (как в старом проекте)
+ */
+export function formatRelativeTime(dateString: string): string {
+  const now = dayjs()
+  const createdTime = dayjs.utc(dateString).local()
+  const diffMinutes = now.diff(createdTime, 'minute')
+
+  return diffMinutes < 30 ? 'just now' : createdTime.fromNow()
 }

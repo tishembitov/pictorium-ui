@@ -1,166 +1,115 @@
+<!-- src/components/features/comments/CommentList.vue -->
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import BaseSpinner from '@/components/ui/BaseSpinner.vue'
-import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
+/**
+ * CommentList - Список комментариев
+ * Гибрид: BaseSkeleton + стиль старого проекта
+ */
+
+import { ref, watch, onMounted, computed } from 'vue'
+import type { CommentWithBlob } from '@/types'
+import { useUserStore } from '@/stores/user.store'
 import CommentItem from './CommentItem.vue'
-import { useComments } from '@/composables/api/useComments'
-import { useIntersectionObserver } from '@/composables/utils'
-import { useAuthStore } from '@/stores/auth.store'
-import { useConfirm } from '@/composables/ui/useConfirm'
-import { useToast } from '@/composables/ui/useToast'
-import type { Comment } from '@/types'
+import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
+import BaseLoader from '@/components/ui/BaseLoader.vue'
 
 export interface CommentListProps {
-  pinId: string
-  maxHeight?: string
+  comments: CommentWithBlob[]
+  isLoading?: boolean
+  isInitialLoad?: boolean
 }
 
 const props = withDefaults(defineProps<CommentListProps>(), {
-  maxHeight: '24rem', // max-h-96
+  isLoading: false,
+  isInitialLoad: false,
 })
 
 const emit = defineEmits<{
-  (e: 'commentsLoaded', count: number): void
+  (e: 'loadMore'): void
+  (e: 'commentDeleted', commentId: string): void
+  (e: 'replyAdded', commentId: string): void
 }>()
 
-const authStore = useAuthStore()
-const { confirm } = useConfirm()
-const { showToast } = useToast()
+const userStore = useUserStore()
 
-const {
-  comments,
-  isLoading,
-  hasMore,
-  currentPage,
-  totalElements,
-  fetchComments,
-  deleteComment,
-  loadMore,
-} = useComments()
+// User data cache
+const userDataCache = ref(new Map<string, { username: string; image: string | null }>())
 
-// Load more trigger
-const loadMoreRef = ref<HTMLElement | null>(null)
+// ✅ BaseSkeleton при initial load
+const showSkeleton = computed(
+  () => props.isInitialLoad && props.isLoading && props.comments.length === 0,
+)
 
-const { isIntersecting } = useIntersectionObserver(loadMoreRef, {
-  threshold: 0.1,
-})
+async function loadUserData(userId: string) {
+  if (userDataCache.value.has(userId)) return
 
-watch(isIntersecting, (intersecting) => {
-  if (intersecting && hasMore.value && !isLoading.value) {
-    loadMore()
-  }
-})
-
-// Initial load
-const loadInitial = async () => {
   try {
-    await fetchComments(props.pinId, 0, 10)
-    emit('commentsLoaded', totalElements.value)
+    const user = await userStore.loadUserById(userId)
+    const avatarUrl = userStore.getAvatarUrl(userId)
+    userDataCache.value.set(userId, { username: user.username, image: avatarUrl || null })
   } catch (error) {
-    console.error('[CommentList] Load failed:', error)
+    userDataCache.value.set(userId, { username: 'Unknown', image: null })
   }
 }
 
-// Load on mount
+async function loadAllUserData() {
+  const userIds = [...new Set(props.comments.map((c) => c.userId))]
+  await Promise.all(userIds.map(loadUserData))
+}
+
+function getUserData(userId: string) {
+  return userDataCache.value.get(userId) || { username: 'Loading...', image: null }
+}
+
+function handleScroll(event: Event) {
+  const container = event.target as HTMLElement
+  if (container.scrollTop + container.clientHeight >= container.scrollHeight - 10) {
+    emit('loadMore')
+  }
+}
+
+watch(
+  () => props.comments,
+  () => {
+    loadAllUserData()
+  },
+  { deep: true },
+)
+
 onMounted(() => {
-  loadInitial()
+  loadAllUserData()
 })
-
-// Check if user can delete
-const canDelete = (comment: Comment) => {
-  return authStore.isAdmin || comment.userId === authStore.userId
-}
-
-// Handle delete
-const handleDelete = async (commentId: string) => {
-  const confirmed = await confirm({
-    title: 'Delete Comment',
-    message: 'Are you sure you want to delete this comment? This action cannot be undone.',
-    confirmText: 'Delete',
-    cancelText: 'Cancel',
-    type: 'danger',
-  })
-
-  if (!confirmed) return
-
-  try {
-    await deleteComment(commentId)
-    showToast('Comment deleted', 'success')
-    emit('commentsLoaded', totalElements.value)
-  } catch (error) {
-    console.error('[CommentList] Delete failed:', error)
-    showToast('Failed to delete comment', 'error')
-  }
-}
 </script>
 
 <template>
-  <div
-    class="flex flex-col gap-3 bg-gray-100 text-sm font-medium text-black overflow-y-auto border-2 border-gray-300 rounded-3xl p-4"
-    :style="{ maxHeight }"
-  >
-    <!-- Loading skeleton (initial) -->
-    <div v-if="isLoading && comments.length === 0" class="space-y-4">
-      <div v-for="i in 3" :key="i" class="flex flex-col gap-2">
-        <div class="flex items-center gap-2">
-          <BaseSkeleton variant="circular" width="40px" height="40px" />
-          <BaseSkeleton width="120px" height="16px" />
+  <div @scroll="handleScroll" class="flex flex-col gap-1 overflow-y-auto">
+    <!-- ✅ BaseSkeleton для initial load -->
+    <div v-if="showSkeleton" class="p-3 space-y-4">
+      <div v-for="i in 3" :key="i" class="flex items-start gap-3">
+        <BaseSkeleton variant="circular" :width="40" :height="40" />
+        <div class="flex-1 space-y-2">
+          <BaseSkeleton variant="text" width="25%" height="1rem" />
+          <BaseSkeleton variant="text" width="70%" height="0.875rem" />
+          <BaseSkeleton variant="rounded" :width="128" :height="128" class="mt-2" />
         </div>
-        <BaseSkeleton width="80%" height="14px" class="ml-12" />
-        <BaseSkeleton width="60%" height="14px" class="ml-12" />
       </div>
     </div>
 
     <!-- Comments list -->
-    <div v-else-if="comments.length > 0" class="space-y-4">
+    <template v-else>
       <CommentItem
         v-for="comment in comments"
         :key="comment.id"
         :comment="comment"
-        :canDelete="canDelete(comment)"
-        @deleted="handleDelete"
+        :username="getUserData(comment.userId).username"
+        :user-image="getUserData(comment.userId).image"
+        @deleted="emit('commentDeleted', $event)"
+        @reply-added="emit('replyAdded', $event)"
       />
 
-      <!-- Load more trigger -->
-      <div v-if="hasMore" ref="loadMoreRef" class="flex justify-center py-4">
-        <BaseSpinner size="md" color="red" />
+      <!-- ✅ Colorful loader для load more -->
+      <div v-if="isLoading && comments.length > 0" class="flex justify-center py-4">
+        <BaseLoader variant="colorful" size="md" :fullscreen="false" />
       </div>
-
-      <!-- End of list -->
-      <div v-else-if="comments.length > 0" class="text-center text-gray-500 text-sm py-2">
-        No more comments
-      </div>
-    </div>
-
-    <!-- Empty state -->
-    <EmptyState
-      v-else
-      title="No comments yet"
-      message="Be the first to share your thoughts!"
-      icon="pi-comments"
-      variant="minimal"
-    />
+    </template>
   </div>
 </template>
-
-<style scoped>
-/* Custom scrollbar */
-.overflow-y-auto::-webkit-scrollbar {
-  width: 8px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-</style>

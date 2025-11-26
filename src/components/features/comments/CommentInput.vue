@@ -1,210 +1,288 @@
+<!-- src/components/features/comments/CommentInput.vue -->
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
-import BaseInput from '@/components/ui/BaseInput.vue'
-import BaseSpinner from '@/components/ui/BaseSpinner.vue'
+/**
+ * CommentInput - Input для комментариев
+ * Гибрид: composables + validators + стиль старого проекта
+ */
+
+import { ref, computed, watch, onUnmounted } from 'vue'
+import { useFileUpload } from '@/composables/features/useFileUpload'
+import { useToast } from '@/composables/ui/useToast'
+import { getCommentError } from '@/utils/validators'
+import { validateMediaFile } from '@/utils/files'
 import EmojiPickerWrapper from '@/components/ui/EmojiPickerWrapper.vue'
-import CommentMediaUpload from './CommentMediaUpload.vue'
-import { shouldPositionTop } from '@/utils/positioning'
-import { COMMENT_MAX_LENGTH } from '@/utils/constants'
+import BaseLoader from '@/components/ui/BaseLoader.vue'
 
 export interface CommentInputProps {
-  modelValue: string
   placeholder?: string
   disabled?: boolean
   loading?: boolean
-  showMediaUpload?: boolean
+  accentColor?: string
   showEmojiPicker?: boolean
-  autoFocus?: boolean
+  showMediaUpload?: boolean
+  maxLength?: number
+  maxVideoDuration?: number
 }
 
 const props = withDefaults(defineProps<CommentInputProps>(), {
-  modelValue: '',
-  placeholder: 'Add a comment...',
+  placeholder: 'Add Comment',
   disabled: false,
   loading: false,
-  showMediaUpload: true,
+  accentColor: '#000',
   showEmojiPicker: true,
-  autoFocus: false,
+  showMediaUpload: true,
+  maxLength: 500,
+  maxVideoDuration: 30,
 })
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: string): void
-  (e: 'submit'): void
+  (e: 'submit', content: string, file: File | null): void
   (e: 'cancel'): void
-  (e: 'mediaChange', file: File | null): void
-  (e: 'mediaError', errors: string[]): void
+  (e: 'mediaError', message: string): void
 }>()
 
-// Refs
-const inputRef = ref<HTMLElement | null>(null)
-const containerRef = ref<HTMLElement | null>(null)
+const { warning } = useToast()
+
+// ✅ useFileUpload для preview
+const {
+  file: mediaFile,
+  preview: mediaPreview,
+  isImageFile,
+  isVideoFile,
+  reset: resetFile,
+} = useFileUpload({
+  accept: 'image/jpeg,image/png,image/gif,image/webp,image/bmp,video/mp4,video/webm',
+})
 
 // State
+const content = ref('')
+const contentError = ref<string | null>(null)
 const showPicker = ref(false)
-const pickerPosition = ref<'top' | 'bottom'>('bottom')
-const mediaFile = ref<File | null>(null)
+const isTop = ref(true)
+
+// Refs
+const inputContainerRef = ref<HTMLElement | null>(null)
+const inputRef = ref<HTMLInputElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 // Computed
-const hasContent = computed(() => props.modelValue.trim() !== '' || mediaFile.value !== null)
+const canSubmit = computed(() => {
+  const hasContent = content.value.trim() !== '' || mediaFile.value !== null
+  const isValid = !contentError.value
+  return hasContent && isValid && !props.loading
+})
 
-const canSubmit = computed(() => hasContent.value && !props.loading && !props.disabled)
+const isDisabled = computed(() => props.disabled || props.loading)
 
-// Emoji picker positioning
-const calculatePickerPosition = async () => {
-  await nextTick()
-  if (inputRef.value && containerRef.value) {
-    const isTop = shouldPositionTop(inputRef.value, containerRef.value)
-    pickerPosition.value = isTop ? 'bottom' : 'top'
-  }
-}
-
-watch(showPicker, async (show) => {
-  if (show) {
-    await calculatePickerPosition()
+// ✅ Валидация текста через validators
+watch(content, (value) => {
+  if (value.trim()) {
+    contentError.value = getCommentError(value)
+  } else {
+    contentError.value = null
   }
 })
 
-// Handlers
-const handleInput = (value: string | number) => {
-  emit('update:modelValue', String(value))
+// Methods
+function loadPicker() {
+  if (!showPicker.value && inputContainerRef.value) {
+    const rect = inputContainerRef.value.getBoundingClientRect()
+    const distanceToBottom = window.innerHeight - rect.bottom
+    isTop.value = distanceToBottom >= 320
+  }
 }
 
-const handleKeydown = (event: KeyboardEvent) => {
+function onSelectEmoji(emoji: { i: string }) {
+  content.value += emoji.i
+  inputRef.value?.focus()
+}
+
+// ✅ validateMediaFile для валидации медиа
+async function handleMediaSelect(event: Event) {
+  const input = event.target as HTMLInputElement
+  const selectedFile = input.files?.[0]
+  input.value = ''
+
+  if (!selectedFile) return
+
+  const validation = await validateMediaFile(selectedFile, {
+    maxVideoDuration: props.maxVideoDuration,
+  })
+
+  if (!validation.valid) {
+    const errorMessage = validation.errors[0] || 'Invalid file'
+    emit('mediaError', errorMessage)
+    return
+  }
+
+  mediaFile.value = selectedFile
+}
+
+function clearMedia() {
+  resetFile()
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+  }
+}
+
+function handleSubmit() {
+  if (!canSubmit.value) return
+
+  // Final validation
+  const error = getCommentError(content.value)
+  if (error && !mediaFile.value) {
+    contentError.value = error
+    warning(error)
+    return
+  }
+
+  emit('submit', content.value.trim(), mediaFile.value)
+
+  // Reset
+  content.value = ''
+  contentError.value = null
+  clearMedia()
+  showPicker.value = false
+}
+
+function handleCancel() {
+  content.value = ''
+  contentError.value = null
+  clearMedia()
+  showPicker.value = false
+  emit('cancel')
+}
+
+function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     handleSubmit()
   }
-
-  if (event.key === 'Escape') {
-    emit('cancel')
-  }
 }
 
-const handleSubmit = () => {
-  if (canSubmit.value) {
-    emit('submit')
-  }
-}
+onUnmounted(() => {
+  clearMedia()
+})
 
-const togglePicker = async () => {
-  showPicker.value = !showPicker.value
-}
-
-const handleEmojiSelect = (emoji: any) => {
-  const newValue = props.modelValue + emoji.i
-  emit('update:modelValue', newValue)
-}
-
-const handleMediaChange = (file: File | null) => {
-  mediaFile.value = file
-  emit('mediaChange', file)
-}
-
-const handleMediaError = (errors: string[]) => {
-  emit('mediaError', errors)
-}
-
-const removeMedia = () => {
-  mediaFile.value = null
-  emit('mediaChange', null)
-}
+defineExpose({
+  focus: () => inputRef.value?.focus(),
+  reset: handleCancel,
+  content,
+  mediaFile,
+})
 </script>
 
 <template>
-  <div ref="containerRef" class="relative w-full">
-    <!-- Media Preview (if exists) -->
-    <div v-if="mediaFile && !loading" class="mb-2">
-      <CommentMediaUpload
-        :modelValue="mediaFile"
-        @update:modelValue="handleMediaChange"
-        @error="handleMediaError"
-        :disabled="disabled || loading"
-      />
-    </div>
-
-    <!-- Loading state -->
-    <div v-if="loading" class="flex items-center justify-center py-4">
-      <BaseSpinner size="md" color="red" />
-    </div>
-
-    <!-- Input with buttons -->
-    <div v-else class="flex items-center gap-2">
-      <!-- Cancel button (if has content) -->
-      <button
-        v-if="hasContent"
-        @click="emit('cancel')"
-        type="button"
-        class="p-2 text-white bg-black rounded-full hover:bg-gray-800 transition flex-shrink-0"
-      >
-        <i class="pi pi-times text-xs"></i>
-      </button>
-
-      <!-- Input container -->
-      <div ref="inputRef" class="relative flex-1">
-        <BaseInput
-          :modelValue="modelValue"
-          @update:modelValue="handleInput"
-          @keydown="handleKeydown"
-          :placeholder="placeholder"
-          :disabled="disabled"
-          :maxLength="COMMENT_MAX_LENGTH"
-          size="md"
-          rounded="full"
-          class="pr-20"
-        />
-
-        <!-- Right icons container -->
-        <div class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          <!-- Emoji picker button -->
-          <button
-            v-if="showEmojiPicker"
-            @click="togglePicker"
-            type="button"
-            class="p-2 hover:bg-gray-100 rounded-full transition"
-            :disabled="disabled"
-          >
-            <i class="pi pi-face-smile text-xl text-gray-600"></i>
-          </button>
-
-          <!-- Media upload button -->
-          <label
-            v-if="showMediaUpload && !mediaFile"
-            class="p-2 hover:bg-gray-100 rounded-full transition cursor-pointer"
-          >
-            <i class="pi pi-images text-xl text-gray-600"></i>
-            <input
-              type="file"
-              accept=".jpg,.jpeg,.gif,.webp,.png,.bmp,.mp4,.webm"
-              @change="
-                (e) => {
-                  const file = (e.target as HTMLInputElement).files?.[0]
-                  if (file) handleMediaChange(file)
-                }
-              "
-              class="hidden"
-              :disabled="disabled"
-            />
-          </label>
-        </div>
-
-        <!-- Emoji Picker -->
-        <div
-          v-if="showPicker"
-          class="absolute right-0 z-50"
-          :class="{
-            'top-full mt-2': pickerPosition === 'bottom',
-            'bottom-full mb-2': pickerPosition === 'top',
-          }"
-        >
-          <EmojiPickerWrapper
-            v-model="showPicker"
-            @select="handleEmojiSelect"
-            theme="dark"
-            :native="true"
-            :hideSearch="true"
+  <div class="w-full">
+    <!-- ✅ Media Preview (стиль из старого проекта) -->
+    <div v-if="mediaPreview && !loading">
+      <div v-if="isImageFile" class="relative mb-2">
+        <div class="absolute top-0 left-[-10px] z-20" @click="clearMedia">
+          <i
+            class="pi pi-times text-xs cursor-pointer p-2 text-white bg-black rounded-full hover:bg-gray-800 transition"
           />
         </div>
+        <img :src="mediaPreview" class="h-28 w-28 object-cover rounded-lg" alt="Media Preview" />
       </div>
+      <div v-if="isVideoFile" class="relative mb-2">
+        <div class="absolute top-0 left-[-10px] z-20" @click="clearMedia">
+          <i
+            class="pi pi-times text-xs cursor-pointer p-2 text-white bg-black rounded-full hover:bg-gray-800 transition"
+          />
+        </div>
+        <video :src="mediaPreview" class="h-32 w-32 object-cover rounded-lg" autoplay loop muted />
+      </div>
+    </div>
+
+    <!-- ✅ Loading (colorful loader из старого проекта) -->
+    <div v-if="loading" class="flex items-center justify-center py-4">
+      <BaseLoader variant="colorful" size="md" :fullscreen="false" />
+    </div>
+
+    <!-- ✅ Input Row (структура из старого проекта) -->
+    <div v-else class="flex items-center space-x-2">
+      <slot name="cancel" :cancel="handleCancel" />
+
+      <div ref="inputContainerRef" class="relative w-full">
+        <input
+          ref="inputRef"
+          v-model="content"
+          type="text"
+          :placeholder="placeholder"
+          :disabled="isDisabled"
+          :maxlength="maxLength"
+          autocomplete="off"
+          @keydown="handleKeydown"
+          :class="[
+            'transition cursor-pointer bg-gray-50 border text-black text-sm rounded-3xl py-3 px-5 pr-20 w-full focus:ring-black focus:border-black disabled:opacity-50 disabled:cursor-not-allowed',
+            contentError ? 'border-red-500' : 'border-gray-900',
+          ]"
+        />
+
+        <!-- ✅ Emoji button (позиция из старого проекта) -->
+        <button
+          v-if="showEmojiPicker"
+          @click="
+            loadPicker()
+            showPicker = !showPicker
+          "
+          :disabled="isDisabled"
+          type="button"
+          class="absolute bottom-0.5 right-12 p-1 transition transform hover:scale-105 disabled:opacity-50"
+          aria-label="Add emoji"
+        >
+          <i class="pi pi-face-smile text-2xl" :style="{ color: accentColor }" />
+        </button>
+
+        <!-- ✅ Media upload (позиция из старого проекта) -->
+        <label v-if="showMediaUpload" class="absolute bottom-0.5 right-4 p-1 cursor-pointer">
+          <i
+            class="pi pi-images text-2xl transition transform hover:scale-105"
+            :style="{ color: accentColor }"
+            :class="{ 'opacity-50 cursor-not-allowed': isDisabled }"
+          />
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept=".jpg,.jpeg,.gif,.webp,.png,.bmp,.mp4,.webm"
+            :disabled="isDisabled"
+            @change="handleMediaSelect"
+            class="hidden"
+          />
+        </label>
+
+        <!-- ✅ Emoji Picker (позиция из старого проекта) -->
+        <EmojiPickerWrapper
+          v-show="showPicker"
+          :model-value="showPicker"
+          @update:model-value="showPicker = $event"
+          @select="onSelectEmoji"
+          class="absolute right-0 z-40"
+          :style="{ top: isTop ? '50px' : 'auto', bottom: isTop ? 'auto' : '50px' }"
+        />
+      </div>
+    </div>
+
+    <!-- Validation & char count -->
+    <div
+      v-if="!loading && (contentError || content.length > 0)"
+      class="flex justify-between mt-1 px-2"
+    >
+      <p v-if="contentError" class="text-xs text-red-500">{{ contentError }}</p>
+      <span v-else />
+      <p
+        v-if="content.length > 0"
+        :class="[
+          'text-xs',
+          content.length > maxLength
+            ? 'text-red-500'
+            : content.length > maxLength * 0.8
+              ? 'text-yellow-600'
+              : 'text-gray-400',
+        ]"
+      >
+        {{ content.length }}/{{ maxLength }}
+      </p>
     </div>
   </div>
 </template>

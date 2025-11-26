@@ -1,6 +1,7 @@
+<!-- src/components/ui/BaseLoader.vue -->
 <script setup lang="ts">
 export interface BaseLoaderProps {
-  variant?: 'logo' | 'spinner' | 'dots'
+  variant?: 'logo' | 'spinner' | 'dots' | 'colorful'
   size?: 'sm' | 'md' | 'lg'
   color?: string
   fullscreen?: boolean
@@ -24,6 +25,19 @@ const spinnerSizeClasses = {
   md: 'w-12 h-12',
   lg: 'w-16 h-16',
 }
+
+// Размеры для colorful loader (пропорции из старого проекта)
+const colorfulSizeClasses = {
+  sm: 'w-6 h-6 border-[2px]',
+  md: 'w-12 h-12 border-[3px]',
+  lg: 'w-16 h-16 border-[4px]',
+}
+
+const colorfulPseudoScale = {
+  sm: 0.5,
+  md: 1,
+  lg: 1.33,
+}
 </script>
 
 <template>
@@ -33,11 +47,11 @@ const spinnerSizeClasses = {
       fullscreen ? 'fixed inset-0 z-50 bg-white' : 'h-full min-h-[200px]',
     ]"
   >
-    <!-- Logo variant (из старого кода) -->
+    <!-- Logo variant -->
     <span v-if="variant === 'logo'" :class="['logo', sizeClasses[size]]"> 🐰 </span>
 
-    <!-- Spinner variant (из старого loader2) -->
-    <span v-else-if="variant === 'spinner'" :class="['loader2', spinnerSizeClasses[size]]"></span>
+    <!-- Spinner variant -->
+    <span v-else-if="variant === 'spinner'" :class="['loader-spinner', spinnerSizeClasses[size]]" />
 
     <!-- Dots variant -->
     <div v-else-if="variant === 'dots'" class="flex items-center gap-2">
@@ -49,8 +63,15 @@ const spinnerSizeClasses = {
           size === 'sm' ? 'w-2 h-2' : size === 'md' ? 'w-3 h-3' : 'w-4 h-4',
         ]"
         :style="{ animationDelay: `${i * 0.15}s` }"
-      ></span>
+      />
     </div>
+
+    <!-- ✅ Colorful variant (из старого проекта) -->
+    <span
+      v-else-if="variant === 'colorful'"
+      :class="['loader-colorful', colorfulSizeClasses[size]]"
+      :style="{ '--pseudo-scale': colorfulPseudoScale[size] }"
+    />
   </div>
 </template>
 
@@ -71,7 +92,7 @@ const spinnerSizeClasses = {
   animation: pulse-scale 1.5s infinite ease-in-out;
 }
 
-.loader2 {
+.loader-spinner {
   background: #fff;
   border-radius: 50%;
   display: inline-block;
@@ -80,7 +101,7 @@ const spinnerSizeClasses = {
   animation: rotation 1s linear infinite;
 }
 
-.loader2::after {
+.loader-spinner::after {
   content: '';
   box-sizing: border-box;
   position: absolute;
@@ -94,6 +115,35 @@ const spinnerSizeClasses = {
   box-shadow:
     25px 2px,
     10px 22px;
+}
+
+/* ✅ Colorful loader из старого проекта */
+.loader-colorful {
+  display: inline-block;
+  position: relative;
+  border-style: solid dotted solid dotted;
+  border-color: #c50000 rgba(10, 255, 39, 0.3) #1c589e rgba(255, 101, 101, 0.836);
+  border-radius: 50%;
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+}
+
+.loader-colorful::before,
+.loader-colorful::after {
+  content: '';
+  top: 0;
+  left: 0;
+  position: absolute;
+  border: calc(10px * var(--pseudo-scale, 1)) solid transparent;
+  border-bottom-color: #a309d27a;
+  transform: translate(calc(-10px * var(--pseudo-scale, 1)), calc(19px * var(--pseudo-scale, 1)))
+    rotate(-35deg);
+}
+
+.loader-colorful::after {
+  border-color: #de3500 transparent transparent transparent;
+  transform: translate(calc(32px * var(--pseudo-scale, 1)), calc(3px * var(--pseudo-scale, 1)))
+    rotate(-35deg);
 }
 
 @keyframes rotation {

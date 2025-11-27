@@ -257,7 +257,7 @@ function goBack() {
             <TagBadge
               v-for="tag in filteredTags"
               :key="tag.id"
-              :label="tag.name"
+              :name="tag.name"
               :color="tag.color"
               :selected="isTagSelected(tag.name)"
               clickable

@@ -42,9 +42,7 @@ const props = withDefaults(defineProps<TagsSelectorProps>(), {
   disabled: false,
 })
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: string[]): void
-}>()
+const emit = defineEmits<(e: 'update:modelValue', value: string[]) => void>()
 
 // Состояние
 const newTagInput = ref('')

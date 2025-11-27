@@ -176,8 +176,9 @@ onDeactivated(() => {
         class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
       >
         <div class="relative flex items-center justify-center w-12 h-12">
+          <!-- ✅ ИСПРАВЛЕНО: добавлен v-if внутрь Transition -->
           <Transition name="flash">
-            <i class="absolute pi pi-play text-5xl text-white glowing-icon" />
+            <i v-if="showPauseIcon" class="absolute pi pi-play text-5xl text-white glowing-icon" />
           </Transition>
         </div>
       </div>

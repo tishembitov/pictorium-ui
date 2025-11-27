@@ -38,9 +38,7 @@ const props = withDefaults(defineProps<TagCloudProps>(), {
   showCount: false,
 })
 
-const emit = defineEmits<{
-  (e: 'select', tag: TagCloudItem): void
-}>()
+const emit = defineEmits<(e: 'select', tag: TagCloudItem) => void>()
 
 // Сортированные и ограниченные теги
 const sortedTags = computed(() => {

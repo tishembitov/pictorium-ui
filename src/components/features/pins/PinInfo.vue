@@ -83,7 +83,7 @@ function handleTagClick(tagName: string) {
       <TagBadge
         v-for="tag in tagsWithColors"
         :key="tag.name"
-        :label="tag.name"
+        :name="tag.name"
         :color="tag.color"
         size="md"
         clickable

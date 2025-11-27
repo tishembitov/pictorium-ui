@@ -3,15 +3,13 @@
 /**
  * BoardList - Список досок с FAB кнопкой создания
  *
- * ✅ Визуальный стиль из старого Boards.vue:
- * - FAB кнопка fixed bottom-6 left-1/2
- * - loader2 анимация
- * - Empty state с изображением
+ * ✅ Использует BaseLoader вместо inline стилей
  */
 
 import { ref, computed, onMounted, watch } from 'vue'
 import BoardGrid from './BoardGrid.vue'
 import BoardCard from './BoardCard.vue'
+import BaseLoader from '@/components/ui/BaseLoader.vue'
 import { useBoards } from '@/composables'
 import { useToast } from '@/composables/ui/useToast'
 import type { BoardWithPins } from '@/types'
@@ -89,13 +87,11 @@ const handleCreate = () => {
 
 <template>
   <div class="mt-10 ml-20">
-    <!-- Loading (loader2 из старого проекта) -->
-    <div v-if="isLoading" class="flex items-center justify-center h-full p-2">
-      <span class="text-center loader2"></span>
-    </div>
+    <!-- ✅ Использует BaseLoader -->
+    <BaseLoader v-if="isLoading" variant="colorful" size="md" />
 
     <div v-else>
-      <!-- FAB Create Button (из старого проекта) -->
+      <!-- FAB Create Button -->
       <div
         v-if="showCreateButton && canEdit"
         class="fixed bottom-6 transform items-center justify-center left-1/2 z-20 ml-7 text-4xl"
@@ -121,7 +117,7 @@ const handleCreate = () => {
         />
       </BoardGrid>
 
-      <!-- Empty State (из старого проекта) -->
+      <!-- Empty State -->
       <div v-if="isEmpty">
         <section class="text-center flex flex-col justify-center items-center relative">
           <h1 class="text-2xl font-bold mb-4">no boards</h1>
@@ -135,42 +131,3 @@ const handleCreate = () => {
     </div>
   </div>
 </template>
-
-<style scoped>
-/* loader2 из старого проекта */
-.loader2 {
-  width: 48px;
-  height: 48px;
-  background: #fff;
-  border-radius: 50%;
-  display: inline-block;
-  position: relative;
-  box-sizing: border-box;
-  animation: rotation 1s linear infinite;
-}
-
-.loader2::after {
-  content: '';
-  box-sizing: border-box;
-  position: absolute;
-  left: 6px;
-  top: 10px;
-  width: 12px;
-  height: 12px;
-  color: #ff3d00;
-  background: currentColor;
-  border-radius: 50%;
-  box-shadow:
-    25px 2px,
-    10px 22px;
-}
-
-@keyframes rotation {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-</style>

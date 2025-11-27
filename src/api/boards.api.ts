@@ -9,6 +9,7 @@ import type {
   GetMyBoardsResponse,
   GetSelectedBoardResponse,
   Pageable,
+  Board,
 } from '@/types'
 
 const BASE_PATH = '/api/v1/boards'
@@ -76,6 +77,11 @@ export const boardsApi = {
    */
   deselectBoard: async (): Promise<void> => {
     await contentServiceClient.delete(`${BASE_PATH}/selected`)
+  },
+
+  update: async (boardId: string, data: { title: string }): Promise<Board> => {
+    const { data: response } = await contentServiceClient.patch(`${BASE_PATH}/${boardId}`, data)
+    return response
   },
 
   /**

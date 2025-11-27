@@ -7,8 +7,8 @@
  */
 
 import { ref, watch } from 'vue'
-import { useToast } from '@/composables/ui/useToast'
 import type { Board } from '@/types'
+import { useBoards, useToast } from '@/composables'
 
 export interface BoardEditModalProps {
   modelValue: boolean
@@ -22,6 +22,7 @@ const emit = defineEmits<{
   (e: 'updated', board: Board): void
 }>()
 
+const { updateBoard } = useBoards()
 const { success, error: showError } = useToast()
 
 const boardName = ref('')
@@ -64,16 +65,10 @@ const handleSave = async () => {
   try {
     isLoading.value = true
 
-    // TODO: Добавить API для обновления когда будет готово
-    // await boardsApi.update(props.board.id, { title: boardName.value.trim() })
-
-    const updatedBoard: Board = {
-      ...props.board,
-      title: boardName.value.trim(),
-    }
+    const updated = await updateBoard(props.board.id, boardName.value.trim())
 
     success('Board updated!')
-    emit('updated', updatedBoard)
+    emit('updated', updated)
     closeModal()
   } catch (e) {
     showError('Failed to update board')

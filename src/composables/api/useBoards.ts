@@ -127,6 +127,16 @@ export function useBoards(options: UseBoardsOptions = {}) {
     }
   }
 
+  async function updateBoard(boardId: string, title: string) {
+    try {
+      error.value = null
+      return await boardsStore.updateBoard(boardId, title)
+    } catch (e) {
+      error.value = e as Error
+      throw e
+    }
+  }
+
   /**
    * Удалить доску
    */
@@ -253,6 +263,7 @@ export function useBoards(options: UseBoardsOptions = {}) {
 
     // CRUD
     createBoard,
+    updateBoard,
     deleteBoard,
     addPinToBoard,
     removePinFromBoard,

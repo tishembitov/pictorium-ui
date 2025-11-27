@@ -251,6 +251,23 @@ export const useBoardsStore = defineStore('boards', () => {
     }
   }
 
+  async function updateBoard(boardId: string, title: string) {
+    try {
+      const updated = await boardsApi.update(boardId, { title })
+
+      // Update cache
+      const cached = boardsCache.get(boardId)
+      if (cached) {
+        boardsCache.set(boardId, { ...cached, title: updated.title })
+      }
+
+      return updated
+    } catch (error) {
+      console.error('[Boards] Failed to update board:', error)
+      throw error
+    }
+  }
+
   async function deleteBoard(boardId: string) {
     try {
       await boardsApi.delete(boardId)
@@ -440,6 +457,7 @@ export const useBoardsStore = defineStore('boards', () => {
     fetchBoardPins,
     loadMoreBoardPins,
     createBoard,
+    updateBoard,
     deleteBoard,
     addPinToBoard,
     removePinFromBoard,

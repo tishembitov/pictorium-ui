@@ -6,15 +6,22 @@
  * ✅ Точный UI из старого Boards.vue (showAddBoard секция)
  */
 
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useBoards } from '@/composables/api/useBoards'
 import { useToast } from '@/composables/ui/useToast'
+import { validators } from '@/composables/form/useFormValidation'
 
 export interface BoardCreateModalProps {
   modelValue: boolean
 }
 
 const props = defineProps<BoardCreateModalProps>()
+
+const validationError = ref<string | null>(null)
+
+const validateInput = () => {
+  validationError.value = validators.boardTitle(boardName.value)
+}
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
@@ -23,6 +30,7 @@ const emit = defineEmits<{
 
 const { createBoard, isLoading } = useBoards()
 const { success, error: showError } = useToast()
+const isValid = computed(() => !validationError.value && boardName.value.trim().length > 0)
 
 const boardName = ref('')
 
@@ -42,6 +50,9 @@ const closeModal = () => {
 }
 
 const handleCreate = async () => {
+  validateInput()
+  if (validationError.value) return
+
   if (!boardName.value.trim()) return
 
   try {
@@ -70,17 +81,27 @@ const handleCreate = async () => {
       <input
         type="text"
         v-model="boardName"
+        @input="validateInput"
         placeholder="Board name"
-        class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-700"
+        :class="[
+          'w-full p-3 border rounded-lg focus:outline-none focus:ring-2',
+          validationError
+            ? 'border-red-500 focus:ring-red-500'
+            : 'border-gray-300 focus:ring-red-500',
+        ]"
         @keydown.enter="handleCreate"
       />
+
+      <p v-if="validationError" class="text-red-500 text-sm mt-1">
+        {{ validationError }}
+      </p>
 
       <!-- Buttons (точно как в старом проекте) -->
       <div class="flex justify-end gap-3 mt-5">
         <button
           @click="closeModal"
           class="px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition"
-          :disabled="isLoading"
+          :disabled="isLoading || !isValid"
         >
           Cancel
         </button>

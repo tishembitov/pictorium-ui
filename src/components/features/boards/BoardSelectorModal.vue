@@ -3,12 +3,14 @@
 /**
  * BoardSelectorModal - Модалка выбора доски для сохранения пина
  *
- * ✅ Точный UI из старого Pin.vue (isModalOpen секция)
+ * ✅ Использует BaseLoader
+ * ✅ Использует типизированные helpers
  */
 
 import { watch } from 'vue'
+import BaseLoader from '@/components/ui/BaseLoader.vue'
 import { useBoards } from '@/composables/api/useBoards'
-import type { BoardWithPins } from '@/types'
+import type { BoardWithPins, PinWithBlob } from '@/types'
 
 export interface BoardSelectorModalProps {
   modelValue: boolean
@@ -50,23 +52,37 @@ const handleSelectProfile = async () => {
   closeModal()
 }
 
-// Helper для проверки типа медиа
-const isImage = (pin: { isImage?: boolean }) => pin.isImage !== false
+/**
+ * ✅ ИСПРАВЛЕНО: Типизированные helpers
+ */
+const hasImageContent = (pin: PinWithBlob): boolean => {
+  return pin.isImage === true && !!pin.imageBlobUrl
+}
+
+const hasVideoContent = (pin: PinWithBlob): boolean => {
+  return pin.isVideo === true && !!(pin.videoBlobUrl || pin.imageBlobUrl)
+}
+
+const getMediaUrl = (pin: PinWithBlob): string | undefined => {
+  if (hasVideoContent(pin)) {
+    return pin.videoBlobUrl || pin.imageBlobUrl
+  }
+  return pin.imageBlobUrl
+}
 </script>
 
 <template>
-  <!-- Backdrop (точно как в старом Pin.vue) -->
   <div
     v-if="modelValue"
     class="z-50 fixed inset-0 bg-black/50 flex items-center justify-center px-4"
     @click.self="closeModal"
   >
-    <!-- Loading state -->
+    <!-- ✅ Loading state с BaseLoader -->
     <div
       v-if="isLoading"
       class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-lg max-w-2xl w-full relative backdrop-blur-lg overflow-auto max-h-screen min-h-[300px] flex items-center justify-center"
     >
-      <span class="text-center loader2"></span>
+      <BaseLoader variant="colorful" size="md" />
     </div>
 
     <!-- Content -->
@@ -88,7 +104,7 @@ const isImage = (pin: { isImage?: boolean }) => pin.isImage !== false
       <!-- Boards header -->
       <h2 class="text-xl font-semibold mb-4 mt-4 text-center text-black">Boards</h2>
 
-      <!-- Boards grid (columns-2 как в старом проекте) -->
+      <!-- Boards grid -->
       <div class="columns-2 gap-4">
         <div
           v-for="board in myBoards"
@@ -113,14 +129,14 @@ const isImage = (pin: { isImage?: boolean }) => pin.isImage !== false
               class="mb-2 break-inside-avoid"
             >
               <img
-                v-if="isImage(pin)"
+                v-if="hasImageContent(pin)"
                 :src="pin.imageBlobUrl"
                 :alt="pin.title || 'Pin'"
                 class="w-full object-cover rounded-md"
               />
               <video
-                v-else
-                :src="pin.videoBlobUrl || pin.imageBlobUrl"
+                v-else-if="hasVideoContent(pin)"
+                :src="getMediaUrl(pin)"
                 :alt="pin.title || 'Pin'"
                 class="w-full object-cover rounded-md"
                 autoplay
@@ -147,41 +163,3 @@ const isImage = (pin: { isImage?: boolean }) => pin.isImage !== false
     </div>
   </div>
 </template>
-
-<style scoped>
-.loader2 {
-  width: 48px;
-  height: 48px;
-  background: #fff;
-  border-radius: 50%;
-  display: inline-block;
-  position: relative;
-  box-sizing: border-box;
-  animation: rotation 1s linear infinite;
-}
-
-.loader2::after {
-  content: '';
-  box-sizing: border-box;
-  position: absolute;
-  left: 6px;
-  top: 10px;
-  width: 12px;
-  height: 12px;
-  color: #ff3d00;
-  background: currentColor;
-  border-radius: 50%;
-  box-shadow:
-    25px 2px,
-    10px 22px;
-}
-
-@keyframes rotation {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-</style>

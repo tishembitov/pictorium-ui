@@ -21,9 +21,7 @@ const props = withDefaults(defineProps<SelectedBoardBadgeProps>(), {
   clickable: true,
 })
 
-const emit = defineEmits<{
-  (e: 'click'): void
-}>()
+const emit = defineEmits<(e: 'click') => void>()
 
 const { boardTitle, hasSelected, isLoading } = useSelectedBoard()
 

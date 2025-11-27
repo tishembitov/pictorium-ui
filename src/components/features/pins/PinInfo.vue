@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { randomTagColor } from '@/utils/colors'
 import { truncateText } from '@/utils/formatters'
-import TagBadge from '@/components/ui/TagBadge.vue'
+import TagBadge from '@/components/features/tags/TagBadge.vue'
 
 export interface PinInfoProps {
   title?: string | null

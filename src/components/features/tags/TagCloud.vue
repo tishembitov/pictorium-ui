@@ -1,86 +1,105 @@
+<!-- src/components/features/tag/TagCloud.vue -->
 <script setup lang="ts">
-import { computed, type ComputedRef } from 'vue'
-import TagBadge from '@/components/ui/TagBadge.vue'
-import type { Tag } from '@/types'
+/**
+ * TagCloud - Облако тегов с разными размерами на основе популярности
+ */
+
+import { computed } from 'vue'
+import TagBadge from '@/components/features/tags/TagBadge.vue'
+import { randomTagColor } from '@/utils/colors'
+
+export interface TagCloudItem {
+  id: string | number
+  name: string
+  count?: number
+  color?: string
+}
 
 export interface TagCloudProps {
-  tags: Tag[]
+  /** Массив тегов */
+  tags: TagCloudItem[]
+  /** Выбранные теги */
   selectedTags?: (string | number)[]
+  /** Минимальный размер */
+  minSize?: 'sm' | 'md'
+  /** Максимальный размер */
+  maxSize?: 'md' | 'lg'
+  /** Максимальное количество тегов */
   maxTags?: number
-  size?: 'sm' | 'md' | 'lg'
-  clickable?: boolean
-  removable?: boolean
+  /** Показывать счетчик */
+  showCount?: boolean
 }
 
 const props = withDefaults(defineProps<TagCloudProps>(), {
   selectedTags: () => [],
-  maxTags: 0,
-  size: 'md',
-  clickable: true,
-  removable: false,
+  minSize: 'sm',
+  maxSize: 'lg',
+  maxTags: 50,
+  showCount: false,
 })
 
 const emit = defineEmits<{
-  (e: 'select', tag: Tag): void
-  (e: 'remove', tag: Tag): void
+  (e: 'select', tag: TagCloudItem): void
 }>()
 
-const visibleTags: ComputedRef<Tag[]> = computed(() => {
-  if (props.maxTags > 0) {
-    return props.tags.slice(0, props.maxTags)
-  }
-  return props.tags
+// Сортированные и ограниченные теги
+const sortedTags = computed(() => {
+  return [...props.tags].sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, props.maxTags)
 })
 
-const hiddenCount = computed(() => {
-  if (props.maxTags > 0 && props.tags.length > props.maxTags) {
-    return props.tags.length - props.maxTags
+// Минимальный и максимальный count для расчета размера
+const countRange = computed(() => {
+  const counts = sortedTags.value.map((t) => t.count || 0)
+  return {
+    min: Math.min(...counts),
+    max: Math.max(...counts),
   }
-  return 0
 })
 
-const isSelected = (tagId: string | number) => {
-  return props.selectedTags.includes(tagId)
+// Определение размера тега на основе count
+const getTagSize = (count: number = 0): 'sm' | 'md' | 'lg' => {
+  const { min, max } = countRange.value
+  if (max === min) return 'md'
+
+  const ratio = (count - min) / (max - min)
+
+  if (ratio > 0.66) return 'lg'
+  if (ratio > 0.33) return 'md'
+  return 'sm'
 }
 
-const handleSelect = (tag: Tag) => {
-  if (props.clickable) {
-    emit('select', tag)
-  }
-}
+// Теги с цветами и размерами
+const tagsWithMeta = computed(() => {
+  // Перемешиваем для естественного вида облака
+  const shuffled = [...sortedTags.value].sort(() => Math.random() - 0.5)
 
-const handleRemove = (tag: Tag) => {
-  emit('remove', tag)
+  return shuffled.map((tag) => ({
+    ...tag,
+    color: tag.color || randomTagColor(),
+    size: getTagSize(tag.count),
+  }))
+})
+
+const isSelected = (tag: TagCloudItem) => {
+  return props.selectedTags.includes(tag.id) || props.selectedTags.includes(tag.name)
 }
 </script>
 
 <template>
-  <div class="flex flex-wrap gap-2" v-auto-animate>
-    <TagBadge
-      v-for="tag in visibleTags"
-      :key="tag.id"
-      :label="tag.name"
-      :color="tag.color"
-      :selected="isSelected(tag.id)"
-      :removable="removable"
-      :clickable="clickable"
-      :size="size"
-      @click="handleSelect(tag)"
-      @remove="handleRemove(tag)"
-    />
+  <div class="flex flex-wrap gap-2 items-center justify-center p-4" v-auto-animate>
+    <div v-for="tag in tagsWithMeta" :key="tag.id" class="inline-flex items-center gap-1">
+      <TagBadge
+        :name="tag.name"
+        :id="tag.id"
+        :color="tag.color"
+        :size="tag.size"
+        :selected="isSelected(tag)"
+        clickable
+        @click="emit('select', tag)"
+      />
 
-    <span
-      v-if="hiddenCount > 0"
-      :class="[
-        'inline-flex items-center rounded-full font-medium bg-gray-200 text-gray-700',
-        size === 'sm'
-          ? 'text-xs px-2 py-1'
-          : size === 'md'
-            ? 'text-sm px-3 py-2'
-            : 'text-base px-4 py-2',
-      ]"
-    >
-      +{{ hiddenCount }}
-    </span>
+      <!-- Счетчик (опционально) -->
+      <span v-if="showCount && tag.count" class="text-xs text-gray-400"> ({{ tag.count }}) </span>
+    </div>
   </div>
 </template>

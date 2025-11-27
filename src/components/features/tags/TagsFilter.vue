@@ -1,166 +1,202 @@
+<!-- src/components/features/tag/TagsFilter.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick, type Ref } from 'vue'
-import { useTags } from '@/composables/api/useTags'
-import { useEventListener, useWindowSize } from '@/composables/utils'
+/**
+ * TagsFilter - Горизонтальный скролл тегов с навигацией
+ *
+ * Визуальный стиль из старого HomeView.vue:
+ * - Фиксированная позиция под header
+ * - Градиенты по бокам при hover
+ * - Стрелки навигации
+ * - Плавный scroll
+ */
+
+import { ref, computed, onMounted, watch } from 'vue'
 import TagFilterItem from './TagFilterItem.vue'
 import type { Category } from '@/types'
-import { smoothScrollHorizontal } from '@/utils/scroll'
+
+export interface TagFilterCategory {
+  id: string | number
+  name: string
+  previewUrl?: string | null
+  previewBlobUrl?: string | null
+  isVideo?: boolean
+  color?: string
+}
 
 export interface TagsFilterProps {
-  /**
-   * Показывать "Everything" тег
-   * @default true
-   */
-  showAll?: boolean
-
-  /**
-   * Выбранный тег
-   */
+  /** Категории/теги */
+  categories: TagFilterCategory[]
+  /** Выбранный тег */
   selectedTag?: string | null
-
-  /**
-   * Лимит категорий
-   * @default 20
-   */
-  limit?: number
-
-  /**
-   * Показывать стрелки
-   * @default true
-   */
-  showArrows?: boolean
+  /** Показывать "Everything" */
+  showEverything?: boolean
+  /** Загружаются ли категории */
+  loading?: boolean
 }
 
 const props = withDefaults(defineProps<TagsFilterProps>(), {
-  showAll: true,
   selectedTag: null,
-  limit: 20,
-  showArrows: true,
+  showEverything: true,
+  loading: false,
 })
 
 const emit = defineEmits<{
   (e: 'select', tagName: string): void
+  (e: 'tagLoaded'): void
 }>()
 
-const { categories, isLoading, fetchCategories } = useTags()
-
+// Refs
 const containerRef = ref<HTMLElement | null>(null)
-const canScrollLeft = ref(false)
-const canScrollRight = ref(false)
+const loadedCount = ref(0)
 
+// "Everything" тег
+const everythingTag: TagFilterCategory = {
+  id: 'everything',
+  name: 'Everything',
+  previewUrl: 'https://i.pinimg.com/736x/40/f1/b0/40f1b01bf3df9bc24bdbad4589125023.jpg',
+  color: 'bg-gray-200',
+}
+
+// Все теги включая Everything
 const allTags = computed(() => {
-  const tags: Category[] = []
-
-  if (props.showAll) {
-    tags.push({
-      tagId: 'all',
-      tagName: 'Everything',
-      pin: {
-        id: 'all',
-        imageUrl: 'https://i.pinimg.com/736x/40/f1/b0/40f1b01bf3df9bc24bdbad4589125023.jpg',
-        videoPreviewUrl: null,
-      },
-    })
+  if (props.showEverything) {
+    return [everythingTag, ...props.categories]
   }
-
-  return [...tags, ...categories.value]
+  return props.categories
 })
 
-const updateScrollState = () => {
-  if (!containerRef.value) return
+// Все теги загружены
+const allLoaded = computed(() => loadedCount.value >= allTags.value.length)
 
-  const { scrollLeft, scrollWidth, clientWidth } = containerRef.value
-  canScrollLeft.value = scrollLeft > 0
-  canScrollRight.value = scrollLeft < scrollWidth - clientWidth - 1
+// Scroll amount
+const scrollAmount = 400
+
+// Custom smooth scroll
+function customScroll(container: HTMLElement, amount: number, duration = 300) {
+  const start = container.scrollLeft
+  const startTime = performance.now()
+
+  function ease(t: number): number {
+    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+  }
+
+  function scrollStep(currentTime: number) {
+    const elapsed = currentTime - startTime
+    const progress = Math.min(elapsed / duration, 1)
+    const easeValue = ease(progress)
+
+    container.scrollLeft = start + amount * easeValue
+
+    if (elapsed < duration) {
+      requestAnimationFrame(scrollStep)
+    }
+  }
+
+  requestAnimationFrame(scrollStep)
 }
 
 const scrollLeft = () => {
   if (containerRef.value) {
-    smoothScrollHorizontal(containerRef.value, -400, 300)
+    customScroll(containerRef.value, -scrollAmount)
   }
 }
 
 const scrollRight = () => {
   if (containerRef.value) {
-    smoothScrollHorizontal(containerRef.value, 400, 300)
+    customScroll(containerRef.value, scrollAmount)
   }
 }
 
-const handleSelect = (tagName: string) => {
-  emit('select', tagName)
+// Обработка загрузки тега
+const handleTagLoaded = () => {
+  loadedCount.value++
+  emit('tagLoaded')
 }
 
-onMounted(async () => {
-  await fetchCategories(props.limit)
-  await nextTick()
-  updateScrollState()
-})
+// Выбор тега
+const handleSelect = (name: string) => {
+  emit('select', name)
+}
 
-// Watch for scroll events
-watch(containerRef, (container) => {
-  if (!container) return
-
-  useEventListener(container, 'scroll', updateScrollState)
-})
-
-// Watch for window resize
-const { width: windowWidth } = useWindowSize()
-watch(windowWidth, () => {
-  updateScrollState()
-})
+// Проверка выбранности
+const isSelected = (name: string) => {
+  if (name === 'Everything') {
+    return props.selectedTag === null || props.selectedTag === 'Everything'
+  }
+  return props.selectedTag === name
+}
 </script>
 
 <template>
   <div class="group relative">
-    <!-- Left Arrow -->
+    <!-- Левая стрелка -->
     <button
-      v-if="showArrows && canScrollLeft"
+      type="button"
       @click="scrollLeft"
-      class="absolute left-5 top-1/2 transform -translate-y-1/2 z-20 bg-white rounded-full px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg active:scale-75"
+      class="absolute left-0 top-1/2 transform -translate-y-1/2 z-20 bg-white rounded-full px-3 py-2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 active:scale-75"
       aria-label="Scroll left"
     >
-      <i class="pi pi-chevron-left text-xl"></i>
+      <i class="pi pi-chevron-left text-xl" />
     </button>
 
-    <!-- Tags Container -->
+    <!-- Контейнер с градиентами -->
     <div class="relative overflow-hidden">
-      <!-- Left Gradient -->
+      <!-- Градиент слева -->
       <div
-        v-if="showArrows"
         class="absolute top-0 left-0 w-32 h-full bg-gradient-to-r from-white via-white/50 to-transparent pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
       />
 
-      <!-- Right Gradient -->
+      <!-- Градиент справа -->
       <div
-        v-if="showArrows"
         class="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-white via-white/50 to-transparent pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
       />
 
-      <!-- Tags Scroll Container -->
+      <!-- Скролл контейнер -->
       <div
         ref="containerRef"
         class="flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide p-0.5 px-5"
         v-auto-animate
       >
-        <TagFilterItem
-          v-for="category in allTags"
-          :key="category.tagId"
-          :tag-name="category.tagName"
-          :pin="category.pin"
-          :selected="selectedTag === category.tagName"
-          @select="handleSelect"
-        />
+        <!-- Loading skeletons -->
+        <template v-if="loading">
+          <div
+            v-for="i in 8"
+            :key="`skeleton-${i}`"
+            class="flex items-center gap-1 rounded-full bg-gray-100 animate-pulse pl-2 pr-5 py-1"
+          >
+            <div class="w-9 h-9 rounded-full bg-gray-200" />
+            <div class="w-16 h-4 rounded bg-gray-200" />
+          </div>
+        </template>
+
+        <!-- Теги -->
+        <template v-else>
+          <TagFilterItem
+            v-for="tag in allTags"
+            :key="tag.id"
+            :id="tag.id"
+            :name="tag.name"
+            :preview-url="tag.previewUrl"
+            :preview-blob-url="tag.previewBlobUrl"
+            :is-video="tag.isVideo"
+            :color="tag.color"
+            :selected="isSelected(tag.name)"
+            :loading="!allLoaded"
+            @click="handleSelect"
+            @loaded="handleTagLoaded"
+          />
+        </template>
       </div>
     </div>
 
-    <!-- Right Arrow -->
+    <!-- Правая стрелка -->
     <button
-      v-if="showArrows && canScrollRight"
+      type="button"
       @click="scrollRight"
-      class="absolute right-5 top-1/2 transform -translate-y-1/2 z-20 bg-white rounded-full px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg active:scale-75"
+      class="absolute right-0 top-1/2 transform -translate-y-1/2 z-20 bg-white rounded-full px-3 py-2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 active:scale-75"
       aria-label="Scroll right"
     >
-      <i class="pi pi-chevron-right text-xl"></i>
+      <i class="pi pi-chevron-right text-xl" />
     </button>
   </div>
 </template>
@@ -170,7 +206,6 @@ watch(windowWidth, () => {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }

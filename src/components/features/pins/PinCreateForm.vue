@@ -12,7 +12,7 @@ import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseTextarea from '@/components/ui/BaseTextarea.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
-import TagBadge from '@/components/ui/TagBadge.vue'
+import TagBadge from '@/components/features/tags/TagBadge.vue'
 import BackButton from '@/components/common/BackButton.vue'
 import MediaErrorDialog from '@/components/ui/MediaErrorDialog.vue'
 

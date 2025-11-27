@@ -9,7 +9,7 @@ import { randomTagColor } from '@/utils/colors'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseTextarea from '@/components/ui/BaseTextarea.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import TagBadge from '@/components/ui/TagBadge.vue'
+import TagBadge from '@/components/features/tags/TagBadge.vue'
 import type { Pin } from '@/types'
 
 export interface PinEditFormProps {

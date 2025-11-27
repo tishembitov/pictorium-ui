@@ -17,7 +17,7 @@ import { randomTagColor } from '@/utils/colors'
 import PinLikesPopover from '@/components/features/likes/PinLikesPopover.vue'
 import PinComments from '@/components/features/comments/PinComments.vue'
 import BaseAvatar from '@/components/ui/BaseAvatar.vue'
-import TagBadge from '@/components/ui/TagBadge.vue'
+import TagBadge from '@/components/features/tags/TagBadge.vue'
 
 export interface PinDetailInfoProps {
   pin: PinWithBlob

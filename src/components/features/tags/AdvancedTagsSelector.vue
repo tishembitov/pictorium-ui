@@ -1,272 +1,913 @@
+<!-- src/components/features/tag/AdvancedTagsSelector.vue -->
 <script setup lang="ts">
 /**
- * Advanced Tags Selector
+ * AdvancedTagsSelector - Полнофункциональный селектор тегов
  *
- * Полнофункциональный селектор тегов с:
- * - Поиском с автокомплитом
- * - Созданием новых тегов
- * - Валидацией
- * - Лимитом тегов
+ * Features:
+ * - Поиск с автокомплитом (debounced)
+ * - Создание новых тегов с валидацией
+ * - Лимит тегов с визуальным индикатором
  * - Drag & Drop для сортировки
+ * - Keyboard navigation
+ * - Группировка по популярности
+ * - Анимации
  */
-import { ref, computed, watch } from 'vue'
-import { useTagSearch } from '@/composables/api/useTags'
-import { useFieldArray } from '@/composables/form/useForm'
-import BaseInput from '@/components/ui/BaseInput.vue'
+
+import {
+  ref,
+  computed,
+  watch,
+  onMounted,
+  onUnmounted,
+  nextTick,
+  type PropType,
+  defineComponent,
+  h,
+} from 'vue'
+import TagBadge from '@/components/features/tags/TagBadge.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import TagBadge from '@/components/ui/TagBadge.vue'
-import type { Tag } from '@/types'
+import BaseLoader from '@/components/ui/BaseLoader.vue'
+import { useTagSearch } from '@/composables/api/useTagSearch'
+import { useDebouncedRef } from '@/composables/utils/useDebounce'
+import { useKeyboardShortcuts } from '@/composables/utils/useKeyboardShortcuts'
 import { randomTagColor } from '@/utils/colors'
-import { validateTag, getTagError } from '@/utils/validators'
+import { getTagError, validateTag } from '@/utils/validators'
+import { TAG_MAX_LENGTH } from '@/utils/constants'
+import type { Tag } from '@/types'
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export interface SelectedTag {
+  id: string
+  name: string
+  color: string
+  isNew?: boolean
+}
 
 export interface AdvancedTagsSelectorProps {
+  /** Выбранные теги (имена) */
   modelValue: string[]
+  /** Максимальное количество тегов */
   maxTags?: number
-  label?: string
-  required?: boolean
+  /** Минимальное количество тегов */
+  minTags?: number
+  /** Заголовок */
+  title?: string
+  /** Подзаголовок/описание */
+  description?: string
+  /** Placeholder для поиска */
+  placeholder?: string
+  /** Разрешить создание новых тегов */
+  allowCreate?: boolean
+  /** Разрешить сортировку drag & drop */
+  allowSort?: boolean
+  /** Показывать популярные теги */
+  showPopular?: boolean
+  /** Количество популярных тегов */
+  popularLimit?: number
+  /** Отключено */
   disabled?: boolean
+  /** Режим только чтение */
+  readonly?: boolean
+  /** Показывать счетчик */
+  showCounter?: boolean
+  /** Автофокус на input */
+  autofocus?: boolean
+  /** Группировать suggestions */
+  groupSuggestions?: boolean
 }
 
 const props = withDefaults(defineProps<AdvancedTagsSelectorProps>(), {
   maxTags: 10,
-  label: 'Tags',
-  required: false,
+  minTags: 0,
+  title: '',
+  description: '',
+  placeholder: 'Search or create tags...',
+  allowCreate: true,
+  allowSort: true,
+  showPopular: true,
+  popularLimit: 8,
   disabled: false,
+  readonly: false,
+  showCounter: true,
+  autofocus: false,
+  groupSuggestions: true,
 })
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string[]): void
+  (e: 'create', tagName: string): void
+  (e: 'remove', tagName: string): void
+  (e: 'reorder', tags: string[]): void
+  (e: 'search', query: string): void
+  (e: 'focus'): void
+  (e: 'blur'): void
 }>()
 
-const { suggestions, search, clear, isSearching } = useTagSearch()
+// ============================================================================
+// REFS
+// ============================================================================
 
-const searchQuery = ref('')
-const createInput = ref('')
+const inputRef = ref<HTMLInputElement | null>(null)
+const containerRef = ref<HTMLElement | null>(null)
+const suggestionsRef = ref<HTMLElement | null>(null)
+
+// ============================================================================
+// STATE
+// ============================================================================
+
+const inputValue = ref('')
+const debouncedInput = useDebouncedRef('', 300)
+const inputError = ref<string | null>(null)
+const isFocused = ref(false)
 const showSuggestions = ref(false)
-const error = ref<string | null>(null)
+const highlightedIndex = ref(-1)
 
-const selectedTags = computed({
-  get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value),
-})
+// Drag & Drop state
+const draggedIndex = ref<number | null>(null)
+const dragOverIndex = ref<number | null>(null)
 
-const canAddMore = computed(() => selectedTags.value.length < props.maxTags)
+// ============================================================================
+// COMPOSABLES
+// ============================================================================
 
-const tagsWithColors = computed(() => {
-  return selectedTags.value.map((tagName) => ({
-    id: tagName,
-    name: tagName,
+const { suggestions, search, clear: clearSuggestions, isSearching } = useTagSearch(200)
+
+// ============================================================================
+// COMPUTED
+// ============================================================================
+
+// Выбранные теги с метаданными
+const selectedTags = computed<SelectedTag[]>(() => {
+  return props.modelValue.map((name, index) => ({
+    id: `selected-${index}-${name}`,
+    name,
     color: randomTagColor(),
+    isNew: false,
   }))
 })
 
-const filteredSuggestions = computed(() => {
-  if (!searchQuery.value.trim()) return []
+// Можно добавить еще
+const canAddMore = computed(() => props.modelValue.length < props.maxTags)
 
-  // Фильтруем уже выбранные теги
-  return suggestions.value.filter((tag) => !selectedTags.value.includes(tag.name))
+// Достигнут минимум
+const hasMinimum = computed(() => props.modelValue.length >= props.minTags)
+
+// Прогресс заполнения
+const fillProgress = computed(() => {
+  return Math.min(100, (props.modelValue.length / props.maxTags) * 100)
 })
 
-// Поиск тегов
-const handleSearch = async () => {
-  if (searchQuery.value.trim()) {
-    await search(searchQuery.value)
+// Цвет прогресса
+const progressColor = computed(() => {
+  if (fillProgress.value >= 100) return 'bg-red-500'
+  if (fillProgress.value >= 80) return 'bg-yellow-500'
+  return 'bg-green-500'
+})
+
+// Отфильтрованные suggestions (исключая уже добавленные)
+const filteredSuggestions = computed(() => {
+  return suggestions.value.filter(
+    (s) => !props.modelValue.some((t) => t.toLowerCase() === s.name.toLowerCase()),
+  )
+})
+
+// Группированные suggestions
+const groupedSuggestions = computed(() => {
+  if (!props.groupSuggestions) {
+    return { all: filteredSuggestions.value }
+  }
+
+  const exact: Tag[] = []
+  const startsWith: Tag[] = []
+  const contains: Tag[] = []
+  const query = inputValue.value.toLowerCase()
+
+  filteredSuggestions.value.forEach((tag) => {
+    const name = tag.name.toLowerCase()
+    if (name === query) {
+      exact.push(tag)
+    } else if (name.startsWith(query)) {
+      startsWith.push(tag)
+    } else {
+      contains.push(tag)
+    }
+  })
+
+  return { exact, startsWith, contains }
+})
+
+// Все suggestions в плоском виде для навигации
+const flatSuggestions = computed(() => {
+  if (!props.groupSuggestions) {
+    return filteredSuggestions.value
+  }
+  return [
+    ...groupedSuggestions.value.exact,
+    ...groupedSuggestions.value.startsWith,
+    ...groupedSuggestions.value.contains,
+  ]
+})
+
+// Можно создать новый тег
+const canCreateNew = computed(() => {
+  if (!props.allowCreate) return false
+  if (!inputValue.value.trim()) return false
+  if (!canAddMore.value) return false
+
+  const trimmed = inputValue.value.trim().toLowerCase()
+
+  // Проверяем, нет ли уже такого тега
+  const exists =
+    props.modelValue.some((t) => t.toLowerCase() === trimmed) ||
+    flatSuggestions.value.some((s) => s.name.toLowerCase() === trimmed)
+
+  if (exists) return false
+
+  // Валидация
+  return validateTag(trimmed)
+})
+
+// Показывать кнопку создания
+const showCreateButton = computed(() => {
+  return canCreateNew.value && inputValue.value.trim().length > 0
+})
+
+// ============================================================================
+// METHODS
+// ============================================================================
+
+// Добавить тег
+const addTag = (name: string): boolean => {
+  const trimmed = name.trim()
+
+  if (!trimmed) {
+    inputError.value = 'Tag cannot be empty'
+    return false
+  }
+
+  // Валидация
+  const error = getTagError(trimmed)
+  if (error) {
+    inputError.value = error
+    return false
+  }
+
+  // Проверка лимита
+  if (!canAddMore.value) {
+    inputError.value = `Maximum ${props.maxTags} tags allowed`
+    shakeInput()
+    return false
+  }
+
+  // Проверка дубликата
+  if (props.modelValue.some((t) => t.toLowerCase() === trimmed.toLowerCase())) {
+    inputError.value = 'Tag already added'
+    shakeInput()
+    return false
+  }
+
+  // Добавляем
+  emit('update:modelValue', [...props.modelValue, trimmed])
+
+  // Очищаем
+  inputValue.value = ''
+  inputError.value = null
+  highlightedIndex.value = -1
+  clearSuggestions()
+
+  return true
+}
+
+// Удалить тег
+const removeTag = (name: string) => {
+  if (props.disabled || props.readonly) return
+
+  emit(
+    'update:modelValue',
+    props.modelValue.filter((t) => t !== name),
+  )
+  emit('remove', name)
+}
+
+// Создать новый тег
+const createTag = () => {
+  if (!canCreateNew.value) return
+
+  const name = inputValue.value.trim()
+  if (addTag(name)) {
+    emit('create', name)
+  }
+}
+
+// Выбрать suggestion
+const selectSuggestion = (tag: Tag) => {
+  addTag(tag.name)
+  focusInput()
+}
+
+// Shake анимация для ошибок
+const shakeInput = () => {
+  if (!inputRef.value) return
+
+  inputRef.value.classList.add('shake-animation')
+  setTimeout(() => {
+    inputRef.value?.classList.remove('shake-animation')
+  }, 500)
+}
+
+// Focus input
+const focusInput = () => {
+  inputRef.value?.focus()
+}
+
+// ============================================================================
+// KEYBOARD NAVIGATION
+// ============================================================================
+
+const handleKeydown = (event: KeyboardEvent) => {
+  if (props.disabled || props.readonly) return
+
+  switch (event.key) {
+    case 'ArrowDown':
+      event.preventDefault()
+      if (flatSuggestions.value.length > 0) {
+        highlightedIndex.value = Math.min(
+          highlightedIndex.value + 1,
+          flatSuggestions.value.length - 1,
+        )
+        scrollToHighlighted()
+      }
+      break
+
+    case 'ArrowUp':
+      event.preventDefault()
+      if (highlightedIndex.value > 0) {
+        highlightedIndex.value--
+        scrollToHighlighted()
+      }
+      break
+
+    case 'Enter':
+      event.preventDefault()
+      if (highlightedIndex.value >= 0 && flatSuggestions.value[highlightedIndex.value]) {
+        selectSuggestion(flatSuggestions.value[highlightedIndex.value])
+      } else if (showCreateButton.value) {
+        createTag()
+      }
+      break
+
+    case 'Escape':
+      event.preventDefault()
+      showSuggestions.value = false
+      highlightedIndex.value = -1
+      break
+
+    case 'Backspace':
+      if (!inputValue.value && props.modelValue.length > 0) {
+        event.preventDefault()
+        const lastTag = props.modelValue[props.modelValue.length - 1]
+        removeTag(lastTag)
+      }
+      break
+
+    case 'Tab':
+      if (showCreateButton.value && !event.shiftKey) {
+        event.preventDefault()
+        createTag()
+      }
+      break
+  }
+}
+
+// Scroll к выделенному элементу
+const scrollToHighlighted = () => {
+  nextTick(() => {
+    const highlighted = suggestionsRef.value?.querySelector('.highlighted')
+    highlighted?.scrollIntoView({ block: 'nearest' })
+  })
+}
+
+// ============================================================================
+// DRAG & DROP
+// ============================================================================
+
+const handleDragStart = (index: number, event: DragEvent) => {
+  if (!props.allowSort || props.disabled || props.readonly) {
+    event.preventDefault()
+    return
+  }
+
+  draggedIndex.value = index
+
+  // Ghost image
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(index))
+  }
+}
+
+const handleDragOver = (index: number, event: DragEvent) => {
+  if (draggedIndex.value === null) return
+
+  event.preventDefault()
+  dragOverIndex.value = index
+}
+
+const handleDragLeave = () => {
+  dragOverIndex.value = null
+}
+
+const handleDrop = (index: number, event: DragEvent) => {
+  event.preventDefault()
+
+  if (draggedIndex.value === null || draggedIndex.value === index) {
+    resetDragState()
+    return
+  }
+
+  // Реорганизуем теги
+  const newTags = [...props.modelValue]
+  const [removed] = newTags.splice(draggedIndex.value, 1)
+  newTags.splice(index, 0, removed)
+
+  emit('update:modelValue', newTags)
+  emit('reorder', newTags)
+
+  resetDragState()
+}
+
+const handleDragEnd = () => {
+  resetDragState()
+}
+
+const resetDragState = () => {
+  draggedIndex.value = null
+  dragOverIndex.value = null
+}
+
+// ============================================================================
+// FOCUS HANDLERS
+// ============================================================================
+
+const handleFocus = () => {
+  isFocused.value = true
+  showSuggestions.value = true
+  emit('focus')
+}
+
+const handleBlur = () => {
+  // Задержка для клика по suggestion
+  setTimeout(() => {
+    isFocused.value = false
+    showSuggestions.value = false
+    highlightedIndex.value = -1
+  }, 200)
+  emit('blur')
+}
+
+// ============================================================================
+// INPUT HANDLER
+// ============================================================================
+
+const handleInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  inputValue.value = target.value
+  inputError.value = null
+  highlightedIndex.value = -1
+
+  // Emit для внешнего использования
+  emit('search', target.value)
+}
+
+// ============================================================================
+// WATCHERS
+// ============================================================================
+
+// Sync debounced input
+watch(inputValue, (value) => {
+  debouncedInput.value = value
+})
+
+// Search on debounced input change
+watch(debouncedInput, async (value) => {
+  if (value.trim().length >= 2) {
+    await search(value)
     showSuggestions.value = true
   } else {
-    clear()
-    showSuggestions.value = false
+    clearSuggestions()
   }
-}
-
-// Добавление тега из suggestions
-const addTagFromSuggestion = (tag: Tag) => {
-  if (!canAddMore.value) {
-    error.value = `Maximum ${props.maxTags} tags allowed`
-    return
-  }
-
-  if (!selectedTags.value.includes(tag.name)) {
-    selectedTags.value = [...selectedTags.value, tag.name]
-  }
-
-  searchQuery.value = ''
-  showSuggestions.value = false
-  error.value = null
-}
-
-// Создание нового тега
-const createTag = () => {
-  const tagName = createInput.value.trim().toLowerCase()
-
-  if (!tagName) {
-    error.value = 'Tag name is required'
-    return
-  }
-
-  const validationError = getTagError(tagName)
-  if (validationError) {
-    error.value = validationError
-    return
-  }
-
-  if (!canAddMore.value) {
-    error.value = `Maximum ${props.maxTags} tags allowed`
-    return
-  }
-
-  if (selectedTags.value.includes(tagName)) {
-    error.value = 'Tag already added'
-    return
-  }
-
-  selectedTags.value = [...selectedTags.value, tagName]
-  createInput.value = ''
-  error.value = null
-}
-
-// Удаление тега
-const removeTag = (tagName: string) => {
-  selectedTags.value = selectedTags.value.filter((t) => t !== tagName)
-  error.value = null
-}
-
-// Keyboard shortcuts
-const handleSearchKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Enter') {
-    event.preventDefault()
-
-    // Если есть suggestions, добавляем первый
-    if (filteredSuggestions.value.length > 0) {
-      addTagFromSuggestion(filteredSuggestions.value[0])
-    }
-  } else if (event.key === 'Escape') {
-    showSuggestions.value = false
-  }
-}
-
-const handleCreateKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Enter') {
-    event.preventDefault()
-    createTag()
-  }
-}
-
-// Debounced search
-watch(searchQuery, () => {
-  handleSearch()
 })
 
-// Click outside to close suggestions
-const handleClickOutside = () => {
-  setTimeout(() => {
-    showSuggestions.value = false
-  }, 200)
-}
+// ============================================================================
+// LIFECYCLE
+// ============================================================================
+
+onMounted(() => {
+  if (props.autofocus) {
+    nextTick(() => focusInput())
+  }
+})
+
+onUnmounted(() => {
+  clearSuggestions()
+})
+
+// ============================================================================
+// KEYBOARD SHORTCUTS
+// ============================================================================
+
+useKeyboardShortcuts([
+  {
+    key: '/',
+    handler: () => {
+      if (!isFocused.value) {
+        focusInput()
+      }
+    },
+    preventDefault: true,
+  },
+])
 </script>
 
 <template>
-  <div class="w-full">
-    <!-- Label -->
-    <label v-if="label" class="block mb-2 text-sm font-medium text-gray-900">
-      {{ label }}
-      <span v-if="required" class="text-red-500">*</span>
-    </label>
+  <div
+    ref="containerRef"
+    class="w-full space-y-4"
+    :class="{ 'opacity-50 pointer-events-none': disabled }"
+  >
+    <!-- Header -->
+    <div v-if="title || description" class="space-y-1">
+      <div class="flex items-center justify-between">
+        <h3 v-if="title" class="text-lg font-semibold text-gray-900">
+          {{ title }}
+        </h3>
 
-    <!-- Create Tag Section -->
-    <div class="flex items-center gap-2 mb-4">
-      <BaseButton
-        variant="primary"
-        size="sm"
-        @click="createTag"
-        :disabled="disabled || !canAddMore"
-      >
-        Create
-      </BaseButton>
+        <!-- Counter Badge -->
+        <span
+          v-if="showCounter"
+          :class="[
+            'text-sm font-medium px-2 py-0.5 rounded-full',
+            modelValue.length >= maxTags ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600',
+          ]"
+        >
+          {{ modelValue.length }}/{{ maxTags }}
+        </span>
+      </div>
 
-      <BaseInput
-        v-model="createInput"
-        type="text"
-        placeholder="Create new tag"
-        :disabled="disabled || !canAddMore"
-        @keydown="handleCreateKeydown"
+      <p v-if="description" class="text-sm text-gray-500">
+        {{ description }}
+      </p>
+    </div>
+
+    <!-- Progress Bar -->
+    <div
+      v-if="showCounter && maxTags > 0"
+      class="relative h-1.5 bg-gray-200 rounded-full overflow-hidden"
+    >
+      <div
+        :class="['absolute inset-y-0 left-0 transition-all duration-300', progressColor]"
+        :style="{ width: `${fillProgress}%` }"
       />
     </div>
 
-    <!-- Selected Tags Container -->
+    <!-- Selected Tags (Sortable) -->
     <div
-      :class="[
-        'w-full min-h-[48px] flex flex-wrap items-center gap-2 p-3',
-        'border rounded-2xl bg-gray-50 transition-all',
-        error ? 'border-red-500' : 'border-gray-300',
-        disabled && 'opacity-50 cursor-not-allowed',
-      ]"
+      v-if="selectedTags.length > 0"
+      class="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-2xl border border-gray-200 min-h-[52px]"
+      v-auto-animate
     >
-      <!-- Selected Tags -->
-      <TagBadge
-        v-for="tag in tagsWithColors"
+      <div
+        v-for="(tag, index) in selectedTags"
         :key="tag.id"
-        :label="`#${tag.name}`"
-        :color="tag.color"
-        :removable="!disabled"
-        :clickable="false"
-        size="md"
-        @remove="removeTag(tag.name)"
-      />
+        :draggable="allowSort && !disabled && !readonly"
+        @dragstart="handleDragStart(index, $event)"
+        @dragover="handleDragOver(index, $event)"
+        @dragleave="handleDragLeave"
+        @drop="handleDrop(index, $event)"
+        @dragend="handleDragEnd"
+        :class="[
+          'transition-all duration-200',
+          draggedIndex === index && 'opacity-50 scale-95',
+          dragOverIndex === index && draggedIndex !== index && 'transform translate-x-2',
+          allowSort && !disabled && !readonly && 'cursor-grab active:cursor-grabbing',
+        ]"
+      >
+        <TagBadge
+          :name="tag.name"
+          :color="tag.color"
+          :removable="!readonly"
+          :clickable="false"
+          size="md"
+          @remove="removeTag(tag.name)"
+        >
+          <!-- Drag handle -->
+          <template v-if="allowSort && !readonly" #prepend>
+            <svg class="w-3 h-3 text-gray-400 mr-1" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"
+              />
+            </svg>
+          </template>
+        </TagBadge>
+      </div>
 
-      <!-- Search Input -->
-      <div class="relative flex-1 min-w-[120px]">
-        <input
-          v-model="searchQuery"
-          type="text"
-          :placeholder="canAddMore ? 'Search tags...' : `Max ${maxTags} tags`"
-          :disabled="disabled || !canAddMore"
-          @keydown="handleSearchKeydown"
-          @blur="handleClickOutside"
-          class="w-full bg-transparent border-none outline-none text-gray-900 placeholder-gray-400"
-        />
-
-        <!-- Suggestions Dropdown -->
-        <Transition name="slide-down">
-          <div
-            v-if="showSuggestions && filteredSuggestions.length > 0"
-            class="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-20"
-          >
-            <button
-              v-for="suggestion in filteredSuggestions"
-              :key="suggestion.id"
-              @click="addTagFromSuggestion(suggestion)"
-              type="button"
-              class="w-full text-left px-4 py-2 hover:bg-gray-100 transition flex items-center gap-2"
-            >
-              <i class="pi pi-hashtag text-gray-400 text-sm"></i>
-              <span class="text-gray-900">{{ suggestion.name }}</span>
-            </button>
-          </div>
-        </Transition>
+      <!-- Minimum indicator -->
+      <div v-if="!hasMinimum && minTags > 0" class="flex items-center text-xs text-amber-600">
+        <i class="pi pi-info-circle mr-1" />
+        Add at least {{ minTags - modelValue.length }} more
       </div>
     </div>
 
-    <!-- Error Message -->
-    <p v-if="error" class="mt-1 text-sm text-red-500">
-      {{ error }}
-    </p>
+    <!-- Input Container -->
+    <div class="relative">
+      <!-- Input Field -->
+      <div
+        :class="[
+          'flex items-center gap-2 px-4 py-3 rounded-2xl border-2 transition-all duration-200',
+          'bg-white',
+          isFocused
+            ? 'border-purple-500 ring-2 ring-purple-100'
+            : 'border-gray-300 hover:border-gray-400',
+          inputError && 'border-red-500 ring-2 ring-red-100',
+          !canAddMore && 'bg-gray-50',
+        ]"
+      >
+        <!-- Search Icon -->
+        <i class="pi pi-search text-gray-400" />
 
-    <!-- Tag Count -->
-    <p class="mt-1 text-xs text-gray-400 text-right">
-      {{ selectedTags.length }}/{{ maxTags }} tags
-    </p>
+        <!-- Input -->
+        <input
+          ref="inputRef"
+          :value="inputValue"
+          type="text"
+          :placeholder="canAddMore ? placeholder : 'Maximum tags reached'"
+          :disabled="disabled || readonly || !canAddMore"
+          :maxlength="TAG_MAX_LENGTH"
+          @input="handleInput"
+          @keydown="handleKeydown"
+          @focus="handleFocus"
+          @blur="handleBlur"
+          class="flex-1 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400"
+          autocomplete="off"
+          spellcheck="false"
+        />
+
+        <!-- Loading -->
+        <BaseLoader v-if="isSearching" variant="spinner" size="sm" />
+
+        <!-- Clear Button -->
+        <button
+          v-else-if="inputValue"
+          type="button"
+          @click="
+            inputValue = ''
+            clearSuggestions()
+          "
+          class="p-1 text-gray-400 hover:text-gray-600 transition"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+
+        <!-- Create Button -->
+        <BaseButton v-if="showCreateButton" variant="primary" size="sm" @click="createTag">
+          <i class="pi pi-plus mr-1" />
+          Create
+        </BaseButton>
+      </div>
+
+      <!-- Character Count -->
+      <div
+        v-if="inputValue && inputValue.length > TAG_MAX_LENGTH * 0.7"
+        class="absolute right-4 -bottom-5 text-xs"
+        :class="inputValue.length >= TAG_MAX_LENGTH ? 'text-red-500' : 'text-gray-400'"
+      >
+        {{ inputValue.length }}/{{ TAG_MAX_LENGTH }}
+      </div>
+
+      <!-- Error Message -->
+      <p v-if="inputError" class="mt-2 text-sm text-red-500 flex items-center gap-1">
+        <i class="pi pi-exclamation-circle" />
+        {{ inputError }}
+      </p>
+
+      <!-- Suggestions Dropdown -->
+      <Transition name="dropdown">
+        <div
+          v-if="showSuggestions && (flatSuggestions.length > 0 || showCreateButton)"
+          ref="suggestionsRef"
+          class="absolute z-50 w-full mt-2 bg-white rounded-2xl shadow-xl border border-gray-200 max-h-80 overflow-y-auto"
+        >
+          <!-- Create New Option -->
+          <div
+            v-if="showCreateButton"
+            @click="createTag"
+            :class="[
+              'flex items-center gap-3 px-4 py-3 cursor-pointer transition',
+              'border-b border-gray-100',
+              highlightedIndex === -1 ? 'bg-purple-50' : 'hover:bg-gray-50',
+            ]"
+          >
+            <div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+              <i class="pi pi-plus text-purple-600" />
+            </div>
+            <div>
+              <p class="font-medium text-gray-900">
+                Create "<span class="text-purple-600">{{ inputValue.trim() }}</span
+                >"
+              </p>
+              <p class="text-xs text-gray-500">Press Enter or Tab to create</p>
+            </div>
+          </div>
+
+          <!-- Grouped Suggestions -->
+          <template v-if="groupSuggestions">
+            <!-- Exact matches -->
+            <div v-if="groupedSuggestions.exact.length > 0">
+              <div class="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">
+                Exact Match
+              </div>
+              <SuggestionItem
+                v-for="(tag, index) in groupedSuggestions.exact"
+                :key="tag.id"
+                :tag="tag"
+                :highlighted="highlightedIndex === index"
+                @click="selectSuggestion(tag)"
+              />
+            </div>
+
+            <!-- Starts with -->
+            <div v-if="groupedSuggestions.startsWith.length > 0">
+              <div class="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">
+                Starts With
+              </div>
+              <SuggestionItem
+                v-for="(tag, index) in groupedSuggestions.startsWith"
+                :key="tag.id"
+                :tag="tag"
+                :highlighted="highlightedIndex === groupedSuggestions.exact.length + index"
+                @click="selectSuggestion(tag)"
+              />
+            </div>
+
+            <!-- Contains -->
+            <div v-if="groupedSuggestions.contains.length > 0">
+              <div class="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">Related</div>
+              <SuggestionItem
+                v-for="(tag, index) in groupedSuggestions.contains"
+                :key="tag.id"
+                :tag="tag"
+                :highlighted="
+                  highlightedIndex ===
+                  groupedSuggestions.exact.length + groupedSuggestions.startsWith.length + index
+                "
+                @click="selectSuggestion(tag)"
+              />
+            </div>
+          </template>
+
+          <!-- Flat Suggestions (non-grouped) -->
+          <template v-else>
+            <SuggestionItem
+              v-for="(tag, index) in flatSuggestions"
+              :key="tag.id"
+              :tag="tag"
+              :highlighted="highlightedIndex === index"
+              @click="selectSuggestion(tag)"
+            />
+          </template>
+
+          <!-- No Results -->
+          <div
+            v-if="flatSuggestions.length === 0 && !showCreateButton && inputValue.trim()"
+            class="px-4 py-8 text-center text-gray-500"
+          >
+            <i class="pi pi-search text-3xl mb-2 opacity-50" />
+            <p>No tags found</p>
+            <p v-if="allowCreate" class="text-sm mt-1">Type to create a new tag</p>
+          </div>
+        </div>
+      </Transition>
+    </div>
+
+    <!-- Keyboard Hints -->
+    <div class="flex flex-wrap gap-4 text-xs text-gray-400">
+      <span><kbd class="px-1.5 py-0.5 bg-gray-100 rounded">↑↓</kbd> Navigate</span>
+      <span><kbd class="px-1.5 py-0.5 bg-gray-100 rounded">Enter</kbd> Select/Create</span>
+      <span><kbd class="px-1.5 py-0.5 bg-gray-100 rounded">Backspace</kbd> Remove last</span>
+      <span><kbd class="px-1.5 py-0.5 bg-gray-100 rounded">Esc</kbd> Close</span>
+      <span v-if="allowSort"
+        ><kbd class="px-1.5 py-0.5 bg-gray-100 rounded">Drag</kbd> Reorder</span
+      >
+    </div>
   </div>
 </template>
 
+<!-- Suggestion Item Component (inline) -->
+<script lang="ts">
+const SuggestionItem = defineComponent({
+  name: 'SuggestionItem',
+  props: {
+    tag: {
+      type: Object as PropType<Tag>,
+      required: true,
+    },
+    highlighted: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  emits: ['click'],
+  setup(props, { emit }) {
+    return () =>
+      h(
+        'div',
+        {
+          class: [
+            'flex items-center gap-3 px-4 py-3 cursor-pointer transition',
+            props.highlighted ? 'bg-purple-50 highlighted' : 'hover:bg-gray-50',
+          ],
+          onClick: () => emit('click'),
+        },
+        [
+          h('i', { class: 'pi pi-hashtag text-gray-400' }),
+          h('span', { class: 'text-gray-900' }, props.tag.name),
+        ],
+      )
+  },
+})
+
+export { SuggestionItem }
+</script>
+
 <style scoped>
-.slide-down-enter-active,
-.slide-down-leave-active {
+/* Shake animation */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-4px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+.shake-animation {
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* Dropdown animation */
+.dropdown-enter-active,
+.dropdown-leave-active {
   transition: all 0.2s ease;
 }
 
-.slide-down-enter-from,
-.slide-down-leave-to {
+.dropdown-enter-from,
+.dropdown-leave-to {
   opacity: 0;
-  transform: translateY(-10px);
+  transform: translateY(-8px);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Keyboard hints */
+kbd {
+  font-family: inherit;
+  font-size: 0.7rem;
 }
 </style>

@@ -1,18 +1,13 @@
-<!-- src/components/features/tag/TagsSelector.vue -->
+<!-- src/components/features/tags/TagsSelector.vue -->
 <script setup lang="ts">
 /**
  * TagsSelector - Выбор тегов для пина (как в CreatePinView)
  *
- * Функционал:
- * - Создание нового тега
- * - Поиск по тегам
- * - Добавление/удаление тегов
- * - Отображение выбранных тегов
+ * ✅ ИСПРАВЛЕНО: Удалены неиспользуемые импорты
  */
 
 import { ref, computed, watch } from 'vue'
-import TagBadge from '@/components/features/tags/TagBadge.vue'
-import BaseInput from '@/components/ui/BaseInput.vue'
+import TagBadge from './TagBadge.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { useTagSearch } from '@/composables/api/useTagSearch'
 import { randomTagColor } from '@/utils/colors'
@@ -244,7 +239,7 @@ const handleCreateKeydown = (e: KeyboardEvent) => {
     <p class="text-xs text-gray-400 text-right">{{ modelValue.length }}/{{ maxTags }} tags</p>
 
     <!-- Доступные теги -->
-    <div class="flex flex-wrap gap-2" v-auto-animate>
+    <div class="flex flex-wrap gap-2">
       <TagBadge
         v-for="tag in filteredTags"
         :key="tag.id"

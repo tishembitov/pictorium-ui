@@ -1,13 +1,13 @@
-<!-- src/components/features/tag/CategoryCard.vue -->
+<!-- src/components/features/tags/CategoryCard.vue -->
 <script setup lang="ts">
 /**
  * CategoryCard - Карточка категории с превью пина
+ *
+ * ✅ ИСПРАВЛЕНО: Удалены неиспользуемые импорты
  */
 
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed } from 'vue'
 import { randomTagColor } from '@/utils/colors'
-import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 
 export interface CategoryCardProps {
   /** ID тега */
@@ -37,11 +37,7 @@ const props = withDefaults(defineProps<CategoryCardProps>(), {
   size: 'md',
 })
 
-const emit = defineEmits<{
-  (e: 'click', tagName: string): void
-}>()
-
-const router = useRouter()
+const emit = defineEmits<(e: 'click', tagName: string) => void>()
 
 // Refs
 const videoRef = ref<HTMLVideoElement | null>(null)
@@ -146,10 +142,7 @@ const handleClick = () => {
 
     <!-- Контент -->
     <div class="absolute bottom-0 left-0 right-0 p-4 text-white">
-      <!-- Название -->
       <h3 class="font-bold text-lg truncate">{{ tagName }}</h3>
-
-      <!-- Количество пинов -->
       <p v-if="pinsCount > 0" class="text-sm text-white/80">
         {{ pinsCount.toLocaleString() }} pins
       </p>

@@ -1,6 +1,6 @@
-// src/components/features/tag/index.ts
+// src/components/features/tags/index.ts
 
-export { default as TagBadge } from '@/components/features/tags/TagBadge.vue'
+export { default as TagBadge } from './TagBadge.vue'
 export { default as TagList } from './TagList.vue'
 export { default as TagCloud } from './TagCloud.vue'
 export { default as TagsFilter } from './TagsFilter.vue'
@@ -10,11 +10,12 @@ export { default as TagInput } from './TagInput.vue'
 export { default as TagCreateInput } from './TagCreateInput.vue'
 export { default as TagSearchInput } from './TagSearchInput.vue'
 export { default as AdvancedTagsSelector } from './AdvancedTagsSelector.vue'
+export { default as SuggestionItem } from './SuggestionItem.vue'
 export { default as CategoryCard } from './CategoryCard.vue'
 export { default as CategoryGrid } from './CategoryGrid.vue'
 
-// Types
-export type { TagBadgeProps } from '@/components/features/tags/TagBadge.vue'
+// ✅ Типы экспортируем отдельно через type
+export type { TagBadgeProps } from './TagBadge.vue'
 export type { TagListProps, TagItem } from './TagList.vue'
 export type { TagCloudProps, TagCloudItem } from './TagCloud.vue'
 export type { TagsFilterProps, TagFilterCategory } from './TagsFilter.vue'
@@ -24,5 +25,6 @@ export type { TagInputProps } from './TagInput.vue'
 export type { TagCreateInputProps } from './TagCreateInput.vue'
 export type { TagSearchInputProps } from './TagSearchInput.vue'
 export type { AdvancedTagsSelectorProps, SelectedTag } from './AdvancedTagsSelector.vue'
+export type { SuggestionItemProps } from './SuggestionItem.vue'
 export type { CategoryCardProps } from './CategoryCard.vue'
 export type { CategoryGridProps, CategoryWithBlob } from './CategoryGrid.vue'

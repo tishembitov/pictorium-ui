@@ -1,18 +1,13 @@
-<!-- src/components/features/tag/TagFilterItem.vue -->
+<!-- src/components/features/tags/TagFilterItem.vue -->
 <script setup lang="ts">
 /**
  * TagFilterItem - Один тег в горизонтальном фильтре
  *
- * Визуальный стиль из старого HomeView.vue:
- * - Круглое превью изображения/видео слева
- * - Название тега справа
- * - При выборе: черный фон, белый текст, scale-105
- * - Hover: scale-110
+ * ✅ ИСПРАВЛЕНО: Удалены неиспользуемые импорты
  */
 
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
 import { randomTagColor } from '@/utils/colors'
-import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 
 export interface TagFilterItemProps {
   /** ID тега */

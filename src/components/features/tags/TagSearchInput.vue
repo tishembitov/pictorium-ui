@@ -2,18 +2,10 @@
 <script setup lang="ts">
 /**
  * TagSearchInput - Input для поиска тегов с автокомплитом
- *
- * Features:
- * - Debounced поиск
- * - Автокомплит с suggestions
- * - Keyboard navigation
- * - Highlight matched text
- * - Recent searches (optional)
- * - Popular tags (optional)
  */
 
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import TagBadge from '@/components/features/tags/TagBadge.vue'
+import TagBadge from './TagBadge.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 import { useTagSearch } from '@/composables/api/useTagSearch'
 import { useDebouncedRef } from '@/composables/utils/useDebounce'
@@ -22,35 +14,20 @@ import { randomTagColor } from '@/utils/colors'
 import type { Tag } from '@/types'
 
 export interface TagSearchInputProps {
-  /** v-model для выбранного тега */
   modelValue?: string
-  /** Placeholder */
   placeholder?: string
-  /** Label */
   label?: string
-  /** Минимальная длина для поиска */
   minSearchLength?: number
-  /** Показывать недавние поиски */
   showRecent?: boolean
-  /** Максимум недавних */
   maxRecent?: number
-  /** Показывать популярные теги */
   showPopular?: boolean
-  /** Популярные теги (если не используется API) */
   popularTags?: Tag[]
-  /** Максимум популярных */
   maxPopular?: number
-  /** Отключено */
   disabled?: boolean
-  /** Автофокус */
   autofocus?: boolean
-  /** Размер */
   size?: 'sm' | 'md' | 'lg'
-  /** Очищать после выбора */
   clearOnSelect?: boolean
-  /** Highlight совпадения */
   highlightMatch?: boolean
-  /** Storage key для recent */
   recentStorageKey?: string
 }
 
@@ -73,12 +50,12 @@ const props = withDefaults(defineProps<TagSearchInputProps>(), {
 })
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: string): void
-  (e: 'select', tag: Tag): void
-  (e: 'search', query: string): void
-  (e: 'clear'): void
-  (e: 'focus'): void
-  (e: 'blur'): void
+  'update:modelValue': [value: string]
+  select: [tag: Tag]
+  search: [query: string]
+  clear: []
+  focus: []
+  blur: []
 }>()
 
 // ============================================================================
@@ -111,7 +88,6 @@ const { suggestions, search, clear: clearSuggestions, isSearching } = useTagSear
 // COMPUTED
 // ============================================================================
 
-// Размеры
 const sizeClasses = computed(() => {
   const sizes = {
     sm: 'py-2 px-3 text-sm',
@@ -121,7 +97,6 @@ const sizeClasses = computed(() => {
   return sizes[props.size]
 })
 
-// Suggestions с цветами
 const suggestionsWithColors = computed(() => {
   return suggestions.value.map((tag) => ({
     ...tag,
@@ -129,7 +104,6 @@ const suggestionsWithColors = computed(() => {
   }))
 })
 
-// Популярные теги с цветами
 const popularWithColors = computed(() => {
   return props.popularTags.slice(0, props.maxPopular).map((tag) => ({
     ...tag,
@@ -137,7 +111,6 @@ const popularWithColors = computed(() => {
   }))
 })
 
-// Недавние как теги
 const recentAsTags = computed(() => {
   return recentSearches.value.slice(0, props.maxRecent).map((name, i) => ({
     id: `recent-${i}`,
@@ -146,23 +119,14 @@ const recentAsTags = computed(() => {
   }))
 })
 
-// Показывать dropdown
 const shouldShowDropdown = computed(() => {
   if (!isFocused.value) return false
-
-  // Показываем если есть suggestions
   if (suggestionsWithColors.value.length > 0) return true
-
-  // Показываем если есть недавние и нет ввода
   if (props.showRecent && recentAsTags.value.length > 0 && !inputValue.value) return true
-
-  // Показываем если есть популярные и нет ввода
   if (props.showPopular && popularWithColors.value.length > 0 && !inputValue.value) return true
-
   return false
 })
 
-// Все items для навигации
 const allItems = computed(() => {
   if (suggestionsWithColors.value.length > 0) {
     return suggestionsWithColors.value
@@ -185,11 +149,8 @@ const allItems = computed(() => {
 // METHODS
 // ============================================================================
 
-// Выбрать тег
-const selectTag = (tag: Tag) => {
-  // Добавляем в недавние
+function selectTag(tag: Tag): void {
   addToRecent(tag.name)
-
   emit('select', tag)
   emit('update:modelValue', tag.name)
 
@@ -202,53 +163,43 @@ const selectTag = (tag: Tag) => {
   closeDropdown()
 }
 
-// Добавить в недавние
-const addToRecent = (name: string) => {
+function addToRecent(name: string): void {
   if (!props.showRecent) return
-
   const filtered = recentSearches.value.filter((s) => s.toLowerCase() !== name.toLowerCase())
   recentSearches.value = [name, ...filtered].slice(0, props.maxRecent)
 }
 
-// Удалить из недавних
-const removeFromRecent = (name: string) => {
+function removeFromRecent(name: string): void {
   recentSearches.value = recentSearches.value.filter((s) => s !== name)
 }
 
-// Очистить недавние
-const clearRecent = () => {
+function clearRecent(): void {
   recentSearches.value = []
 }
 
-// Очистить input
-const clear = () => {
+function clear(): void {
   inputValue.value = ''
   clearSuggestions()
   emit('clear')
   emit('update:modelValue', '')
 }
 
-// Закрыть dropdown
-const closeDropdown = () => {
+function closeDropdown(): void {
   showDropdown.value = false
   highlightedIndex.value = -1
 }
 
-// Focus input
-const focus = () => {
+function focus(): void {
   inputRef.value?.focus()
 }
 
-// Highlight text
-const highlightText = (text: string, query: string): string => {
+function highlightText(text: string, query: string): string {
   if (!props.highlightMatch || !query) return text
-
   const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
   return text.replace(regex, '<mark class="bg-yellow-200 rounded px-0.5">$1</mark>')
 }
 
-// Scroll to highlighted
-const scrollToHighlighted = () => {
+function scrollToHighlighted(): void {
   nextTick(() => {
     const highlighted = dropdownRef.value?.querySelector('.highlighted')
     highlighted?.scrollIntoView({ block: 'nearest' })
@@ -256,16 +207,16 @@ const scrollToHighlighted = () => {
 }
 
 // ============================================================================
-// HANDLERS
+// EVENT HANDLERS (с уникальными именами)
 // ============================================================================
 
-const handleInput = (event: Event) => {
+function onInputChange(event: Event): void {
   const target = event.target as HTMLInputElement
   inputValue.value = target.value
   emit('search', target.value)
 }
 
-const handleKeydown = (event: KeyboardEvent) => {
+function onInputKeydown(event: KeyboardEvent): void {
   if (props.disabled) return
 
   switch (event.key) {
@@ -285,15 +236,16 @@ const handleKeydown = (event: KeyboardEvent) => {
       }
       break
 
-    case 'Enter':
+    case 'Enter': {
       event.preventDefault()
-      if (highlightedIndex.value >= 0 && allItems.value[highlightedIndex.value]) {
-        selectTag(allItems.value[highlightedIndex.value])
+      const selectedItem = allItems.value[highlightedIndex.value]
+      if (highlightedIndex.value >= 0 && selectedItem) {
+        selectTag(selectedItem)
       } else if (inputValue.value.trim()) {
-        // Emit search если нет выбранного
         emit('search', inputValue.value.trim())
       }
       break
+    }
 
     case 'Escape':
       event.preventDefault()
@@ -301,23 +253,24 @@ const handleKeydown = (event: KeyboardEvent) => {
       inputRef.value?.blur()
       break
 
-    case 'Tab':
-      if (highlightedIndex.value >= 0 && allItems.value[highlightedIndex.value]) {
+    case 'Tab': {
+      const tabSelectedItem = allItems.value[highlightedIndex.value]
+      if (highlightedIndex.value >= 0 && tabSelectedItem) {
         event.preventDefault()
-        selectTag(allItems.value[highlightedIndex.value])
+        selectTag(tabSelectedItem)
       }
       break
+    }
   }
 }
 
-const handleFocus = () => {
+function onInputFocus(): void {
   isFocused.value = true
   showDropdown.value = true
   emit('focus')
 }
 
-const handleBlur = () => {
-  // Задержка для клика
+function onInputBlur(): void {
   setTimeout(() => {
     isFocused.value = false
     closeDropdown()
@@ -329,7 +282,6 @@ const handleBlur = () => {
 // WATCHERS
 // ============================================================================
 
-// Sync v-model
 watch(
   () => props.modelValue,
   (value) => {
@@ -337,12 +289,10 @@ watch(
   },
 )
 
-// Sync debounced
 watch(inputValue, (value) => {
   debouncedInput.value = value
 })
 
-// Search on debounced change
 watch(debouncedInput, async (value) => {
   if (value.trim().length >= props.minSearchLength) {
     await search(value)
@@ -410,10 +360,6 @@ defineExpose({
           type="text"
           :placeholder="placeholder"
           :disabled="disabled"
-          @input="handleInput"
-          @keydown="handleKeydown"
-          @focus="handleFocus"
-          @blur="handleBlur"
           :class="[
             'flex-1 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400',
             sizeClasses,
@@ -423,6 +369,10 @@ defineExpose({
           role="combobox"
           aria-haspopup="listbox"
           :aria-expanded="shouldShowDropdown"
+          @input="onInputChange"
+          @keydown="onInputKeydown"
+          @focus="onInputFocus"
+          @blur="onInputBlur"
         />
 
         <!-- Loading -->
@@ -434,9 +384,9 @@ defineExpose({
         <button
           v-else-if="inputValue && !disabled"
           type="button"
-          @click.stop="clear"
           class="pr-4 text-gray-400 hover:text-gray-600 transition"
           tabindex="-1"
+          @click.stop="clear"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -466,17 +416,15 @@ defineExpose({
             <div
               v-for="(tag, index) in suggestionsWithColors"
               :key="tag.id"
-              @click="selectTag(tag)"
               :class="[
                 'flex items-center gap-3 px-4 py-3 cursor-pointer transition',
                 highlightedIndex === index ? 'bg-purple-50 highlighted' : 'hover:bg-gray-50',
               ]"
               role="option"
               :aria-selected="highlightedIndex === index"
+              @click="selectTag(tag)"
             >
               <TagBadge :name="tag.name" :color="tag.color" size="sm" :clickable="false" />
-
-              <!-- Highlighted name -->
               <span class="text-gray-600 text-sm" v-html="highlightText(tag.name, inputValue)" />
             </div>
           </template>
@@ -486,8 +434,8 @@ defineExpose({
             <div class="flex items-center justify-between px-4 py-2 bg-gray-50 sticky top-0">
               <span class="text-xs font-semibold text-gray-500">Recent</span>
               <button
-                @click.stop="clearRecent"
                 class="text-xs text-gray-400 hover:text-red-500 transition"
+                @click.stop="clearRecent"
               >
                 Clear all
               </button>
@@ -496,12 +444,12 @@ defineExpose({
             <div
               v-for="(tag, index) in recentAsTags"
               :key="tag.id"
-              @click="selectTag(tag)"
               :class="[
                 'flex items-center justify-between gap-3 px-4 py-3 cursor-pointer transition group',
                 highlightedIndex === index ? 'bg-purple-50 highlighted' : 'hover:bg-gray-50',
               ]"
               role="option"
+              @click="selectTag(tag)"
             >
               <div class="flex items-center gap-2">
                 <i class="pi pi-history text-gray-400 text-sm" />
@@ -509,8 +457,8 @@ defineExpose({
               </div>
 
               <button
-                @click.stop="removeFromRecent(tag.name)"
                 class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
+                @click.stop="removeFromRecent(tag.name)"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -587,7 +535,6 @@ defineExpose({
   transform: translateY(-8px);
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }

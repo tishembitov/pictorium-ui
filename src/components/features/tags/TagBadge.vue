@@ -2,11 +2,6 @@
 <script setup lang="ts">
 /**
  * TagBadge - Badge тега с поддержкой выбора, удаления и цветов
- *
- * Визуальный стиль из старого проекта:
- * - При выборе: черный фон, белый текст, shadow-lg, scale-110
- * - Hover: scale-110
- * - Цвета из TAG_COLORS
  */
 
 import { computed } from 'vue'
@@ -44,8 +39,8 @@ const props = withDefaults(defineProps<TagBadgeProps>(), {
 })
 
 const emit = defineEmits<{
-  (e: 'click', name: string): void
-  (e: 'remove', name: string): void
+  click: [name: string]
+  remove: [name: string]
 }>()
 
 // Генерируем цвет если не передан
@@ -86,20 +81,21 @@ const baseClasses = computed(() => [
   !props.clickable && 'cursor-default',
 ])
 
-const handleClick = () => {
+// Обработчики как функции (не стрелочные на верхнем уровне)
+function onBadgeClick(): void {
   if (props.clickable) {
     emit('click', props.name)
   }
 }
 
-const handleRemove = (event: Event) => {
+function onRemoveClick(event: Event): void {
   event.stopPropagation()
   emit('remove', props.name)
 }
 </script>
 
 <template>
-  <div @click="handleClick" :class="baseClasses">
+  <div @click="onBadgeClick" :class="baseClasses">
     <!-- Иконка хэша -->
     <span v-if="showHash" class="opacity-60">#</span>
 
@@ -109,7 +105,7 @@ const handleRemove = (event: Event) => {
     <!-- Кнопка удаления -->
     <button
       v-if="removable"
-      @click="handleRemove"
+      @click="onRemoveClick"
       type="button"
       class="ml-0.5 p-0.5 rounded-full hover:bg-black/20 transition-colors"
       :class="selected ? 'hover:bg-white/20' : ''"

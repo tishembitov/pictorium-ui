@@ -12,7 +12,7 @@
  */
 
 import { ref, computed, watch } from 'vue'
-import TagBadge from '@/components/features/tags/TagBadge.vue'
+import TagBadge from './TagBadge.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { getTagError, validateTag } from '@/utils/validators'
 import { randomTagColor } from '@/utils/colors'

@@ -5,7 +5,7 @@
  */
 
 import { computed } from 'vue'
-import TagBadge from '@/components/features/tags/TagBadge.vue'
+import TagBadge from './TagBadge.vue'
 import { randomTagColor } from '@/utils/colors'
 
 export interface TagCloudItem {

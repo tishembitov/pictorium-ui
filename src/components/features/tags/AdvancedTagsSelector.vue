@@ -1,30 +1,14 @@
-<!-- src/components/features/tag/AdvancedTagsSelector.vue -->
+<!-- src/components/features/tags/AdvancedTagsSelector.vue -->
 <script setup lang="ts">
 /**
  * AdvancedTagsSelector - Полнофункциональный селектор тегов
  *
- * Features:
- * - Поиск с автокомплитом (debounced)
- * - Создание новых тегов с валидацией
- * - Лимит тегов с визуальным индикатором
- * - Drag & Drop для сортировки
- * - Keyboard navigation
- * - Группировка по популярности
- * - Анимации
+ * ✅ ИСПРАВЛЕНО: TypeScript ошибки с groupedSuggestions
  */
 
-import {
-  ref,
-  computed,
-  watch,
-  onMounted,
-  onUnmounted,
-  nextTick,
-  type PropType,
-  defineComponent,
-  h,
-} from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import TagBadge from '@/components/features/tags/TagBadge.vue'
+import SuggestionItem from './SuggestionItem.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 import { useTagSearch } from '@/composables/api/useTagSearch'
@@ -46,36 +30,28 @@ export interface SelectedTag {
   isNew?: boolean
 }
 
+/** ✅ Типизация для grouped suggestions */
+interface GroupedSuggestions {
+  exact: Tag[]
+  startsWith: Tag[]
+  contains: Tag[]
+}
+
 export interface AdvancedTagsSelectorProps {
-  /** Выбранные теги (имена) */
   modelValue: string[]
-  /** Максимальное количество тегов */
   maxTags?: number
-  /** Минимальное количество тегов */
   minTags?: number
-  /** Заголовок */
   title?: string
-  /** Подзаголовок/описание */
   description?: string
-  /** Placeholder для поиска */
   placeholder?: string
-  /** Разрешить создание новых тегов */
   allowCreate?: boolean
-  /** Разрешить сортировку drag & drop */
   allowSort?: boolean
-  /** Показывать популярные теги */
   showPopular?: boolean
-  /** Количество популярных тегов */
   popularLimit?: number
-  /** Отключено */
   disabled?: boolean
-  /** Режим только чтение */
   readonly?: boolean
-  /** Показывать счетчик */
   showCounter?: boolean
-  /** Автофокус на input */
   autofocus?: boolean
-  /** Группировать suggestions */
   groupSuggestions?: boolean
 }
 
@@ -139,7 +115,6 @@ const { suggestions, search, clear: clearSuggestions, isSearching } = useTagSear
 // COMPUTED
 // ============================================================================
 
-// Выбранные теги с метаданными
 const selectedTags = computed<SelectedTag[]>(() => {
   return props.modelValue.map((name, index) => ({
     id: `selected-${index}-${name}`,
@@ -149,40 +124,42 @@ const selectedTags = computed<SelectedTag[]>(() => {
   }))
 })
 
-// Можно добавить еще
 const canAddMore = computed(() => props.modelValue.length < props.maxTags)
-
-// Достигнут минимум
 const hasMinimum = computed(() => props.modelValue.length >= props.minTags)
 
-// Прогресс заполнения
 const fillProgress = computed(() => {
   return Math.min(100, (props.modelValue.length / props.maxTags) * 100)
 })
 
-// Цвет прогресса
 const progressColor = computed(() => {
   if (fillProgress.value >= 100) return 'bg-red-500'
   if (fillProgress.value >= 80) return 'bg-yellow-500'
   return 'bg-green-500'
 })
 
-// Отфильтрованные suggestions (исключая уже добавленные)
 const filteredSuggestions = computed(() => {
   return suggestions.value.filter(
     (s) => !props.modelValue.some((t) => t.toLowerCase() === s.name.toLowerCase()),
   )
 })
 
-// Группированные suggestions
-const groupedSuggestions = computed(() => {
-  if (!props.groupSuggestions) {
-    return { all: filteredSuggestions.value }
-  }
-
+/**
+ * ✅ ИСПРАВЛЕНО: Всегда возвращает один и тот же тип
+ */
+const groupedSuggestions = computed<GroupedSuggestions>(() => {
   const exact: Tag[] = []
   const startsWith: Tag[] = []
   const contains: Tag[] = []
+
+  // Если группировка отключена - все в contains
+  if (!props.groupSuggestions) {
+    return {
+      exact: [],
+      startsWith: [],
+      contains: filteredSuggestions.value,
+    }
+  }
+
   const query = inputValue.value.toLowerCase()
 
   filteredSuggestions.value.forEach((tag) => {
@@ -199,19 +176,14 @@ const groupedSuggestions = computed(() => {
   return { exact, startsWith, contains }
 })
 
-// Все suggestions в плоском виде для навигации
-const flatSuggestions = computed(() => {
-  if (!props.groupSuggestions) {
-    return filteredSuggestions.value
-  }
-  return [
-    ...groupedSuggestions.value.exact,
-    ...groupedSuggestions.value.startsWith,
-    ...groupedSuggestions.value.contains,
-  ]
+/**
+ * ✅ ИСПРАВЛЕНО: Безопасный spread с fallback на пустые массивы
+ */
+const flatSuggestions = computed<Tag[]>(() => {
+  const { exact, startsWith, contains } = groupedSuggestions.value
+  return [...exact, ...startsWith, ...contains]
 })
 
-// Можно создать новый тег
 const canCreateNew = computed(() => {
   if (!props.allowCreate) return false
   if (!inputValue.value.trim()) return false
@@ -219,18 +191,15 @@ const canCreateNew = computed(() => {
 
   const trimmed = inputValue.value.trim().toLowerCase()
 
-  // Проверяем, нет ли уже такого тега
   const exists =
     props.modelValue.some((t) => t.toLowerCase() === trimmed) ||
     flatSuggestions.value.some((s) => s.name.toLowerCase() === trimmed)
 
   if (exists) return false
 
-  // Валидация
   return validateTag(trimmed)
 })
 
-// Показывать кнопку создания
 const showCreateButton = computed(() => {
   return canCreateNew.value && inputValue.value.trim().length > 0
 })
@@ -239,7 +208,6 @@ const showCreateButton = computed(() => {
 // METHODS
 // ============================================================================
 
-// Добавить тег
 const addTag = (name: string): boolean => {
   const trimmed = name.trim()
 
@@ -248,31 +216,26 @@ const addTag = (name: string): boolean => {
     return false
   }
 
-  // Валидация
   const error = getTagError(trimmed)
   if (error) {
     inputError.value = error
     return false
   }
 
-  // Проверка лимита
   if (!canAddMore.value) {
     inputError.value = `Maximum ${props.maxTags} tags allowed`
     shakeInput()
     return false
   }
 
-  // Проверка дубликата
   if (props.modelValue.some((t) => t.toLowerCase() === trimmed.toLowerCase())) {
     inputError.value = 'Tag already added'
     shakeInput()
     return false
   }
 
-  // Добавляем
   emit('update:modelValue', [...props.modelValue, trimmed])
 
-  // Очищаем
   inputValue.value = ''
   inputError.value = null
   highlightedIndex.value = -1
@@ -281,7 +244,6 @@ const addTag = (name: string): boolean => {
   return true
 }
 
-// Удалить тег
 const removeTag = (name: string) => {
   if (props.disabled || props.readonly) return
 
@@ -292,7 +254,6 @@ const removeTag = (name: string) => {
   emit('remove', name)
 }
 
-// Создать новый тег
 const createTag = () => {
   if (!canCreateNew.value) return
 
@@ -302,13 +263,11 @@ const createTag = () => {
   }
 }
 
-// Выбрать suggestion
 const selectSuggestion = (tag: Tag) => {
   addTag(tag.name)
   focusInput()
 }
 
-// Shake анимация для ошибок
 const shakeInput = () => {
   if (!inputRef.value) return
 
@@ -318,7 +277,6 @@ const shakeInput = () => {
   }, 500)
 }
 
-// Focus input
 const focusInput = () => {
   inputRef.value?.focus()
 }
@@ -326,6 +284,13 @@ const focusInput = () => {
 // ============================================================================
 // KEYBOARD NAVIGATION
 // ============================================================================
+
+const scrollToHighlighted = () => {
+  nextTick(() => {
+    const highlighted = suggestionsRef.value?.querySelector('.highlighted')
+    highlighted?.scrollIntoView({ block: 'nearest' })
+  })
+}
 
 const handleKeydown = (event: KeyboardEvent) => {
   if (props.disabled || props.readonly) return
@@ -350,14 +315,17 @@ const handleKeydown = (event: KeyboardEvent) => {
       }
       break
 
-    case 'Enter':
+    case 'Enter': {
       event.preventDefault()
-      if (highlightedIndex.value >= 0 && flatSuggestions.value[highlightedIndex.value]) {
-        selectSuggestion(flatSuggestions.value[highlightedIndex.value])
+      // ✅ ИСПРАВЛЕНО: Сохраняем в переменную для type narrowing
+      const selectedTag = flatSuggestions.value[highlightedIndex.value]
+      if (highlightedIndex.value >= 0 && selectedTag) {
+        selectSuggestion(selectedTag)
       } else if (showCreateButton.value) {
         createTag()
       }
       break
+    }
 
     case 'Escape':
       event.preventDefault()
@@ -365,29 +333,26 @@ const handleKeydown = (event: KeyboardEvent) => {
       highlightedIndex.value = -1
       break
 
-    case 'Backspace':
+    case 'Backspace': {
       if (!inputValue.value && props.modelValue.length > 0) {
         event.preventDefault()
+        // ✅ ИСПРАВЛЕНО: Сохраняем в переменную
         const lastTag = props.modelValue[props.modelValue.length - 1]
-        removeTag(lastTag)
+        if (lastTag) {
+          removeTag(lastTag)
+        }
       }
       break
+    }
 
-    case 'Tab':
+    case 'Tab': {
       if (showCreateButton.value && !event.shiftKey) {
         event.preventDefault()
         createTag()
       }
       break
+    }
   }
-}
-
-// Scroll к выделенному элементу
-const scrollToHighlighted = () => {
-  nextTick(() => {
-    const highlighted = suggestionsRef.value?.querySelector('.highlighted')
-    highlighted?.scrollIntoView({ block: 'nearest' })
-  })
 }
 
 // ============================================================================
@@ -402,7 +367,6 @@ const handleDragStart = (index: number, event: DragEvent) => {
 
   draggedIndex.value = index
 
-  // Ghost image
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', String(index))
@@ -428,13 +392,13 @@ const handleDrop = (index: number, event: DragEvent) => {
     return
   }
 
-  // Реорганизуем теги
   const newTags = [...props.modelValue]
   const [removed] = newTags.splice(draggedIndex.value, 1)
-  newTags.splice(index, 0, removed)
-
-  emit('update:modelValue', newTags)
-  emit('reorder', newTags)
+  if (removed) {
+    newTags.splice(index, 0, removed)
+    emit('update:modelValue', newTags)
+    emit('reorder', newTags)
+  }
 
   resetDragState()
 }
@@ -459,7 +423,6 @@ const handleFocus = () => {
 }
 
 const handleBlur = () => {
-  // Задержка для клика по suggestion
   setTimeout(() => {
     isFocused.value = false
     showSuggestions.value = false
@@ -477,8 +440,6 @@ const handleInput = (event: Event) => {
   inputValue.value = target.value
   inputError.value = null
   highlightedIndex.value = -1
-
-  // Emit для внешнего использования
   emit('search', target.value)
 }
 
@@ -486,12 +447,10 @@ const handleInput = (event: Event) => {
 // WATCHERS
 // ============================================================================
 
-// Sync debounced input
 watch(inputValue, (value) => {
   debouncedInput.value = value
 })
 
-// Search on debounced input change
 watch(debouncedInput, async (value) => {
   if (value.trim().length >= 2) {
     await search(value)
@@ -530,6 +489,32 @@ useKeyboardShortcuts([
     preventDefault: true,
   },
 ])
+
+// ============================================================================
+// HELPER: Get highlighted index for grouped suggestions
+// ============================================================================
+
+/**
+ * ✅ ИСПРАВЛЕНО: Безопасный расчёт индекса
+ */
+const getHighlightedIndexForGroup = (
+  groupName: 'exact' | 'startsWith' | 'contains',
+  index: number,
+): number => {
+  const { exact, startsWith } = groupedSuggestions.value
+
+  if (groupName === 'exact') return index
+  if (groupName === 'startsWith') return exact.length + index
+  return exact.length + startsWith.length + index
+}
+
+/**
+ * ✅ Проверка есть ли suggestions для отображения
+ */
+const hasAnySuggestions = computed(() => {
+  const { exact, startsWith, contains } = groupedSuggestions.value
+  return exact.length > 0 || startsWith.length > 0 || contains.length > 0
+})
 </script>
 
 <template>
@@ -545,7 +530,6 @@ useKeyboardShortcuts([
           {{ title }}
         </h3>
 
-        <!-- Counter Badge -->
         <span
           v-if="showCounter"
           :class="[
@@ -577,7 +561,6 @@ useKeyboardShortcuts([
     <div
       v-if="selectedTags.length > 0"
       class="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-2xl border border-gray-200 min-h-[52px]"
-      v-auto-animate
     >
       <div
         v-for="(tag, index) in selectedTags"
@@ -603,7 +586,6 @@ useKeyboardShortcuts([
           size="md"
           @remove="removeTag(tag.name)"
         >
-          <!-- Drag handle -->
           <template v-if="allowSort && !readonly" #prepend>
             <svg class="w-3 h-3 text-gray-400 mr-1" fill="currentColor" viewBox="0 0 20 20">
               <path
@@ -614,7 +596,6 @@ useKeyboardShortcuts([
         </TagBadge>
       </div>
 
-      <!-- Minimum indicator -->
       <div v-if="!hasMinimum && minTags > 0" class="flex items-center text-xs text-amber-600">
         <i class="pi pi-info-circle mr-1" />
         Add at least {{ minTags - modelValue.length }} more
@@ -623,7 +604,6 @@ useKeyboardShortcuts([
 
     <!-- Input Container -->
     <div class="relative">
-      <!-- Input Field -->
       <div
         :class="[
           'flex items-center gap-2 px-4 py-3 rounded-2xl border-2 transition-all duration-200',
@@ -635,10 +615,8 @@ useKeyboardShortcuts([
           !canAddMore && 'bg-gray-50',
         ]"
       >
-        <!-- Search Icon -->
         <i class="pi pi-search text-gray-400" />
 
-        <!-- Input -->
         <input
           ref="inputRef"
           :value="inputValue"
@@ -655,10 +633,8 @@ useKeyboardShortcuts([
           spellcheck="false"
         />
 
-        <!-- Loading -->
         <BaseLoader v-if="isSearching" variant="spinner" size="sm" />
 
-        <!-- Clear Button -->
         <button
           v-else-if="inputValue"
           type="button"
@@ -678,14 +654,12 @@ useKeyboardShortcuts([
           </svg>
         </button>
 
-        <!-- Create Button -->
         <BaseButton v-if="showCreateButton" variant="primary" size="sm" @click="createTag">
           <i class="pi pi-plus mr-1" />
           Create
         </BaseButton>
       </div>
 
-      <!-- Character Count -->
       <div
         v-if="inputValue && inputValue.length > TAG_MAX_LENGTH * 0.7"
         class="absolute right-4 -bottom-5 text-xs"
@@ -694,7 +668,6 @@ useKeyboardShortcuts([
         {{ inputValue.length }}/{{ TAG_MAX_LENGTH }}
       </div>
 
-      <!-- Error Message -->
       <p v-if="inputError" class="mt-2 text-sm text-red-500 flex items-center gap-1">
         <i class="pi pi-exclamation-circle" />
         {{ inputError }}
@@ -703,7 +676,7 @@ useKeyboardShortcuts([
       <!-- Suggestions Dropdown -->
       <Transition name="dropdown">
         <div
-          v-if="showSuggestions && (flatSuggestions.length > 0 || showCreateButton)"
+          v-if="showSuggestions && (hasAnySuggestions || showCreateButton)"
           ref="suggestionsRef"
           class="absolute z-50 w-full mt-2 bg-white rounded-2xl shadow-xl border border-gray-200 max-h-80 overflow-y-auto"
         >
@@ -732,7 +705,7 @@ useKeyboardShortcuts([
           <!-- Grouped Suggestions -->
           <template v-if="groupSuggestions">
             <!-- Exact matches -->
-            <div v-if="groupedSuggestions.exact.length > 0">
+            <template v-if="groupedSuggestions.exact.length > 0">
               <div class="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">
                 Exact Match
               </div>
@@ -740,13 +713,13 @@ useKeyboardShortcuts([
                 v-for="(tag, index) in groupedSuggestions.exact"
                 :key="tag.id"
                 :tag="tag"
-                :highlighted="highlightedIndex === index"
+                :highlighted="highlightedIndex === getHighlightedIndexForGroup('exact', index)"
                 @click="selectSuggestion(tag)"
               />
-            </div>
+            </template>
 
             <!-- Starts with -->
-            <div v-if="groupedSuggestions.startsWith.length > 0">
+            <template v-if="groupedSuggestions.startsWith.length > 0">
               <div class="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">
                 Starts With
               </div>
@@ -754,25 +727,22 @@ useKeyboardShortcuts([
                 v-for="(tag, index) in groupedSuggestions.startsWith"
                 :key="tag.id"
                 :tag="tag"
-                :highlighted="highlightedIndex === groupedSuggestions.exact.length + index"
+                :highlighted="highlightedIndex === getHighlightedIndexForGroup('startsWith', index)"
                 @click="selectSuggestion(tag)"
               />
-            </div>
+            </template>
 
             <!-- Contains -->
-            <div v-if="groupedSuggestions.contains.length > 0">
+            <template v-if="groupedSuggestions.contains.length > 0">
               <div class="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">Related</div>
               <SuggestionItem
                 v-for="(tag, index) in groupedSuggestions.contains"
                 :key="tag.id"
                 :tag="tag"
-                :highlighted="
-                  highlightedIndex ===
-                  groupedSuggestions.exact.length + groupedSuggestions.startsWith.length + index
-                "
+                :highlighted="highlightedIndex === getHighlightedIndexForGroup('contains', index)"
                 @click="selectSuggestion(tag)"
               />
-            </div>
+            </template>
           </template>
 
           <!-- Flat Suggestions (non-grouped) -->
@@ -788,7 +758,7 @@ useKeyboardShortcuts([
 
           <!-- No Results -->
           <div
-            v-if="flatSuggestions.length === 0 && !showCreateButton && inputValue.trim()"
+            v-if="!hasAnySuggestions && !showCreateButton && inputValue.trim()"
             class="px-4 py-8 text-center text-gray-500"
           >
             <i class="pi pi-search text-3xl mb-2 opacity-50" />
@@ -812,45 +782,7 @@ useKeyboardShortcuts([
   </div>
 </template>
 
-<!-- Suggestion Item Component (inline) -->
-<script lang="ts">
-const SuggestionItem = defineComponent({
-  name: 'SuggestionItem',
-  props: {
-    tag: {
-      type: Object as PropType<Tag>,
-      required: true,
-    },
-    highlighted: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  emits: ['click'],
-  setup(props, { emit }) {
-    return () =>
-      h(
-        'div',
-        {
-          class: [
-            'flex items-center gap-3 px-4 py-3 cursor-pointer transition',
-            props.highlighted ? 'bg-purple-50 highlighted' : 'hover:bg-gray-50',
-          ],
-          onClick: () => emit('click'),
-        },
-        [
-          h('i', { class: 'pi pi-hashtag text-gray-400' }),
-          h('span', { class: 'text-gray-900' }, props.tag.name),
-        ],
-      )
-  },
-})
-
-export { SuggestionItem }
-</script>
-
 <style scoped>
-/* Shake animation */
 @keyframes shake {
   0%,
   100% {
@@ -875,7 +807,6 @@ export { SuggestionItem }
   animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
 
-/* Dropdown animation */
 .dropdown-enter-active,
 .dropdown-leave-active {
   transition: all 0.2s ease;
@@ -887,7 +818,6 @@ export { SuggestionItem }
   transform: translateY(-8px);
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -905,7 +835,6 @@ export { SuggestionItem }
   background: #9ca3af;
 }
 
-/* Keyboard hints */
 kbd {
   font-family: inherit;
   font-size: 0.7rem;

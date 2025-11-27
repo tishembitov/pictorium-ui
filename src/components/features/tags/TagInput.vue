@@ -10,7 +10,6 @@
  */
 
 import { ref, computed, watch, onUnmounted } from 'vue'
-import TagBadge from '@/components/features/tags/TagBadge.vue'
 import { useTagSearch } from '@/composables/api/useTagSearch'
 import { randomTagColor } from '@/utils/colors'
 import { getTagError } from '@/utils/validators'

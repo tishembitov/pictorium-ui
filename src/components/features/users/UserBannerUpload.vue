@@ -1,16 +1,18 @@
-<!-- src/components/features/user/UserBannerUpload.vue -->
+<!-- src/components/features/users/UserBannerUpload.vue -->
 <script setup lang="ts">
 /**
  * UserBannerUpload - Загрузка баннера профиля
- * Визуальный стиль из старого UserView.vue (showEditModalBanner)
+ * ✅ ИСПРАВЛЕНО: использует useFileUpload
  */
 
-import { ref, watch } from 'vue'
+import { watch, computed } from 'vue'
+import { useFileUpload } from '@/composables/features/useFileUpload'
 import { useCurrentUser } from '@/composables/api/useUserProfile'
 import { useToast } from '@/composables/ui/useToast'
+import { ALLOWED_IMAGE_TYPES } from '@/utils/constants'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import MediaErrorDialog from '@/components/ui/MediaErrorDialog.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
 
 export interface UserBannerUploadProps {
   modelValue: boolean
@@ -19,161 +21,94 @@ export interface UserBannerUploadProps {
 const props = defineProps<UserBannerUploadProps>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-  (e: 'uploaded'): void
+  'update:modelValue': [value: boolean]
+  uploaded: []
 }>()
 
+// Composables
 const { uploadBanner } = useCurrentUser()
-const { success, warning } = useToast()
+const { success } = useToast()
 
-// State
-const bannerFile = ref<File | null>(null)
-const bannerPreview = ref<string | null>(null)
-const isUploading = ref(false)
-const showError = ref(false)
+const { file, preview, validationError, isUploading, hasFile, selectFile, reset } = useFileUpload({
+  accept: ALLOWED_IMAGE_TYPES.join(','),
+  category: 'banners',
+})
+
+// Computed
+const isOpen = computed({
+  get: () => props.modelValue,
+  set: (value) => emit('update:modelValue', value),
+})
 
 // Reset on close
-watch(
-  () => props.modelValue,
-  (isOpen) => {
-    if (!isOpen) {
-      bannerFile.value = null
-      bannerPreview.value = null
-    }
-  },
-)
+watch(isOpen, (open) => {
+  if (!open) {
+    reset()
+  }
+})
 
+// Handlers
 function close() {
-  emit('update:modelValue', false)
-}
-
-function handleFileSelect(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-
-  if (!file) return
-
-  const allowedTypes = [
-    'image/jpeg',
-    'image/jpg',
-    'image/gif',
-    'image/webp',
-    'image/png',
-    'image/bmp',
-  ]
-
-  if (!allowedTypes.includes(file.type)) {
-    warning('Please select a valid image file (.jpg, .jpeg, .gif, .webp, .png, .bmp).')
-    return
-  }
-
-  // Check minimum dimensions
-  const minWidth = 200
-  const minHeight = 300
-
-  const img = new Image()
-  img.onload = () => {
-    if (img.width < minWidth || img.height < minHeight) {
-      warning(`Image must be at least ${minWidth}x${minHeight}.`)
-      return
-    }
-
-    bannerFile.value = file
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      bannerPreview.value = e.target?.result as string
-    }
-    reader.readAsDataURL(file)
-  }
-  img.src = URL.createObjectURL(file)
+  isOpen.value = false
 }
 
 async function handleUpload() {
-  if (!bannerFile.value) return
+  if (!file.value) return
 
   try {
-    isUploading.value = true
-    await uploadBanner(bannerFile.value)
+    await uploadBanner(file.value)
     success('Banner updated!')
     emit('uploaded')
     close()
-  } catch (error: any) {
-    if (error?.response?.status === 415) {
-      showError.value = true
-    } else {
-      warning('Failed to upload banner')
-    }
-  } finally {
-    isUploading.value = false
+  } catch (error) {
+    // Error handled by useFileUpload
+    console.error('[UserBannerUpload] Upload failed:', error)
   }
 }
 </script>
 
 <template>
-  <!-- Error dialog -->
-  <MediaErrorDialog v-model="showError" />
+  <BaseModal v-model="isOpen" title="Update Banner" max-width="lg" @close="close">
+    <!-- Loading -->
+    <div v-if="isUploading" class="flex items-center justify-center min-h-[300px]">
+      <BaseLoader variant="spinner" size="lg" color="red" />
+    </div>
 
-  <!-- Modal -->
-  <Transition name="fade">
-    <div
-      v-if="modelValue"
-      class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-      @click.self="close"
-    >
-      <div class="bg-white rounded-xl shadow-lg p-6 max-w-lg w-full ml-20">
-        <!-- Loading -->
-        <div v-if="isUploading" class="flex items-center justify-center min-h-[300px]">
-          <BaseLoader variant="spinner" size="lg" color="red" />
-        </div>
+    <div v-else class="space-y-6">
+      <!-- Upload area -->
+      <div>
+        <label for="imageBanner" class="block mb-2 text-sm font-semibold text-gray-700">
+          Select Banner Image
+        </label>
+        <input
+          type="file"
+          id="imageBanner"
+          :accept="ALLOWED_IMAGE_TYPES.join(',')"
+          @change="selectFile"
+          class="block w-full text-sm text-gray-900 border border-gray-300 rounded-md cursor-pointer bg-gray-50 focus:outline-none focus:ring focus:ring-red-500"
+        />
 
-        <div v-else>
-          <h2 class="text-center text-2xl font-bold text-gray-800 mb-4">Update Banner</h2>
+        <!-- Validation error -->
+        <p v-if="validationError" class="mt-2 text-sm text-red-500">
+          {{ validationError }}
+        </p>
 
-          <!-- Upload area -->
-          <div class="mb-6">
-            <label for="imageBanner" class="block mb-2 text-sm font-semibold text-gray-700">
-              Select Banner Image (.jpg, .jpeg, .gif, .webp, .png, .bmp)
-            </label>
-            <input
-              type="file"
-              id="imageBanner"
-              accept=".jpg,.jpeg,.gif,.webp,.png,.bmp"
-              @change="handleFileSelect"
-              class="block w-full text-sm text-gray-900 border border-gray-300 rounded-md cursor-pointer bg-gray-50 focus:outline-none focus:ring focus:ring-red-500"
-            />
+        <!-- Preview -->
+        <img
+          v-if="preview"
+          :src="preview"
+          class="mt-4 rounded-xl w-full object-cover max-h-[300px]"
+          alt="Banner Preview"
+        />
+      </div>
 
-            <!-- Preview -->
-            <img
-              v-if="bannerPreview"
-              :src="bannerPreview"
-              class="mt-4 rounded-xl w-full object-cover"
-              style="max-height: 300px"
-              alt="Banner Preview"
-            />
-          </div>
-
-          <!-- Buttons -->
-          <div class="flex justify-end space-x-4">
-            <BaseButton variant="ghost" @click="close"> Cancel </BaseButton>
-            <BaseButton variant="primary" :disabled="!bannerFile" @click="handleUpload">
-              Update
-            </BaseButton>
-          </div>
-        </div>
+      <!-- Buttons -->
+      <div class="flex justify-end gap-4">
+        <BaseButton variant="ghost" @click="close"> Cancel </BaseButton>
+        <BaseButton variant="primary" :disabled="!hasFile" @click="handleUpload">
+          Update
+        </BaseButton>
       </div>
     </div>
-  </Transition>
+  </BaseModal>
 </template>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

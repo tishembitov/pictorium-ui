@@ -1,11 +1,11 @@
-<!-- src/components/features/user/profile/UserBio.vue -->
+<!-- src/components/features/users/profile/UserBio.vue -->
 <script setup lang="ts">
 /**
  * UserBio - Описание пользователя с "More" кнопкой
- * Визуальный стиль из старого UserView.vue
+ * ✅ Чистый presentational компонент
  */
 
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 
 export interface UserBioProps {
   description?: string | null
@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<UserBioProps>(), {
 })
 
 const emit = defineEmits<{
-  (e: 'showMore'): void
+  showMore: []
 }>()
 
 const shouldTruncate = computed(() => {
@@ -26,17 +26,17 @@ const shouldTruncate = computed(() => {
 </script>
 
 <template>
-  <div v-if="description">
-    <p class="description-box text-center mt-4 text-md mx-auto w-[500px]">
+  <div v-if="description" class="mt-4">
+    <p class="description-box text-center text-md mx-auto max-w-[500px]">
       {{ description }}
     </p>
-    <span
+    <button
       v-if="shouldTruncate"
-      class="text-black cursor-pointer justify-center flex font-extrabold"
       @click="emit('showMore')"
+      class="text-black cursor-pointer justify-center flex font-extrabold hover:underline transition mt-1"
     >
       More
-    </span>
+    </button>
   </div>
 </template>
 

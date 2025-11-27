@@ -1,8 +1,8 @@
-<!-- src/components/features/user/profile/UserStats.vue -->
+<!-- src/components/features/users/profile/UserStats.vue -->
 <script setup lang="ts">
 /**
- * UserStats - Followers, Following, Pins count
- * Визуальный стиль из старого UserView.vue
+ * UserStats - Followers, Following counts
+ * ✅ Чистый presentational компонент
  */
 
 export interface UserStatsProps {
@@ -13,50 +13,31 @@ export interface UserStatsProps {
   variant?: 'inline' | 'column'
 }
 
-const props = withDefaults(defineProps<UserStatsProps>(), {
+withDefaults(defineProps<UserStatsProps>(), {
   variant: 'inline',
 })
 
 const emit = defineEmits<{
-  (e: 'showFollowers'): void
-  (e: 'showFollowing'): void
+  showFollowers: []
+  showFollowing: []
 }>()
 </script>
 
 <template>
-  <!-- Inline variant (для профиля без баннера) -->
-  <div v-if="variant === 'inline'" class="flex gap-4 mt-4">
-    <a
+  <div :class="['flex gap-4 mt-4', variant === 'column' ? 'justify-start' : 'justify-center']">
+    <button
       v-if="followersCount > 0"
       @click="emit('showFollowers')"
-      class="text-black cursor-pointer hover:underline font-extrabold"
+      class="text-black cursor-pointer hover:underline font-extrabold transition"
     >
       {{ followersCount }} follower{{ followersCount !== 1 ? 's' : '' }}
-    </a>
-    <a
+    </button>
+    <button
       v-if="followingCount > 0"
       @click="emit('showFollowing')"
-      class="text-black cursor-pointer hover:underline font-extrabold"
+      class="text-black cursor-pointer hover:underline font-extrabold transition"
     >
       {{ followingCount }} following
-    </a>
-  </div>
-
-  <!-- Column variant (для профиля с баннером) -->
-  <div v-else class="flex gap-4 mt-4 justify-left">
-    <a
-      v-if="followersCount > 0"
-      @click="emit('showFollowers')"
-      class="cursor-pointer hover:underline font-extrabold text-black"
-    >
-      {{ followersCount }} follower{{ followersCount !== 1 ? 's' : '' }}
-    </a>
-    <a
-      v-if="followingCount > 0"
-      @click="emit('showFollowing')"
-      class="cursor-pointer hover:underline font-extrabold text-black"
-    >
-      {{ followingCount }} following
-    </a>
+    </button>
   </div>
 </template>

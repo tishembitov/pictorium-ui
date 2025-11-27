@@ -1,27 +1,23 @@
-<!-- src/components/features/user/follow/FollowUserItem.vue -->
+<!-- src/components/features/users/follow/FollowUserItem.vue -->
 <script setup lang="ts">
 /**
- * FollowUserItem - Элемент пользователя в списке подписчиков/подписок
- * Визуальный стиль из старого FollowersSection.vue
+ * FollowUserItem - Элемент пользователя в списке
+ * ✅ Типизация исправлена
  */
 
 import { RouterLink } from 'vue-router'
 import BaseAvatar from '@/components/ui/BaseAvatar.vue'
+import type { User } from '@/types'
 
 export interface FollowUserItemProps {
-  user: {
-    id: string
-    username: string
-    imageUrl?: string | null
-    verified?: boolean
-  }
+  user: Pick<User, 'id' | 'username' | 'imageUrl' | 'verified'>
   avatarBlobUrl?: string | null
 }
 
 const props = defineProps<FollowUserItemProps>()
 
 const emit = defineEmits<{
-  (e: 'click', userId: string): void
+  click: [userId: string]
 }>()
 
 function handleClick() {
@@ -30,10 +26,9 @@ function handleClick() {
 </script>
 
 <template>
-  <!-- Стиль из старого FollowersSection.vue -->
   <RouterLink
     :to="`/user/${user.username}`"
-    class="my-2 ml-6 flex items-center space-x-5 hover:underline cursor-pointer"
+    class="my-2 ml-6 flex items-center gap-5 hover:underline cursor-pointer transition-colors hover:bg-white/10 rounded-lg p-2"
     @click="handleClick"
   >
     <BaseAvatar

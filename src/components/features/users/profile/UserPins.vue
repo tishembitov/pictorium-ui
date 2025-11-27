@@ -2,199 +2,201 @@
 <script setup lang="ts">
 /**
  * UserPins - Пины пользователя с infinite scroll
- * Использует: usePinsStore с page/size пагинацией
+ * ✅ ИСПРАВЛЕНО: использует store правильно, useInfiniteScroll, pinGroups
  */
 
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { usePinsStore } from '@/stores/pins.store'
+import { useInfiniteScroll } from '@/composables/utils/useIntersectionObserver'
+import PinMasonry from '@/components/features/pins/PinMasonry.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import type { PinWithBlob, PinScope, PinFilter } from '@/types'
+import type { PinFilter, PinWithBlob } from '@/types'
+import type { PinGroup } from '@/components/features/pins/PinMasonry.vue'
+
+// ============ TYPES ============
 
 export interface UserPinsProps {
   userId: string
   variant: 'created' | 'saved' | 'liked'
 }
 
+// ============ PROPS & EMITS ============
+
 const props = defineProps<UserPinsProps>()
 
-const emit = defineEmits<(e: 'delete', pinId: string) => void>()
+const emit = defineEmits<{
+  delete: [pinId: string]
+}>()
 
-// Store
+// ============ STORE ============
+
 const pinsStore = usePinsStore()
 
-// State
-const pins = ref<PinWithBlob[]>([])
-const currentPage = ref(0)
-const pageSize = ref(15)
-const isLoading = ref(false)
-const hasMore = ref(true)
-const showNoPins = ref(false)
+// ============ REFS ============
 
-// Scope map
-const scopeMap: Record<string, PinScope> = {
-  created: 'CREATED' as PinScope,
-  saved: 'SAVED' as PinScope,
-  liked: 'LIKED' as PinScope,
-}
+const triggerRef = ref<HTMLElement | null>(null)
 
-// Build filter
-function buildFilter(): PinFilter {
-  return {
-    authorId: props.variant === 'created' ? props.userId : undefined,
-    savedBy: props.variant === 'saved' ? props.userId : undefined,
-    likedBy: props.variant === 'liked' ? props.userId : undefined,
-    scope: scopeMap[props.variant],
-  }
-}
+// ============ COMPUTED ============
 
-// Fetch pins
-async function fetchPins(page: number, reset = false) {
-  if (isLoading.value || (!hasMore.value && !reset)) return
+// Feed type mapping
+type FeedType = 'created' | 'saved' | 'liked'
 
-  if (reset) {
-    pins.value = []
-    currentPage.value = 0
-    hasMore.value = true
-    showNoPins.value = false
-  }
+// Данные из store
+const feed = computed(() => pinsStore.feeds.get(props.variant as FeedType))
+const pins = computed(() => feed.value?.pins || [])
+const hasMore = computed(() => feed.value?.hasMore ?? true)
+const isLoading = computed(() => feed.value?.isLoading || false)
+const isEmpty = computed(() => !isLoading.value && pins.value.length === 0)
+const currentPage = computed(() => feed.value?.page ?? -1)
 
-  isLoading.value = true
+// ✅ FIX: Конвертируем pins в pinGroups для PinMasonry
+const pinGroups = computed<PinGroup[]>(() => {
+  if (pins.value.length === 0) return []
 
-  try {
-    const filter = buildFilter()
-    const feedType = props.variant as 'created' | 'saved' | 'liked'
-
-    const loadedPins = await pinsStore.fetchPins(filter, page, pageSize.value, feedType)
-
-    if (loadedPins.length === 0 && page === 0) {
-      showNoPins.value = true
-      return
-    }
-
-    if (loadedPins.length < pageSize.value) {
-      hasMore.value = false
-    }
-
-    if (reset || page === 0) {
-      pins.value = loadedPins
-    } else {
-      pins.value.push(...loadedPins)
-    }
-
-    currentPage.value = page
-    showNoPins.value = false
-  } catch (error) {
-    console.error('[UserPins] Failed to fetch pins:', error)
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// Load more
-function handleLoadMore() {
-  if (!hasMore.value || isLoading.value) return
-  fetchPins(currentPage.value + 1)
-}
-
-// Scroll handler for infinite scroll
-function handleScroll() {
-  const scrollTop = window.scrollY
-  const scrollHeight = document.documentElement.scrollHeight
-  const clientHeight = window.innerHeight
-
-  if (scrollTop + clientHeight >= scrollHeight - 200) {
-    handleLoadMore()
-  }
-}
-
-// Delete handler
-function handleDelete(pinId: string) {
-  emit('delete', pinId)
-  pins.value = pins.value.filter((p) => p.id !== pinId)
-}
-
-// Initial load
-onMounted(() => {
-  fetchPins(0, true)
-  window.addEventListener('scroll', handleScroll, { passive: true })
+  return [
+    {
+      id: `${props.variant}-${props.userId}`,
+      pins: pins.value as PinWithBlob[],
+      showAllPins: true,
+      loadedCount: pins.value.length,
+    },
+  ]
 })
 
-onUnmounted(() => {
-  window.removeEventListener('scroll', handleScroll)
-})
-
-// Watch for userId or variant changes
-watch([() => props.userId, () => props.variant], () => {
-  fetchPins(0, true)
+// ✅ FIX: Маппинг variant для PinMasonry (liked -> default)
+const masonryVariant = computed(() => {
+  const variantMap: Record<string, 'default' | 'created' | 'saved' | 'deletable' | 'board'> = {
+    created: 'created',
+    saved: 'saved',
+    liked: 'default',
+  }
+  return variantMap[props.variant] || 'default'
 })
 
 // Empty state config
-const emptyStateConfig = computed(() => {
+const emptyConfig = computed(() => {
   const configs = {
     created: {
       title: 'No pins created yet',
+      description: 'Pins you create will appear here',
       icon: 'pi-plus-circle',
     },
     saved: {
       title: 'No saved pins',
+      description: 'Pins you save will appear here',
       icon: 'pi-bookmark',
     },
     liked: {
       title: 'No liked pins',
+      description: 'Pins you like will appear here',
       icon: 'pi-heart',
     },
   }
   return configs[props.variant]
 })
+
+// ============ INFINITE SCROLL ============
+
+const { isLoading: isLoadingMore } = useInfiniteScroll(triggerRef, loadMore, {
+  distance: 200,
+  disabled: computed(() => !hasMore.value || isLoading.value),
+})
+
+// ============ METHODS ============
+
+// Build filter based on variant
+function buildFilter(): PinFilter {
+  const baseFilter: PinFilter = {}
+
+  switch (props.variant) {
+    case 'created':
+      baseFilter.authorId = props.userId
+      baseFilter.scope = 'CREATED'
+      break
+    case 'saved':
+      baseFilter.savedBy = props.userId
+      baseFilter.scope = 'SAVED'
+      break
+    case 'liked':
+      baseFilter.likedBy = props.userId
+      baseFilter.scope = 'LIKED'
+      break
+  }
+
+  return baseFilter
+}
+
+// Load more function
+async function loadMore() {
+  const filter = buildFilter()
+  await pinsStore.fetchPins(filter, currentPage.value + 1, 15, props.variant as FeedType)
+}
+
+// Initial load
+async function initialLoad() {
+  pinsStore.resetFeed(props.variant as FeedType)
+  const filter = buildFilter()
+  await pinsStore.fetchPins(filter, 0, 15, props.variant as FeedType)
+}
+
+// ============ HANDLERS ============
+
+function handleDelete(pinId: string) {
+  emit('delete', pinId)
+}
+
+function handleLoadMore() {
+  if (hasMore.value && !isLoading.value) {
+    loadMore()
+  }
+}
+
+// ============ LIFECYCLE ============
+
+onMounted(() => {
+  initialLoad()
+})
+
+// Reset on userId or variant change
+watch([() => props.userId, () => props.variant], () => {
+  initialLoad()
+})
 </script>
 
 <template>
-  <div class="mt-10 ml-20">
-    <!-- Loading -->
-    <div v-if="isLoading && pins.length === 0" class="flex items-center justify-center py-12">
+  <div class="mt-6 px-4">
+    <!-- Initial loading -->
+    <div v-if="isLoading && pins.length === 0" class="flex items-center justify-center py-20">
       <BaseLoader variant="spinner" size="lg" />
     </div>
 
-    <!-- Pins Masonry Grid -->
-    <div v-else-if="pins.length > 0" class="columns-5 gap-4 p-2">
-      <div v-for="pin in pins" :key="pin.id" class="break-inside-avoid mb-4">
-        <!-- Pin Card - используйте ваш PinCard компонент -->
-        <div class="relative group">
-          <img
-            v-if="pin.imageBlobUrl && pin.isImage"
-            :src="pin.imageBlobUrl"
-            :alt="pin.title || 'Pin'"
-            class="w-full rounded-3xl"
-          />
-          <video
-            v-else-if="pin.videoBlobUrl || pin.isVideo"
-            :src="pin.videoBlobUrl || pin.imageBlobUrl"
-            class="w-full rounded-3xl"
-            autoplay
-            loop
-            muted
-          />
-        </div>
-        <p v-if="pin.title" class="mt-2 text-sm truncate">{{ pin.title }}</p>
+    <!-- Pins grid -->
+    <template v-else-if="pins.length > 0">
+      <!-- ✅ FIX: Используем pinGroups и правильные события -->
+      <PinMasonry
+        :pin-groups="pinGroups"
+        :variant="masonryVariant"
+        :show-user="true"
+        @delete="handleDelete"
+        @load-more="handleLoadMore"
+      />
+
+      <!-- Trigger for infinite scroll -->
+      <div ref="triggerRef" class="h-20" />
+
+      <!-- Loading more -->
+      <div v-if="isLoadingMore" class="flex justify-center py-8">
+        <BaseLoader variant="spinner" size="md" />
       </div>
-    </div>
+    </template>
 
-    <!-- Loading more -->
-    <div v-if="isLoading && pins.length > 0" class="flex justify-center py-8">
-      <BaseLoader variant="spinner" size="md" />
-    </div>
-
-    <!-- Empty state (из старого проекта) -->
-    <div v-if="showNoPins">
-      <section class="text-center flex flex-col justify-center items-center relative">
-        <h1 class="text-2xl font-bold mb-4">no pins</h1>
-        <img
-          class="h-72 rounded-xl"
-          src="https://i.pinimg.com/736x/40/f1/b0/40f1b01bf3df9bc24bdbad4589125023.jpg"
-          alt="not found image"
-        />
-      </section>
-    </div>
+    <!-- Empty state -->
+    <EmptyState
+      v-else-if="isEmpty"
+      :title="emptyConfig.title"
+      :description="emptyConfig.description"
+      :icon="emptyConfig.icon"
+    />
   </div>
 </template>

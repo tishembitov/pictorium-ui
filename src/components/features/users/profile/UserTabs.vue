@@ -1,8 +1,8 @@
-<!-- src/components/features/user/profile/UserTabs.vue -->
+<!-- src/components/features/users/profile/UserTabs.vue -->
 <script setup lang="ts">
 /**
  * UserTabs - Created, Saved, Liked, Boards tabs
- * Визуальный стиль из старого UserView.vue (animated-border)
+ * ✅ Чистый presentational компонент
  */
 
 export interface UserTabsProps {
@@ -10,12 +10,12 @@ export interface UserTabsProps {
   variant?: 'default' | 'sticky'
 }
 
-const props = withDefaults(defineProps<UserTabsProps>(), {
+withDefaults(defineProps<UserTabsProps>(), {
   variant: 'default',
 })
 
 const emit = defineEmits<{
-  (e: 'change', tab: 'created' | 'saved' | 'liked' | 'boards'): void
+  change: [tab: 'created' | 'saved' | 'liked' | 'boards']
 }>()
 
 const tabs = [
@@ -27,13 +27,13 @@ const tabs = [
 </script>
 
 <template>
-  <div class="flex items-center justify-center space-x-4" :class="variant === 'sticky' && 'py-2'">
+  <div class="flex items-center justify-center gap-4" :class="variant === 'sticky' && 'py-2'">
     <button
       v-for="tab in tabs"
       :key="tab.id"
       @click="emit('change', tab.id)"
-      class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border rounded-t-2xl"
       :class="[
+        'relative px-6 py-2 text-black transition rounded-t-2xl animated-border',
         activeTab === tab.id && 'active scale-105',
         variant === 'default' && 'hover:bg-gray-100',
       ]"
@@ -58,7 +58,7 @@ const tabs = [
   left: 50%;
   width: 0;
   height: 2px;
-  background-color: red;
+  background-color: #ef4444;
   transition:
     width 0.3s ease-out,
     transform 0.3s ease-out;
@@ -67,18 +67,14 @@ const tabs = [
 
 .active::after {
   width: 100%;
-  left: 50%;
-  transform: translateX(-50%);
 }
 
 .animated-border:hover {
-  color: red;
+  color: #ef4444;
   transform: scale(1.05);
 }
 
 .animated-border:hover::after {
   width: 100%;
-  left: 50%;
-  transform: translateX(-50%);
 }
 </style>

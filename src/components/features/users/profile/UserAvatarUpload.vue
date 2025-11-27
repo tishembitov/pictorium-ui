@@ -1,16 +1,18 @@
-<!-- src/components/features/user/profile/UserAvatarUpload.vue -->
+<!-- src/components/features/users/profile/UserAvatarUpload.vue -->
 <script setup lang="ts">
 /**
  * UserAvatarUpload - Модалка загрузки аватара
- * Визуальный стиль из старого UserView.vue (showEditModalImage)
+ * ✅ ИСПРАВЛЕНО: использует useFileUpload
  */
 
-import { ref, watch } from 'vue'
+import { watch, computed } from 'vue'
+import { useFileUpload } from '@/composables/features/useFileUpload'
 import { useCurrentUser } from '@/composables/api/useUserProfile'
 import { useToast } from '@/composables/ui/useToast'
+import { useScrollLock } from '@/composables/utils/useScrollLock'
+import { ALLOWED_IMAGE_TYPES } from '@/utils/constants'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import MediaErrorDialog from '@/components/ui/MediaErrorDialog.vue'
 
 export interface UserAvatarUploadProps {
   modelValue: boolean
@@ -19,147 +21,128 @@ export interface UserAvatarUploadProps {
 const props = defineProps<UserAvatarUploadProps>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-  (e: 'uploaded'): void
+  'update:modelValue': [value: boolean]
+  uploaded: []
 }>()
 
+// Composables
 const { uploadAvatar } = useCurrentUser()
-const { success, warning } = useToast()
+const { success, error: showError } = useToast()
 
-// State
-const imageFile = ref<File | null>(null)
-const imagePreview = ref<string | null>(null)
-const isUploading = ref(false)
-const showError = ref(false)
+const { file, preview, validationError, isUploading, hasFile, selectFile, reset } = useFileUpload({
+  accept: ALLOWED_IMAGE_TYPES.join(','),
+  category: 'avatars',
+})
+
+// v-model
+const isOpen = computed({
+  get: () => props.modelValue,
+  set: (value) => emit('update:modelValue', value),
+})
+
+// Scroll lock
+useScrollLock(isOpen)
 
 // Reset on close
-watch(
-  () => props.modelValue,
-  (isOpen) => {
-    if (!isOpen) {
-      imageFile.value = null
-      imagePreview.value = null
-    }
-  },
-)
+watch(isOpen, (open) => {
+  if (!open) {
+    reset()
+  }
+})
 
+// Handlers
 function close() {
-  emit('update:modelValue', false)
+  isOpen.value = false
 }
 
-function handleFileSelect(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-
-  if (!file) return
-
-  const allowedTypes = [
-    'image/jpeg',
-    'image/jpg',
-    'image/gif',
-    'image/webp',
-    'image/png',
-    'image/bmp',
-  ]
-
-  if (!allowedTypes.includes(file.type)) {
-    warning('Please select a valid image file (.jpg, .jpeg, .gif, .webp, .png, .bmp).')
-    return
+function handleBackdropClick(e: MouseEvent) {
+  if (e.target === e.currentTarget) {
+    close()
   }
-
-  imageFile.value = file
-
-  // Create preview
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    imagePreview.value = e.target?.result as string
-  }
-  reader.readAsDataURL(file)
 }
 
 async function handleUpload() {
-  if (!imageFile.value) return
+  if (!file.value) return
 
   try {
-    isUploading.value = true
-    await uploadAvatar(imageFile.value)
+    await uploadAvatar(file.value)
     success('Avatar updated!')
     emit('uploaded')
     close()
   } catch (error: any) {
-    if (error?.response?.status === 415) {
-      showError.value = true
-    } else {
-      warning('Failed to upload avatar')
-    }
-  } finally {
-    isUploading.value = false
+    showError(error?.message || 'Failed to upload avatar')
   }
 }
 </script>
 
 <template>
-  <!-- Error dialog -->
-  <MediaErrorDialog v-model="showError" />
-
-  <!-- Modal -->
-  <Transition name="fade">
-    <div
-      v-if="modelValue"
-      class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-6"
-      @click.self="close"
-    >
-      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-8 relative ml-20">
-        <!-- Loading -->
-        <div v-if="isUploading" class="flex items-center justify-center min-h-[150px]">
-          <BaseLoader variant="spinner" size="lg" color="red" />
-        </div>
-
-        <!-- Form -->
-        <div v-else class="flex flex-col items-center justify-center gap-5">
-          <div class="flex flex-col items-center w-full">
-            <label for="imageProfile" class="block mb-2 text-sm font-medium text-gray-700">
-              Your Profile Image (.jpg, .jpeg, .gif, .webp, .png, .bmp)
-            </label>
-            <input
-              type="file"
-              id="imageProfile"
-              accept=".jpg,.jpeg,.gif,.webp,.png,.bmp"
-              @change="handleFileSelect"
-              class="block w-full text-sm text-gray-900 border border-gray-300 rounded-3xl cursor-pointer bg-gray-50 focus:outline-none focus:ring-1 focus:ring-red-500"
-            />
-
-            <!-- Preview -->
-            <img
-              v-if="imagePreview"
-              :src="imagePreview"
-              alt="Preview"
-              class="mt-4 rounded-full w-32 h-32 object-cover border-4 border-gray-300"
-              style="
-                box-shadow:
-                  0 0 15px rgba(255, 255, 255, 0.8),
-                  0 0 30px rgba(255, 255, 255, 0.6);
-              "
-            />
+  <Teleport to="body">
+    <Transition name="fade">
+      <div
+        v-if="isOpen"
+        class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-6"
+        @click="handleBackdropClick"
+        @keydown.escape="close"
+      >
+        <div class="ml-20 bg-white rounded-xl shadow-xl max-w-md w-full p-8 relative">
+          <!-- Loading -->
+          <div v-if="isUploading" class="flex items-center justify-center min-h-[150px]">
+            <BaseLoader variant="spinner" size="lg" color="red" />
           </div>
 
-          <!-- Buttons -->
-          <div class="flex space-x-4 mt-4">
-            <BaseButton variant="ghost" @click="close"> Cancel </BaseButton>
-            <BaseButton variant="primary" :disabled="!imageFile" @click="handleUpload">
-              Update
-            </BaseButton>
+          <!-- Form -->
+          <div v-else class="flex flex-col items-center justify-center gap-5">
+            <h2 class="text-xl font-semibold text-gray-900">Update Profile Image</h2>
+
+            <div class="flex flex-col items-center w-full">
+              <label
+                for="imageProfile"
+                class="block mb-2 text-sm font-medium text-gray-700 text-center"
+              >
+                Select an image file
+              </label>
+
+              <input
+                type="file"
+                id="imageProfile"
+                :accept="ALLOWED_IMAGE_TYPES.join(',')"
+                @change="selectFile"
+                class="block w-full text-sm text-gray-900 border border-gray-300 rounded-3xl cursor-pointer bg-gray-50 focus:outline-none focus:ring-1 focus:ring-red-500"
+              />
+
+              <!-- Validation error -->
+              <p v-if="validationError" class="mt-2 text-sm text-red-500">
+                {{ validationError }}
+              </p>
+
+              <!-- Preview -->
+              <div v-if="preview" class="mt-4">
+                <img
+                  :src="preview"
+                  alt="Preview"
+                  class="rounded-full w-32 h-32 object-cover border-4 border-gray-300 shadow-lg"
+                />
+              </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="flex gap-4 mt-4">
+              <BaseButton variant="ghost" @click="close"> Cancel </BaseButton>
+              <BaseButton variant="primary" :disabled="!hasFile" @click="handleUpload">
+                Update
+              </BaseButton>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.5s ease;
+  transition: opacity 0.3s ease;
 }
 
 .fade-enter-from,

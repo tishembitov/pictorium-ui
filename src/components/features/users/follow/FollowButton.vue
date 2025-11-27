@@ -1,9 +1,8 @@
-<!-- src/components/features/user/follow/FollowButton.vue -->
+<!-- src/components/features/users/follow/FollowButton.vue -->
 <script setup lang="ts">
 /**
  * FollowButton - Кнопка Follow/Unfollow
- * Использует: useFollow composable
- * Визуальный стиль из старого UserView.vue
+ * ✅ ИСПРАВЛЕНО: унифицированы emits, используется useFollow
  */
 
 import { computed, onMounted } from 'vue'
@@ -25,13 +24,13 @@ const props = withDefaults(defineProps<FollowButtonProps>(), {
 })
 
 const emit = defineEmits<{
-  (e: 'followed'): void
-  (e: 'unfollowed'): void
-  (e: 'error', error: Error): void
+  followed: []
+  unfollowed: []
+  error: [error: Error]
 }>()
 
-// Composable
-const { isFollowing, isLoading, check, follow, unfollow, toggle, error } = useFollow(props.userId)
+// Composable - ✅ Getter для реактивности
+const { isFollowing, isLoading, check, follow, unfollow } = useFollow(() => props.userId)
 
 // Check follow status on mount
 onMounted(async () => {
@@ -48,6 +47,16 @@ const buttonText = computed(() => {
   return isFollowing.value ? 'Unfollow' : 'Follow'
 })
 
+// Size classes
+const sizeClasses = computed(() => {
+  const sizes = {
+    sm: 'px-3 py-2 text-xs',
+    md: 'px-6 py-3 text-sm',
+    lg: 'px-8 py-4 text-base',
+  }
+  return sizes[props.size]
+})
+
 // Handle click
 async function handleClick() {
   try {
@@ -62,20 +71,10 @@ async function handleClick() {
     emit('error', e as Error)
   }
 }
-
-// Size classes (из старого проекта)
-const sizeClasses = computed(() => {
-  const sizes = {
-    sm: 'px-3 py-2 text-xs',
-    md: 'px-6 py-3 text-sm',
-    lg: 'px-8 py-4 text-base',
-  }
-  return sizes[props.size]
-})
 </script>
 
 <template>
-  <!-- Primary variant (как в старом UserView.vue) -->
+  <!-- Primary variant -->
   <button
     v-if="variant === 'primary'"
     @click="handleClick"

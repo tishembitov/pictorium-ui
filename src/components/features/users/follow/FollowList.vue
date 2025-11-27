@@ -1,14 +1,14 @@
-<!-- src/components/features/user/follow/FollowList.vue -->
+<!-- src/components/features/users/follow/FollowList.vue -->
 <script setup lang="ts">
 /**
- * FollowList - Список с пагинацией при скролле
- * Использует: useSubscriptionsStore, scroll handler
- * Визуальный стиль из старого FollowersSection.vue
+ * FollowList - Список с infinite scroll
+ * ✅ ИСПРАВЛЕНО: использует useInfiniteScroll, useUsersWithAvatars
  */
 
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useSubscriptionsStore } from '@/stores/subscriptions.store'
-import { useUserStore } from '@/stores/user.store'
+import { useUsersWithAvatars } from '@/composables/api/useUsersWithAvatars'
+import { useInfiniteScroll } from '@/composables/utils/useIntersectionObserver'
 import FollowUserItem from './FollowUserItem.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 
@@ -19,107 +19,93 @@ export interface FollowListProps {
 }
 
 const props = withDefaults(defineProps<FollowListProps>(), {
-  pageSize: 7,
+  pageSize: 10,
 })
 
-// Stores
-const subscriptionsStore = useSubscriptionsStore()
-const userStore = useUserStore()
+// Stores & Composables
+const store = useSubscriptionsStore()
+const { loadUsers: loadUserAvatars, getUser, isLoading: isLoadingAvatars } = useUsersWithAvatars()
 
-// State
-const users = ref<Array<{ id: string; username: string; imageUrl?: string; image?: string }>>([])
-const page = ref(0)
-const isLoading = ref(false)
-const canLoad = ref(true)
+// Refs
+const triggerRef = ref<HTMLElement | null>(null)
 
-// Load users with avatars
-async function loadUsers() {
-  if (isLoading.value || !canLoad.value) return
+// Computed - данные из store
+const users = computed(() =>
+  props.type === 'followers' ? store.getFollowers(props.userId) : store.getFollowing(props.userId),
+)
 
-  isLoading.value = true
+const hasMore = computed(() =>
+  props.type === 'followers'
+    ? store.hasMoreFollowers(props.userId)
+    : store.hasMoreFollowing(props.userId),
+)
 
-  try {
-    let response: any[]
+const isLoadingFromStore = computed(() =>
+  props.type === 'followers' ? store.isLoadingFollowers : store.isLoadingFollowing,
+)
 
-    if (props.type === 'followers') {
-      response = await subscriptionsStore.fetchFollowers(
-        props.userId,
-        page.value,
-        props.pageSize,
-        page.value === 0,
-      )
-    } else {
-      response = await subscriptionsStore.fetchFollowing(
-        props.userId,
-        page.value,
-        props.pageSize,
-        page.value === 0,
-      )
-    }
+const isLoading = computed(() => isLoadingFromStore.value || isLoadingAvatars.value)
 
-    if (response.length < props.pageSize) {
-      canLoad.value = false
-    }
+const isEmpty = computed(() => !isLoading.value && users.value.length === 0)
 
-    // Load avatars for each user
-    for (const user of response) {
-      let avatarUrl: string | undefined
+// ✅ Infinite scroll с composable
+const { isLoading: isLoadingMore } = useInfiniteScroll(triggerRef, loadMore, {
+  distance: 100,
+  disabled: computed(() => !hasMore.value || isLoading.value),
+})
 
-      try {
-        avatarUrl = await userStore.loadUserAvatarById(user.id, user.imageUrl)
-      } catch (error) {
-        console.error('[FollowList] Failed to load avatar:', error)
-      }
-
-      users.value.push({
-        id: user.id,
-        username: user.username,
-        imageUrl: user.imageUrl,
-        image: avatarUrl || undefined,
-      })
-    }
-
-    page.value++
-  } catch (error) {
-    console.error('[FollowList] Failed to load users:', error)
-  } finally {
-    isLoading.value = false
+// Load more function
+async function loadMore() {
+  if (props.type === 'followers') {
+    await store.loadMoreFollowers(props.userId)
+  } else {
+    await store.loadMoreFollowing(props.userId)
   }
-}
 
-// Scroll handler (как в старом проекте)
-function handleScroll(event: Event) {
-  const container = event.target as HTMLElement
-  if (container.scrollTop + container.clientHeight >= container.scrollHeight - 10) {
-    loadUsers()
-  }
+  // Load avatars for new users
+  const userIds = users.value.map((u) => u.id)
+  await loadUserAvatars(userIds)
 }
 
 // Initial load
+async function initialLoad() {
+  if (props.type === 'followers') {
+    await store.fetchFollowers(props.userId, 0, props.pageSize, true)
+  } else {
+    await store.fetchFollowing(props.userId, 0, props.pageSize, true)
+  }
+
+  // Load avatars
+  const userIds = users.value.map((u) => u.id)
+  await loadUserAvatars(userIds)
+}
+
+// Lifecycle
 onMounted(() => {
-  loadUsers()
+  initialLoad()
 })
 
 // Reset on userId change
 watch(
   () => props.userId,
   () => {
-    users.value = []
-    page.value = 0
-    canLoad.value = true
-    loadUsers()
+    initialLoad()
   },
 )
 </script>
 
 <template>
-  <div @scroll="handleScroll" class="overflow-y-auto max-h-[500px]">
+  <div class="overflow-y-auto max-h-[500px] px-2">
+    <!-- Users list -->
     <FollowUserItem
       v-for="user in users"
       :key="user.id"
       :user="user"
-      :avatar-blob-url="user.image"
+      :avatar-blob-url="getUser(user.id).image"
     />
+
+    <!-- Trigger element for infinite scroll -->
+    <div ref="triggerRef" class="h-4" />
 
     <!-- Loading indicator -->
     <div v-if="isLoading" class="flex justify-center py-4">
@@ -127,7 +113,7 @@ watch(
     </div>
 
     <!-- Empty state -->
-    <div v-if="!isLoading && users.length === 0" class="text-center py-8 text-gray-500">
+    <div v-if="isEmpty" class="text-center py-8 text-gray-400">
       <p>{{ type === 'followers' ? 'No followers yet' : 'Not following anyone yet' }}</p>
     </div>
   </div>

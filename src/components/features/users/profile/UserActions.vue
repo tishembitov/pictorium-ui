@@ -1,8 +1,8 @@
-<!-- src/components/features/user/profile/UserActions.vue -->
+<!-- src/components/features/users/profile/UserActions.vue -->
 <script setup lang="ts">
 /**
  * UserActions - Follow, Message, Edit buttons
- * Визуальный стиль из старого UserView.vue
+ * ✅ Чистый presentational компонент с slot для edit buttons
  */
 
 import { ref } from 'vue'
@@ -13,19 +13,17 @@ export interface UserActionsProps {
   isCurrentUser: boolean
   isFollowing?: boolean
   hasChat?: boolean
-  variant?: 'default' | 'modal'
 }
 
-const props = withDefaults(defineProps<UserActionsProps>(), {
+withDefaults(defineProps<UserActionsProps>(), {
   isFollowing: false,
   hasChat: false,
-  variant: 'default',
 })
 
 const emit = defineEmits<{
-  (e: 'sendMessage'): void
-  (e: 'goToChat'): void
-  (e: 'editProfile'): void
+  sendMessage: []
+  goToChat: []
+  editProfile: []
 }>()
 
 const showEditButtons = ref(false)
@@ -55,7 +53,7 @@ const showEditButtons = ref(false)
   </div>
 
   <!-- For current user (edit profile) -->
-  <div v-else class="flex flex-col items-center">
+  <div v-else class="flex flex-col items-center mt-4">
     <button
       @click="showEditButtons = !showEditButtons"
       class="px-5 py-2 bg-red-600 text-white font-medium rounded-full transition duration-300 hover:bg-red-700 focus:outline-none"
@@ -64,15 +62,30 @@ const showEditButtons = ref(false)
     </button>
 
     <!-- Edit sub-buttons -->
-    <div v-if="showEditButtons" class="mt-4 flex space-x-3">
-      <slot name="edit-buttons">
-        <button
-          @click="emit('editProfile')"
-          class="px-5 py-2 bg-gray-100 text-gray-800 font-medium rounded-full transition duration-300 hover:bg-gray-200 focus:outline-none"
-        >
-          Information
-        </button>
-      </slot>
-    </div>
+    <Transition name="slide-fade">
+      <div v-if="showEditButtons" class="mt-4 flex flex-wrap gap-3 justify-center">
+        <slot name="edit-buttons">
+          <button
+            @click="emit('editProfile')"
+            class="px-5 py-2 bg-gray-100 text-gray-800 font-medium rounded-full transition duration-300 hover:bg-gray-200"
+          >
+            Information
+          </button>
+        </slot>
+      </div>
+    </Transition>
   </div>
 </template>
+
+<style scoped>
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateY(-10px);
+  opacity: 0;
+}
+</style>

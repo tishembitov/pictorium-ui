@@ -1,8 +1,8 @@
-<!-- src/components/features/user/profile/UserHeader.vue -->
+<!-- src/components/features/users/profile/UserHeader.vue -->
 <script setup lang="ts">
 /**
  * UserHeader - Header с avatar и optional banner
- * Визуальный стиль из старого UserView.vue
+ * ✅ Чистый presentational компонент
  */
 
 import { computed } from 'vue'
@@ -11,18 +11,20 @@ import UserStats from './UserStats.vue'
 import UserBio from './UserBio.vue'
 import UserSocialLinks from './UserSocialLinks.vue'
 import UserActions from './UserActions.vue'
+import type { User } from '@/types'
 
 export interface UserHeaderProps {
-  user: {
-    id: string
-    username: string
-    description?: string | null
-    instagram?: string | null
-    tiktok?: string | null
-    telegram?: string | null
-    pinterest?: string | null
-    verified?: boolean
-  }
+  user: Pick<
+    User,
+    | 'id'
+    | 'username'
+    | 'description'
+    | 'instagram'
+    | 'tiktok'
+    | 'telegram'
+    | 'pinterest'
+    | 'verified'
+  >
   avatarUrl?: string | null
   bannerUrl?: string | null
   followersCount: number
@@ -35,14 +37,14 @@ export interface UserHeaderProps {
 const props = defineProps<UserHeaderProps>()
 
 const emit = defineEmits<{
-  (e: 'showFollowers'): void
-  (e: 'showFollowing'): void
-  (e: 'showMoreBio'): void
-  (e: 'sendMessage'): void
-  (e: 'goToChat'): void
-  (e: 'editProfile'): void
-  (e: 'editImage'): void
-  (e: 'editBanner'): void
+  showFollowers: []
+  showFollowing: []
+  showMoreBio: []
+  sendMessage: []
+  goToChat: []
+  editProfile: []
+  editImage: []
+  editBanner: []
 }>()
 
 const hasBanner = computed(() => !!props.bannerUrl)
@@ -53,17 +55,20 @@ const hasBanner = computed(() => !!props.bannerUrl)
   <div v-if="!hasBanner" class="flex flex-col items-center">
     <!-- Avatar with verified badge -->
     <div class="relative">
-      <i v-if="user.verified" class="absolute top-0 left-28 pi pi-verified text-2xl" />
+      <i
+        v-if="user.verified"
+        class="absolute top-0 left-28 pi pi-verified text-2xl text-blue-500"
+      />
       <BaseAvatar
         :src="avatarUrl || undefined"
         :alt="user.username"
         size="xl"
-        class="!w-32 !h-32 border-4 border-white"
+        class="!w-32 !h-32 border-4 border-white shadow-lg"
       />
     </div>
 
     <!-- Username -->
-    <p class="mt-4 text-3xl font-extrabold">{{ user.username }}</p>
+    <h1 class="mt-4 text-3xl font-extrabold">{{ user.username }}</h1>
 
     <!-- Bio -->
     <UserBio :description="user.description" @show-more="emit('showMoreBio')" />
@@ -75,6 +80,7 @@ const hasBanner = computed(() => !!props.bannerUrl)
       :telegram="user.telegram"
       :pinterest="user.pinterest"
       variant="inline"
+      class="mt-2"
     />
 
     <!-- Stats -->
@@ -119,19 +125,24 @@ const hasBanner = computed(() => !!props.bannerUrl)
   </div>
 
   <!-- With banner (two column layout) -->
-  <div v-else class="grid grid-cols-2 gap-6 px-4 py-6">
+  <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 py-6">
     <!-- Left column: User info -->
-    <div class="ml-10">
+    <div class="lg:ml-10">
       <!-- Avatar with username -->
       <div class="relative flex items-center">
-        <i v-if="user.verified" class="absolute top-0 left-28 pi pi-verified text-2xl text-black" />
+        <i
+          v-if="user.verified"
+          class="absolute top-0 left-28 pi pi-verified text-2xl text-blue-500"
+        />
         <BaseAvatar
           :src="avatarUrl || undefined"
           :alt="user.username"
           size="xl"
           class="!w-32 !h-32"
         />
-        <p class="ml-4 text-3xl font-extrabold text-gray-800">{{ user.username }}</p>
+        <h1 class="ml-4 text-3xl font-extrabold text-gray-800">
+          {{ user.username }}
+        </h1>
       </div>
 
       <!-- Stats -->
@@ -145,16 +156,16 @@ const hasBanner = computed(() => !!props.bannerUrl)
 
       <!-- Bio -->
       <div class="mt-4">
-        <p v-if="user.description" class="description-box mt-4 text-md w-[500px]">
+        <p v-if="user.description" class="description-box text-md max-w-[500px]">
           {{ user.description }}
         </p>
-        <span
+        <button
           v-if="user.description && user.description.length > 200"
-          class="text-black cursor-pointer flex justify-left font-extrabold mt-2"
           @click="emit('showMoreBio')"
+          class="text-black font-extrabold mt-2 hover:underline"
         >
           More
-        </span>
+        </button>
       </div>
 
       <!-- Social links -->
@@ -164,7 +175,7 @@ const hasBanner = computed(() => !!props.bannerUrl)
         :telegram="user.telegram"
         :pinterest="user.pinterest"
         variant="inline"
-        class="justify-left"
+        class="mt-4"
       />
 
       <!-- Actions -->
@@ -173,7 +184,7 @@ const hasBanner = computed(() => !!props.bannerUrl)
         :is-current-user="isCurrentUser"
         :is-following="isFollowing"
         :has-chat="hasChat"
-        class="justify-left"
+        class="mt-4"
         @send-message="emit('sendMessage')"
         @go-to-chat="emit('goToChat')"
         @edit-profile="emit('editProfile')"
@@ -203,7 +214,11 @@ const hasBanner = computed(() => !!props.bannerUrl)
 
     <!-- Right column: Banner -->
     <div class="flex items-center justify-center">
-      <img :src="bannerUrl" alt="Banner" class="rounded-2xl h-[400px] w-[600px] object-cover" />
+      <img
+        :src="bannerUrl!"
+        alt="Banner"
+        class="rounded-2xl h-[400px] w-full max-w-[600px] object-cover shadow-lg"
+      />
     </div>
   </div>
 </template>

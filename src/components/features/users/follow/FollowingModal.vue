@@ -1,12 +1,12 @@
-<!-- src/components/features/user/follow/FollowingModal.vue -->
+<!-- src/components/features/users/follow/FollowingModal.vue -->
 <script setup lang="ts">
 /**
  * FollowingModal - Модалка подписок
- * Визуальный стиль из старого FollowingSection.vue
+ * ✅ ИСПРАВЛЕНО: унифицирован с FollowersModal
  */
 
 import { computed } from 'vue'
-import { useEscapeKey } from '@/composables/utils/useClickOutside'
+import { useScrollLock } from '@/composables/utils/useScrollLock'
 import FollowList from './FollowList.vue'
 
 export interface FollowingModalProps {
@@ -18,60 +18,81 @@ export interface FollowingModalProps {
 const props = defineProps<FollowingModalProps>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
+  'update:modelValue': [value: boolean]
 }>()
 
+// Computed v-model
+const isOpen = computed({
+  get: () => props.modelValue,
+  set: (value) => emit('update:modelValue', value),
+})
+
+// Scroll lock
+useScrollLock(isOpen)
+
 function close() {
-  emit('update:modelValue', false)
+  isOpen.value = false
 }
 
-// Escape key
-const isOpen = computed(() => props.modelValue)
-useEscapeKey(close, { enabled: isOpen })
+function handleBackdropClick(e: MouseEvent) {
+  if (e.target === e.currentTarget) {
+    close()
+  }
+}
 </script>
 
 <template>
-  <Transition name="fade">
-    <div
-      v-if="modelValue"
-      class="fixed inset-0 bg-black bg-opacity-75 z-40 p-6"
-      @click.self="close"
-    >
-      <div class="flex justify-center items-center min-h-screen">
-        <!-- Контейнер из старого FollowingSection.vue -->
-        <div
-          class="flex flex-col gap-2 bg-black shadow-2xl h-auto max-h-[600px] text-2xl rounded-3xl text-white z-50 w-[600px] overflow-y-auto py-2"
-          style="
-            box-shadow:
-              0 0 15px rgba(255, 255, 255, 0.8),
-              0 0 30px rgba(255, 255, 255, 0.6);
-          "
-        >
-          <h1 class="text-7xl text-center my-2">{{ count }} Following</h1>
+  <Teleport to="body">
+    <Transition name="fade">
+      <div
+        v-if="isOpen"
+        class="fixed inset-0 bg-black/75 z-40 p-6"
+        @click="handleBackdropClick"
+        @keydown.escape="close"
+      >
+        <div class="flex justify-center items-center min-h-screen">
+          <!-- Modal container -->
+          <div
+            class="flex flex-col gap-2 bg-black shadow-glow h-auto max-h-[600px] text-2xl rounded-3xl text-white z-50 w-[600px] overflow-hidden"
+          >
+            <!-- Header -->
+            <h1 class="text-7xl text-center my-4 py-2">{{ count }} Following</h1>
 
-          <FollowList :user-id="userId" type="following" />
+            <!-- Content -->
+            <FollowList :user-id="userId" type="following" />
+          </div>
+
+          <!-- Close button -->
+          <button
+            @click="close"
+            class="absolute right-20 top-20 text-white text-4xl cursor-pointer transition-transform duration-200 transform hover:scale-150"
+            aria-label="Close"
+          >
+            <i class="pi pi-times text-glow" />
+          </button>
         </div>
-
-        <!-- Close button -->
-        <i
-          @click="close"
-          class="absolute right-20 top-20 pi pi-times text-white text-4xl cursor-pointer transition-transform duration-200 transform hover:scale-150"
-          style="
-            text-shadow:
-              0 0 20px rgba(255, 255, 255, 0.9),
-              0 0 40px rgba(255, 255, 255, 0.8),
-              0 0 80px rgba(255, 255, 255, 0.7);
-          "
-        />
       </div>
-    </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
+.shadow-glow {
+  box-shadow:
+    0 0 15px rgba(255, 255, 255, 0.8),
+    0 0 30px rgba(255, 255, 255, 0.6);
+}
+
+.text-glow {
+  text-shadow:
+    0 0 20px rgba(255, 255, 255, 0.9),
+    0 0 40px rgba(255, 255, 255, 0.8),
+    0 0 80px rgba(255, 255, 255, 0.7);
+}
+
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.5s ease;
+  transition: opacity 0.3s ease;
 }
 
 .fade-enter-from,

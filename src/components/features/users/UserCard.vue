@@ -1,21 +1,17 @@
-<!-- src/components/features/user/UserCard.vue -->
+<!-- src/components/features/users/UserCard.vue -->
 <script setup lang="ts">
 /**
  * UserCard - Карточка пользователя
+ * ✅ Типизация и структура корректны
  */
 
 import { RouterLink } from 'vue-router'
 import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import FollowButton from './follow/FollowButton.vue'
+import type { User } from '@/types'
 
 export interface UserCardProps {
-  user: {
-    id: string
-    username: string
-    imageUrl?: string | null
-    description?: string | null
-    verified?: boolean
-  }
+  user: Pick<User, 'id' | 'username' | 'imageUrl' | 'description' | 'verified'>
   avatarUrl?: string | null
   followersCount?: number
   showFollowButton?: boolean
@@ -32,8 +28,8 @@ const props = withDefaults(defineProps<UserCardProps>(), {
 <template>
   <div
     :class="[
-      'bg-white rounded-2xl p-4 shadow-md hover:shadow-lg transition',
-      variant === 'compact' && 'p-3',
+      'bg-white rounded-2xl shadow-md hover:shadow-lg transition',
+      variant === 'compact' ? 'p-3' : 'p-4',
     ]"
   >
     <RouterLink :to="`/user/${user.username}`" class="flex items-center gap-3">

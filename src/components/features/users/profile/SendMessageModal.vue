@@ -1,14 +1,15 @@
-<!-- src/components/features/user/profile/SendMessageModal.vue -->
+<!-- src/components/features/users/profile/SendMessageModal.vue -->
 <script setup lang="ts">
 /**
  * SendMessageModal - Модалка отправки сообщения
- * Визуальный стиль из старого UserView.vue (openSendMessage)
+ * ✅ ИСПРАВЛЕНО: унифицированы emits, используется useScrollLock
  */
 
 import { ref, computed, watch } from 'vue'
-import { useEscapeKey } from '@/composables/utils/useClickOutside'
+import { useScrollLock } from '@/composables/utils/useScrollLock'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseTextarea from '@/components/ui/BaseTextarea.vue'
 
 export interface SendMessageModalProps {
   modelValue: boolean
@@ -18,98 +19,122 @@ export interface SendMessageModalProps {
 const props = defineProps<SendMessageModalProps>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-  (e: 'send', content: string): void
+  'update:modelValue': [value: boolean]
+  send: [content: string]
 }>()
 
+// State
 const messageContent = ref('')
 const isSending = ref(false)
 
-// Reset on close
-watch(
-  () => props.modelValue,
-  (isOpen) => {
-    if (!isOpen) {
-      messageContent.value = ''
-    }
-  },
-)
+// v-model
+const isOpen = computed({
+  get: () => props.modelValue,
+  set: (value) => emit('update:modelValue', value),
+})
 
+// Scroll lock
+useScrollLock(isOpen)
+
+// Reset on close
+watch(isOpen, (open) => {
+  if (!open) {
+    messageContent.value = ''
+    isSending.value = false
+  }
+})
+
+// Computed
+const canSend = computed(() => messageContent.value.trim().length > 0)
+
+// Handlers
 function close() {
-  emit('update:modelValue', false)
+  isOpen.value = false
 }
 
-function handleSend() {
-  if (messageContent.value.trim()) {
-    isSending.value = true
-    emit('send', messageContent.value.trim())
+function handleBackdropClick(e: MouseEvent) {
+  if (e.target === e.currentTarget) {
+    close()
   }
 }
 
-// Escape key
-const isOpen = computed(() => props.modelValue)
-useEscapeKey(close, { enabled: isOpen })
+function handleSend() {
+  if (!canSend.value) return
+
+  isSending.value = true
+  emit('send', messageContent.value.trim())
+}
 </script>
 
 <template>
-  <Transition name="fade">
-    <div
-      v-if="modelValue"
-      class="fixed inset-0 bg-black bg-opacity-50 z-50 p-6"
-      @click.self="close"
-    >
-      <div class="ml-20 flex justify-center items-center min-h-screen">
-        <!-- Content -->
-        <div
-          v-if="!isSending"
-          class="flex flex-col gap-2 bg-gray-200 h-auto max-h-[600px] text-2xl rounded-3xl z-50 w-[800px] overflow-y-auto py-2 items-center"
-        >
-          <h1 class="text-center text-6xl text-black mt-4 mb-4">Message to {{ username }}</h1>
-
-          <textarea
-            v-model="messageContent"
-            placeholder="Write your message..."
-            class="cursor-pointer text-black text-3xl rounded-3xl block w-3/4 py-10 px-10 focus:ring-black bg-white focus:border-4 focus:border-white resize-none"
-            style="height: 200px"
-          />
-
-          <BaseButton
-            @click="handleSend"
-            variant="secondary"
-            class="my-5 !w-[400px] !bg-white !text-black hover:!bg-indigo-300"
+  <Teleport to="body">
+    <Transition name="fade">
+      <div
+        v-if="isOpen"
+        class="fixed inset-0 bg-black/50 z-50 p-6"
+        @click="handleBackdropClick"
+        @keydown.escape="close"
+      >
+        <div class="ml-20 flex justify-center items-center min-h-screen">
+          <!-- Content -->
+          <div
+            v-if="!isSending"
+            class="flex flex-col gap-4 bg-gray-200 rounded-3xl z-50 w-full max-w-[800px] py-8 px-6 items-center"
           >
-            Send
-          </BaseButton>
+            <h1 class="text-center text-4xl text-black font-bold">Message to {{ username }}</h1>
+
+            <BaseTextarea
+              v-model="messageContent"
+              placeholder="Write your message..."
+              :rows="6"
+              class="w-full max-w-[600px]"
+              rounded="xl"
+            />
+
+            <BaseButton
+              @click="handleSend"
+              :disabled="!canSend"
+              variant="primary"
+              class="mt-4 min-w-[200px]"
+            >
+              Send
+            </BaseButton>
+          </div>
+
+          <!-- Loading -->
+          <div
+            v-else
+            class="flex flex-col gap-2 bg-gray-200 rounded-3xl z-50 w-full max-w-[800px] py-20 items-center"
+          >
+            <BaseLoader variant="spinner" size="lg" color="red" />
+            <p class="text-gray-600 mt-4">Sending message...</p>
+          </div>
         </div>
 
-        <!-- Loading -->
-        <div
-          v-else
-          class="flex flex-col gap-2 bg-gray-200 h-auto max-h-[600px] text-2xl rounded-3xl z-50 w-[800px] overflow-y-auto py-20 items-center"
+        <!-- Close button -->
+        <button
+          @click="close"
+          class="absolute right-20 top-20 text-white text-4xl cursor-pointer transition-transform duration-200 transform hover:scale-150"
+          aria-label="Close"
         >
-          <BaseLoader variant="spinner" size="lg" color="red" />
-        </div>
+          <i class="pi pi-times text-glow" />
+        </button>
       </div>
-
-      <!-- Close button -->
-      <i
-        @click="close"
-        class="absolute right-20 top-20 pi pi-times text-white text-4xl cursor-pointer transition-transform duration-200 transform hover:scale-150"
-        style="
-          text-shadow:
-            0 0 20px rgba(255, 255, 255, 0.9),
-            0 0 40px rgba(255, 255, 255, 0.8),
-            0 0 80px rgba(255, 255, 255, 0.7);
-        "
-      />
-    </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
+.text-glow {
+  text-shadow:
+    0 0 20px rgba(255, 255, 255, 0.9),
+    0 0 40px rgba(255, 255, 255, 0.8),
+    0 0 80px rgba(255, 255, 255, 0.7);
+}
+
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.5s ease;
+  transition: opacity 0.3s ease;
 }
 
 .fade-enter-from,

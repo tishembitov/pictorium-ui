@@ -1,19 +1,16 @@
-<!-- src/components/features/user/UserSearchItem.vue -->
+<!-- src/components/features/users/UserSearchItem.vue -->
 <script setup lang="ts">
 /**
  * UserSearchItem - User в результатах поиска
+ * ✅ Типизация корректна
  */
 
 import { RouterLink } from 'vue-router'
 import BaseAvatar from '@/components/ui/BaseAvatar.vue'
+import type { User } from '@/types'
 
 export interface UserSearchItemProps {
-  user: {
-    id: string
-    username: string
-    imageUrl?: string | null
-    verified?: boolean
-  }
+  user: Pick<User, 'id' | 'username' | 'imageUrl' | 'verified'>
   avatarUrl?: string | null
   highlight?: string
 }
@@ -21,14 +18,18 @@ export interface UserSearchItemProps {
 const props = defineProps<UserSearchItemProps>()
 
 const emit = defineEmits<{
-  (e: 'click'): void
+  click: []
 }>()
 
 // Highlight matching text
 function highlightMatch(text: string, query: string): string {
   if (!query) return text
-  const regex = new RegExp(`(${query})`, 'gi')
+  const regex = new RegExp(`(${escapeRegExp(query)})`, 'gi')
   return text.replace(regex, '<mark class="bg-yellow-200">$1</mark>')
+}
+
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 </script>
 

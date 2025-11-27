@@ -1,11 +1,11 @@
-<!-- src/components/features/pin/PinUserInfo.vue -->
+<!-- src/components/features/pins/PinUserInfo.vue -->
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { useUserStore } from '@/stores/user.store'
-import { useSubscriptionsStore } from '@/stores/subscriptions.store'
+import { useUsersWithAvatars } from '@/composables/api/useUsersWithAvatars'
 import { useFollow } from '@/composables/api/useFollow'
 import { useClickOutside } from '@/composables/utils/useClickOutside'
+import { useAuthState } from '@/composables/auth/useAuth'
 import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 
@@ -31,9 +31,18 @@ const emit = defineEmits<{
   (e: 'showFollowing'): void
 }>()
 
-// Stores
-const userStore = useUserStore()
-const subscriptionsStore = useSubscriptionsStore()
+// ✅ ИСПРАВЛЕНО: используем composables вместо stores
+const { loadUser, getUser } = useUsersWithAvatars()
+const { userId: currentUserId } = useAuthState()
+
+// ✅ ИСПРАВЛЕНО: getter для реактивности
+const {
+  isFollowing,
+  isLoading: isFollowLoading,
+  follow,
+  unfollow,
+  check,
+} = useFollow(() => props.userId)
 
 // Refs
 const containerRef = ref<HTMLElement | null>(null)
@@ -41,15 +50,10 @@ const triggerRef = ref<HTMLElement | null>(null)
 
 // State
 const isPopoverOpen = ref(false)
-const popoverUser = ref<any>(null)
-const popoverImage = ref<string | null>(null)
 const isTop = ref(true)
 const isLoadingUser = ref(false)
 
-// Composables
-const { isFollowing, isLoading: isFollowLoading, follow, unfollow, check } = useFollow(props.userId)
-
-// Click outside to close popover
+// Click outside
 useClickOutside(
   containerRef,
   () => {
@@ -61,11 +65,9 @@ useClickOutside(
 )
 
 // Computed
-const isCurrentUser = computed(() => userStore.userId === props.userId)
+const isCurrentUser = computed(() => currentUserId.value === props.userId)
 
-const followersCount = computed(() => subscriptionsStore.getFollowers(props.userId)?.length || 0)
-
-const followingCount = computed(() => subscriptionsStore.getFollowing(props.userId)?.length || 0)
+const popoverUser = computed(() => getUser(props.userId))
 
 const avatarSize = computed(
   () =>
@@ -77,14 +79,14 @@ const avatarSize = computed(
 )
 
 const displayImage = computed(
-  () => props.imageBlobUrl || popoverImage.value || props.imageUrl || undefined,
+  () => props.imageBlobUrl || popoverUser.value.image || props.imageUrl || undefined,
 )
 
 // Methods
 async function loadPopoverData() {
-  if (popoverUser.value || isLoadingUser.value) return
+  if (isLoadingUser.value) return
 
-  // Calculate position based on viewport
+  // Calculate position
   if (triggerRef.value) {
     const rect = triggerRef.value.getBoundingClientRect()
     const distanceToBottom = window.innerHeight - rect.bottom
@@ -94,20 +96,11 @@ async function loadPopoverData() {
   isLoadingUser.value = true
 
   try {
-    // Load user data
-    popoverUser.value = await userStore.loadUserById(props.userId)
-    popoverImage.value = userStore.getAvatarUrl(props.userId) || null
+    await loadUser(props.userId)
 
-    // Check follow status
     if (!isCurrentUser.value) {
       await check()
     }
-
-    // Load followers/following counts
-    await Promise.all([
-      subscriptionsStore.fetchFollowers(props.userId, 0, 1),
-      subscriptionsStore.fetchFollowing(props.userId, 0, 1),
-    ])
   } catch (error) {
     console.error('[PinUserInfo] Failed to load user:', error)
   } finally {
@@ -153,11 +146,9 @@ async function handleUnfollow() {
       :to="`/user/${username}`"
       class="flex items-center mt-2 hover:underline cursor-pointer"
     >
-      <!-- Avatar -->
       <BaseAvatar v-if="displayImage" :src="displayImage" :alt="username" :size="avatarSize" />
       <div v-else class="bg-gray-300 w-8 h-8 rounded-full animate-pulse" />
 
-      <!-- Username (popover trigger) -->
       <span
         ref="triggerRef"
         @click="handleTriggerClick"
@@ -181,56 +172,32 @@ async function handleUnfollow() {
         :class="isTop ? 'top-10' : 'bottom-10'"
       >
         <div class="relative flex flex-col items-center justify-center py-6 px-4">
-          <!-- Loading state -->
+          <!-- Loading -->
           <div v-if="isLoadingUser" class="py-8">
             <div class="w-20 h-20 bg-gray-300 rounded-full animate-pulse mb-3" />
             <div class="w-24 h-4 bg-gray-300 rounded animate-pulse" />
           </div>
 
           <!-- User content -->
-          <template v-else-if="popoverUser">
-            <!-- Avatar with link -->
+          <template v-else-if="popoverUser.username !== 'Loading...'">
             <RouterLink
               :to="`/user/${popoverUser.username}`"
               class="relative transition-transform duration-200 transform hover:scale-110"
             >
-              <i
-                v-if="popoverUser.verified"
-                class="absolute -top-1 -right-1 pi pi-verified text-xl text-blue-400"
-              />
               <BaseAvatar
-                :src="popoverImage || popoverUser.imageUrl"
+                :src="popoverUser.image || undefined"
                 :alt="popoverUser.username"
                 size="xl"
                 class="border-2 border-red-500"
               />
             </RouterLink>
 
-            <!-- Username -->
             <RouterLink
               :to="`/user/${popoverUser.username}`"
               class="mt-2 text-xl font-bold hover:underline text-shadow"
             >
               {{ popoverUser.username }}
             </RouterLink>
-
-            <!-- Stats -->
-            <div class="flex gap-4 mt-1 text-sm">
-              <button
-                v-if="followersCount > 0"
-                @click.prevent="emit('showFollowers')"
-                class="hover:underline text-shadow cursor-pointer transition-transform hover:scale-105"
-              >
-                {{ followersCount }} followers
-              </button>
-              <button
-                v-if="followingCount > 0"
-                @click.prevent="emit('showFollowing')"
-                class="hover:underline text-shadow cursor-pointer transition-transform hover:scale-105"
-              >
-                {{ followingCount }} following
-              </button>
-            </div>
 
             <!-- Follow button -->
             <div v-if="showFollowButton && !isCurrentUser" class="absolute top-2 right-2">

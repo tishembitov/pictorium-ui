@@ -1,18 +1,13 @@
 <!-- src/components/features/pins/detail/PinDetailInfo.vue -->
 <script setup lang="ts">
-/**
- * PinDetailInfo - Информационная панель детальной страницы
- * Использует: usePinActions, useUserProfile, useTagsStore, randomTagColor
- */
-
 import { ref, computed, onMounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import type { PinWithBlob } from '@/types'
-import { useUserStore } from '@/stores/user.store'
-import { useTagsStore } from '@/stores/tags.store'
+import { useUsersWithAvatars } from '@/composables/api/useUsersWithAvatars'
+import { useTagSearch } from '@/composables/api/useTagSearch'
 import { usePinActions } from '@/composables/api/usePinActions'
+import { usePinSave } from '@/composables/api/usePinSave'
 import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
-import { useSuccessToast, useErrorToast } from '@/composables/ui/useToast'
 import { randomTagColor } from '@/utils/colors'
 import PinLikesPopover from '@/components/features/likes/PinLikesPopover.vue'
 import PinComments from '@/components/features/comments/PinComments.vue'
@@ -35,21 +30,16 @@ const emit = defineEmits<{
 
 const router = useRouter()
 
-// Stores
-const userStore = useUserStore()
-const tagsStore = useTagsStore()
+// ✅ ИСПРАВЛЕНО: composables вместо stores
+const { loadUser, getUser } = useUsersWithAvatars()
 
-// Composables
-const { like, unlike, save, isLiked, isSaved } = usePinActions(props.pin.id)
+// ✅ ИСПРАВЛЕНО: getter для реактивности
+const { like, unlike } = usePinActions(() => props.pin.id)
+const { saveState, saveButtonText, save } = usePinSave(() => props.pin.id)
 const { boardTitle } = useSelectedBoard()
-const { pinSaved } = useSuccessToast()
-const { showError } = useErrorToast()
 
 // State
-const pinUser = ref<any>(null)
-const pinUserImage = ref<string | null>(null)
 const tags = ref<Array<{ id: string; name: string; color: string }>>([])
-const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
 // Like state
 const localIsLiked = ref(props.pin.isLiked)
@@ -62,41 +52,21 @@ const insideLikesPopover = ref(false)
 
 // Computed
 const accentColor = computed(() => props.pin.rgb || '#ef4444')
-
-const saveButtonText = computed(() => {
-  switch (saveState.value) {
-    case 'saving':
-      return 'Saving...'
-    case 'saved':
-      return 'Saved'
-    case 'error':
-      return 'Already saved!'
-    default:
-      return 'Save'
-  }
-})
+const pinUser = computed(() => getUser(props.pin.userId))
 
 // Load user data
 onMounted(async () => {
-  if (!props.pin.userId) return
-
-  try {
-    pinUser.value = await userStore.loadUserById(props.pin.userId)
-    pinUserImage.value = userStore.getAvatarUrl(props.pin.userId) || null
-  } catch (error) {
-    console.error('[PinDetailInfo] Failed to load user:', error)
+  if (props.pin.userId) {
+    await loadUser(props.pin.userId)
   }
 
-  // Load tags
-  try {
-    const pinTags = await tagsStore.fetchPinTags(props.pin.id)
-    tags.value = pinTags.map((tag) => ({
-      id: tag.id,
-      name: tag.name,
+  // Load tags (здесь можно использовать props.pin.tags напрямую)
+  if (props.pin.tags?.length) {
+    tags.value = props.pin.tags.map((tagName, idx) => ({
+      id: `tag-${idx}`,
+      name: tagName,
       color: randomTagColor(),
     }))
-  } catch (error) {
-    console.error('[PinDetailInfo] Failed to load tags:', error)
   }
 })
 
@@ -107,7 +77,6 @@ async function handleLike() {
   const wasLiked = localIsLiked.value
   isLikeProcessing.value = true
 
-  // Optimistic update
   localIsLiked.value = !wasLiked
   localLikeCount.value += wasLiked ? -1 : 1
 
@@ -120,10 +89,8 @@ async function handleLike() {
       emit('like')
     }
   } catch (error) {
-    // Rollback
     localIsLiked.value = wasLiked
     localLikeCount.value += wasLiked ? 1 : -1
-    showError(error)
   } finally {
     isLikeProcessing.value = false
   }
@@ -131,21 +98,7 @@ async function handleLike() {
 
 // Handle save
 async function handleSave() {
-  if (saveState.value === 'saving') return
-
-  saveState.value = 'saving'
-  try {
-    await save()
-    saveState.value = 'saved'
-    pinSaved()
-  } catch (error: any) {
-    if (error?.response?.status === 409) {
-      saveState.value = 'error'
-    } else {
-      saveState.value = 'idle'
-      showError(error)
-    }
-  }
+  await save()
 }
 
 function handleLikesCountClick() {
@@ -170,7 +123,6 @@ function handleTagClick(tagName: string) {
     <div class="flex items-center justify-between w-full p-2">
       <!-- Like button and count -->
       <div class="flex items-center space-x-4 relative">
-        <!-- Like button -->
         <i
           v-if="localIsLiked"
           @click="handleLike"
@@ -255,7 +207,7 @@ function handleTagClick(tagName: string) {
     </div>
 
     <!-- Tags -->
-    <div v-if="tags.length > 0" class="flex flex-wrap gap-2 my-2" v-auto-animate>
+    <div v-if="tags.length > 0" class="flex flex-wrap gap-2 my-2">
       <TagBadge
         v-for="tag in tags"
         :key="tag.id"
@@ -268,12 +220,12 @@ function handleTagClick(tagName: string) {
     </div>
 
     <!-- User info -->
-    <div v-if="pinUser">
+    <div v-if="pinUser.username !== 'Loading...'">
       <RouterLink
         :to="`/user/${pinUser.username}`"
         class="inline-flex items-center mt-2 hover:underline cursor-pointer"
       >
-        <BaseAvatar v-if="pinUserImage" :src="pinUserImage" :alt="pinUser.username" size="md" />
+        <BaseAvatar v-if="pinUser.image" :src="pinUser.image" :alt="pinUser.username" size="md" />
         <div
           v-else
           class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold"

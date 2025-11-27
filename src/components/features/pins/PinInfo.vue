@@ -1,4 +1,4 @@
-<!-- src/components/features/pin/PinInfo.vue -->
+<!-- src/components/features/pins/PinInfo.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
@@ -46,14 +46,14 @@ function handleTagClick(tagName: string) {
 </script>
 
 <template>
-  <!-- Card variant (minimal - just title) -->
+  <!-- Card variant -->
   <div v-if="variant === 'card'" class="mt-2">
     <p v-if="title" class="text-sm font-medium truncate text-gray-900">
       {{ title }}
     </p>
   </div>
 
-  <!-- Detail variant (full info) -->
+  <!-- Detail variant -->
   <div v-else class="space-y-4">
     <!-- Title -->
     <h1 v-if="title" :style="{ color: titleColor }" class="font-bold text-2xl">
@@ -78,7 +78,8 @@ function handleTagClick(tagName: string) {
     </a>
 
     <!-- Tags -->
-    <div v-if="tags.length > 0" class="flex flex-wrap gap-2" v-auto-animate>
+    <!-- ✅ ИСПРАВЛЕНО: убран v-auto-animate или добавить импорт -->
+    <div v-if="tags.length > 0" class="flex flex-wrap gap-2">
       <TagBadge
         v-for="tag in tagsWithColors"
         :key="tag.name"

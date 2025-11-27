@@ -1,6 +1,6 @@
-<!-- src/components/features/pin/PinCreateForm.vue -->
+<!-- src/components/features/pins/PinCreateForm.vue -->
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCreatePin } from '@/composables/api/useCreatePin'
 import { useCategories } from '@/composables/api/useTagSearch'
@@ -15,6 +15,21 @@ import BaseLoader from '@/components/ui/BaseLoader.vue'
 import TagBadge from '@/components/features/tags/TagBadge.vue'
 import BackButton from '@/components/common/BackButton.vue'
 import MediaErrorDialog from '@/components/ui/MediaErrorDialog.vue'
+
+// ✅ ДОБАВЛЕНО: export interface для типов
+export interface PinCreateFormProps {
+  /** Предзаполненные теги */
+  initialTags?: string[]
+}
+
+const props = withDefaults(defineProps<PinCreateFormProps>(), {
+  initialTags: () => [],
+})
+
+const emit = defineEmits<{
+  (e: 'created', pinId: string): void
+  (e: 'cancel'): void
+}>()
 
 const router = useRouter()
 const { error: showError, success } = useToast()
@@ -40,7 +55,7 @@ const {
 // Tags state
 const tagToAdd = ref('')
 const searchValue = ref('')
-const selectedTags = ref<string[]>([])
+const selectedTags = ref<string[]>([...props.initialTags])
 const availableTags = ref<Array<{ id: string; name: string; color: string }>>([])
 
 // Error dialog
@@ -76,7 +91,6 @@ function addCustomTag() {
   const trimmed = tagToAdd.value.trim()
   if (!trimmed) return
 
-  // Add to available if not exists
   const exists = availableTags.value.some((t) => t.name.toLowerCase() === trimmed.toLowerCase())
   if (!exists) {
     availableTags.value.unshift({
@@ -86,7 +100,6 @@ function addCustomTag() {
     })
   }
 
-  // Add to selected
   if (!selectedTags.value.includes(trimmed)) {
     selectedTags.value.push(trimmed)
   }
@@ -107,6 +120,14 @@ function isTagSelected(tagName: string) {
   return selectedTags.value.includes(tagName)
 }
 
+// ✅ ИСПРАВЛЕНО: handleTagInputKeydown вместо @enter
+function handleTagInputKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    addCustomTag()
+  }
+}
+
 async function submitPin() {
   if (!canSubmit.value) {
     showError('Please upload a file')
@@ -122,6 +143,7 @@ async function submitPin() {
     })
 
     success('Pin created!')
+    emit('created', pin.id)
     router.push(`/pin/${pin.id}`)
   } catch (error: any) {
     if (error?.response?.status === 415) {
@@ -137,6 +159,7 @@ function handleFileError(errors: string[]) {
 }
 
 function goBack() {
+  emit('cancel')
   router.back()
 }
 </script>
@@ -151,7 +174,7 @@ function goBack() {
 
     <div v-else class="grid grid-cols-2 mt-10 mr-72 gap-10">
       <!-- Back button -->
-      <BackButton class="absolute top-4 left-20 ml-20 mt-20" />
+      <BackButton class="absolute top-4 left-20 ml-20 mt-20" @click="goBack" />
 
       <!-- Left column: File upload -->
       <div class="ml-56">
@@ -208,13 +231,14 @@ function goBack() {
           <!-- Create new tag -->
           <div class="flex items-center space-x-2 mb-4">
             <BaseButton variant="primary" size="sm" @click="addCustomTag"> Create </BaseButton>
+            <!-- ✅ ИСПРАВЛЕНО: @keydown вместо @enter -->
             <BaseInput
               v-model="tagToAdd"
               placeholder="Create Tag"
               rounded="full"
               size="sm"
               class="flex-1"
-              @enter="addCustomTag"
+              @keydown="handleTagInputKeydown"
             />
           </div>
 
@@ -228,7 +252,8 @@ function goBack() {
           />
 
           <!-- Tags list -->
-          <div class="flex flex-wrap gap-2" v-auto-animate>
+          <!-- ✅ ИСПРАВЛЕНО: убран v-auto-animate -->
+          <div class="flex flex-wrap gap-2">
             <TagBadge
               v-for="tag in filteredTags"
               :key="tag.id"

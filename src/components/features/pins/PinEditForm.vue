@@ -1,8 +1,8 @@
-<!-- src/components/features/pin/PinEditForm.vue -->
+<!-- src/components/features/pins/PinEditForm.vue -->
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { usePinsStore } from '@/stores/pins.store'
-import { useTagsStore } from '@/stores/tags.store'
+import { useCategories } from '@/composables/api/useTagSearch'
 import { useForm } from '@/composables/form/useForm'
 import { useSuccessToast, useErrorToast } from '@/composables/ui/useToast'
 import { randomTagColor } from '@/utils/colors'
@@ -23,11 +23,11 @@ const emit = defineEmits<{
   (e: 'cancel'): void
 }>()
 
-// Stores
+// Store (здесь store напрямую оправдан - это форма редактирования)
 const pinsStore = usePinsStore()
-const tagsStore = useTagsStore()
 
-// Toasts
+// Composables
+const { categories, fetch: fetchCategories } = useCategories()
 const { pinUpdated } = useSuccessToast()
 const { showError } = useErrorToast()
 
@@ -65,10 +65,10 @@ const hasChanges = computed(() => {
 // Load available tags
 onMounted(async () => {
   try {
-    await tagsStore.fetchAllTags(0, 100)
-    availableTags.value = tagsStore.allTags.map((tag) => ({
-      id: tag.id,
-      name: tag.name,
+    await fetchCategories(100)
+    availableTags.value = categories.value.map((cat) => ({
+      id: cat.tagId,
+      name: cat.tagName,
       color: randomTagColor(),
     }))
 

@@ -1,9 +1,9 @@
-<!-- src/components/features/pin/PinCard.vue -->
+<!-- src/components/features/pins/PinCard.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
-import { useUserStore } from '@/stores/user.store'
-import { useAuthStore } from '@/stores/auth.store'
+import { useUsersWithAvatars } from '@/composables/api/useUsersWithAvatars'
+import { useAuthState } from '@/composables/auth/useAuth'
 import { useHover } from '@/composables/features/useHover'
 import { useOwnership } from '@/composables/auth/usePermissions'
 import PinMedia from './PinMedia.vue'
@@ -33,9 +33,9 @@ const emit = defineEmits<{
   (e: 'openBoardSelector'): void
 }>()
 
-// Stores
-const userStore = useUserStore()
-const authStore = useAuthStore()
+// ✅ ИСПРАВЛЕНО: composables вместо stores
+const { loadUser, getUser } = useUsersWithAvatars()
+const { userId: authUserId } = useAuthState()
 
 // Refs
 const cardRef = ref<HTMLElement | null>(null)
@@ -46,10 +46,10 @@ const { isOwner, canDelete } = useOwnership(computed(() => props.pin.userId))
 
 // State
 const isMediaLoaded = ref(false)
-const user = ref<any>(null)
-const userImage = ref<string | null>(null)
 
 // Computed
+const user = computed(() => getUser(props.pin.userId))
+
 const showActionButtons = computed(() => props.showActions && isHovered.value && props.showAllPins)
 
 const showDeleteButton = computed(() => {
@@ -70,8 +70,7 @@ onMounted(async () => {
   if (!props.showUser || !props.pin.userId) return
 
   try {
-    user.value = await userStore.loadUserById(props.pin.userId)
-    userImage.value = userStore.getAvatarUrl(props.pin.userId) || null
+    await loadUser(props.pin.userId)
   } catch (error) {
     console.error('[PinCard] Failed to load user:', error)
   }
@@ -138,23 +137,22 @@ function handleOpenBoardSelector() {
           @load="handleMediaLoad"
         />
 
-        <!-- Title (inside link for card variant) -->
+        <!-- Title -->
         <PinInfo v-if="showAllPins && isMediaLoaded" :title="pin.title" variant="card" />
       </RouterLink>
 
-      <!-- User info (outside link for popover interaction) -->
+      <!-- User info -->
       <PinUserInfo
-        v-if="showUser && user && showAllPins && isMediaLoaded"
+        v-if="showUser && user.username !== 'Loading...' && showAllPins && isMediaLoaded"
         :user-id="pin.userId"
         :username="user.username"
-        :image-blob-url="userImage || undefined"
-        :verified="user.verified"
+        :image-blob-url="user.image || undefined"
         size="sm"
       />
 
       <!-- User placeholder while loading -->
       <div v-else-if="showUser && !isMediaLoaded" class="flex items-center mt-2">
-        <div class="bg-gray-300 w-8 h-8 rounded-full" />
+        <div class="bg-gray-300 w-8 h-8 rounded-full animate-pulse" />
         <span class="ml-2 text-sm font-medium" />
       </div>
     </div>

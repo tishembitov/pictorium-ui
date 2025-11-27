@@ -1,15 +1,10 @@
 <!-- src/components/features/pins/detail/PinFullscreen.vue -->
 <script setup lang="ts">
-/**
- * PinFullscreen - Полноэкранный просмотр изображения
- * Использует: useEscapeKey, useSelectedBoard
- */
-
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useEscapeKey } from '@/composables/utils/useClickOutside'
+import { useScrollLock } from '@/composables/utils/useScrollLock'
 import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
-import { usePinActions } from '@/composables/api/usePinActions'
-import { useSuccessToast, useErrorToast } from '@/composables/ui/useToast'
+import { usePinSave } from '@/composables/api/usePinSave'
 
 export interface PinFullscreenProps {
   modelValue: boolean
@@ -28,18 +23,19 @@ const emit = defineEmits<{
   (e: 'openBoardSelector'): void
 }>()
 
-// Composables
+// ✅ ИСПРАВЛЕНО: getter для реактивности
 const { boardTitle } = useSelectedBoard()
-const { save } = usePinActions(props.pinId)
-const { pinSaved } = useSuccessToast()
-const { showError } = useErrorToast()
+const { saveState, saveButtonText, save } = usePinSave(() => props.pinId)
 
 // State
 const zoom = ref(1)
 const minZoom = 0.2
 const maxZoom = 3
 const zoomStep = 0.1
-const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+// ✅ ИСПРАВЛЕНО: useScrollLock вместо document напрямую
+const isOpen = computed(() => props.modelValue)
+useScrollLock(isOpen)
 
 // Close handler
 function close() {
@@ -48,7 +44,6 @@ function close() {
 }
 
 // Escape key
-const isOpen = computed(() => props.modelValue)
 useEscapeKey(close, { enabled: isOpen })
 
 // Zoom controls
@@ -71,44 +66,8 @@ function handleWheel(event: WheelEvent) {
 
 // Save handler
 async function handleSave() {
-  if (saveState.value === 'saving') return
-
-  saveState.value = 'saving'
-  try {
-    await save()
-    saveState.value = 'saved'
-    pinSaved()
-  } catch (error: any) {
-    if (error?.response?.status === 409) {
-      saveState.value = 'error'
-    } else {
-      saveState.value = 'idle'
-      showError(error)
-    }
-  }
+  await save()
 }
-
-// Save button text
-const saveButtonText = computed(() => {
-  switch (saveState.value) {
-    case 'saving':
-      return 'Saving...'
-    case 'saved':
-      return 'Saved'
-    case 'error':
-      return 'Already saved!'
-    default:
-      return 'Save'
-  }
-})
-
-// Body scroll lock
-watch(
-  () => props.modelValue,
-  (isOpen) => {
-    document.body.classList.toggle('overflow-hidden', isOpen)
-  },
-)
 </script>
 
 <template>
@@ -132,7 +91,7 @@ watch(
           <i class="pi pi-times text-3xl font-bold" />
         </button>
 
-        <!-- Actions (правый верхний угол) -->
+        <!-- Actions -->
         <div class="absolute top-4 right-4 flex flex-row gap-1 z-10">
           <button
             @click.stop="emit('openBoardSelector')"
@@ -150,7 +109,7 @@ watch(
           </button>
         </div>
 
-        <!-- Image с zoom -->
+        <!-- Image -->
         <img
           :src="src"
           :alt="alt"
@@ -164,7 +123,7 @@ watch(
           <button
             @click="increaseZoom"
             :disabled="zoom >= maxZoom"
-            class="bg-white bg-opacity-80 rounded-full p-2 focus:outline-none justify-center text-center items-center flex hover:bg-opacity-100 transition disabled:opacity-50"
+            class="bg-white bg-opacity-80 rounded-full p-2 focus:outline-none hover:bg-opacity-100 transition disabled:opacity-50"
             aria-label="Zoom in"
           >
             <i class="pi pi-plus text-2xl font-bold" />
@@ -173,7 +132,7 @@ watch(
           <button
             @click="decreaseZoom"
             :disabled="zoom <= minZoom"
-            class="bg-white bg-opacity-80 rounded-full p-2 focus:outline-none justify-center text-center items-center flex hover:bg-opacity-100 transition disabled:opacity-50"
+            class="bg-white bg-opacity-80 rounded-full p-2 focus:outline-none hover:bg-opacity-100 transition disabled:opacity-50"
             aria-label="Zoom out"
           >
             <i class="pi pi-minus text-2xl font-bold" />

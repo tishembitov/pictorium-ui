@@ -1,9 +1,8 @@
-<!-- src/components/features/pin/PinActions.vue -->
+<!-- src/components/features/pins/PinActions.vue -->
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { usePinActions } from '@/composables/api/usePinActions'
+import { usePinSave } from '@/composables/api/usePinSave'
 import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
-import { useSuccessToast, useErrorToast } from '@/composables/ui/useToast'
 
 export interface PinActionsProps {
   pinId: string
@@ -31,32 +30,22 @@ const emit = defineEmits<{
   (e: 'openBoardSelector'): void
 }>()
 
-// Composables
-const { save, unsave, toggleSave, isSaved: storeSaved } = usePinActions(props.pinId)
-const { boardTitle, hasSelected } = useSelectedBoard()
-const successToast = useSuccessToast()
-const { showError } = useErrorToast()
+// ✅ ИСПРАВЛЕНО: getter для реактивности
+const { saveState, saveButtonText, save } = usePinSave(() => props.pinId)
+const { boardTitle } = useSelectedBoard()
 
 // State
-const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
 const deleteState = ref<'idle' | 'deleting' | 'deleted'>('idle')
 
-// Sync with props/store
-const localIsSaved = computed(() => storeSaved.value || props.isSaved)
-
 // Computed
-const saveButtonText = computed(() => {
-  switch (saveState.value) {
-    case 'saving':
-      return 'Saving...'
-    case 'saved':
-      return 'Saved'
-    case 'error':
-      return 'Already saved!'
-    default:
-      return 'Save'
+const saveButtonBg = computed(() => {
+  if (saveState.value === 'saving' || saveState.value === 'saved') {
+    return 'bg-black'
   }
+  return 'bg-red-600 hover:bg-red-700'
 })
+
+const displayBoardTitle = computed(() => boardTitle.value || 'Profile')
 
 const deleteButtonText = computed(() => {
   switch (deleteState.value) {
@@ -69,42 +58,17 @@ const deleteButtonText = computed(() => {
   }
 })
 
-const saveButtonBg = computed(() => {
-  if (saveState.value === 'saving' || saveState.value === 'saved') {
-    return 'bg-black'
-  }
-  return 'bg-red-600 hover:bg-red-700'
-})
-
-const displayBoardTitle = computed(() => {
-  return boardTitle.value || 'Profile'
-})
-
 // Handlers
 async function handleSave() {
-  if (saveState.value === 'saving') return
-
   emit('save')
-  saveState.value = 'saving'
-
-  try {
-    await save()
-    saveState.value = 'saved'
-    successToast.pinSaved()
+  const success = await save()
+  if (success) {
     emit('saved')
-  } catch (error: any) {
-    if (error?.response?.status === 409) {
-      saveState.value = 'error'
-    } else {
-      saveState.value = 'idle'
-      showError(error)
-    }
   }
 }
 
-async function handleDelete() {
+function handleDelete() {
   if (deleteState.value === 'deleting') return
-
   deleteState.value = 'deleting'
   emit('delete')
 }
@@ -115,9 +79,8 @@ function handleOpenBoardSelector() {
 </script>
 
 <template>
-  <!-- Card variant (positioned absolutely, shown on hover) -->
+  <!-- Card variant -->
   <div v-if="variant === 'card'" class="flex flex-col gap-2">
-    <!-- Save button -->
     <button
       @click.stop.prevent="handleSave"
       :class="['px-6 py-3 text-sm text-white rounded-3xl transition font-medium', saveButtonBg]"
@@ -126,7 +89,6 @@ function handleOpenBoardSelector() {
       {{ saveButtonText }}
     </button>
 
-    <!-- Board selector button -->
     <button
       v-if="showBoardSelector"
       @click.stop.prevent="handleOpenBoardSelector"
@@ -135,7 +97,6 @@ function handleOpenBoardSelector() {
       {{ displayBoardTitle }}
     </button>
 
-    <!-- Delete button -->
     <button
       v-if="showDelete"
       @click.stop.prevent="handleDelete"
@@ -149,9 +110,8 @@ function handleOpenBoardSelector() {
     </button>
   </div>
 
-  <!-- Detail variant (inline row) -->
+  <!-- Detail variant -->
   <div v-else-if="variant === 'detail'" class="flex flex-row gap-2">
-    <!-- Board selector -->
     <button
       v-if="showBoardSelector"
       @click.stop="handleOpenBoardSelector"
@@ -160,7 +120,6 @@ function handleOpenBoardSelector() {
       {{ displayBoardTitle }}
     </button>
 
-    <!-- Save button with dynamic color -->
     <button
       @click="handleSave"
       :style="{ backgroundColor: saveState === 'idle' ? rgb : '#000' }"
@@ -171,17 +130,17 @@ function handleOpenBoardSelector() {
     </button>
   </div>
 
-  <!-- Minimal variant (icon only) -->
+  <!-- Minimal variant -->
   <div v-else class="flex items-center gap-2">
     <button
       @click.stop="handleSave"
       class="p-2 rounded-full hover:bg-gray-100 transition"
-      :title="localIsSaved ? 'Saved' : 'Save'"
+      :title="isSaved ? 'Saved' : 'Save'"
     >
       <i
         :class="[
           'pi text-xl',
-          localIsSaved ? 'pi-bookmark-fill text-red-600' : 'pi-bookmark text-gray-600',
+          isSaved ? 'pi-bookmark-fill text-red-600' : 'pi-bookmark text-gray-600',
         ]"
       />
     </button>

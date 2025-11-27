@@ -1,15 +1,10 @@
 <!-- src/components/features/pins/detail/PinDetailView.vue -->
 <script setup lang="ts">
-/**
- * PinDetailView - Главный контейнер детальной страницы пина
- * Композиция всех компонентов, сохраняет UI из старого PinView.vue
- */
-
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { usePinDetail } from '@/composables/api/usePinDetail'
 import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
-import { useMyBoards } from '@/composables/api/useBoardDetail'
+import { useBoards } from '@/composables/api/useBoards' // ✅ ИСПРАВЛЕНО
 import { useDocumentTitle } from '@/composables/utils/useDocumentTitle'
 import { useIntersectionObserver } from '@/composables/utils/useIntersectionObserver'
 import PinDetailMedia from './PinDetailMedia.vue'
@@ -29,14 +24,10 @@ export interface PinDetailViewProps {
 const props = defineProps<PinDetailViewProps>()
 
 const router = useRouter()
-const route = useRoute()
 
-// Composables
-const { pin, comments, relatedPins, isLoading, isLoadingComments, fetchPin, like, unlike } =
-  usePinDetail(() => props.pinId)
-
-const { board: selectedBoard } = useSelectedBoard()
-const { boards, fetch: fetchBoards, isLoading: isLoadingBoards } = useMyBoards()
+// ✅ ИСПРАВЛЕНО: правильный composable
+const { pin, isLoading, fetchPin, like, unlike } = usePinDetail(() => props.pinId)
+const { myBoards, isLoading: isLoadingBoards, fetchMyBoards } = useBoards()
 
 // Refs
 const mediaRef = ref<InstanceType<typeof PinDetailMedia> | null>(null)
@@ -55,7 +46,7 @@ const showMoreExplore = ref(true)
 const pageTitle = computed(() => pin.value?.title || 'Pin')
 useDocumentTitle(pageTitle)
 
-// Intersection observer for "More to explore" button
+// Intersection observer
 const { isIntersecting } = useIntersectionObserver(relatedObserverTarget, {
   threshold: [0, 0.2, 1],
 })
@@ -98,7 +89,7 @@ async function handleUnlike() {
   }
 }
 
-// Handle double tap on media
+// Handle double tap
 function handleDoubleTap() {
   if (pin.value && !pin.value.isLiked) {
     handleLike()
@@ -122,8 +113,8 @@ function openFullscreen() {
 // Board selector
 async function openBoardSelector() {
   showBoardsModal.value = true
-  if (boards.value.length === 0) {
-    await fetchBoards()
+  if (myBoards.value.length === 0) {
+    await fetchMyBoards()
   }
 }
 
@@ -156,7 +147,7 @@ function handleHasRelated() {
       >
         More to explore
         <svg
-          class="w-4 h-4 text-black transition-transform group-hover:translate-y-1"
+          class="w-4 h-4 text-black"
           fill="none"
           stroke="currentColor"
           stroke-width="2"
@@ -168,7 +159,7 @@ function handleHasRelated() {
     </div>
   </Transition>
 
-  <!-- Fullscreen image viewer -->
+  <!-- Fullscreen -->
   <PinFullscreen
     v-if="pin?.imageBlobUrl"
     v-model="showFullscreen"
@@ -184,7 +175,7 @@ function handleHasRelated() {
   <!-- Board selector modal -->
   <BoardSelectorModal
     v-model="showBoardsModal"
-    :boards="boards"
+    :boards="myBoards"
     :is-loading="isLoadingBoards"
     @select="() => (showBoardsModal = false)"
   />
@@ -193,7 +184,6 @@ function handleHasRelated() {
   <AppHeader />
 
   <div class="ml-20 mt-20">
-    <!-- Back button -->
     <BackButton position="absolute" class="ml-20 mt-20" />
 
     <!-- Loading skeleton -->
@@ -205,11 +195,9 @@ function handleHasRelated() {
     <div
       v-show="mediaLoaded"
       class="grid grid-cols-2 gap-10 mx-60 bg-gray-100 rounded-3xl"
-      :style="{
-        boxShadow: `0 0 30px 15px ${accentColor}`,
-      }"
+      :style="{ boxShadow: `0 0 30px 15px ${accentColor}` }"
     >
-      <!-- Left column: Media -->
+      <!-- Left: Media -->
       <div>
         <PinDetailMedia
           v-if="pin"
@@ -226,12 +214,10 @@ function handleHasRelated() {
         />
       </div>
 
-      <!-- Right column: Info -->
+      <!-- Right: Info -->
       <div v-if="pin" v-show="!isLoading">
-        <!-- Info skeleton while loading additional data -->
         <PinDetailSkeleton v-if="isLoading" variant="info-only" />
 
-        <!-- Info content -->
         <PinDetailInfo
           v-else
           :pin="pin"

@@ -22,7 +22,7 @@ export * from './api/useSavedPins'
 export * from './api/useCreatePin'
 export * from './api/useCommentLikes'
 export * from './api/usePinLikes'
-// API Composables - добавить
+export * from './api/usePinSave'
 export * from './api/useUsersWithAvatars'
 
 // ============================================================================

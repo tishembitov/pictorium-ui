@@ -2,7 +2,7 @@
 <script setup lang="ts">
 /**
  * PinComments - Главный контейнер комментариев
- * Гибрид: composables + MediaErrorDialog + стиль старого проекта
+ * ✅ ИСПРАВЛЕНО: getter для composable
  */
 
 import { ref, onMounted, nextTick, watch } from 'vue'
@@ -25,8 +25,8 @@ const props = withDefaults(defineProps<PinCommentsProps>(), {
 
 const emit = defineEmits<(e: 'countChange', count: number) => void>()
 
-// ✅ usePinComments composable
-const { comments, hasMore, isLoading, fetch, loadMore, add } = usePinComments(props.pinId)
+// ✅ ИСПРАВЛЕНО: getter для реактивности
+const { comments, hasMore, isLoading, fetch, loadMore, add } = usePinComments(() => props.pinId)
 const { error: showError } = useToast()
 
 // State
@@ -35,7 +35,7 @@ const isSubmitting = ref(false)
 const localCommentCount = ref(props.commentCount)
 const isInitialLoad = ref(true)
 
-// ✅ MediaErrorDialog
+// MediaErrorDialog
 const showMediaError = ref(false)
 
 // Initialize
@@ -111,10 +111,10 @@ watch(showComments, async (show) => {
 
 <template>
   <div class="w-full">
-    <!-- ✅ MediaErrorDialog (стиль из старого проекта) -->
+    <!-- MediaErrorDialog -->
     <MediaErrorDialog v-model="showMediaError" />
 
-    <!-- ✅ Comments Header (из старого PinView) -->
+    <!-- Comments Header -->
     <div
       v-if="localCommentCount > 0"
       class="mt-5 mb-2 flex items-center justify-between cursor-pointer"
@@ -126,12 +126,12 @@ watch(showComments, async (show) => {
       </span>
     </div>
 
-    <!-- ✅ No comments (из старого PinView) -->
+    <!-- No comments -->
     <div v-else class="mt-5 mb-1">
       <h1 class="text-md text-black ml-1">Your opinion?</h1>
     </div>
 
-    <!-- ✅ Comments container (из старого CommentSection) -->
+    <!-- Comments container -->
     <div
       v-if="showComments"
       class="flex flex-col gap-1 bg-gray-100 text-sm font-medium text-black h-auto max-h-96 w-full overflow-y-auto border-2 border-gray-300 rounded-3xl mb-5"
@@ -145,7 +145,7 @@ watch(showComments, async (show) => {
       />
     </div>
 
-    <!-- ✅ Comment Input (из старого PinView) -->
+    <!-- Comment Input -->
     <div class="flex items-center justify-center space-x-2 mb-4 mr-6 mt-2">
       <CommentInput
         placeholder="Add Comment"

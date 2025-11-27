@@ -1,8 +1,7 @@
 // src/composables/api/usePinLikes.ts
 /**
  * usePinLikes - Загрузка списка пользователей, лайкнувших пин
- *
- * API возвращает Like[] (с userId), поэтому загружаем User для каждого лайка
+ * ✅ ИСПРАВЛЕНО: поддержка getter для pinId
  */
 
 import { ref, computed, onUnmounted } from 'vue'
@@ -22,6 +21,7 @@ export interface UsePinLikesOptions {
 export function usePinLikes(pinId: string | (() => string), options: UsePinLikesOptions = {}) {
   const { pageSize = 10, immediate = false } = options
 
+  // ✅ Поддержка getter
   const getId = () => (typeof pinId === 'string' ? pinId : pinId())
 
   // State
@@ -32,10 +32,8 @@ export function usePinLikes(pinId: string | (() => string), options: UsePinLikes
   const isLoading = ref(false)
   const error = ref<Error | null>(null)
 
-  // Load user with avatar
   async function loadUserWithAvatar(like: Like): Promise<LikeUser | null> {
     try {
-      // Загружаем данные пользователя
       const user = await usersApi.getUserById(like.userId)
 
       const likeUser: LikeUser = {
@@ -43,7 +41,6 @@ export function usePinLikes(pinId: string | (() => string), options: UsePinLikes
         likedAt: like.createdAt,
       }
 
-      // Загружаем аватар если есть
       if (user.imageUrl) {
         try {
           const blob = await storageApi.downloadImage(user.imageUrl)
@@ -60,7 +57,6 @@ export function usePinLikes(pinId: string | (() => string), options: UsePinLikes
     }
   }
 
-  // Fetch likes
   async function fetch(pageNum = 0, reset = false): Promise<LikeUser[]> {
     if (isLoading.value) return []
 
@@ -69,7 +65,6 @@ export function usePinLikes(pinId: string | (() => string), options: UsePinLikes
       error.value = null
 
       if (reset) {
-        // Cleanup old blob URLs
         users.value.forEach((user) => {
           if (user.avatarBlobUrl) {
             URL.revokeObjectURL(user.avatarBlobUrl)
@@ -88,10 +83,8 @@ export function usePinLikes(pinId: string | (() => string), options: UsePinLikes
 
       const response = await likesApi.getPinLikes(getId(), { pinId: getId(), pageable })
 
-      // Load users for each like
       const loadedUsers = await Promise.all(response.content.map(loadUserWithAvatar))
 
-      // Filter out failed loads
       const validUsers = loadedUsers.filter((u): u is LikeUser => u !== null)
 
       if (pageNum === 0 || reset) {
@@ -114,13 +107,11 @@ export function usePinLikes(pinId: string | (() => string), options: UsePinLikes
     }
   }
 
-  // Load more
   async function loadMore(): Promise<LikeUser[]> {
     if (!hasMore.value || isLoading.value) return []
     return await fetch(page.value + 1)
   }
 
-  // Reset
   function reset() {
     users.value.forEach((user) => {
       if (user.avatarBlobUrl) {
@@ -134,7 +125,6 @@ export function usePinLikes(pinId: string | (() => string), options: UsePinLikes
     error.value = null
   }
 
-  // Cleanup on unmount
   onUnmounted(() => {
     users.value.forEach((user) => {
       if (user.avatarBlobUrl) {
@@ -143,7 +133,6 @@ export function usePinLikes(pinId: string | (() => string), options: UsePinLikes
     })
   })
 
-  // Immediate fetch if requested
   if (immediate) {
     fetch(0)
   }

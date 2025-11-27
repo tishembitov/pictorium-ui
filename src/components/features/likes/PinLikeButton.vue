@@ -1,5 +1,10 @@
-<!-- src/components/pin/likes/PinLikeButton.vue -->
+<!-- src/components/features/likes/PinLikeButton.vue -->
 <script setup lang="ts">
+/**
+ * PinLikeButton - Кнопка лайка пина
+ * ✅ ИСПРАВЛЕНО: getter для composable
+ */
+
 import { ref, computed, watch } from 'vue'
 import { usePinActions } from '@/composables/api/usePinActions'
 import { useLikeAnimation, useHeartBurst } from '@/composables/features/useAnimations'
@@ -35,10 +40,10 @@ const emit = defineEmits<{
 const buttonRef = ref<HTMLElement | null>(null)
 const containerRef = ref<HTMLElement | null>(null)
 
-// Actions from store
-const { toggleLike } = usePinActions(props.pinId)
+// ✅ ИСПРАВЛЕНО: getter для реактивности
+const { toggleLike } = usePinActions(() => props.pinId)
 
-// Local state for optimistic UI
+// Local state
 const localIsLiked = ref(props.isLiked)
 const localCount = ref(props.likeCount)
 const isProcessing = ref(false)
@@ -50,6 +55,7 @@ watch(
     localIsLiked.value = val
   },
 )
+
 watch(
   () => props.likeCount,
   (val) => {
@@ -61,7 +67,7 @@ watch(
 const { isAnimating: isLikeAnimating, animate: animateLike } = useLikeAnimation(buttonRef)
 const { burst: burstHearts } = useHeartBurst(containerRef)
 
-// Animation states for flash effect
+// Animation states
 const showLikeAnimation = ref(false)
 const showUnlikeAnimation = ref(false)
 

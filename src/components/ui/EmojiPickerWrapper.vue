@@ -2,6 +2,19 @@
 import EmojiPicker from 'vue3-emoji-picker'
 import 'vue3-emoji-picker/css'
 
+export interface EmojiObject {
+  /** Emoji character (e.g., "😀") */
+  i: string
+  /** Emoji names/aliases */
+  n?: string[]
+  /** Emoji category */
+  r?: string
+  /** Emoji tone */
+  t?: string
+  /** Unicode representation */
+  u?: string
+}
+
 export interface EmojiPickerWrapperProps {
   modelValue: boolean
   theme?: 'light' | 'dark' | 'auto'
@@ -26,10 +39,10 @@ const props = withDefaults(defineProps<EmojiPickerWrapperProps>(), {
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'select', emoji: unknown): void
+  (e: 'select', emoji: EmojiObject): void
 }>()
 
-const handleSelect = (emoji: unknown) => {
+function handleSelect(emoji: EmojiObject) {
   emit('select', emoji)
 }
 

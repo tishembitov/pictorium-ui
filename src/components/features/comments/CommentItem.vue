@@ -2,7 +2,7 @@
 <script setup lang="ts">
 /**
  * CommentItem - Один комментарий
- * Гибрид: composables + ImagePreview + стиль старого проекта
+ * ✅ ИСПРАВЛЕНО: getter для composable
  */
 
 import { ref, computed, nextTick, watch } from 'vue'
@@ -31,8 +31,8 @@ const emit = defineEmits<{
   (e: 'replyAdded', commentId: string): void
 }>()
 
-// ✅ Composables
-const { addReply, deleteComment } = useCommentThread(props.comment.id)
+// ✅ ИСПРАВЛЕНО: getter для реактивности
+const { addReply, deleteComment } = useCommentThread(() => props.comment.id)
 const { error: showError, success } = useToast()
 
 // State
@@ -41,7 +41,7 @@ const showReplies = ref(props.comment.replyCount > 0)
 const isSubmitting = ref(false)
 const localReplyCount = ref(props.comment.replyCount)
 
-// ✅ Для MediaErrorDialog и ImagePreview
+// Для MediaErrorDialog и ImagePreview
 const showMediaError = ref(false)
 const showImagePreview = ref(false)
 
@@ -52,7 +52,7 @@ watch(
   },
 )
 
-// ✅ isVideoUrl из utils/media
+// isVideoUrl из utils/media
 const isVideo = computed(() => {
   if (!props.comment.imageUrl) return false
   return isVideoUrl(props.comment.imageUrl)
@@ -119,10 +119,10 @@ function openImagePreview() {
 
 <template>
   <div class="flex flex-col">
-    <!-- ✅ MediaErrorDialog (стиль из старого проекта) -->
+    <!-- MediaErrorDialog -->
     <MediaErrorDialog v-model="showMediaError" />
 
-    <!-- ✅ ImagePreview для просмотра изображений -->
+    <!-- ImagePreview -->
     <ImagePreview
       v-if="comment.imageBlobUrl && isImage"
       v-model="showImagePreview"
@@ -130,7 +130,7 @@ function openImagePreview() {
       alt="Comment image"
     />
 
-    <!-- ✅ User info (структура из старого проекта) -->
+    <!-- User info -->
     <RouterLink
       :to="`/user/${username}`"
       class="flex items-center space-x-2 hover:underline cursor-pointer"
@@ -154,7 +154,7 @@ function openImagePreview() {
       {{ comment.content }}
     </span>
 
-    <!-- ✅ Media (с возможностью просмотра через ImagePreview) -->
+    <!-- Media -->
     <div v-if="comment.imageBlobUrl" class="flex flex-row ml-12">
       <img
         v-if="isImage"
@@ -174,7 +174,7 @@ function openImagePreview() {
       />
     </div>
 
-    <!-- ✅ Reply Input (структура из старого проекта) -->
+    <!-- Reply Input -->
     <div v-if="showReply && !isSubmitting" class="flex items-center space-x-2 ml-12 mr-4 mt-2">
       <i
         @click="handleCancelReply"
@@ -188,7 +188,7 @@ function openImagePreview() {
       />
     </div>
 
-    <!-- ✅ Loading (colorful loader из старого проекта) -->
+    <!-- Loading -->
     <div v-if="isSubmitting" class="flex items-center space-x-2 ml-12 mr-4 mt-2 justify-center">
       <BaseLoader variant="colorful" size="md" :fullscreen="false" />
     </div>
@@ -206,7 +206,7 @@ function openImagePreview() {
       />
     </div>
 
-    <!-- ✅ Replies toggle (стиль из старого проекта) -->
+    <!-- Replies toggle -->
     <div
       v-if="localReplyCount > 0"
       class="ml-12 text-gray-700 text-sm mt-4 italic cursor-pointer mb-2 flex items-center justify-between"

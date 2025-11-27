@@ -1,8 +1,7 @@
 // src/composables/api/usePinComments.ts
 /**
- * usePinComments - Комментарии пина (отдельный от usePinDetail)
- *
- * Используется когда нужны только комментарии без пина
+ * usePinComments - Комментарии пина
+ * ✅ ИСПРАВЛЕНО: поддержка getter для pinId
  */
 
 import { computed, onUnmounted } from 'vue'
@@ -12,6 +11,7 @@ import type { CommentWithBlob } from '@/types'
 export function usePinComments(pinId: string | (() => string)) {
   const store = useCommentsStore()
 
+  // ✅ Поддержка getter
   const getId = () => (typeof pinId === 'string' ? pinId : pinId())
 
   const comments = computed<CommentWithBlob[]>(() => store.getPinComments(getId()))

@@ -1,5 +1,10 @@
-<!-- src/components/pin/likes/LikeUserItem.vue -->
+<!-- src/components/features/likes/LikeUserItem.vue -->
 <script setup lang="ts">
+/**
+ * LikeUserItem - Элемент списка лайкнувших
+ * ✅ Компонент был чистым
+ */
+
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -20,7 +25,6 @@ const props = withDefaults(defineProps<LikeUserItemProps>(), {
   showLink: true,
 })
 
-// Map sizes to UserAvatar sizes
 const avatarSize = computed(() => {
   return {
     sm: 'sm' as const,

@@ -2,7 +2,7 @@
 <script setup lang="ts">
 /**
  * CommentReplyItem - Один ответ на комментарий
- * Гибрид: utils + стиль старого проекта
+ * ✅ Компонент был чистым
  */
 
 import { ref, computed, watch } from 'vue'
@@ -35,6 +35,7 @@ watch(
     isLiked.value = val
   },
 )
+
 watch(
   () => props.reply.likeCount,
   (val) => {
@@ -42,7 +43,7 @@ watch(
   },
 )
 
-// ✅ isVideoUrl из utils/media
+// isVideoUrl из utils/media
 const isVideo = computed(() => {
   if (!props.reply.imageUrl) return false
   return isVideoUrl(props.reply.imageUrl)
@@ -62,7 +63,6 @@ function handleDelete() {
 </script>
 
 <template>
-  <!-- ✅ Структура из старого ReplyCommentSection.vue -->
   <div class="flex flex-col mb-2">
     <RouterLink
       :to="`/user/${username}`"

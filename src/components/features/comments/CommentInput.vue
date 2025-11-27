@@ -2,7 +2,7 @@
 <script setup lang="ts">
 /**
  * CommentInput - Input для комментариев
- * Гибрид: composables + validators + стиль старого проекта
+ * ✅ Компонент был чистым, добавлены мелкие улучшения
  */
 
 import { ref, computed, watch, onUnmounted } from 'vue'
@@ -43,7 +43,7 @@ const emit = defineEmits<{
 
 const { warning } = useToast()
 
-// ✅ useFileUpload для preview
+// useFileUpload для preview
 const {
   file: mediaFile,
   preview: mediaPreview,
@@ -74,7 +74,7 @@ const canSubmit = computed(() => {
 
 const isDisabled = computed(() => props.disabled || props.loading)
 
-// ✅ Валидация текста через validators
+// Валидация текста
 watch(content, (value) => {
   if (value.trim()) {
     contentError.value = getCommentError(value)
@@ -97,7 +97,6 @@ function onSelectEmoji(emoji: { i: string }) {
   inputRef.value?.focus()
 }
 
-// ✅ validateMediaFile для валидации медиа
 async function handleMediaSelect(event: Event) {
   const input = event.target as HTMLInputElement
   const selectedFile = input.files?.[0]
@@ -128,7 +127,6 @@ function clearMedia() {
 function handleSubmit() {
   if (!canSubmit.value) return
 
-  // Final validation
   const error = getCommentError(content.value)
   if (error && !mediaFile.value) {
     contentError.value = error
@@ -174,7 +172,7 @@ defineExpose({
 
 <template>
   <div class="w-full">
-    <!-- ✅ Media Preview (стиль из старого проекта) -->
+    <!-- Media Preview -->
     <div v-if="mediaPreview && !loading">
       <div v-if="isImageFile" class="relative mb-2">
         <div class="absolute top-0 left-[-10px] z-20" @click="clearMedia">
@@ -194,12 +192,12 @@ defineExpose({
       </div>
     </div>
 
-    <!-- ✅ Loading (colorful loader из старого проекта) -->
+    <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center py-4">
       <BaseLoader variant="colorful" size="md" :fullscreen="false" />
     </div>
 
-    <!-- ✅ Input Row (структура из старого проекта) -->
+    <!-- Input Row -->
     <div v-else class="flex items-center space-x-2">
       <slot name="cancel" :cancel="handleCancel" />
 
@@ -219,7 +217,7 @@ defineExpose({
           ]"
         />
 
-        <!-- ✅ Emoji button (позиция из старого проекта) -->
+        <!-- Emoji button -->
         <button
           v-if="showEmojiPicker"
           @click="
@@ -234,7 +232,7 @@ defineExpose({
           <i class="pi pi-face-smile text-2xl" :style="{ color: accentColor }" />
         </button>
 
-        <!-- ✅ Media upload (позиция из старого проекта) -->
+        <!-- Media upload -->
         <label v-if="showMediaUpload" class="absolute bottom-0.5 right-4 p-1 cursor-pointer">
           <i
             class="pi pi-images text-2xl transition transform hover:scale-105"
@@ -251,7 +249,7 @@ defineExpose({
           />
         </label>
 
-        <!-- ✅ Emoji Picker (позиция из старого проекта) -->
+        <!-- Emoji Picker -->
         <EmojiPickerWrapper
           v-show="showPicker"
           :model-value="showPicker"

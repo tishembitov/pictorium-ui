@@ -1,6 +1,7 @@
 // src/composables/api/useCommentLikes.ts
 /**
  * useCommentLikes - Загрузка пользователей, лайкнувших комментарий
+ * ✅ ИСПРАВЛЕНО: поддержка getter для commentId
  */
 
 import { ref, computed, onUnmounted } from 'vue'
@@ -23,6 +24,7 @@ export function useCommentLikes(
 ) {
   const { pageSize = 5, immediate = false } = options
 
+  // ✅ Поддержка getter
   const getId = () => (typeof commentId === 'string' ? commentId : commentId())
 
   // State
@@ -33,7 +35,6 @@ export function useCommentLikes(
   const isLoading = ref(false)
   const error = ref<Error | null>(null)
 
-  // Load user with avatar
   async function loadUserWithAvatar(userId: string): Promise<CommentLikeUser | null> {
     try {
       const user = await usersApi.getUserById(userId)
@@ -55,7 +56,6 @@ export function useCommentLikes(
     }
   }
 
-  // Fetch likes
   async function fetch(pageNum = 0, reset = false): Promise<CommentLikeUser[]> {
     if (isLoading.value) return []
 
@@ -80,7 +80,6 @@ export function useCommentLikes(
         pageable,
       })
 
-      // Load users for each like
       const loadedUsers = await Promise.all(
         response.content.map((like) => loadUserWithAvatar(like.userId)),
       )
@@ -107,13 +106,11 @@ export function useCommentLikes(
     }
   }
 
-  // Load more
   async function loadMore(): Promise<CommentLikeUser[]> {
     if (!hasMore.value || isLoading.value) return []
     return await fetch(page.value + 1)
   }
 
-  // Cleanup blob URLs
   function cleanup() {
     users.value.forEach((user) => {
       if (user.avatarBlobUrl) {
@@ -123,7 +120,6 @@ export function useCommentLikes(
     users.value = []
   }
 
-  // Reset
   function reset() {
     cleanup()
     page.value = 0
@@ -132,10 +128,8 @@ export function useCommentLikes(
     error.value = null
   }
 
-  // Cleanup on unmount
   onUnmounted(cleanup)
 
-  // Immediate fetch
   if (immediate) {
     fetch(0)
   }

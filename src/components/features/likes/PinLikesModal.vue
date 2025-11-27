@@ -1,9 +1,15 @@
-<!-- src/components/pin/likes/PinLikesModal.vue -->
+<!-- src/components/features/likes/PinLikesModal.vue -->
 <script setup lang="ts">
+/**
+ * PinLikesModal - Модалка со списком лайков
+ * ✅ ИСПРАВЛЕНО: getter для composable + useScrollLock
+ */
+
 import { ref, computed, watch } from 'vue'
 import { usePinLikes } from '@/composables/api/usePinLikes'
 import { useInfiniteScroll } from '@/composables/utils/useIntersectionObserver'
 import { useEscapeKey } from '@/composables/utils/useClickOutside'
+import { useScrollLock } from '@/composables/utils/useScrollLock'
 import BaseSpinner from '@/components/ui/BaseSpinner.vue'
 import LikeUserItem from './LikeUserItem.vue'
 
@@ -17,13 +23,11 @@ const props = withDefaults(defineProps<PinLikesModalProps>(), {
   likeCount: 0,
 })
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-}>()
+const emit = defineEmits<(e: 'update:modelValue', value: boolean) => void>()
 
-// Composable для загрузки лайков
+// ✅ ИСПРАВЛЕНО: getter для реактивности
 const { users, isLoading, hasMore, totalElements, fetch, loadMore, reset } = usePinLikes(
-  props.pinId,
+  () => props.pinId,
   {
     pageSize: 7,
     immediate: false,
@@ -47,6 +51,9 @@ function close() {
 const isOpen = computed(() => props.modelValue)
 useEscapeKey(close, { enabled: isOpen })
 
+// ✅ ИСПРАВЛЕНО: useScrollLock вместо document.body напрямую
+useScrollLock(isOpen)
+
 // Load when modal opens
 watch(
   () => props.modelValue,
@@ -54,16 +61,11 @@ watch(
     if (open) {
       reset()
       fetch()
-      // Lock body scroll
-      document.body.classList.add('overflow-hidden')
-    } else {
-      // Unlock body scroll
-      document.body.classList.remove('overflow-hidden')
     }
   },
 )
 
-// Display count (from props or loaded total)
+// Display count
 const displayCount = computed(() => {
   return props.likeCount || totalElements.value || 0
 })
@@ -90,7 +92,7 @@ const displayCount = computed(() => {
                 0 0 30px rgba(255, 255, 255, 0.6);
             "
           >
-            <!-- Header with count -->
+            <!-- Header -->
             <h1 id="likes-modal-title" class="text-7xl text-center py-6 border-b border-gray-800">
               {{ displayCount }} ❤️
             </h1>
@@ -165,7 +167,6 @@ const displayCount = computed(() => {
   opacity: 0;
 }
 
-/* Loader from old project */
 .loader2 {
   width: 48px;
   height: 48px;

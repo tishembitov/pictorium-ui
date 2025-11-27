@@ -2,7 +2,7 @@
 <script setup lang="ts">
 /**
  * CommentLikesPopover - Popover со списком лайкнувших
- * Гибрид: useCommentLikes + useInfiniteScroll + стиль старого проекта
+ * ✅ ИСПРАВЛЕНО: getter для composable
  */
 
 import { ref, computed } from 'vue'
@@ -19,13 +19,13 @@ const props = withDefaults(defineProps<CommentLikesPopoverProps>(), {
   maxUsers: 5,
 })
 
-// ✅ useCommentLikes для загрузки данных
-const { users, isLoading, hasMore, loadMore } = useCommentLikes(props.commentId, {
+// ✅ ИСПРАВЛЕНО: getter для реактивности
+const { users, isLoading, hasMore, loadMore } = useCommentLikes(() => props.commentId, {
   pageSize: props.maxUsers,
   immediate: true,
 })
 
-// ✅ useInfiniteScroll для подгрузки
+// useInfiniteScroll для подгрузки
 const triggerRef = ref<HTMLElement | null>(null)
 
 const { isLoading: isLoadingMore } = useInfiniteScroll(triggerRef, loadMore, {
@@ -35,11 +35,10 @@ const { isLoading: isLoadingMore } = useInfiniteScroll(triggerRef, loadMore, {
 </script>
 
 <template>
-  <!-- ✅ Стиль контейнера из старого CommentLikesPopover.vue -->
   <div
     class="z-50 flex flex-col gap-2 bg-black shadow-2xl rounded-3xl text-sm text-white h-auto max-h-60 w-60 overflow-y-auto py-2"
   >
-    <!-- ✅ User item (структура из старого проекта) -->
+    <!-- User item -->
     <RouterLink
       v-for="user in users"
       :key="user.id"

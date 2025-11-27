@@ -22,6 +22,8 @@ export * from './api/useSavedPins'
 export * from './api/useCreatePin'
 export * from './api/useCommentLikes'
 export * from './api/usePinLikes'
+// API Composables - добавить
+export * from './api/useUsersWithAvatars'
 
 // ============================================================================
 // AUTH COMPOSABLES
@@ -52,6 +54,7 @@ export * from './utils/useKeyboardShortcuts'
 export * from './utils/useLocalStorage'
 export * from './utils/useMediaQuery'
 export * from './utils/useScrollRestore'
+export * from './utils/useScrollLock'
 
 // ============================================================================
 // FEATURES COMPOSABLES

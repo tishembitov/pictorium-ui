@@ -2,7 +2,7 @@
 <script setup lang="ts">
 /**
  * CommentActions - Действия комментария
- * Гибрид: composables + formatters + стиль/анимации старого проекта
+ * ✅ ИСПРАВЛЕНО: getter для composables, computed для useOwnership
  */
 
 import { ref, computed, watch } from 'vue'
@@ -32,16 +32,18 @@ const emit = defineEmits<{
   (e: 'likeChange', isLiked: boolean, count: number): void
 }>()
 
-// ✅ Composables
-const { like, unlike } = useCommentThread(props.commentId)
-const { canDelete } = useOwnership(ref(props.userId))
+// ✅ ИСПРАВЛЕНО: getter для реактивности
+const { like, unlike } = useCommentThread(() => props.commentId)
+
+// ✅ ИСПРАВЛЕНО: computed вместо ref
+const { canDelete } = useOwnership(computed(() => props.userId))
 
 // Local state
 const localIsLiked = ref(props.isLiked)
 const localLikeCount = ref(props.likeCount)
 const isProcessing = ref(false)
 
-// ✅ Анимации из старого проекта
+// Анимации
 const showLikeAnimation = ref(false)
 const showDislikeAnimation = ref(false)
 
@@ -58,6 +60,7 @@ watch(
     localIsLiked.value = val
   },
 )
+
 watch(
   () => props.likeCount,
   (val) => {
@@ -65,7 +68,7 @@ watch(
   },
 )
 
-// ✅ formatters из utils
+// Formatters
 const formattedTime = computed(() => formatRelativeTime(props.createdAt))
 const formattedLikeCount = computed(() => formatCompactNumber(localLikeCount.value))
 
@@ -80,7 +83,7 @@ async function handleLike() {
   localIsLiked.value = !wasLiked
   localLikeCount.value += wasLiked ? -1 : 1
 
-  // ✅ Анимация из старого проекта
+  // Анимация
   if (wasLiked) {
     showDislikeAnimation.value = true
     showLikeAnimation.value = false
@@ -127,9 +130,8 @@ function handleMouseLeave() {
 </script>
 
 <template>
-  <!-- ✅ Структура из старого проекта -->
   <div class="flex items-center space-x-2 relative">
-    <!-- ✅ Animation overlay (точно из старого проекта) -->
+    <!-- Animation overlay -->
     <div class="absolute top-[-20px] left-10 pointer-events-none">
       <Transition name="flash2">
         <i
@@ -174,7 +176,7 @@ function handleMouseLeave() {
         :class="{ 'opacity-50 pointer-events-none': isProcessing }"
       />
 
-      <!-- ✅ Like count с popover (структура из старого проекта) -->
+      <!-- Like count с popover -->
       <div
         v-if="localLikeCount > 0"
         class="font-medium text-md relative cursor-pointer"
@@ -213,7 +215,6 @@ function handleMouseLeave() {
 </template>
 
 <style scoped>
-/* ✅ Анимации из старого проекта */
 .flash2-enter-active,
 .flash2-leave-active {
   transition:

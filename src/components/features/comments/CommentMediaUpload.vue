@@ -2,10 +2,10 @@
 <script setup lang="ts">
 /**
  * CommentMediaUpload - Загрузка медиа для комментариев
- * Гибрид: useFileUpload + validateMediaFile + стиль старого проекта
+ * ✅ Компонент был чистым
  */
 
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 import { useFileUpload } from '@/composables/features/useFileUpload'
 import { useToast } from '@/composables/ui/useToast'
 import { validateMediaFile } from '@/utils/files'
@@ -32,7 +32,7 @@ const { warning } = useToast()
 
 const ACCEPT_STRING = '.jpg,.jpeg,.gif,.webp,.png,.bmp,.mp4,.webm'
 
-// ✅ useFileUpload для preview и базовой логики
+// useFileUpload для preview и базовой логики
 const {
   file,
   preview,
@@ -46,7 +46,7 @@ const {
 
 const hasFile = computed(() => file.value !== null)
 
-// ✅ validateMediaFile для валидации
+// validateMediaFile для валидации
 async function handleFileSelect(event: Event) {
   const input = event.target as HTMLInputElement
   const selectedFile = input.files?.[0]
@@ -65,7 +65,6 @@ async function handleFileSelect(event: Event) {
     return
   }
 
-  // Создаём preview
   file.value = selectedFile
   emit('select', selectedFile)
 }
@@ -76,7 +75,7 @@ function triggerUpload() {
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = ACCEPT_STRING
-  input.onchange = handleFileSelect
+  input.onchange = handleFileSelect as any
   input.click()
 }
 
@@ -111,7 +110,7 @@ defineExpose({
       </button>
     </slot>
 
-    <!-- ✅ Preview в стиле старого проекта -->
+    <!-- Preview -->
     <div v-if="preview" class="relative mt-2">
       <div class="absolute top-0 left-[-10px] z-20" @click="clearFile">
         <i

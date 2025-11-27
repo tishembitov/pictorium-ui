@@ -137,16 +137,24 @@ export const PERMISSIONS = {
   VIEW_ANALYTICS: 'view:analytics',
 } as const
 
-export const PERMISSION_ROLE_MAP: Record<string, string[]> = {
-  [PERMISSIONS.CREATE_PIN]: ['user', 'moderator', 'admin'],
-  [PERMISSIONS.EDIT_PIN]: ['user', 'moderator', 'admin'],
-  [PERMISSIONS.DELETE_PIN]: ['moderator', 'admin'],
-  [PERMISSIONS.CREATE_BOARD]: ['user', 'moderator', 'admin'],
-  [PERMISSIONS.EDIT_BOARD]: ['user', 'moderator', 'admin'],
-  [PERMISSIONS.DELETE_BOARD]: ['moderator', 'admin'],
-  [PERMISSIONS.DELETE_COMMENT]: ['moderator', 'admin'],
-  [PERMISSIONS.BAN_USER]: ['admin'],
-  [PERMISSIONS.VIEW_ANALYTICS]: ['admin'],
+export const ROLES = {
+  USER: 'USER',
+  MODERATOR: 'MODERATOR',
+  ADMIN: 'ADMIN',
+} as const
+
+export type Role = (typeof ROLES)[keyof typeof ROLES]
+
+export const PERMISSION_ROLE_MAP: Record<string, Role[]> = {
+  [PERMISSIONS.CREATE_PIN]: [ROLES.USER, ROLES.MODERATOR, ROLES.ADMIN],
+  [PERMISSIONS.EDIT_PIN]: [ROLES.USER, ROLES.MODERATOR, ROLES.ADMIN],
+  [PERMISSIONS.DELETE_PIN]: [ROLES.MODERATOR, ROLES.ADMIN],
+  [PERMISSIONS.CREATE_BOARD]: [ROLES.USER, ROLES.MODERATOR, ROLES.ADMIN],
+  [PERMISSIONS.EDIT_BOARD]: [ROLES.USER, ROLES.MODERATOR, ROLES.ADMIN],
+  [PERMISSIONS.DELETE_BOARD]: [ROLES.MODERATOR, ROLES.ADMIN],
+  [PERMISSIONS.DELETE_COMMENT]: [ROLES.MODERATOR, ROLES.ADMIN],
+  [PERMISSIONS.BAN_USER]: [ROLES.ADMIN],
+  [PERMISSIONS.VIEW_ANALYTICS]: [ROLES.ADMIN],
 }
 
 // Error messages

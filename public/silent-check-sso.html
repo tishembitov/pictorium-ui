@@ -1,0 +1,12 @@
+<!-- frontend/public/silent-check-sso.html -->
+<!doctype html>
+<html>
+  <head>
+    <title>Silent SSO Check</title>
+  </head>
+  <body>
+    <script>
+      parent.postMessage(location.href, location.origin)
+    </script>
+  </body>
+</html>

@@ -1,130 +1,142 @@
-// src/plugins/keycloak.ts
+// frontend/src/plugins/keycloak.ts
 import type { App } from 'vue'
 import Keycloak from 'keycloak-js'
+import { useAuthStore } from '@/stores/auth.store'
 
-/**
- * Singleton для хранения экземпляра Keycloak
- * Использует замыкание вместо мутируемого export
- */
 let keycloakInstance: Keycloak | null = null
 
+// Получить текущий язык приложения
+function getCurrentLocale(): string {
+  // Из localStorage, i18n, или navigator
+  return localStorage.getItem('locale') || navigator.language.split('-')[0] || 'en'
+}
+
+// Получить текущую тему (light/dark)
+function getCurrentTheme(): string {
+  return (
+    localStorage.getItem('theme') ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  )
+}
+
 export async function setupKeycloak(app: App): Promise<boolean> {
-  // Создаем новый экземпляр только если его еще нет
-  keycloakInstance ??= new Keycloak({
+  const config = {
     url: import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8080',
-    realm: import.meta.env.VITE_KEYCLOAK_REALM || 'pinterest-clone',
-    clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'vue-app',
-  })
+    realm: import.meta.env.VITE_KEYCLOAK_REALM || 'pictorium',
+    clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'pictorium-app',
+  }
+
+  keycloakInstance = new Keycloak(config)
 
   try {
     const authenticated = await keycloakInstance.init({
       onLoad: 'check-sso',
-      silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html',
+      silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
       pkceMethod: 'S256',
       checkLoginIframe: false,
       enableLogging: import.meta.env.DEV,
     })
 
-    // Глобальный доступ
+    // Инициализируем store
+    const authStore = useAuthStore()
+    authStore.initKeycloak(keycloakInstance)
+
+    // Provide для использования в компонентах
     app.config.globalProperties.$keycloak = keycloakInstance
     app.provide('keycloak', keycloakInstance)
 
     // Автообновление токена
     setupTokenRefresh(keycloakInstance)
 
-    console.log('[Keycloak] Initialized successfully:', { authenticated })
+    // Слушаем события
+    setupEventListeners(keycloakInstance)
 
+    console.log('[Keycloak] Initialized:', { authenticated })
     return authenticated
   } catch (error) {
-    console.error('[Keycloak] Failed to initialize:', error)
+    console.error('[Keycloak] Init failed:', error)
     throw error
   }
 }
 
-/**
- * Получить экземпляр Keycloak (read-only)
- */
+function setupTokenRefresh(keycloak: Keycloak): void {
+  setInterval(() => {
+    keycloak.updateToken(70).catch(() => {
+      console.warn('[Keycloak] Token refresh failed, session may have expired')
+    })
+  }, 30000)
+}
+
+function setupEventListeners(keycloak: Keycloak): void {
+  keycloak.onTokenExpired = () => {
+    console.log('[Keycloak] Token expired, refreshing...')
+    keycloak.updateToken(5).catch(() => {
+      console.warn('[Keycloak] Failed to refresh expired token')
+    })
+  }
+
+  keycloak.onAuthLogout = () => {
+    console.log('[Keycloak] User logged out')
+    const authStore = useAuthStore()
+    authStore.updateAuthState(false)
+  }
+
+  keycloak.onAuthRefreshError = () => {
+    console.error('[Keycloak] Auth refresh error')
+  }
+}
+
 export function getKeycloak(): Keycloak | null {
   return keycloakInstance
 }
 
 /**
- * Настройка автообновления токена
+ * Login с дополнительными параметрами
  */
-function setupTokenRefresh(keycloak: Keycloak): void {
-  // Обновляем токен каждые 30 секунд (если до истечения осталось < 70 сек)
-  const intervalId = setInterval(() => {
-    keycloak
-      .updateToken(70)
-      .then((refreshed) => {
-        if (refreshed) {
-          console.log('[Keycloak] Token refreshed')
-        }
-      })
-      .catch((error) => {
-        console.error('[Keycloak] Failed to refresh token:', error)
-        clearInterval(intervalId)
-      })
-  }, 30000)
-
-  // Очистка при выходе
-  if (typeof window !== 'undefined') {
-    window.addEventListener('beforeunload', () => {
-      clearInterval(intervalId)
-    })
-  }
+export interface LoginOptions {
+  redirectUri?: string
+  locale?: string
+  loginHint?: string // Pre-fill email/username
+  idpHint?: string // Сразу перейти на Google/GitHub
 }
 
-/**
- * Очистка (для тестов и HMR)
- */
-export function resetKeycloak(): void {
-  keycloakInstance = null
-}
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Получить access token
- */
-export function getToken(): string | undefined {
-  return keycloakInstance?.token
-}
-
-/**
- * Получить refresh token
- */
-export function getRefreshToken(): string | undefined {
-  return keycloakInstance?.refreshToken
-}
-
-/**
- * Получить ID token
- */
-export function getIdToken(): string | undefined {
-  return keycloakInstance?.idToken
-}
-
-/**
- * Проверка аутентификации
- */
-export function isAuthenticated(): boolean {
-  return keycloakInstance?.authenticated ?? false
-}
-
-/**
- * Login
- */
-export function login(redirectUri?: string): void {
+export function login(options: LoginOptions = {}): void {
   if (!keycloakInstance) {
     console.warn('[Keycloak] Not initialized')
     return
   }
 
+  const locale = options.locale || getCurrentLocale()
+
   keycloakInstance.login({
-    redirectUri: redirectUri || window.location.origin,
+    redirectUri: options.redirectUri || window.location.origin,
+    locale,
+    loginHint: options.loginHint,
+    idpHint: options.idpHint,
+  })
+}
+
+/**
+ * Register с параметрами
+ */
+export interface RegisterOptions {
+  redirectUri?: string
+  locale?: string
+  loginHint?: string
+}
+
+export function register(options: RegisterOptions = {}): void {
+  if (!keycloakInstance) {
+    console.warn('[Keycloak] Not initialized')
+    return
+  }
+
+  const locale = options.locale || getCurrentLocale()
+
+  keycloakInstance.register({
+    redirectUri: options.redirectUri || window.location.origin,
+    locale,
+    loginHint: options.loginHint,
   })
 }
 
@@ -143,84 +155,50 @@ export function logout(redirectUri?: string): void {
 }
 
 /**
- * Refresh token
+ * Прямой вход через провайдер (Google, GitHub)
  */
-export async function refreshToken(minValidity: number = 5): Promise<boolean> {
-  if (!keycloakInstance) {
-    console.warn('[Keycloak] Not initialized')
-    return false
-  }
-
-  try {
-    return await keycloakInstance.updateToken(minValidity)
-  } catch (error) {
-    console.error('[Keycloak] Token refresh failed:', error)
-    return false
-  }
-}
-
-/**
- * Load user profile
- */
-export async function loadUserProfile() {
-  if (!keycloakInstance) {
-    console.warn('[Keycloak] Not initialized')
-    return null
-  }
-
-  try {
-    return await keycloakInstance.loadUserProfile()
-  } catch (error) {
-    console.error('[Keycloak] Failed to load profile:', error)
-    return null
-  }
-}
-
-/**
- * Check if user has role
- */
-export function hasRole(role: string): boolean {
-  if (!keycloakInstance) return false
-  return keycloakInstance.hasRealmRole(role)
-}
-
-/**
- * Check if user has resource role
- */
-export function hasResourceRole(role: string, resource: string): boolean {
-  if (!keycloakInstance) return false
-  return keycloakInstance.hasResourceRole(role, resource)
-}
-
-/**
- * Get user info from token
- */
-export function getUserInfo() {
-  return keycloakInstance?.tokenParsed
-}
-
-/**
- * Register new user
- */
-export function register(redirectUri?: string): void {
-  if (!keycloakInstance) {
-    console.warn('[Keycloak] Not initialized')
-    return
-  }
-
-  keycloakInstance.register({
-    redirectUri: redirectUri || window.location.origin,
+export function loginWithProvider(provider: 'google' | 'github', redirectUri?: string): void {
+  login({
+    idpHint: provider,
+    redirectUri,
   })
 }
 
 /**
- * Account management
+ * Получить URL для логина (для href в ссылках)
  */
-export function accountManagement(): void {
-  if (!keycloakInstance) {
-    console.warn('[Keycloak] Not initialized')
-    return
-  }
+export function getLoginUrl(options: LoginOptions = {}): string {
+  if (!keycloakInstance) return '#'
 
-  keycloakInstance.accountManagement()
+  return keycloakInstance.createLoginUrl({
+    redirectUri: options.redirectUri || window.location.origin,
+    locale: options.locale || getCurrentLocale(),
+    loginHint: options.loginHint,
+    idpHint: options.idpHint,
+  })
+}
+
+/**
+ * Получить URL для регистрации
+ */
+export function getRegisterUrl(options: RegisterOptions = {}): string {
+  if (!keycloakInstance) return '#'
+
+  return keycloakInstance.createRegisterUrl({
+    redirectUri: options.redirectUri || window.location.origin,
+    locale: options.locale || getCurrentLocale(),
+  })
+}
+
+// Экспорт остальных функций...
+export function getToken(): string | undefined {
+  return keycloakInstance?.token
+}
+
+export function isAuthenticated(): boolean {
+  return keycloakInstance?.authenticated ?? false
+}
+
+export function accountManagement(): void {
+  keycloakInstance?.accountManagement()
 }

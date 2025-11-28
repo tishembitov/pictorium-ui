@@ -22,7 +22,6 @@ export * from './api/useSavedPins'
 export * from './api/useCreatePin'
 export * from './api/useCommentLikes'
 export * from './api/usePinLikes'
-export * from './api/usePinSave'
 export * from './api/useUsersWithAvatars'
 
 // ============================================================================

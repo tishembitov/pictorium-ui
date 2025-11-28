@@ -1,12 +1,11 @@
 <!-- src/components/features/pins/detail/PinDetailInfo.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import type { PinWithBlob } from '@/types'
 import { useUsersWithAvatars } from '@/composables/api/useUsersWithAvatars'
 import { useTagSearch } from '@/composables/api/useTagSearch'
 import { usePinActions } from '@/composables/api/usePinActions'
-import { usePinSave } from '@/composables/api/usePinSave'
 import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
 import { randomTagColor } from '@/utils/colors'
 import PinLikesPopover from '@/components/features/likes/PinLikesPopover.vue'
@@ -34,12 +33,8 @@ const router = useRouter()
 const { loadUser, getUser } = useUsersWithAvatars()
 
 // ✅ ИСПРАВЛЕНО: getter для реактивности
-const { like, unlike } = usePinActions(() => props.pin.id)
-const { saveState, saveButtonText, save } = usePinSave(() => props.pin.id)
+const { like, unlike, saveState, saveButtonText, save } = usePinActions(() => props.pin.id)
 const { boardTitle } = useSelectedBoard()
-
-// State
-const tags = ref<Array<{ id: string; name: string; color: string }>>([])
 
 // Like state
 const localIsLiked = ref(props.pin.isLiked)
@@ -54,20 +49,13 @@ const insideLikesPopover = ref(false)
 const accentColor = computed(() => props.pin.rgb || '#ef4444')
 const pinUser = computed(() => getUser(props.pin.userId))
 
-// Load user data
-onMounted(async () => {
-  if (props.pin.userId) {
-    await loadUser(props.pin.userId)
-  }
-
-  // Load tags (здесь можно использовать props.pin.tags напрямую)
-  if (props.pin.tags?.length) {
-    tags.value = props.pin.tags.map((tagName, idx) => ({
-      id: `tag-${idx}`,
-      name: tagName,
-      color: randomTagColor(),
-    }))
-  }
+const tagsWithColors = computed(() => {
+  if (!props.pin.tags?.length) return []
+  return props.pin.tags.map((tagName, idx) => ({
+    id: `tag-${idx}`,
+    name: tagName,
+    color: randomTagColor(),
+  }))
 })
 
 // Handle like
@@ -207,11 +195,11 @@ function handleTagClick(tagName: string) {
     </div>
 
     <!-- Tags -->
-    <div v-if="tags.length > 0" class="flex flex-wrap gap-2 my-2">
+    <div v-if="tagsWithColors.length > 0" class="flex flex-wrap gap-2 my-2">
       <TagBadge
-        v-for="tag in tags"
+        v-for="tag in tagsWithColors"
         :key="tag.id"
-        :label="tag.name"
+        :name="tag.name"
         :color="tag.color"
         size="md"
         clickable

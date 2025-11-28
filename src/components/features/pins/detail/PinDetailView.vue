@@ -173,12 +173,7 @@ function handleHasRelated() {
   <PinLikesModal v-if="pin" v-model="showLikesModal" :pin-id="pin.id" :like-count="pin.likeCount" />
 
   <!-- Board selector modal -->
-  <BoardSelectorModal
-    v-model="showBoardsModal"
-    :boards="myBoards"
-    :is-loading="isLoadingBoards"
-    @select="() => (showBoardsModal = false)"
-  />
+  <BoardSelectorModal v-model="showBoardsModal" @select="() => (showBoardsModal = false)" />
 
   <!-- Header -->
   <AppHeader />

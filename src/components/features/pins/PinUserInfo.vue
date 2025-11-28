@@ -5,7 +5,7 @@ import { RouterLink } from 'vue-router'
 import { useUsersWithAvatars } from '@/composables/api/useUsersWithAvatars'
 import { useFollow } from '@/composables/api/useFollow'
 import { useClickOutside } from '@/composables/utils/useClickOutside'
-import { useAuthState } from '@/composables/auth/useAuth'
+import { useAuth } from '@/composables/auth/useAuth'
 import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 
@@ -33,7 +33,7 @@ const emit = defineEmits<{
 
 // ✅ ИСПРАВЛЕНО: используем composables вместо stores
 const { loadUser, getUser } = useUsersWithAvatars()
-const { userId: currentUserId } = useAuthState()
+const { userId: currentUserId } = useAuth()
 
 // ✅ ИСПРАВЛЕНО: getter для реактивности
 const {

@@ -1,8 +1,8 @@
-<!-- src/components/features/users/profile/UserAvatarUpload.vue -->
+<!-- src/components/features/users/MediaUploadModal.vue -->
 <script setup lang="ts">
 /**
- * UserAvatarUpload - Модалка загрузки аватара
- * ✅ ИСПРАВЛЕНО: использует useFileUpload
+ * MediaUploadModal - Unified upload modal for Avatar & Banner
+ * ✅ НОВЫЙ: Объединяет UserAvatarUpload и UserBannerUpload
  */
 
 import { watch, computed } from 'vue'
@@ -14,11 +14,12 @@ import { ALLOWED_IMAGE_TYPES } from '@/utils/constants'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 
-export interface UserAvatarUploadProps {
+export interface MediaUploadModalProps {
   modelValue: boolean
+  type: 'avatar' | 'banner'
 }
 
-const props = defineProps<UserAvatarUploadProps>()
+const props = defineProps<MediaUploadModalProps>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
@@ -26,19 +27,27 @@ const emit = defineEmits<{
 }>()
 
 // Composables
-const { uploadAvatar } = useCurrentUser()
+const { uploadAvatar, uploadBanner } = useCurrentUser()
 const { success, error: showError } = useToast()
 
 const { file, preview, validationError, isUploading, hasFile, selectFile, reset } = useFileUpload({
   accept: ALLOWED_IMAGE_TYPES.join(','),
-  category: 'avatars',
+  category: props.type === 'avatar' ? 'avatars' : 'banners',
 })
 
-// v-model
+// Computed
 const isOpen = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value),
 })
+
+const title = computed(() => (props.type === 'avatar' ? 'Update Avatar' : 'Update Banner'))
+
+const previewClass = computed(() =>
+  props.type === 'avatar'
+    ? 'rounded-full w-32 h-32 object-cover border-4 border-gray-300 shadow-lg'
+    : 'rounded-xl w-full object-cover max-h-[300px]',
+)
 
 // Scroll lock
 useScrollLock(isOpen)
@@ -65,12 +74,17 @@ async function handleUpload() {
   if (!file.value) return
 
   try {
-    await uploadAvatar(file.value)
-    success('Avatar updated!')
+    if (props.type === 'avatar') {
+      await uploadAvatar(file.value)
+    } else {
+      await uploadBanner(file.value)
+    }
+
+    success(`${props.type === 'avatar' ? 'Avatar' : 'Banner'} updated!`)
     emit('uploaded')
     close()
   } catch (error: any) {
-    showError(error?.message || 'Failed to upload avatar')
+    showError(error?.message || `Failed to upload ${props.type}`)
   }
 }
 </script>
@@ -92,19 +106,19 @@ async function handleUpload() {
 
           <!-- Form -->
           <div v-else class="flex flex-col items-center justify-center gap-5">
-            <h2 class="text-xl font-semibold text-gray-900">Update Profile Image</h2>
+            <h2 class="text-xl font-semibold text-gray-900">{{ title }}</h2>
 
             <div class="flex flex-col items-center w-full">
               <label
-                for="imageProfile"
+                :for="`file-${type}`"
                 class="block mb-2 text-sm font-medium text-gray-700 text-center"
               >
                 Select an image file
               </label>
 
               <input
+                :id="`file-${type}`"
                 type="file"
-                id="imageProfile"
                 :accept="ALLOWED_IMAGE_TYPES.join(',')"
                 @change="selectFile"
                 class="block w-full text-sm text-gray-900 border border-gray-300 rounded-3xl cursor-pointer bg-gray-50 focus:outline-none focus:ring-1 focus:ring-red-500"
@@ -117,11 +131,7 @@ async function handleUpload() {
 
               <!-- Preview -->
               <div v-if="preview" class="mt-4">
-                <img
-                  :src="preview"
-                  alt="Preview"
-                  class="rounded-full w-32 h-32 object-cover border-4 border-gray-300 shadow-lg"
-                />
+                <img :src="preview" :alt="`${type} preview`" :class="previewClass" />
               </div>
             </div>
 

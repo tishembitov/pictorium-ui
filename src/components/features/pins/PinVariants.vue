@@ -1,19 +1,11 @@
-<!-- src/components/features/pin/PinVariants.vue -->
 <script setup lang="ts">
 /**
  * PinVariants - Unified wrapper for different pin display modes
- *
- * Replaces old components:
- * - CreatedPin.vue → variant="created"
- * - CreatedDeletedPin.vue → variant="created" + canDelete
- * - SavedPin.vue → variant="saved"
- * - DeleteSavedPin.vue → variant="saved" + canDelete
- * - CreatedPinBoard.vue → variant="board"
- * - CreatedDeletedPinBoard.vue → variant="board" + canDelete
+ * ✅ ИСПРАВЛЕНО: использует useAuthState вместо store
  */
 
 import { computed } from 'vue'
-import { useAuthStore } from '@/stores/auth.store'
+import { useAuth } from '@/composables/auth/useAuth' // ✅ Composable
 import { useOwnership } from '@/composables/auth/usePermissions'
 import PinCard from './PinCard.vue'
 import type { PinWithBlob } from '@/types'
@@ -21,11 +13,8 @@ import type { PinWithBlob } from '@/types'
 export interface PinVariantsProps {
   pin: PinWithBlob
   variant: 'default' | 'created' | 'saved' | 'board'
-  /** Force show delete button regardless of ownership */
   canDelete?: boolean
-  /** Board ID for board variant */
   boardId?: string
-  /** Current authenticated user ID (for ownership check) */
   authUserId?: string
   showUser?: boolean
   showAllPins?: boolean
@@ -45,27 +34,24 @@ const emit = defineEmits<{
   (e: 'openBoardSelector'): void
 }>()
 
-// Auth
-const authStore = useAuthStore()
+// ✅ FIX: Используем composable вместо store
+const { userId: currentUserId } = useAuth()
 const { isOwner, canDelete: hasDeletePermission } = useOwnership(computed(() => props.pin.userId))
 
 // Determine if delete should be shown
 const showDelete = computed(() => {
   if (props.canDelete) return true
 
-  // For created pins, only owner can delete
   if (props.variant === 'created') {
     return isOwner.value || hasDeletePermission.value
   }
 
-  // For saved pins, owner can unsave
   if (props.variant === 'saved') {
-    return props.authUserId === authStore.userId
+    return props.authUserId === currentUserId.value
   }
 
-  // For board pins, board owner can remove
   if (props.variant === 'board') {
-    return props.authUserId === authStore.userId
+    return props.authUserId === currentUserId.value
   }
 
   return false
@@ -77,7 +63,6 @@ const cardVariant = computed(() => {
   return props.variant === 'created' ? 'created' : 'default'
 })
 
-// Handle delete based on variant
 function handleDelete() {
   if (props.variant === 'board' && props.boardId) {
     emit('deleteFromBoard')

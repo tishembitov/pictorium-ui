@@ -11,7 +11,7 @@ import FollowButton from './follow/FollowButton.vue'
 import type { User } from '@/types'
 
 export interface UserCardProps {
-  user: Pick<User, 'id' | 'username' | 'imageUrl' | 'description' | 'verified'>
+  user: Pick<User, 'id' | 'username' | 'imageUrl' | 'description'>
   avatarUrl?: string | null
   followersCount?: number
   showFollowButton?: boolean
@@ -42,7 +42,6 @@ const props = withDefaults(defineProps<UserCardProps>(), {
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
           <span class="font-semibold truncate">{{ user.username }}</span>
-          <i v-if="user.verified" class="pi pi-verified text-blue-500 text-sm" />
         </div>
 
         <p v-if="user.description && variant === 'default'" class="text-sm text-gray-500 truncate">

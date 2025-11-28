@@ -10,7 +10,7 @@ import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import type { User } from '@/types'
 
 export interface UserSearchItemProps {
-  user: Pick<User, 'id' | 'username' | 'imageUrl' | 'verified'>
+  user: Pick<User, 'id' | 'username' | 'imageUrl'>
   avatarUrl?: string | null
   highlight?: string
 }
@@ -43,7 +43,6 @@ function escapeRegExp(string: string): string {
 
     <div class="flex items-center gap-2">
       <span class="font-medium" v-html="highlightMatch(user.username, highlight || '')" />
-      <i v-if="user.verified" class="pi pi-verified text-blue-500 text-sm" />
     </div>
   </RouterLink>
 </template>

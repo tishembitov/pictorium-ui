@@ -15,7 +15,6 @@ export interface User {
   tiktok: string | null
   telegram: string | null
   pinterest: string | null
-  verified?: boolean
 }
 
 export interface UserStats {

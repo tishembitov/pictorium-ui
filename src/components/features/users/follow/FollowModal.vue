@@ -1,31 +1,36 @@
-<!-- src/components/features/users/follow/FollowingModal.vue -->
+<!-- src/components/features/users/follow/FollowModal.vue -->
 <script setup lang="ts">
 /**
- * FollowingModal - Модалка подписок
- * ✅ ИСПРАВЛЕНО: унифицирован с FollowersModal
+ * FollowModal - Unified modal for Followers & Following
+ * ✅ НОВЫЙ: Объединяет FollowersModal и FollowingModal
  */
 
 import { computed } from 'vue'
 import { useScrollLock } from '@/composables/utils/useScrollLock'
 import FollowList from './FollowList.vue'
 
-export interface FollowingModalProps {
+export interface FollowModalProps {
   modelValue: boolean
   userId: string
+  type: 'followers' | 'following'
   count: number
 }
 
-const props = defineProps<FollowingModalProps>()
+const props = defineProps<FollowModalProps>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
-// Computed v-model
+// Computed
 const isOpen = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value),
 })
+
+const title = computed(() =>
+  props.type === 'followers' ? `${props.count} Followers` : `${props.count} Following`,
+)
 
 // Scroll lock
 useScrollLock(isOpen)
@@ -56,10 +61,10 @@ function handleBackdropClick(e: MouseEvent) {
             class="flex flex-col gap-2 bg-black shadow-glow h-auto max-h-[600px] text-2xl rounded-3xl text-white z-50 w-[600px] overflow-hidden"
           >
             <!-- Header -->
-            <h1 class="text-7xl text-center my-4 py-2">{{ count }} Following</h1>
+            <h1 class="text-7xl text-center my-4 py-2">{{ title }}</h1>
 
             <!-- Content -->
-            <FollowList :user-id="userId" type="following" />
+            <FollowList :user-id="userId" :type="type" />
           </div>
 
           <!-- Close button -->

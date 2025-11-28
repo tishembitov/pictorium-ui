@@ -16,14 +16,7 @@ import type { User } from '@/types'
 export interface UserHeaderProps {
   user: Pick<
     User,
-    | 'id'
-    | 'username'
-    | 'description'
-    | 'instagram'
-    | 'tiktok'
-    | 'telegram'
-    | 'pinterest'
-    | 'verified'
+    'id' | 'username' | 'description' | 'instagram' | 'tiktok' | 'telegram' | 'pinterest'
   >
   avatarUrl?: string | null
   bannerUrl?: string | null
@@ -55,10 +48,6 @@ const hasBanner = computed(() => !!props.bannerUrl)
   <div v-if="!hasBanner" class="flex flex-col items-center">
     <!-- Avatar with verified badge -->
     <div class="relative">
-      <i
-        v-if="user.verified"
-        class="absolute top-0 left-28 pi pi-verified text-2xl text-blue-500"
-      />
       <BaseAvatar
         :src="avatarUrl || undefined"
         :alt="user.username"
@@ -130,10 +119,6 @@ const hasBanner = computed(() => !!props.bannerUrl)
     <div class="lg:ml-10">
       <!-- Avatar with username -->
       <div class="relative flex items-center">
-        <i
-          v-if="user.verified"
-          class="absolute top-0 left-28 pi pi-verified text-2xl text-blue-500"
-        />
         <BaseAvatar
           :src="avatarUrl || undefined"
           :alt="user.username"

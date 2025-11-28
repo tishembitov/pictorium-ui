@@ -10,7 +10,7 @@ import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import type { User } from '@/types'
 
 export interface FollowUserItemProps {
-  user: Pick<User, 'id' | 'username' | 'imageUrl' | 'verified'>
+  user: Pick<User, 'id' | 'username' | 'imageUrl'>
   avatarBlobUrl?: string | null
 }
 
@@ -39,7 +39,6 @@ function handleClick() {
     />
     <div class="flex items-center gap-2">
       <span class="truncate text-xl">{{ user.username }}</span>
-      <i v-if="user.verified" class="pi pi-verified text-blue-500" />
     </div>
   </RouterLink>
 </template>

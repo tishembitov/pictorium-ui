@@ -18,10 +18,7 @@ import UserTabs from './UserTabs.vue'
 import UserPins from './UserPins.vue'
 import UserBoards from './UserBoards.vue'
 import UserEditModal from './UserEditModal.vue'
-import UserAvatarUpload from './UserAvatarUpload.vue'
-import UserBannerUpload from '../UserBannerUpload.vue'
-import FollowersModal from '../follow/FollowersModal.vue'
-import FollowingModal from '../follow/FollowingModal.vue'
+import MediaUploadModal from '../MediaUploadModal.vue'
 import SendMessageModal from './SendMessageModal.vue'
 import AboutUserModal from './AboutUserModal.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
@@ -150,17 +147,19 @@ async function handleProfileUpdated() {
 <template>
   <!-- ============ MODALS ============ -->
 
-  <FollowersModal
+  <FollowModal
     v-if="user"
     v-model="modals.followers"
     :user-id="user.id"
+    type="followers"
     :count="followersCount"
   />
 
-  <FollowingModal
+  <FollowModal
     v-if="user"
     v-model="modals.following"
     :user-id="user.id"
+    type="following"
     :count="followingCount"
   />
 
@@ -171,9 +170,22 @@ async function handleProfileUpdated() {
     @updated="handleProfileUpdated"
   />
 
-  <UserAvatarUpload v-if="isCurrentUser" v-model="modals.avatar" @uploaded="handleProfileUpdated" />
+  <template>
+    <!-- ✅ Один компонент вместо двух -->
+    <MediaUploadModal
+      v-if="isCurrentUser"
+      v-model="modals.avatar"
+      type="avatar"
+      @uploaded="handleProfileUpdated"
+    />
 
-  <UserBannerUpload v-if="isCurrentUser" v-model="modals.banner" @uploaded="handleProfileUpdated" />
+    <MediaUploadModal
+      v-if="isCurrentUser"
+      v-model="modals.banner"
+      type="banner"
+      @uploaded="handleProfileUpdated"
+    />
+  </template>
 
   <AboutUserModal
     v-if="user"

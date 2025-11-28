@@ -1,7 +1,11 @@
-<!-- src/components/features/pins/PinEditForm.vue -->
 <script setup lang="ts">
+/**
+ * PinEditForm - Редактирование пина
+ * ✅ ИСПРАВЛЕНО: использует composable вместо store
+ */
+
 import { ref, computed, onMounted } from 'vue'
-import { usePinsStore } from '@/stores/pins.store'
+import { usePinActions } from '@/composables/api/usePinActions' // ✅ Composable
 import { useCategories } from '@/composables/api/useTagSearch'
 import { useForm } from '@/composables/form/useForm'
 import { useSuccessToast, useErrorToast } from '@/composables/ui/useToast'
@@ -10,7 +14,7 @@ import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseTextarea from '@/components/ui/BaseTextarea.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import TagBadge from '@/components/features/tags/TagBadge.vue'
-import type { Pin } from '@/types'
+import type { Pin, PinUpdateRequest } from '@/types'
 
 export interface PinEditFormProps {
   pin: Pin
@@ -23,8 +27,8 @@ const emit = defineEmits<{
   (e: 'cancel'): void
 }>()
 
-// Store (здесь store напрямую оправдан - это форма редактирования)
-const pinsStore = usePinsStore()
+// ✅ FIX: Используем composable вместо store
+const { update, isLoading } = usePinActions(() => props.pin.id)
 
 // Composables
 const { categories, fetch: fetchCategories } = useCategories()
@@ -72,7 +76,6 @@ onMounted(async () => {
       color: randomTagColor(),
     }))
 
-    // Ensure current tags are in the list
     props.pin.tags.forEach((tagName) => {
       if (!availableTags.value.some((t) => t.name === tagName)) {
         availableTags.value.unshift({
@@ -108,12 +111,15 @@ async function save() {
   }
 
   try {
-    const updated = await pinsStore.updatePin(props.pin.id, {
+    const data: PinUpdateRequest = {
       title: values.title.trim() || undefined,
       description: values.description.trim() || undefined,
       href: values.href.trim() || undefined,
       tags: selectedTags.value.length > 0 ? selectedTags.value : undefined,
-    })
+    }
+
+    // ✅ FIX: Используем composable
+    const updated = await update(data)
 
     pinUpdated()
     emit('saved', updated)
@@ -131,10 +137,8 @@ function cancel() {
   <div class="space-y-6 p-6">
     <h2 class="text-xl font-bold text-gray-900">Edit Pin</h2>
 
-    <!-- Title -->
     <BaseInput v-model="values.title" label="Title" placeholder="Add a title" rounded="lg" />
 
-    <!-- Description -->
     <BaseTextarea
       v-model="values.description"
       label="Description"
@@ -143,7 +147,6 @@ function cancel() {
       rounded="lg"
     />
 
-    <!-- Link -->
     <BaseInput
       v-model="values.href"
       type="url"
@@ -152,7 +155,6 @@ function cancel() {
       rounded="lg"
     />
 
-    <!-- Tags -->
     <div>
       <label class="block mb-2 text-sm font-medium text-gray-900">Tags</label>
 
@@ -178,12 +180,11 @@ function cancel() {
       </div>
     </div>
 
-    <!-- Actions -->
     <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
       <BaseButton variant="ghost" @click="cancel"> Cancel </BaseButton>
       <BaseButton
         variant="primary"
-        :loading="isSubmitting"
+        :loading="isSubmitting || isLoading"
         :disabled="!hasChanges"
         @click="handleSubmit"
       >

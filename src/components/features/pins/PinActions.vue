@@ -1,7 +1,7 @@
 <!-- src/components/features/pins/PinActions.vue -->
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { usePinSave } from '@/composables/api/usePinSave'
+import { usePinActions } from '@/composables/api/usePinActions'
 import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
 
 export interface PinActionsProps {
@@ -31,7 +31,7 @@ const emit = defineEmits<{
 }>()
 
 // ✅ ИСПРАВЛЕНО: getter для реактивности
-const { saveState, saveButtonText, save } = usePinSave(() => props.pinId)
+const { saveState, saveButtonText, save } = usePinActions(() => props.pinId)
 const { boardTitle } = useSelectedBoard()
 
 // State

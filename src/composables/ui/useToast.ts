@@ -67,6 +67,7 @@ export function useSuccessToast() {
     // Pins
     pinCreated: () => success('Pin created!'),
     pinDeleted: () => success('Pin deleted!'),
+    pinUpdated: () => success('Pin updated'),
     pinSaved: () => success('Pin saved!'),
     pinUnsaved: () => success('Pin removed from saved'),
 

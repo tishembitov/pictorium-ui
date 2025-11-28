@@ -3,7 +3,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useUsersWithAvatars } from '@/composables/api/useUsersWithAvatars'
-import { useAuthState } from '@/composables/auth/useAuth'
+import { useAuth } from '@/composables/auth/useAuth'
 import { useHover } from '@/composables/features/useHover'
 import { useOwnership } from '@/composables/auth/usePermissions'
 import PinMedia from './PinMedia.vue'
@@ -35,7 +35,7 @@ const emit = defineEmits<{
 
 // ✅ ИСПРАВЛЕНО: composables вместо stores
 const { loadUser, getUser } = useUsersWithAvatars()
-const { userId: authUserId } = useAuthState()
+const { userId: authUserId } = useAuth()
 
 // Refs
 const cardRef = ref<HTMLElement | null>(null)
@@ -102,7 +102,7 @@ function handleOpenBoardSelector() {
         <PinActions
           :pin-id="pin.id"
           :is-saved="pin.isSaved"
-          :rgb="pin.rgb || undefined"
+          :rgb="pin.rgb ?? '#dc2626'"
           variant="card"
           :show-delete="showDeleteButton"
           :delete-text="deleteButtonText"

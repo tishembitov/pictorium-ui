@@ -4,7 +4,7 @@ import { ref, computed } from 'vue'
 import { useEscapeKey } from '@/composables/utils/useClickOutside'
 import { useScrollLock } from '@/composables/utils/useScrollLock'
 import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
-import { usePinSave } from '@/composables/api/usePinSave'
+import { usePinActions } from '@/composables/api/usePinActions'
 
 export interface PinFullscreenProps {
   modelValue: boolean
@@ -25,7 +25,7 @@ const emit = defineEmits<{
 
 // ✅ ИСПРАВЛЕНО: getter для реактивности
 const { boardTitle } = useSelectedBoard()
-const { saveState, saveButtonText, save } = usePinSave(() => props.pinId)
+const { saveState, saveButtonText, save } = usePinActions(() => props.pinId)
 
 // State
 const zoom = ref(1)

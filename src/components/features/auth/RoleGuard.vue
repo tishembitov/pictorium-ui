@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useAuthState } from '@/composables/auth/useAuth'
+import { useAuth } from '@/composables/auth/useAuth'
 import { useRoleGuard } from '@/composables/auth/usePermissions'
 
 interface Props {
@@ -40,7 +40,7 @@ const props = withDefaults(defineProps<Props>(), {
   hideOnForbidden: false,
 })
 
-const { isInitialized, isLoading: isInitializing } = useAuthState()
+const { isInitialized, isInitializing } = useAuth()
 
 const isLoading = computed(() => !isInitialized.value || isInitializing.value)
 

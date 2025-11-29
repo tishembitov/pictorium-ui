@@ -36,8 +36,14 @@ const cloudTags = computed<TagCloudItem[]>(() => {
   return categories.value.map((cat) => ({
     id: cat.tagId,
     name: cat.tagName,
-    count: cat.pinsCount || Math.floor(Math.random() * 100), // fallback
     color: randomTagColor(),
+  }))
+})
+
+const popularTags = computed<Tag[]>(() => {
+  return categories.value.slice(0, 8).map((cat) => ({
+    id: cat.tagId,
+    name: cat.tagName,
   }))
 })
 
@@ -68,7 +74,7 @@ function handleSearchSelect(tag: Tag) {
         <TagSearchInput
           v-model="searchQuery"
           placeholder="Search categories..."
-          :popular-tags="categories.slice(0, 8)"
+          :popular-tags="popularTags"
           show-popular
           @select="handleSearchSelect"
         />

@@ -1,3 +1,4 @@
+// src/api/users.api.ts
 /**
  * Users API
  */
@@ -9,6 +10,7 @@ import type {
   GetUserByIdResponse,
   UserUpdateRequest,
   UpdateUserResponse,
+  User,
 } from '@/types'
 
 const BASE_PATH = '/api/v1/users'
@@ -26,7 +28,7 @@ export const usersApi = {
    * Получить пользователя по username
    */
   getUserByUsername: async (username: string): Promise<GetUserByUsernameResponse> => {
-    const { data } = await userServiceClient.get(`${BASE_PATH}/user/username/${username}`) // ИСПРАВЛЕНО
+    const { data } = await userServiceClient.get(`${BASE_PATH}/user/username/${username}`)
     return data
   },
 
@@ -34,7 +36,7 @@ export const usersApi = {
    * Получить пользователя по ID
    */
   getUserById: async (userId: string): Promise<GetUserByIdResponse> => {
-    const { data } = await userServiceClient.get(`${BASE_PATH}/user/id/${userId}`) // ИСПРАВЛЕНО
+    const { data } = await userServiceClient.get(`${BASE_PATH}/user/id/${userId}`)
     return data
   },
 
@@ -43,6 +45,16 @@ export const usersApi = {
    */
   updateUser: async (userData: UserUpdateRequest): Promise<UpdateUserResponse> => {
     const { data } = await userServiceClient.patch(`${BASE_PATH}/me`, userData)
+    return data
+  },
+
+  /**
+   * Поиск пользователей
+   */
+  searchUsers: async (query: string, limit = 20): Promise<User[]> => {
+    const { data } = await userServiceClient.get(`${BASE_PATH}/search`, {
+      params: { q: query, limit },
+    })
     return data
   },
 }

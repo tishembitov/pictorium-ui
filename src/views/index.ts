@@ -14,11 +14,6 @@ export const SearchView = () => import('./SearchView.vue')
 export const ExploreView = () => import('./ExploreView.vue')
 export const SettingsView = () => import('./SettingsView.vue')
 
-// Auth views
-export const LoginView = () => import('./auth/LoginView.vue')
-export const RegisterView = () => import('./auth/RegisterView.vue')
-export const CallbackView = () => import('./auth/CallbackView.vue')
-
 // Error views
 export const NotFoundView = () => import('./errors/NotFoundView.vue')
 export const ErrorView = () => import('./errors/ErrorView.vue')

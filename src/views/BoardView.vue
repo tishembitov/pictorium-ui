@@ -45,10 +45,9 @@ useDocumentTitle(pageTitle)
 
 // ============ COMPUTED ============
 
-const canEdit = computed(() => {
-  return board.value && userId.value === board.value.userId
+const canEdit = computed((): boolean => {
+  return board.value !== null && userId.value === board.value.userId
 })
-
 // ============ METHODS ============
 
 async function loadBoard() {

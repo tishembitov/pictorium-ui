@@ -23,6 +23,7 @@ export * from './api/useCreatePin'
 export * from './api/useCommentLikes'
 export * from './api/usePinLikes'
 export * from './api/useUsersWithAvatars'
+export * from './api/useUserSearch'
 
 // ============================================================================
 // AUTH COMPOSABLES

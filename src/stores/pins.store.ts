@@ -5,7 +5,7 @@ import type { Pin, PinFeed, PinWithBlob, PinFilter, PagePin } from '@/types'
 import { pinsApi, savedPinsApi, likesApi, storageApi } from '@/api'
 import { isVideo, isVideoUrl, isGifUrl, getImageDimensions } from '@/utils/media'
 
-type FeedType = 'all' | 'created' | 'saved' | 'liked'
+type FeedType = 'all' | 'created' | 'saved' | 'liked' | 'search'
 
 export const usePinsStore = defineStore('pins', () => {
   // ============ STATE ============
@@ -18,6 +18,7 @@ export const usePinsStore = defineStore('pins', () => {
       ['created', createEmptyFeed()],
       ['saved', createEmptyFeed()],
       ['liked', createEmptyFeed()],
+      ['search', createEmptyFeed()], // ✅ Добавлено
     ]),
   )
 
@@ -608,6 +609,8 @@ export const usePinsStore = defineStore('pins', () => {
         return { scope: 'SAVED' }
       case 'liked':
         return { scope: 'LIKED' }
+      case 'search':
+        return { scope: 'ALL' } // Для поиска используем ALL + q параметр
       default:
         return { scope: 'ALL' }
     }

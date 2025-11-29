@@ -7,21 +7,19 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePinsStore } from '@/stores/pins.store'
-import { useUserSearch } from '@/composables/api/useUserSearch'
-import { useDocumentTitle } from '@/composables/utils/useDocumentTitle'
-import { useDebouncedRef } from '@/composables/utils/useDebounce'
+import { useDocumentTitle, useUserSearch, useDebouncedRef } from '@/composables'
 
 import AppHeader from '@/components/common/AppHeader.vue'
 import PinMasonry from '@/components/features/pins/PinMasonry.vue'
 import PinGrid from '@/components/features/pins/PinGrid.vue'
 import UserCard from '@/components/features/users/UserCard.vue'
-import UserSearchItem from '@/components/features/users/UserSearchItem.vue'
 import TagSearchInput from '@/components/features/tags/TagSearchInput.vue'
 import TagList from '@/components/features/tags/TagList.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 
 import type { PinGroup } from '@/components/features/pins/PinMasonry.vue'
+import type { TagItem } from '@/components/features/tags/TagList.vue'
 import type { PinWithBlob, Tag } from '@/types'
 
 const route = useRoute()
@@ -57,7 +55,6 @@ useDocumentTitle(pageTitle)
 const feed = computed(() => pinsStore.feeds.get('search'))
 const pins = computed(() => feed.value?.pins || [])
 const isLoadingPins = computed(() => feed.value?.isLoading || false)
-const hasMorePins = computed(() => feed.value?.hasMore ?? false)
 
 const isEmpty = computed(() => {
   if (activeTab.value === 'pins') {
@@ -81,7 +78,8 @@ async function performSearch() {
 
   if (activeTab.value === 'pins') {
     pinsStore.resetFeed('search')
-    await pinsStore.fetchPins({ search: query }, 0, 20, 'search')
+    // ✅ Используем 'q' вместо 'search'
+    await pinsStore.fetchPins({ q: query }, 0, 20, 'search')
 
     if (pins.value.length > 0) {
       pinGroups.value = [
@@ -98,7 +96,8 @@ async function performSearch() {
   }
 }
 
-function handleTagSelect(tag: Tag) {
+// ✅ Исправлен тип параметра
+function handleTagSelect(tag: TagItem | Tag) {
   searchQuery.value = tag.name
   performSearch()
 }
@@ -110,6 +109,28 @@ function handleGroupLoaded(groupId: string) {
 
 function toggleViewMode() {
   viewMode.value = viewMode.value === 'masonry' ? 'grid' : 'masonry'
+}
+
+async function loadMore() {
+  const currentFeed = feed.value
+  if (!currentFeed?.hasMore || isLoadingPins.value) return
+
+  const query = debouncedQuery.value.trim()
+  if (!query) return
+
+  await pinsStore.fetchPins({ q: query }, currentFeed.page + 1, 20, 'search')
+
+  // Обновляем pinGroups
+  if (pins.value.length > 0) {
+    pinGroups.value = [
+      {
+        id: `search-${Date.now()}`,
+        pins: pins.value as PinWithBlob[],
+        showAllPins: pinGroups.value[0]?.showAllPins ?? false,
+        loadedCount: 0,
+      },
+    ]
+  }
 }
 
 // ============ WATCHERS ============
@@ -225,6 +246,7 @@ onMounted(() => {
           v-if="viewMode === 'masonry' && pinGroups.length > 0"
           :pin-groups="pinGroups"
           @group-loaded="handleGroupLoaded"
+          @load-more="loadMore"
         />
 
         <!-- Grid View -->

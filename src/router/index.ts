@@ -10,9 +10,6 @@ import {
   SearchView,
   ExploreView,
   SettingsView,
-  LoginView,
-  RegisterView,
-  CallbackView,
   NotFoundView,
 } from '@/views'
 
@@ -59,25 +56,6 @@ const routes: RouteRecordRaw[] = [
     name: 'settings',
     component: SettingsView,
     meta: { requiresAuth: true },
-  },
-
-  // Auth routes
-  {
-    path: '/login',
-    name: 'login',
-    component: LoginView,
-    meta: { guestOnly: true },
-  },
-  {
-    path: '/register',
-    name: 'register',
-    component: RegisterView,
-    meta: { guestOnly: true },
-  },
-  {
-    path: '/callback',
-    name: 'callback',
-    component: CallbackView,
   },
 
   // Error routes

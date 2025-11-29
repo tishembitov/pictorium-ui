@@ -1,10 +1,11 @@
 // src/plugins/theme.ts
 import type { App } from 'vue'
 import { useUIStore } from '@/stores/ui.store'
+import { STORAGE_KEYS } from '@/utils/constants'
 
 export function setupTheme(app: App) {
   // Инициализация темы из localStorage или системных настроек
-  const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null
+  const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME) as 'light' | 'dark' | null
 
   let theme: 'light' | 'dark'
 
@@ -18,7 +19,7 @@ export function setupTheme(app: App) {
 
   // Применяем тему
   document.documentElement.classList.toggle('dark', theme === 'dark')
-  localStorage.setItem('theme', theme)
+  localStorage.setItem(STORAGE_KEYS.THEME, theme)
 
   // Обновляем store
   const uiStore = useUIStore()
@@ -27,8 +28,7 @@ export function setupTheme(app: App) {
   // Слушаем изменения системной темы
   const mediaQuery = globalThis.matchMedia('(prefers-color-scheme: dark)')
   const handleThemeChange = (e: MediaQueryListEvent) => {
-    if (!localStorage.getItem('theme')) {
-      // Только если пользователь не выбрал тему вручную
+    if (!localStorage.getItem(STORAGE_KEYS.THEME)) {
       const newTheme = e.matches ? 'dark' : 'light'
       document.documentElement.classList.toggle('dark', newTheme === 'dark')
       uiStore.setTheme(newTheme)
@@ -48,7 +48,7 @@ export function setupTheme(app: App) {
 }
 
 /**
- * Переключение темы (вызывать из компонента)
+ * Переключение темы
  */
 export function toggleTheme() {
   const uiStore = useUIStore()
@@ -56,7 +56,7 @@ export function toggleTheme() {
   const newTheme = currentTheme === 'light' ? 'dark' : 'light'
 
   document.documentElement.classList.toggle('dark', newTheme === 'dark')
-  localStorage.setItem('theme', newTheme)
+  localStorage.setItem(STORAGE_KEYS.THEME, newTheme)
   uiStore.setTheme(newTheme)
 
   console.log('[Theme] Theme toggled:', newTheme)

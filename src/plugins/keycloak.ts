@@ -1,30 +1,28 @@
-// frontend/src/plugins/keycloak.ts
+// src/plugins/keycloak.ts
 import type { App } from 'vue'
 import Keycloak from 'keycloak-js'
 import { useAuthStore } from '@/stores/auth.store'
+import { KEYCLOAK_URL, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID } from '@/utils/constants'
 
 let keycloakInstance: Keycloak | null = null
 
 // Получить текущий язык приложения
 function getCurrentLocale(): string {
-  // Из localStorage, i18n, или navigator
   return localStorage.getItem('locale') || navigator.language.split('-')[0] || 'en'
-}
-
-// Получить текущую тему (light/dark)
-function getCurrentTheme(): string {
-  return (
-    localStorage.getItem('theme') ||
-    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-  )
 }
 
 export async function setupKeycloak(app: App): Promise<boolean> {
   const config = {
-    url: import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8080',
-    realm: import.meta.env.VITE_KEYCLOAK_REALM || 'pictorium',
-    clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'pictorium-app',
+    url: KEYCLOAK_URL,
+    realm: KEYCLOAK_REALM,
+    clientId: KEYCLOAK_CLIENT_ID,
   }
+
+  console.log('[Keycloak] Initializing with config:', {
+    url: config.url,
+    realm: config.realm,
+    clientId: config.clientId,
+  })
 
   keycloakInstance = new Keycloak(config)
 
@@ -67,6 +65,31 @@ function setupTokenRefresh(keycloak: Keycloak): void {
   }, 30000)
 }
 
+export async function refreshToken(minValidity: number = 30): Promise<boolean> {
+  if (!keycloakInstance) {
+    console.warn('[Keycloak] Not initialized')
+    return false
+  }
+
+  if (!keycloakInstance.authenticated) {
+    console.warn('[Keycloak] User not authenticated')
+    return false
+  }
+
+  try {
+    const refreshed = await keycloakInstance.updateToken(minValidity)
+
+    if (refreshed && import.meta.env.DEV) {
+      console.log('[Keycloak] Token refreshed successfully')
+    }
+
+    return true // Токен валиден (либо обновлён, либо ещё не истёк)
+  } catch (error) {
+    console.error('[Keycloak] Token refresh failed:', error)
+    return false
+  }
+}
+
 function setupEventListeners(keycloak: Keycloak): void {
   keycloak.onTokenExpired = () => {
     console.log('[Keycloak] Token expired, refreshing...')
@@ -96,8 +119,8 @@ export function getKeycloak(): Keycloak | null {
 export interface LoginOptions {
   redirectUri?: string
   locale?: string
-  loginHint?: string // Pre-fill email/username
-  idpHint?: string // Сразу перейти на Google/GitHub
+  loginHint?: string
+  idpHint?: string
 }
 
 export function login(options: LoginOptions = {}): void {
@@ -165,9 +188,9 @@ export function loginWithProvider(provider: 'google' | 'github', redirectUri?: s
 }
 
 /**
- * Получить URL для логина (для href в ссылках)
+ * Получить URL для логина (асинхронная версия)
  */
-export function getLoginUrl(options: LoginOptions = {}): string {
+export async function getLoginUrl(options: LoginOptions = {}): Promise<string> {
   if (!keycloakInstance) return '#'
 
   return keycloakInstance.createLoginUrl({
@@ -179,9 +202,9 @@ export function getLoginUrl(options: LoginOptions = {}): string {
 }
 
 /**
- * Получить URL для регистрации
+ * Получить URL для регистрации (асинхронная версия)
  */
-export function getRegisterUrl(options: RegisterOptions = {}): string {
+export async function getRegisterUrl(options: RegisterOptions = {}): Promise<string> {
   if (!keycloakInstance) return '#'
 
   return keycloakInstance.createRegisterUrl({
@@ -190,7 +213,46 @@ export function getRegisterUrl(options: RegisterOptions = {}): string {
   })
 }
 
-// Экспорт остальных функций...
+/**
+ * Синхронная версия для использования в href
+ * Использует сохранённые параметры или возвращает заглушку
+ */
+export function getLoginUrlSync(options: LoginOptions = {}): string {
+  if (!keycloakInstance) return '#'
+
+  // Формируем URL вручную для синхронного использования
+  const baseUrl = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth`
+  const params = new URLSearchParams({
+    client_id: KEYCLOAK_CLIENT_ID,
+    redirect_uri: options.redirectUri || window.location.origin,
+    response_type: 'code',
+    scope: 'openid profile email',
+  })
+
+  if (options.locale) {
+    params.append('ui_locales', options.locale)
+  }
+  if (options.loginHint) {
+    params.append('login_hint', options.loginHint)
+  }
+  if (options.idpHint) {
+    params.append('kc_idp_hint', options.idpHint)
+  }
+
+  return `${baseUrl}?${params.toString()}`
+}
+
+/**
+ * Синхронная версия URL для регистрации
+ */
+export function getRegisterUrlSync(options: RegisterOptions = {}): string {
+  const loginUrl = getLoginUrlSync(options)
+  // Добавляем параметр для показа формы регистрации
+  const url = new URL(loginUrl)
+  url.searchParams.set('kc_action', 'register')
+  return url.toString()
+}
+
 export function getToken(): string | undefined {
   return keycloakInstance?.token
 }

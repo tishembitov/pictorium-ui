@@ -10,9 +10,9 @@ export const STORAGE_SERVICE_URL =
   import.meta.env.VITE_STORAGE_SERVICE_URL || 'http://localhost:8088'
 
 // Keycloak
-export const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8080'
-export const KEYCLOAK_REALM = import.meta.env.VITE_KEYCLOAK_REALM || 'pinterest-clone'
-export const KEYCLOAK_CLIENT_ID = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'vue-app'
+export const KEYCLOAK_URL = 'http://localhost:9090'
+export const KEYCLOAK_REALM = 'pictorium'
+export const KEYCLOAK_CLIENT_ID = 'pictorium-app'
 
 // File upload limits
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024 // 10MB

@@ -4,6 +4,7 @@ import axios, {
   type AxiosRequestConfig,
   type AxiosError,
   type InternalAxiosRequestConfig,
+  type CancelToken,
 } from 'axios'
 import { getKeycloak, refreshToken, login, getToken, isAuthenticated } from '@/plugins/keycloak'
 import router from '@/router'
@@ -411,7 +412,7 @@ export function isTimeoutError(error: unknown): boolean {
  * Создать отменяемый запрос
  */
 export function createCancelToken(): {
-  token: axios.CancelToken
+  token: CancelToken // ← Исправленный тип
   cancel: (message?: string) => void
 } {
   const source = axios.CancelToken.source()

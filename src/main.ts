@@ -6,7 +6,7 @@ import { setupStores } from './stores'
 import { setupPlugins } from './plugins'
 import { setupDirectives } from './directives'
 import { setupTheme } from './plugins/theme'
-import './styles/main.css'
+import './assets/styles/main.css'
 
 async function bootstrap() {
   const app = createApp(App)

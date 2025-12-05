@@ -8,17 +8,6 @@ import { setupDirectives } from './directives'
 import { setupTheme } from './plugins/theme'
 import './assets/styles/main.css'
 
-// Обработка необработанных промисов
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('[App] Unhandled promise rejection:', event.reason)
-  event.preventDefault() // Предотвращаем вывод в консоль по умолчанию
-})
-
-// Обработка глобальных ошибок
-window.addEventListener('error', (event) => {
-  console.error('[App] Global error:', event.error)
-})
-
 async function bootstrap() {
   const app = createApp(App)
 
@@ -64,6 +53,4 @@ async function bootstrap() {
   }
 }
 
-bootstrap().catch((error) => {
-  console.error('[App] Bootstrap failed:', error)
-})
+bootstrap()

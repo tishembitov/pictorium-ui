@@ -8,6 +8,7 @@
 
 import { useToast as useVueToast } from 'vue-toastification'
 import type { PluginOptions as ToastOptions } from 'vue-toastification'
+import { showSuccessConfetti } from '@/utils/confetti'
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
 
@@ -65,14 +66,23 @@ export function useSuccessToast() {
 
   return {
     // Pins
-    pinCreated: () => success('Pin created!'),
+    pinCreated: () => {
+      success('Pin created!')
+      showSuccessConfetti()
+    },
     pinDeleted: () => success('Pin deleted!'),
     pinUpdated: () => success('Pin updated'),
-    pinSaved: () => success('Pin saved!'),
+    pinSaved: () => {
+      success('Pin saved!')
+      showSuccessConfetti()
+    },
     pinUnsaved: () => success('Pin removed from saved'),
 
     // Boards
-    boardCreated: () => success('Board created!'),
+    boardCreated: () => {
+      success('Board created!')
+      showSuccessConfetti()
+    },
     boardDeleted: () => success('Board deleted!'),
 
     // Comments
@@ -80,10 +90,16 @@ export function useSuccessToast() {
     commentDeleted: () => success('Comment deleted!'),
 
     // Profile
-    profileUpdated: () => success('Profile updated!'),
+    profileUpdated: () => {
+      success('Profile updated!')
+      showSuccessConfetti()
+    },
 
     // Follow
-    followed: () => success('Followed!'),
+    followed: () => {
+      success('Followed!')
+      showSuccessConfetti()
+    },
     unfollowed: () => success('Unfollowed!'),
 
     // Generic

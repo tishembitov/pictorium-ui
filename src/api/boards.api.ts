@@ -11,6 +11,7 @@ import type {
   Pageable,
   Board,
 } from '@/types'
+import { serializePageable } from '@/utils/query'
 
 const BASE_PATH = '/api/v1/boards'
 
@@ -36,7 +37,7 @@ export const boardsApi = {
    */
   getBoardPins: async (boardId: string, pageable: Pageable): Promise<GetBoardPinsResponse> => {
     const { data } = await contentServiceClient.get(`${BASE_PATH}/${boardId}/pins`, {
-      params: pageable,
+      params: serializePageable(pageable),
     })
     return data
   },

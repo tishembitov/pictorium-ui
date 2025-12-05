@@ -10,6 +10,7 @@ import type {
   CheckFollowResponse,
   Pageable,
 } from '@/types'
+import { serializePageableAsJson } from '@/utils/query'
 
 const BASE_PATH = '/api/v1/subscriptions'
 
@@ -35,7 +36,7 @@ export const subscriptionsApi = {
   getFollowers: async (userId: string, pageable: Pageable): Promise<GetFollowersResponse> => {
     const { data } = await userServiceClient.get(`${BASE_PATH}/followers/${userId}`, {
       params: {
-        pageable: JSON.stringify(pageable),
+        pageable: serializePageableAsJson(pageable),
       },
     })
     return data
@@ -47,7 +48,7 @@ export const subscriptionsApi = {
   getFollowing: async (userId: string, pageable: Pageable): Promise<GetFollowingResponse> => {
     const { data } = await userServiceClient.get(`${BASE_PATH}/following/${userId}`, {
       params: {
-        pageable: JSON.stringify(pageable),
+        pageable: serializePageableAsJson(pageable),
       },
     })
     return data

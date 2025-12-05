@@ -23,3 +23,12 @@ export * from './scroll'
 export * from './positioning'
 export * from './animations'
 export * from './confetti'
+
+// Query utilities
+export * from './query'
+
+// Pin utilities
+export * from './pins'
+
+// Logger
+export { logger } from './logger'

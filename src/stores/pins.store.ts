@@ -3,7 +3,8 @@ import { defineStore } from 'pinia'
 import { ref, computed, reactive } from 'vue'
 import type { Pin, PinFeed, PinWithBlob, PinFilter, PagePin } from '@/types'
 import { pinsApi, savedPinsApi, likesApi, storageApi } from '@/api'
-import { isVideo, isVideoUrl, isGifUrl, getImageDimensions } from '@/utils/media'
+import { loadPinBlob, loadPinsBlobs } from '@/utils/pins'
+import { isVideo, getImageDimensions } from '@/utils/media'
 
 type FeedType = 'all' | 'created' | 'saved' | 'liked' | 'search'
 
@@ -58,55 +59,6 @@ export const usePinsStore = defineStore('pins', () => {
   const getRelatedPinsPagination = computed(() => (pinId: string) => {
     return relatedPinsPagination.get(pinId) || { page: 0, hasMore: true, total: 0 }
   })
-
-  // ============ BLOB LOADING ============
-
-  async function loadPinBlob(pin: Pin): Promise<PinWithBlob> {
-    if (!pin.imageId && !pin.videoPreviewId) return pin
-
-    try {
-      const pinWithBlob: PinWithBlob = { ...pin }
-
-      const hasVideoPreview = !!pin.videoPreviewId
-      // Определяем тип файла по contentType или расширению
-      const isVideoFile = hasVideoPreview
-      const isGifFile = false // Можно определить по contentType если нужно
-
-      pinWithBlob.isVideo = isVideoFile
-      pinWithBlob.isGif = isGifFile
-      pinWithBlob.isImage = !isVideoFile && !isGifFile
-
-      const promises: Promise<void>[] = []
-
-      // Загружаем изображение (если не видео)
-      if (pin.imageId && !isVideoFile) {
-        promises.push(
-          storageApi.downloadImage(pin.imageId).then((blob) => {
-            pinWithBlob.imageBlobUrl = URL.createObjectURL(blob)
-          }),
-        )
-      }
-
-      // Загружаем превью видео
-      if (pin.videoPreviewId) {
-        promises.push(
-          storageApi.downloadImage(pin.videoPreviewId).then((blob) => {
-            pinWithBlob.videoBlobUrl = URL.createObjectURL(blob)
-          }),
-        )
-      }
-
-      await Promise.allSettled(promises)
-      return pinWithBlob
-    } catch (error) {
-      console.error('[Pins] Failed to load pin blob:', error)
-      return pin
-    }
-  }
-
-  async function loadPinsBlobs(pins: Pin[]): Promise<PinWithBlob[]> {
-    return Promise.all(pins.map(loadPinBlob))
-  }
 
   // ============ ACTIONS ============
 

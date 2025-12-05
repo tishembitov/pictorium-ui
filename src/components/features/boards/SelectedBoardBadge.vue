@@ -7,7 +7,7 @@
  */
 
 import { computed } from 'vue'
-import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
+import { useBoards } from '@/composables/api/useBoards'
 
 export interface SelectedBoardBadgeProps {
   variant?: 'text' | 'badge' | 'button'
@@ -23,8 +23,10 @@ const props = withDefaults(defineProps<SelectedBoardBadgeProps>(), {
 
 const emit = defineEmits<(e: 'click') => void>()
 
-const { boardTitle, hasSelected, isLoading } = useSelectedBoard()
+const { selectedBoard, isLoading } = useBoards()
 
+const boardTitle = computed(() => selectedBoard.value?.title || 'Save to profile')
+const hasSelected = computed(() => !!selectedBoard.value)
 const displayText = computed(() => boardTitle.value)
 
 const sizeClasses = computed(() => {

@@ -3,62 +3,29 @@
  * useTagSearch - Autocomplete для тегов
  */
 
-import { ref, computed, onUnmounted } from 'vue'
+import { computed, ref } from 'vue'
 import { useTagsStore } from '@/stores/tags.store'
+import { useSearchBase } from './useSearchBase'
 import type { Tag } from '@/types'
 
 export function useTagSearch(debounceDelay = 200) {
   const tagsStore = useTagsStore()
 
-  // ✅ ДОБАВЛЕНО: debounce timer для cleanup
-  let debounceTimer: ReturnType<typeof setTimeout> | undefined
-
-  const suggestions = computed(() => tagsStore.searchResults)
-  const isSearching = computed(() => tagsStore.isSearching)
-
-  async function search(query: string, limit = 8) {
-    // ✅ ИСПРАВЛЕНО: clear previous timer
-    if (debounceTimer) {
-      clearTimeout(debounceTimer)
-    }
-
-    if (!query.trim()) {
-      tagsStore.clearSearchResults()
-      return []
-    }
-
-    return new Promise<Tag[]>((resolve) => {
-      debounceTimer = setTimeout(async () => {
-        try {
-          const results = await tagsStore.searchTags(query, limit)
-          resolve(results)
-        } catch (e) {
-          console.error('[useTagSearch] Search failed:', e)
-          resolve([])
-        }
-      }, debounceDelay)
-    })
-  }
-
-  function clear() {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer)
-    }
-    tagsStore.clearSearchResults()
-  }
-
-  // ✅ ДОБАВЛЕНО: cleanup
-  onUnmounted(() => {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer)
-    }
-  })
+  const searchBase = useSearchBase<Tag>(
+    {
+      search: async (query: string, limit = 8) => {
+        return await tagsStore.searchTags(query, limit)
+      },
+      clearResults: () => tagsStore.clearSearchResults(),
+    },
+    { debounceDelay },
+  )
 
   return {
-    suggestions,
-    isSearching,
-    search,
-    clear,
+    suggestions: computed(() => tagsStore.searchResults),
+    isSearching: computed(() => tagsStore.isSearching || searchBase.isSearching.value),
+    search: searchBase.search,
+    clear: searchBase.clear,
   }
 }
 

@@ -13,6 +13,7 @@ import type {
   GetCategoriesParams,
   GetCategoriesResponse,
 } from '@/types'
+import { serializePageableAsJson } from '@/utils/query'
 
 const BASE_PATH = '/api/v1/tags'
 
@@ -23,7 +24,7 @@ export const tagsApi = {
   getAll: async (params: GetAllTagsParams): Promise<GetAllTagsResponse> => {
     const { data } = await contentServiceClient.get(BASE_PATH, {
       params: {
-        pageable: JSON.stringify(params.pageable),
+        pageable: serializePageableAsJson(params.pageable),
       },
     })
     return data

@@ -17,13 +17,14 @@ export * from './api/useFollow'
 export * from './api/useUserProfile'
 export * from './api/useTagSearch'
 export * from './api/useStorage'
-export * from './api/useSelectedBoard'
-export * from './api/useSavedPins'
 export * from './api/useCreatePin'
 export * from './api/useCommentLikes'
 export * from './api/usePinLikes'
 export * from './api/useUsersWithAvatars'
 export * from './api/useUserSearch'
+// Internal base composables (not exported)
+// export * from './api/useLikesBase'
+// export * from './api/useSearchBase'
 
 // ============================================================================
 // AUTH COMPOSABLES

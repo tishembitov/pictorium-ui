@@ -3,7 +3,7 @@
 import { ref, computed } from 'vue'
 import { useEscapeKey } from '@/composables/utils/useClickOutside'
 import { useScrollLock } from '@/composables/utils/useScrollLock'
-import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
+import { useBoards } from '@/composables/api/useBoards'
 import { usePinActions } from '@/composables/api/usePinActions'
 
 export interface PinFullscreenProps {
@@ -24,7 +24,8 @@ const emit = defineEmits<{
 }>()
 
 // ✅ ИСПРАВЛЕНО: getter для реактивности
-const { boardTitle } = useSelectedBoard()
+const { selectedBoard } = useBoards()
+const boardTitle = computed(() => selectedBoard.value?.title || 'Save to profile')
 const { saveState, saveButtonText, save } = usePinActions(() => props.pinId)
 
 // State

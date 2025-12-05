@@ -11,6 +11,7 @@ import type {
   GetCommentLikesParams,
   GetCommentLikesResponse,
 } from '@/types'
+import { serializePageableAsJson } from '@/utils/query'
 
 const PINS_BASE_PATH = '/api/v1/pins'
 const COMMENTS_BASE_PATH = '/api/v1/comments'
@@ -41,7 +42,7 @@ export const likesApi = {
   getPinLikes: async (pinId: string, params: GetPinLikesParams): Promise<GetPinLikesResponse> => {
     const { data } = await contentServiceClient.get(`${PINS_BASE_PATH}/${pinId}/likes`, {
       params: {
-        pageable: JSON.stringify(params.pageable),
+        pageable: serializePageableAsJson(params.pageable),
       },
     })
     return data
@@ -75,7 +76,7 @@ export const likesApi = {
   ): Promise<GetCommentLikesResponse> => {
     const { data } = await contentServiceClient.get(`${COMMENTS_BASE_PATH}/${commentId}/likes`, {
       params: {
-        pageable: JSON.stringify(params.pageable),
+        pageable: serializePageableAsJson(params.pageable),
       },
     })
     return data

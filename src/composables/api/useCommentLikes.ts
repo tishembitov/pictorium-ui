@@ -1,147 +1,40 @@
 // src/composables/api/useCommentLikes.ts
 /**
  * useCommentLikes - Загрузка пользователей, лайкнувших комментарий
- * ✅ ИСПРАВЛЕНО: поддержка getter для commentId
  */
 
-import { ref, computed, onUnmounted } from 'vue'
-import { likesApi, usersApi, storageApi } from '@/api'
-import type { User, Pageable } from '@/types'
+import { likesApi } from '@/api'
+import { useLikesBase, type LikeUser, type UseLikesBaseOptions } from './useLikesBase'
 
-export interface CommentLikeUser extends User {
-  avatarBlobUrl?: string
+export interface CommentLikeUser extends LikeUser {
   likedAt?: string
 }
 
-export interface UseCommentLikesOptions {
-  pageSize?: number
-  immediate?: boolean
-}
+export interface UseCommentLikesOptions extends UseLikesBaseOptions {}
 
 export function useCommentLikes(
   commentId: string | (() => string),
   options: UseCommentLikesOptions = {},
 ) {
-  const { pageSize = 5, immediate = false } = options
-
-  // ✅ Поддержка getter
+  const { pageSize = 5, ...restOptions } = options
   const getId = () => (typeof commentId === 'string' ? commentId : commentId())
 
-  // State
-  const users = ref<CommentLikeUser[]>([])
-  const page = ref(0)
-  const totalElements = ref(0)
-  const hasMore = ref(true)
-  const isLoading = ref(false)
-  const error = ref<Error | null>(null)
-
-  async function loadUserWithAvatar(userId: string): Promise<CommentLikeUser | null> {
-    try {
-      const user = await usersApi.getUserById(userId)
-      const likeUser: CommentLikeUser = { ...user }
-
-      if (user.imageId) {
-        try {
-          const blob = await storageApi.downloadImage(user.imageId)
-          likeUser.avatarBlobUrl = URL.createObjectURL(blob)
-        } catch (e) {
-          console.warn(`[useCommentLikes] Failed to load avatar for user ${user.id}:`, e)
-        }
-      }
-
-      return likeUser
-    } catch (e) {
-      console.error(`[useCommentLikes] Failed to load user ${userId}:`, e)
-      return null
-    }
-  }
-
-  async function fetch(pageNum = 0, reset = false): Promise<CommentLikeUser[]> {
-    if (isLoading.value) return []
-
-    try {
-      isLoading.value = true
-      error.value = null
-
-      if (reset) {
-        cleanup()
-        page.value = 0
-        hasMore.value = true
-      }
-
-      const pageable: Pageable = {
-        page: pageNum,
-        size: pageSize,
-        sort: ['createdAt,desc'],
-      }
-
-      const response = await likesApi.getCommentLikes(getId(), {
-        commentId: getId(),
+  return useLikesBase<CommentLikeUser>(
+    getId,
+    {
+      fetchLikes: async (id, pageable) => {
+        const response = await likesApi.getCommentLikes(id, {
+          commentId: id,
         pageable,
       })
-
-      const loadedUsers = await Promise.all(
-        response.content.map((like) => loadUserWithAvatar(like.userId)),
-      )
-
-      const validUsers = loadedUsers.filter((u): u is CommentLikeUser => u !== null)
-
-      if (pageNum === 0 || reset) {
-        users.value = validUsers
-      } else {
-        users.value.push(...validUsers)
-      }
-
-      page.value = response.number
-      totalElements.value = response.totalElements
-      hasMore.value = !response.last
-
-      return validUsers
-    } catch (e) {
-      error.value = e as Error
-      console.error('[useCommentLikes] Failed to fetch likes:', e)
-      throw e
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  async function loadMore(): Promise<CommentLikeUser[]> {
-    if (!hasMore.value || isLoading.value) return []
-    return await fetch(page.value + 1)
-  }
-
-  function cleanup() {
-    users.value.forEach((user) => {
-      if (user.avatarBlobUrl) {
-        URL.revokeObjectURL(user.avatarBlobUrl)
-      }
-    })
-    users.value = []
-  }
-
-  function reset() {
-    cleanup()
-    page.value = 0
-    totalElements.value = 0
-    hasMore.value = true
-    error.value = null
-  }
-
-  onUnmounted(cleanup)
-
-  if (immediate) {
-    fetch(0)
-  }
-
   return {
-    users: computed(() => users.value),
-    isLoading: computed(() => isLoading.value),
-    hasMore: computed(() => hasMore.value),
-    error: computed(() => error.value),
-    totalElements: computed(() => totalElements.value),
-    fetch,
-    loadMore,
-    reset,
+          content: response.content,
+          number: response.number,
+          totalElements: response.totalElements,
+          last: response.last,
   }
+      },
+    },
+    { ...restOptions, pageSize },
+  )
 }

@@ -3,8 +3,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { usePinDetail } from '@/composables/api/usePinDetail'
-import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
-import { useBoards } from '@/composables/api/useBoards' // ✅ ИСПРАВЛЕНО
+import { useBoards } from '@/composables/api/useBoards'
 import { useDocumentTitle } from '@/composables/utils/useDocumentTitle'
 import { useIntersectionObserver } from '@/composables/utils/useIntersectionObserver'
 import PinDetailMedia from './PinDetailMedia.vue'

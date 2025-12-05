@@ -13,6 +13,7 @@ import type {
   Pageable,
   PinFilter,
 } from '@/types'
+import { serializePinsParams } from '@/utils/query'
 
 const BASE_PATH = '/api/v1/pins'
 
@@ -30,10 +31,7 @@ export const pinsApi = {
    */
   getPins: async (filter: PinFilter, pageable: Pageable): Promise<GetPinsResponse> => {
     const { data } = await contentServiceClient.get(BASE_PATH, {
-      params: {
-        filter: JSON.stringify(filter),
-        pageable: JSON.stringify(pageable),
-      },
+      params: serializePinsParams(filter, pageable),
     })
     return data
   },

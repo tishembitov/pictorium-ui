@@ -15,6 +15,7 @@ import type {
   GetRepliesResponse,
   CreateReplyResponse,
 } from '@/types'
+import { serializePageableAsJson } from '@/utils/query'
 
 const PINS_BASE_PATH = '/api/v1/pins'
 const COMMENTS_BASE_PATH = '/api/v1/comments'
@@ -26,7 +27,7 @@ export const commentsApi = {
   getComments: async (pinId: string, params: GetCommentsParams): Promise<GetCommentsResponse> => {
     const { data } = await contentServiceClient.get(`${PINS_BASE_PATH}/${pinId}/comments`, {
       params: {
-        pageable: JSON.stringify(params.pageable),
+        pageable: serializePageableAsJson(params.pageable),
       },
     })
     return data
@@ -81,7 +82,7 @@ export const commentsApi = {
   getReplies: async (commentId: string, params: GetRepliesParams): Promise<GetRepliesResponse> => {
     const { data } = await contentServiceClient.get(`${COMMENTS_BASE_PATH}/${commentId}/replies`, {
       params: {
-        pageable: JSON.stringify(params.pageable),
+        pageable: serializePageableAsJson(params.pageable),
       },
     })
     return data

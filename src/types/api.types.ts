@@ -103,14 +103,7 @@ export interface BoardCreateRequest {
   title: string
 }
 
-export interface CreateBoardResponse {
-  id: string
-  userId: string
-  title: string
-  createdAt: string
-  updatedAt: string
-}
-
+export type CreateBoardResponse = Board
 export type GetBoardResponse = Board
 export type GetBoardPinsResponse = PagePin
 export type GetUserBoardsResponse = Board[]

@@ -36,5 +36,6 @@ coverage
 __screenshots__/
 
 *.txt
+*.md
 .history
 .vscode

@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { usePinActions } from '@/composables/api/usePinActions'
-import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
+import { useBoards } from '@/composables/api/useBoards'
 
 export interface PinActionsProps {
   pinId: string
@@ -32,7 +32,8 @@ const emit = defineEmits<{
 
 // ✅ ИСПРАВЛЕНО: getter для реактивности
 const { saveState, saveButtonText, save } = usePinActions(() => props.pinId)
-const { boardTitle } = useSelectedBoard()
+const { selectedBoard } = useBoards()
+const boardTitle = computed(() => selectedBoard.value?.title || 'Save to profile')
 
 // State
 const deleteState = ref<'idle' | 'deleting' | 'deleted'>('idle')

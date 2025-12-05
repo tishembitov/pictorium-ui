@@ -8,6 +8,7 @@ import axios, {
 } from 'axios'
 import { getKeycloak, refreshToken, login, getToken, isAuthenticated } from '@/plugins/keycloak'
 import router from '@/router'
+import { logger } from '@/utils/logger'
 
 // ============================================================================
 // CONSTANTS
@@ -43,9 +44,7 @@ function createApiClient(baseURL: string): AxiosInstance {
       const keycloak = getKeycloak()
 
       if (!keycloak) {
-        if (import.meta.env.DEV) {
-          console.warn('[API] Keycloak is not initialized')
-        }
+        logger.warn('Keycloak is not initialized')
         return config
       }
 
@@ -53,11 +52,11 @@ function createApiClient(baseURL: string): AxiosInstance {
       if (isAuthenticated()) {
         try {
           const refreshed = await keycloak.updateToken(TOKEN_REFRESH_THRESHOLD)
-          if (refreshed && import.meta.env.DEV) {
-            console.log('[API] Token refreshed via request interceptor')
+          if (refreshed) {
+            logger.debug('Token refreshed via request interceptor')
           }
         } catch (error) {
-          console.error('[API] Token update failed in request interceptor:', error)
+          logger.error('Token update failed in request interceptor:', error)
           // Не вызываем login() здесь - пусть response interceptor обработает 401
           // Возвращаем config без токена, сервер вернет 401
         }
@@ -69,15 +68,15 @@ function createApiClient(baseURL: string): AxiosInstance {
         config.headers.Authorization = `Bearer ${token}`
       }
 
-      // Debug logging
-      if (import.meta.env.DEV) {
-        console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`)
+      // API logging
+      if (config.method && config.url) {
+        logger.api(config.method, config.url)
       }
 
       return config
     },
     (error) => {
-      console.error('[API] Request interceptor error:', error)
+      logger.error('Request interceptor error:', error)
       return Promise.reject(error)
     },
   )
@@ -90,9 +89,7 @@ function createApiClient(baseURL: string): AxiosInstance {
     (response) => {
       // Проверка пустых данных
       if (response.data === null || response.data === undefined) {
-        if (import.meta.env.DEV) {
-          console.warn('[API] Empty response data:', response.config.url)
-        }
+        logger.warn('Empty response data:', response.config.url)
       }
 
       return response

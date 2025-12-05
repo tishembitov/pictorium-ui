@@ -6,7 +6,7 @@ import type { PinWithBlob } from '@/types'
 import { useUsersWithAvatars } from '@/composables/api/useUsersWithAvatars'
 import { useTagSearch } from '@/composables/api/useTagSearch'
 import { usePinActions } from '@/composables/api/usePinActions'
-import { useSelectedBoard } from '@/composables/api/useSelectedBoard'
+import { useBoards } from '@/composables/api/useBoards'
 import { randomTagColor } from '@/utils/colors'
 import PinLikesPopover from '@/components/features/likes/PinLikesPopover.vue'
 import PinComments from '@/components/features/comments/PinComments.vue'
@@ -34,7 +34,8 @@ const { loadUser, getUser } = useUsersWithAvatars()
 
 // ✅ ИСПРАВЛЕНО: getter для реактивности
 const { like, unlike, saveState, saveButtonText, save } = usePinActions(() => props.pin.id)
-const { boardTitle } = useSelectedBoard()
+const { selectedBoard } = useBoards()
+const boardTitle = computed(() => selectedBoard.value?.title || 'Save to profile')
 
 // Like state
 const localIsLiked = ref(props.pin.isLiked)

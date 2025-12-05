@@ -3,10 +3,11 @@
  * useRelatedPins - Отдельный composable для related pins
  *
  * Используется когда нужны только related pins без полного usePinDetail
+ * Использует usePinDetail под капотом для единообразия
  */
 
 import { computed, ref, onUnmounted } from 'vue'
-import { usePinsStore } from '@/stores/pins.store'
+import { usePinDetail } from './usePinDetail'
 import type { PinWithBlob } from '@/types'
 
 export interface UseRelatedPinsOptions {
@@ -20,24 +21,24 @@ export function useRelatedPins(
   pinId: string | (() => string),
   options: UseRelatedPinsOptions = {},
 ) {
-  const { pageSize = 15, immediate = false } = options
+  const { immediate = false } = options
 
-  const pinsStore = usePinsStore()
-
-  const getId = () => (typeof pinId === 'string' ? pinId : pinId())
-
-  // ============ STATE ============
-  const error = ref<Error | null>(null)
+  // Используем usePinDetail, но только для related pins
+  const pinDetail = usePinDetail(pinId, {
+    loadComments: false,
+    loadRelated: true,
+    relatedPinsSize: options.pageSize || 15,
+  })
 
   // ============ COMPUTED ============
 
-  const pins = computed<PinWithBlob[]>(() => pinsStore.getRelatedPins(getId()))
+  const pins = computed<PinWithBlob[]>(() => pinDetail.relatedPins.value)
 
-  const isLoading = computed(() => pinsStore.isLoadingRelated)
+  const isLoading = computed(() => pinDetail.isLoadingRelated.value)
 
-  const hasMore = computed(() => pinsStore.hasMoreRelatedPins(getId()))
+  const hasMore = computed(() => pinDetail.hasMoreRelatedPins.value)
 
-  const pagination = computed(() => pinsStore.getRelatedPinsPagination(getId()))
+  const pagination = computed(() => pinDetail.relatedPinsPagination.value)
 
   const totalCount = computed(() => pagination.value.total)
 
@@ -45,30 +46,16 @@ export function useRelatedPins(
 
   const isEmpty = computed(() => !isLoading.value && pins.value.length === 0)
 
+  const error = computed(() => pinDetail.error.value)
+
   // ============ ACTIONS ============
 
   async function fetch(page = 0, reset = false): Promise<PinWithBlob[]> {
-    try {
-      error.value = null
-      return await pinsStore.fetchRelatedPins(getId(), page, pageSize, reset)
-    } catch (e) {
-      error.value = e as Error
-      throw e
-    }
+    return await pinDetail.fetchRelatedPins(page)
   }
 
   async function loadMore(): Promise<PinWithBlob[]> {
-    if (!hasMore.value || isLoading.value) {
-      return []
-    }
-
-    try {
-      error.value = null
-      return await pinsStore.loadMoreRelatedPins(getId())
-    } catch (e) {
-      error.value = e as Error
-      throw e
-    }
+    return await pinDetail.loadMoreRelatedPins()
   }
 
   async function refresh(): Promise<PinWithBlob[]> {
@@ -76,19 +63,17 @@ export function useRelatedPins(
   }
 
   function clear() {
-    pinsStore.clearRelatedPins(getId())
+    pinDetail.cleanup()
   }
 
   // ============ LIFECYCLE ============
 
-  // Immediate fetch if requested
   if (immediate) {
     fetch(0)
   }
 
   onUnmounted(() => {
-    // Optionally clear on unmount
-    // clear()
+    clear()
   })
 
   return {

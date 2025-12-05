@@ -2,7 +2,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed, reactive } from 'vue'
 import type { Board, Pin, BoardWithPins, PinWithBlob, PagePin } from '@/types'
-import { boardsApi, selectedBoardApi, storageApi } from '@/api'
+import { boardsApi, selectedBoardApi } from '@/api'
+import { loadPinsBlobs } from '@/utils/pins'
 
 export const useBoardsStore = defineStore('boards', () => {
   // ============ STATE ============
@@ -343,37 +344,6 @@ export const useBoardsStore = defineStore('boards', () => {
     }
   }
 
-  // ============ BLOB LOADING ============
-
-  async function loadPinBlob(pin: Pin): Promise<PinWithBlob> {
-    const pinWithBlob: PinWithBlob = { ...pin }
-
-    try {
-      if (pin.imageId) {
-        const blob = await storageApi.downloadImage(pin.imageId)
-        const contentType = blob.type
-
-        pinWithBlob.imageBlobUrl = URL.createObjectURL(blob)
-        pinWithBlob.isImage = !contentType.startsWith('video/')
-        pinWithBlob.isGif = contentType === 'image/gif'
-        pinWithBlob.isVideo = contentType.startsWith('video/')
-      }
-
-      if (pin.videoPreviewId) {
-        const blob = await storageApi.downloadImage(pin.videoPreviewId)
-        pinWithBlob.videoBlobUrl = URL.createObjectURL(blob)
-        pinWithBlob.isVideo = true
-      }
-    } catch (error) {
-      console.error(`[Boards] Failed to load media for pin ${pin.id}:`, error)
-    }
-
-    return pinWithBlob
-  }
-
-  async function loadPinsBlobs(pins: Pin[]): Promise<PinWithBlob[]> {
-    return Promise.all(pins.map(loadPinBlob))
-  }
 
   // ============ CLEANUP HELPERS ============
 

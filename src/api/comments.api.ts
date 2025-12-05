@@ -25,7 +25,9 @@ export const commentsApi = {
    */
   getComments: async (pinId: string, params: GetCommentsParams): Promise<GetCommentsResponse> => {
     const { data } = await contentServiceClient.get(`${PINS_BASE_PATH}/${pinId}/comments`, {
-      params: params.pageable,
+      params: {
+        pageable: JSON.stringify(params.pageable),
+      },
     })
     return data
   },
@@ -78,7 +80,9 @@ export const commentsApi = {
    */
   getReplies: async (commentId: string, params: GetRepliesParams): Promise<GetRepliesResponse> => {
     const { data } = await contentServiceClient.get(`${COMMENTS_BASE_PATH}/${commentId}/replies`, {
-      params: params.pageable,
+      params: {
+        pageable: JSON.stringify(params.pageable),
+      },
     })
     return data
   },

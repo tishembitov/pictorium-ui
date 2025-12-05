@@ -76,8 +76,9 @@ export function calculatePopoverPosition(
 // Check if element fits in viewport
 export function fitsInViewport(
   element: HTMLElement,
-  position: 'top' | 'bottom' | 'left' | 'right',
+  position: PopoverPosition,
 ): boolean {
+  if (position === 'auto') return true
   const rect = element.getBoundingClientRect()
   const viewportHeight = window.innerHeight
   const viewportWidth = window.innerWidth

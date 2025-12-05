@@ -41,9 +41,9 @@ export function usePinLikes(pinId: string | (() => string), options: UsePinLikes
         likedAt: like.createdAt,
       }
 
-      if (user.imageUrl) {
+      if (user.imageId) {
         try {
-          const blob = await storageApi.downloadImage(user.imageUrl)
+          const blob = await storageApi.downloadImage(user.imageId)
           likeUser.avatarBlobUrl = URL.createObjectURL(blob)
         } catch (e) {
           console.warn(`[usePinLikes] Failed to load avatar for user ${user.id}:`, e)

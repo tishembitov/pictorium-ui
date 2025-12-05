@@ -10,7 +10,7 @@ import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import type { User } from '@/types'
 
 export interface UserSearchItemProps {
-  user: Pick<User, 'id' | 'username' | 'imageUrl'>
+  user: Pick<User, 'id' | 'username' | 'imageId'>
   avatarUrl?: string | null
   highlight?: string
 }
@@ -39,7 +39,7 @@ function escapeRegExp(string: string): string {
     class="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-lg transition"
     @click="emit('click')"
   >
-    <BaseAvatar :src="avatarUrl || user.imageUrl || undefined" :alt="user.username" size="sm" />
+    <BaseAvatar :src="avatarUrl || undefined" :alt="user.username" size="sm" />
 
     <div class="flex items-center gap-2">
       <span class="font-medium" v-html="highlightMatch(user.username, highlight || '')" />

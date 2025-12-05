@@ -4,15 +4,15 @@
  */
 
 import { ref, computed, watch, onUnmounted, type Ref } from 'vue' // ✅ ИСПРАВЛЕНО: import в начале
-import { useStorage } from '@/composables/api/useStorage'
+import { useStorage, type UploadImageOptions } from '@/composables/api/useStorage'
 import { validateMediaFile, type FileValidationResult } from '@/utils/files'
 import { isImage, isVideo } from '@/utils/media'
 import { useToast } from '@/composables/ui/useToast'
-import type { ImageUploadRequest } from '@/types'
 
 export interface UseFileUploadOptions {
   accept?: string
   maxSize?: number
+  maxVideoDuration?: number
   autoUpload?: boolean
   category?: string
   generateThumbnail?: boolean
@@ -26,6 +26,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     autoUpload = false,
     category = 'pins',
     generateThumbnail = true,
+    maxVideoDuration = 30,
     onSuccess,
     onError,
   } = options
@@ -78,7 +79,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     if (!selectedFile) return false
 
     // Validate
-    const validation = await validateMediaFile(selectedFile)
+    const validation = await validateMediaFile(selectedFile, {
+      maxVideoDuration,
+    })
     if (!validation.valid) {
       validationError.value = validation.errors[0] || 'Invalid file'
       showError(validationError.value)
@@ -100,7 +103,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }
 
   // Upload file
-  const upload = async (uploadOptions?: Partial<ImageUploadRequest>): Promise<string> => {
+  const upload = async (uploadOptions?: Partial<UploadImageOptions>): Promise<string> => {
     if (!file.value) {
       throw new Error('No file selected')
     }
@@ -108,8 +111,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     try {
       uploadError.value = null
 
-      const params: ImageUploadRequest = {
-        file: file.value,
+      const options: UploadImageOptions = {
         category,
         generateThumbnail,
         thumbnailWidth: 400,
@@ -117,7 +119,8 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         ...uploadOptions,
       }
 
-      const url = await storage.uploadImage(params)
+      const response = await storage.uploadImage(file.value, options)
+      const url = response.imageUrl
       onSuccess?.(url)
       return url
     } catch (err) {

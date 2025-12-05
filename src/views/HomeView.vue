@@ -41,14 +41,6 @@ const { categories, fetch: fetchCategories, isLoading: isLoadingCategories } = u
 // ✅ Auth
 const { isAuthenticated, isInitialized, username, logout } = useAuth()
 
-const pageTitle = computed(() => {
-  if (selectedTag.value && selectedTag.value !== 'Everything') {
-    return `${selectedTag.value} - Pictorium`
-  }
-  return 'Pictorium'
-})
-useDocumentTitle(pageTitle)
-
 // ============ STATE ============
 
 const selectedTag = ref<string | null>(null)
@@ -62,6 +54,14 @@ const showAuthDropdown = ref(false)
 const selectedPinId = ref<string | null>(null)
 
 // ============ COMPUTED ============
+
+const pageTitle = computed(() => {
+  if (selectedTag.value && selectedTag.value !== 'Everything') {
+    return `${selectedTag.value} - Pictorium`
+  }
+  return 'Pictorium'
+})
+useDocumentTitle(pageTitle)
 
 const feed = computed(() => pinsStore.feeds.get('all'))
 const pins = computed(() => feed.value?.pins || [])
@@ -116,13 +116,13 @@ async function loadCategories() {
       color: randomTagColor(),
     }
 
-    if (cat.pin?.imageUrl) {
+    if (cat.pin?.imageId) {
       try {
-        const blob = await storageApi.downloadImage(cat.pin.imageUrl)
+        const blob = await storageApi.downloadImage(cat.pin.imageId)
         item.previewBlobUrl = URL.createObjectURL(blob)
-        item.isVideo = blob.type.startsWith('video/') || isVideoUrl(cat.pin.imageUrl)
+        item.isVideo = blob.type.startsWith('video/')
       } catch {
-        item.previewUrl = cat.pin.imageUrl
+        // Preview URL будет загружен через composable
       }
     }
 

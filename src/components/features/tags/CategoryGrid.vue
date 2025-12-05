@@ -69,11 +69,11 @@ const loadCategoryBlob = async (category: Category): Promise<CategoryWithBlob> =
     isVideo: false,
   }
 
-  if (category.pin?.imageUrl) {
+  if (category.pin?.imageId) {
     try {
-      const blob = await storageApi.downloadImage(category.pin.imageUrl)
+      const blob = await storageApi.downloadImage(category.pin.imageId)
       result.previewBlobUrl = URL.createObjectURL(blob)
-      result.isVideo = blob.type.startsWith('video/') || isVideoUrl(category.pin.imageUrl)
+      result.isVideo = blob.type.startsWith('video/')
     } catch (error) {
       console.error(`[CategoryGrid] Failed to load preview for ${category.tagName}:`, error)
     }
@@ -161,7 +161,7 @@ onUnmounted(() => {
         :key="category.tagId"
         :tag-id="category.tagId"
         :tag-name="category.tagName"
-        :preview-url="category.pin?.imageUrl"
+        :preview-url="category.previewBlobUrl || undefined"
         :preview-blob-url="category.previewBlobUrl"
         :is-video="category.isVideo"
         :color="category.color"

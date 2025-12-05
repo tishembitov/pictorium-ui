@@ -92,6 +92,11 @@ function loadPicker() {
   }
 }
 
+function handleEmojiButtonClick() {
+  loadPicker()
+  showPicker.value = !showPicker.value
+}
+
 function onSelectEmoji(emoji: { i: string }) {
   content.value += emoji.i
   inputRef.value?.focus()
@@ -220,10 +225,7 @@ defineExpose({
         <!-- Emoji button -->
         <button
           v-if="showEmojiPicker"
-          @click="
-            loadPicker()
-            showPicker = !showPicker
-          "
+          @click="handleEmojiButtonClick"
           :disabled="isDisabled"
           type="button"
           class="absolute bottom-0.5 right-12 p-1 transition transform hover:scale-105 disabled:opacity-50"

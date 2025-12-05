@@ -12,7 +12,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 export interface PinUserInfoProps {
   userId: string
   username?: string | null
-  imageUrl?: string | null
+  imageId?: string | null
   imageBlobUrl?: string | null
   verified?: boolean
   showPopover?: boolean
@@ -79,7 +79,7 @@ const avatarSize = computed(
 )
 
 const displayImage = computed(
-  () => props.imageBlobUrl || popoverUser.value.image || props.imageUrl || undefined,
+  () => props.imageBlobUrl || popoverUser.value.image || undefined,
 )
 
 // Methods

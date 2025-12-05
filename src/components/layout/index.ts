@@ -10,8 +10,3 @@
 export { default as AppLayout } from './AppLayout.vue'
 export { default as AuthLayout } from './AuthLayout.vue'
 export { default as GuestLayout } from './GuestLayout.vue'
-
-// Types
-export type { AppLayoutProps } from './AppLayout.vue'
-export type { AuthLayoutProps } from './AuthLayout.vue'
-export type { GuestLayoutProps } from './GuestLayout.vue'

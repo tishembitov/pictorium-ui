@@ -22,7 +22,9 @@ export const tagsApi = {
    */
   getAll: async (params: GetAllTagsParams): Promise<GetAllTagsResponse> => {
     const { data } = await contentServiceClient.get(BASE_PATH, {
-      params: params.pageable,
+      params: {
+        pageable: JSON.stringify(params.pageable),
+      },
     })
     return data
   },

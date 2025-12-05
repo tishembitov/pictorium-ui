@@ -40,7 +40,9 @@ export const likesApi = {
    */
   getPinLikes: async (pinId: string, params: GetPinLikesParams): Promise<GetPinLikesResponse> => {
     const { data } = await contentServiceClient.get(`${PINS_BASE_PATH}/${pinId}/likes`, {
-      params: params.pageable,
+      params: {
+        pageable: JSON.stringify(params.pageable),
+      },
     })
     return data
   },
@@ -72,7 +74,9 @@ export const likesApi = {
     params: GetCommentLikesParams,
   ): Promise<GetCommentLikesResponse> => {
     const { data } = await contentServiceClient.get(`${COMMENTS_BASE_PATH}/${commentId}/likes`, {
-      params: params.pageable,
+      params: {
+        pageable: JSON.stringify(params.pageable),
+      },
     })
     return data
   },

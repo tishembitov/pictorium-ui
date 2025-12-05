@@ -8,8 +8,8 @@ export interface User {
   id: string
   username: string
   email: string
-  imageUrl: string | null
-  bannerImageUrl: string | null
+  imageId: string | null
+  bannerImageId: string | null
   description: string | null
   instagram: string | null
   tiktok: string | null
@@ -34,14 +34,9 @@ export interface Pin {
   title: string | null
   description: string | null
   href: string | null
-  imageUrl: string | null
-  thumbnailUrl: string | null
-  videoPreviewUrl: string | null
-  rgb: string | null
-  width: number | null
-  height: number | null
-  fileSize: number | null
-  contentType: string | null
+  imageId: string
+  thumbnailId: string | null
+  videoPreviewId: string | null
   createdAt: string
   updatedAt: string
   tags: string[]
@@ -57,11 +52,19 @@ export interface Pin {
  * Pin с загруженными blob URLs (для UI)
  */
 export interface PinWithBlob extends Pin {
+  imageUrl?: string | null
+  thumbnailUrl?: string | null
+  videoPreviewUrl?: string | null
   imageBlobUrl?: string
   videoBlobUrl?: string
   isImage?: boolean
   isVideo?: boolean
   isGif?: boolean
+  rgb?: string | null
+  width?: number | null
+  height?: number | null
+  fileSize?: number | null
+  contentType?: string | null
 }
 
 /**
@@ -69,9 +72,9 @@ export interface PinWithBlob extends Pin {
  */
 export interface PinPreview {
   id: string
-  imageUrl: string | null
-  videoPreviewUrl: string | null
-  thumbnailUrl: string | null
+  imageId: string
+  thumbnailId: string | null
+  videoPreviewId: string | null
 }
 
 export interface PinFeed {
@@ -133,7 +136,7 @@ export interface Comment {
   userId: string
   parentCommentId: string | null
   content: string | null
-  imageUrl: string | null
+  imageId: string | null
   isLiked: boolean
   likeCount: number
   replyCount: number
@@ -145,6 +148,7 @@ export interface Comment {
  * Comment с загруженным blob URL
  */
 export interface CommentWithBlob extends Comment {
+  imageUrl?: string | null
   imageBlobUrl?: string
 }
 
@@ -200,18 +204,51 @@ export interface ImageMetadata {
   contentType: string
   size: number
   etag: string
-  lastModified: number
+  updatedAt: string
   bucketName: string
 }
 
-export interface ImageUploadResponse {
+export interface PresignedUploadRequest {
+  fileName: string
+  contentType: string
+  fileSize: number
+  category?: string
+  generateThumbnail?: boolean
+  thumbnailWidth?: number
+  thumbnailHeight?: number
+}
+
+export interface PresignedUploadResponse {
+  imageId: string
+  uploadUrl: string
+  expiresAt: number
+  requiredHeaders: Record<string, string>
+  thumbnailImageId?: string
+}
+
+export interface ConfirmUploadRequest {
+  imageId: string
+  thumbnailImageId?: string
+  fileName?: string
+  contentType?: string
+  fileSize?: number
+}
+
+export interface ConfirmUploadResponse {
   imageId: string
   imageUrl: string
   thumbnailUrl: string | null
   fileName: string
   size: number
   contentType: string
-  uploadTimestamp: number
+  updatedAt: string
+  confirmed: boolean
+}
+
+export interface ImageUrlResponse {
+  imageId: string
+  url: string
+  expiresAt: number
 }
 
 // ============================================================================

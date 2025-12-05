@@ -60,7 +60,7 @@ function getDefaultLocale(): string {
   if (saved) return saved
 
   const browserLang = navigator.language.split('-')[0]
-  return ['en', 'ru'].includes(browserLang) ? browserLang : 'en'
+  return browserLang && ['en', 'ru'].includes(browserLang) ? browserLang : 'en'
 }
 
 export const i18n = createI18n({

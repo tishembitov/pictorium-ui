@@ -53,6 +53,7 @@ export const useCommentsStore = defineStore('comments', () => {
       isLoading.value = page === 0
 
       const response = await commentsApi.getComments(pinId, {
+        pinId,
         pageable: { page, size, sort: ['createdAt,desc'] },
       })
 
@@ -94,17 +95,18 @@ export const useCommentsStore = defineStore('comments', () => {
     try {
       let imageUrl: string | undefined
 
+      let imageId: string | undefined
+
       if (imageFile) {
-        const uploadResponse = await storageApi.uploadImage({
-          file: imageFile,
+        const uploadResponse = await storageApi.uploadImage(imageFile, {
           category: 'comments',
         })
-        imageUrl = uploadResponse.imageUrl
+        imageId = uploadResponse.imageId
       }
 
       const comment = await commentsApi.createComment(pinId, {
         content,
-        imageUrl,
+        imageId,
       })
 
       const commentWithBlob = await loadCommentBlob(comment)
@@ -123,19 +125,18 @@ export const useCommentsStore = defineStore('comments', () => {
 
   async function updateComment(commentId: string, content?: string, imageFile?: File) {
     try {
-      let imageUrl: string | undefined
+      let imageId: string | undefined
 
       if (imageFile) {
-        const uploadResponse = await storageApi.uploadImage({
-          file: imageFile,
+        const uploadResponse = await storageApi.uploadImage(imageFile, {
           category: 'comments',
         })
-        imageUrl = uploadResponse.imageUrl
+        imageId = uploadResponse.imageId
       }
 
       const updated = await commentsApi.update(commentId, {
         content,
-        imageUrl,
+        imageId,
       })
 
       updateCommentInCache(commentId, updated)
@@ -189,6 +190,7 @@ export const useCommentsStore = defineStore('comments', () => {
       isLoadingReplies.set(commentId, true)
 
       const response = await commentsApi.getReplies(commentId, {
+        commentId,
         pageable: { page, size, sort: ['createdAt,asc'] },
       })
 
@@ -229,19 +231,18 @@ export const useCommentsStore = defineStore('comments', () => {
 
   async function createReply(commentId: string, content?: string, imageFile?: File) {
     try {
-      let imageUrl: string | undefined
+      let imageId: string | undefined
 
       if (imageFile) {
-        const uploadResponse = await storageApi.uploadImage({
-          file: imageFile,
+        const uploadResponse = await storageApi.uploadImage(imageFile, {
           category: 'comments',
         })
-        imageUrl = uploadResponse.imageUrl
+        imageId = uploadResponse.imageId
       }
 
       const reply = await commentsApi.createReply(commentId, {
         content,
-        imageUrl,
+        imageId,
       })
 
       const replyWithBlob = await loadCommentBlob(reply)
@@ -314,10 +315,10 @@ export const useCommentsStore = defineStore('comments', () => {
   // ============ HELPERS ============
 
   async function loadCommentBlob(comment: Comment): Promise<CommentWithBlob> {
-    if (!comment.imageUrl) return comment
+    if (!comment.imageId) return comment
 
     try {
-      const blob = await storageApi.downloadImage(comment.imageUrl)
+      const blob = await storageApi.downloadImage(comment.imageId)
       return {
         ...comment,
         imageBlobUrl: URL.createObjectURL(blob),

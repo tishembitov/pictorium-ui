@@ -62,14 +62,15 @@ export const usePinsStore = defineStore('pins', () => {
   // ============ BLOB LOADING ============
 
   async function loadPinBlob(pin: Pin): Promise<PinWithBlob> {
-    if (!pin.imageUrl && !pin.videoPreviewUrl) return pin
+    if (!pin.imageId && !pin.videoPreviewId) return pin
 
     try {
       const pinWithBlob: PinWithBlob = { ...pin }
 
-      const hasVideoPreview = !!pin.videoPreviewUrl
-      const isVideoFile = hasVideoPreview || (pin.imageUrl ? isVideoUrl(pin.imageUrl) : false)
-      const isGifFile = pin.imageUrl ? isGifUrl(pin.imageUrl) : false
+      const hasVideoPreview = !!pin.videoPreviewId
+      // Определяем тип файла по contentType или расширению
+      const isVideoFile = hasVideoPreview
+      const isGifFile = false // Можно определить по contentType если нужно
 
       pinWithBlob.isVideo = isVideoFile
       pinWithBlob.isGif = isGifFile
@@ -78,18 +79,18 @@ export const usePinsStore = defineStore('pins', () => {
       const promises: Promise<void>[] = []
 
       // Загружаем изображение (если не видео)
-      if (pin.imageUrl && !isVideoFile) {
+      if (pin.imageId && !isVideoFile) {
         promises.push(
-          storageApi.downloadImage(pin.imageUrl).then((blob) => {
+          storageApi.downloadImage(pin.imageId).then((blob) => {
             pinWithBlob.imageBlobUrl = URL.createObjectURL(blob)
           }),
         )
       }
 
       // Загружаем превью видео
-      if (pin.videoPreviewUrl) {
+      if (pin.videoPreviewId) {
         promises.push(
-          storageApi.downloadImage(pin.videoPreviewUrl).then((blob) => {
+          storageApi.downloadImage(pin.videoPreviewId).then((blob) => {
             pinWithBlob.videoBlobUrl = URL.createObjectURL(blob)
           }),
         )
@@ -293,8 +294,7 @@ export const usePinsStore = defineStore('pins', () => {
         }
       }
 
-      const uploadResponse = await storageApi.uploadImage({
-        file: data.file,
+      const uploadResponse = await storageApi.uploadImage(data.file, {
         category: 'pins',
         generateThumbnail: true,
         thumbnailWidth: 400,
@@ -303,19 +303,11 @@ export const usePinsStore = defineStore('pins', () => {
 
       const pin = await pinsApi.create({
         imageId: uploadResponse.imageId,
-        imageUrl: uploadResponse.imageUrl,
         thumbnailId: uploadResponse.thumbnailUrl ? uploadResponse.imageId : undefined,
-        thumbnailUrl: uploadResponse.thumbnailUrl || undefined,
         videoPreviewId: isVideoFile ? uploadResponse.imageId : undefined,
-        videoPreviewUrl: isVideoFile ? uploadResponse.imageUrl : undefined,
         title: data.title,
         description: data.description,
         href: data.href,
-        rgb: data.rgb,
-        width,
-        height,
-        fileSize: uploadResponse.size,
-        contentType: uploadResponse.contentType,
         tags: data.tags,
       })
 

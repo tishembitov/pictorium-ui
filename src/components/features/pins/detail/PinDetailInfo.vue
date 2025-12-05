@@ -103,6 +103,11 @@ function handleTagClick(tagName: string) {
   router.push({ path: '/', query: { tag: tagName } })
   emit('tagClick', tagName)
 }
+
+function handleMouseLeavePopover() {
+  insideLikesPopover.value = false
+  showLikesPopover.value = false
+}
 </script>
 
 <template>
@@ -139,10 +144,7 @@ function handleTagClick(tagName: string) {
           <div
             v-if="showLikesPopover"
             @mouseover="insideLikesPopover = true"
-            @mouseleave="
-              insideLikesPopover = false
-              showLikesPopover = false
-            "
+            @mouseleave="handleMouseLeavePopover"
             class="absolute top-[30px] left-[-50px] z-50"
           >
             <PinLikesPopover :pin-id="pin.id" />

@@ -8,7 +8,8 @@
 import { ref, computed, watch } from 'vue'
 import { useCommentThread } from '@/composables/api/useCommentThread'
 import { useOwnership } from '@/composables/auth/usePermissions'
-import { formatRelativeTime, formatCompactNumber } from '@/utils/formatters'
+import { formatRelativeTime } from '@/utils/dates'
+import { formatCompactNumber } from '@/utils/formatters'
 import CommentLikesPopover from './CommentLikesPopover.vue'
 
 export interface CommentActionsProps {
@@ -127,6 +128,16 @@ function handleMouseLeave() {
     showPopover.value = false
   }
 }
+
+function handleLikesMouseOver() {
+  loadLikesPopover()
+  showPopover.value = true
+}
+
+function handlePopoverMouseLeave() {
+  insidePopover.value = false
+  showPopover.value = false
+}
 </script>
 
 <template>
@@ -180,10 +191,7 @@ function handleMouseLeave() {
       <div
         v-if="localLikeCount > 0"
         class="font-medium text-md relative cursor-pointer"
-        @mouseover="
-          loadLikesPopover()
-          showPopover = true
-        "
+        @mouseover="handleLikesMouseOver"
         @mouseleave="handleMouseLeave"
       >
         <span ref="likesPopoverEl">{{ formattedLikeCount }}</span>
@@ -191,10 +199,7 @@ function handleMouseLeave() {
         <div
           v-if="showPopover"
           @mouseover="insidePopover = true"
-          @mouseleave="
-            insidePopover = false
-            showPopover = false
-          "
+          @mouseleave="handlePopoverMouseLeave"
           class="absolute left-[-100px]"
           :style="{ top: likesIsTop ? '20px' : 'auto', bottom: likesIsTop ? 'auto' : '20px' }"
         >

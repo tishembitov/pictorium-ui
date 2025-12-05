@@ -11,7 +11,7 @@ import FollowButton from './follow/FollowButton.vue'
 import type { User } from '@/types'
 
 export interface UserCardProps {
-  user: Pick<User, 'id' | 'username' | 'imageUrl' | 'description'>
+  user: Pick<User, 'id' | 'username' | 'imageId' | 'description'>
   avatarUrl?: string | null
   followersCount?: number
   showFollowButton?: boolean
@@ -34,7 +34,7 @@ const props = withDefaults(defineProps<UserCardProps>(), {
   >
     <RouterLink :to="`/user/${user.username}`" class="flex items-center gap-3">
       <BaseAvatar
-        :src="avatarUrl || user.imageUrl || undefined"
+        :src="avatarUrl || undefined"
         :alt="user.username"
         :size="variant === 'compact' ? 'md' : 'lg'"
       />

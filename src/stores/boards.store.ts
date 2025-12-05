@@ -349,8 +349,8 @@ export const useBoardsStore = defineStore('boards', () => {
     const pinWithBlob: PinWithBlob = { ...pin }
 
     try {
-      if (pin.imageUrl) {
-        const blob = await storageApi.downloadImage(pin.imageUrl)
+      if (pin.imageId) {
+        const blob = await storageApi.downloadImage(pin.imageId)
         const contentType = blob.type
 
         pinWithBlob.imageBlobUrl = URL.createObjectURL(blob)
@@ -359,8 +359,8 @@ export const useBoardsStore = defineStore('boards', () => {
         pinWithBlob.isVideo = contentType.startsWith('video/')
       }
 
-      if (pin.videoPreviewUrl) {
-        const blob = await storageApi.downloadImage(pin.videoPreviewUrl)
+      if (pin.videoPreviewId) {
+        const blob = await storageApi.downloadImage(pin.videoPreviewId)
         pinWithBlob.videoBlobUrl = URL.createObjectURL(blob)
         pinWithBlob.isVideo = true
       }

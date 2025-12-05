@@ -16,7 +16,6 @@ import type {
   Category,
   Subscription,
   FollowCheckResponse,
-  ImageUploadResponse,
   ImageMetadata,
   PageUser,
   PagePin,
@@ -29,6 +28,15 @@ import type {
   Page,
 } from './models.types'
 
+// Re-export storage types from models.types
+export type {
+  PresignedUploadRequest,
+  PresignedUploadResponse,
+  ConfirmUploadRequest,
+  ConfirmUploadResponse,
+  ImageUrlResponse,
+} from './models.types'
+
 // ============================================================================
 // USER API
 // ============================================================================
@@ -36,10 +44,8 @@ import type {
 export interface UserUpdateRequest {
   username?: string
   description?: string
-  imageId?: string | null
-  imageUrl?: string | null
-  bannerImageId?: string | null
-  bannerImageUrl?: string | null
+  imageId?: string
+  bannerImageId?: string
   instagram?: string
   tiktok?: string
   telegram?: string
@@ -66,23 +72,18 @@ export type CheckFollowResponse = FollowCheckResponse
 
 export interface PinCreateRequest {
   imageId: string // REQUIRED
-  imageUrl?: string
   thumbnailId?: string
-  thumbnailUrl?: string
   videoPreviewId?: string
-  videoPreviewUrl?: string
   title?: string
   description?: string
   href?: string
-  rgb?: string
-  width?: number
-  height?: number
-  fileSize?: number
-  contentType?: string
   tags?: string[]
 }
 
 export interface PinUpdateRequest {
+  imageId?: string
+  thumbnailId?: string
+  videoPreviewId?: string
   title?: string
   description?: string
   href?: string
@@ -123,13 +124,11 @@ export type GetSelectedBoardResponse = Board
 export interface CommentCreateRequest {
   content?: string
   imageId?: string
-  imageUrl?: string
 }
 
 export interface CommentUpdateRequest {
   content?: string
   imageId?: string
-  imageUrl?: string
 }
 
 export interface GetCommentsParams {
@@ -201,14 +200,5 @@ export type GetCategoriesResponse = Category[]
 // STORAGE/IMAGE API
 // ============================================================================
 
-export interface ImageUploadRequest {
-  file: File
-  category?: string
-  generateThumbnail?: boolean
-  thumbnailWidth?: number
-  thumbnailHeight?: number
-}
-
-export type UploadImageResponse = ImageUploadResponse
 export type GetImageMetadataResponse = ImageMetadata
 export type ListImagesResponse = ImageMetadata[]

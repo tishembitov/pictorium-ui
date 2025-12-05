@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useSlots } from 'vue'
 import { truncateText } from '@/utils/formatters'
+
+const slots = useSlots()
 
 export interface EmptyStateProps {
   title?: string
@@ -36,8 +38,8 @@ const displayMessage = computed(() => {
   return props.message
 })
 
-const hasCustomMessage = computed(() => !!props.$slots?.message)
-const hasCustomAction = computed(() => !!props.$slots?.action)
+const hasCustomMessage = computed(() => !!slots.message)
+const hasCustomAction = computed(() => !!slots.action)
 </script>
 
 <template>

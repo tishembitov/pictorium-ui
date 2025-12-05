@@ -36,15 +36,15 @@ export function useRoles() {
 
   // Role check functions
   const hasRole = (role: string): boolean => {
-    return authStore.hasRole.value(role)
+    return authStore.hasRole(role)
   }
 
   const hasAnyRole = (requiredRoles: string[]): boolean => {
-    return requiredRoles.some((role) => authStore.hasRole.value(role))
+    return requiredRoles.some((role) => authStore.hasRole(role))
   }
 
   const hasAllRoles = (requiredRoles: string[]): boolean => {
-    return requiredRoles.every((role) => authStore.hasRole.value(role))
+    return requiredRoles.every((role) => authStore.hasRole(role))
   }
 
   return {

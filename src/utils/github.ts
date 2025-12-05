@@ -47,8 +47,8 @@ export function parseGitHubUrl(url: string): { username: string; repo: string } 
 
     if (parts.length >= 2) {
       return {
-        username: parts[0],
-        repo: parts[1],
+        username: parts[0]!,
+        repo: parts[1]!,
       }
     }
 

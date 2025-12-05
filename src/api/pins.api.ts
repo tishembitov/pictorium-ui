@@ -31,8 +31,8 @@ export const pinsApi = {
   getPins: async (filter: PinFilter, pageable: Pageable): Promise<GetPinsResponse> => {
     const { data } = await contentServiceClient.get(BASE_PATH, {
       params: {
-        ...filter,
-        ...pageable,
+        filter: JSON.stringify(filter),
+        pageable: JSON.stringify(pageable),
       },
     })
     return data

@@ -54,8 +54,8 @@ watch(
 
 // isVideoUrl из utils/media
 const isVideo = computed(() => {
-  if (!props.comment.imageUrl) return false
-  return isVideoUrl(props.comment.imageUrl)
+  if (!props.comment.imageBlobUrl) return false
+  return isVideoUrl(props.comment.imageBlobUrl)
 })
 
 const isImage = computed(() => props.comment.imageBlobUrl && !isVideo.value)

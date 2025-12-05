@@ -13,7 +13,7 @@ export interface LikeUserItemProps {
   user: {
     id: string
     username: string
-    imageUrl?: string | null
+    imageId?: string | null
   }
   avatarUrl?: string
   size?: 'sm' | 'md' | 'lg'
@@ -72,7 +72,7 @@ const paddingClasses = computed(() => {
       :user="{
         id: user.id,
         username: user.username,
-        imageUrl: avatarUrl || user.imageUrl || undefined,
+        imageId: user.imageId || undefined,
       }"
       :image-url="avatarUrl"
       :size="avatarSize"

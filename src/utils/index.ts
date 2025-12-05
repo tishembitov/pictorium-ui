@@ -3,6 +3,7 @@
 // Core utilities
 export * from './constants'
 export * from './validators'
+// Note: formatRelativeTime is exported from dates.ts, not formatters.ts
 export * from './formatters'
 export * from './helpers'
 

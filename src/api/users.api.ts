@@ -47,14 +47,4 @@ export const usersApi = {
     const { data } = await userServiceClient.patch(`${BASE_PATH}/me`, userData)
     return data
   },
-
-  /**
-   * Поиск пользователей
-   */
-  searchUsers: async (query: string, limit = 20): Promise<User[]> => {
-    const { data } = await userServiceClient.get(`${BASE_PATH}/search`, {
-      params: { q: query, limit },
-    })
-    return data
-  },
 }

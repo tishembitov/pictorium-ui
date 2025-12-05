@@ -40,9 +40,10 @@ const GIF_EXTENSION = 'gif'
 export function getFileExtension(url: string): string {
   if (!url) return ''
   // Убираем query params и hash
-  const cleanUrl = url.split('?')[0]?.split('#')[0] || ''
+  const cleanUrl = url.split('?')[0]?.split('#')[0]
+  if (!cleanUrl) return ''
   const match = cleanUrl.match(/\.([^.]+)$/)
-  return match ? match[1].toLowerCase() : ''
+  return match ? match[1]!.toLowerCase() : ''
 }
 
 /**
@@ -174,7 +175,9 @@ export function getVideoThumbnail(file: File, seekTo = 0): Promise<Blob> {
     video.onseeked = () => {
       canvas.width = video.videoWidth
       canvas.height = video.videoHeight
-      context?.drawImage(video, 0, 0, canvas.width, canvas.height)
+      if (context) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height)
+      }
 
       canvas.toBlob(
         (blob) => {

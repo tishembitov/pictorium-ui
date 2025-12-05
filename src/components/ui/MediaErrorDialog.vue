@@ -5,7 +5,7 @@
  * Визуальный стиль из старого проекта
  */
 
-import { watch } from 'vue'
+import { watch, ref } from 'vue'
 import { useEscapeKey } from '@/composables/utils/useClickOutside'
 
 export interface MediaErrorDialogProps {
@@ -32,7 +32,11 @@ function close() {
 }
 
 // Escape key
-useEscapeKey(close, { enabled: () => props.modelValue })
+const enabledRef = ref(props.modelValue)
+watch(() => props.modelValue, (value) => {
+  enabledRef.value = value
+})
+useEscapeKey(close, { enabled: enabledRef })
 
 // Body scroll lock
 watch(

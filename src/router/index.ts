@@ -3,10 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { authGuard } from './guards'
 
-// ============================================================================
-// LAZY-LOADED VIEWS
-// ============================================================================
-
+// Views
 const HomeView = () => import('@/views/HomeView.vue')
 const PinView = () => import('@/views/PinView.vue')
 const CreatePinView = () => import('@/views/CreatePinView.vue')
@@ -18,22 +15,16 @@ const SettingsView = () => import('@/views/SettingsView.vue')
 const NotFoundView = () => import('@/views/errors/NotFoundView.vue')
 const ErrorView = () => import('@/views/errors/ErrorView.vue')
 
-// Layouts
+// Layout
 const AppLayout = () => import('@/components/layout/AppLayout.vue')
-const AuthLayout = () => import('@/components/layout/AuthLayout.vue')
-
-// ============================================================================
-// ROUTE DEFINITIONS
-// ============================================================================
 
 const routes: RouteRecordRaw[] = [
-  // ══════════════════════════════════════════════════════════════════════════
-  // PUBLIC ROUTES (доступны всем, Navigation показывается только auth users)
-  // ══════════════════════════════════════════════════════════════════════════
+  // ✅ ОДИН layout для ВСЕХ страниц
   {
     path: '/',
     component: AppLayout,
     children: [
+      // Public
       {
         path: '',
         name: 'home',
@@ -70,17 +61,8 @@ const routes: RouteRecordRaw[] = [
         component: ExploreView,
         meta: { title: 'Explore' },
       },
-    ],
-  },
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // PROTECTED ROUTES (требуют авторизации - редирект на Keycloak)
-  // ══════════════════════════════════════════════════════════════════════════
-  {
-    path: '/',
-    component: AuthLayout,
-    meta: { requiresAuth: true },
-    children: [
+      // Protected (guard проверит auth)
       {
         path: 'create',
         name: 'create',
@@ -93,25 +75,18 @@ const routes: RouteRecordRaw[] = [
         component: SettingsView,
         meta: { title: 'Settings', requiresAuth: true },
       },
-      // Добавьте другие protected routes здесь
-      // {
-      //   path: 'saved',
-      //   name: 'saved',
-      //   component: SavedPinsView,
-      //   meta: { title: 'Saved Pins', requiresAuth: true },
-      // },
     ],
   },
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // ERROR ROUTES
-  // ══════════════════════════════════════════════════════════════════════════
+  // Error pages (без layout)
   {
     path: '/error',
     name: 'error',
     component: ErrorView,
     meta: { title: 'Error' },
   },
+
+  // ⚠️ Catch-all ДОЛЖЕН быть ПОСЛЕДНИМ
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
@@ -120,61 +95,28 @@ const routes: RouteRecordRaw[] = [
   },
 ]
 
-// ============================================================================
-// ROUTER INSTANCE
-// ============================================================================
-
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
-  scrollBehavior(to, from, savedPosition) {
-    if (savedPosition) {
-      return savedPosition
-    }
-    if (to.hash) {
-      return { el: to.hash, behavior: 'smooth' }
-    }
+  scrollBehavior(to, _from, savedPosition) {
+    if (savedPosition) return savedPosition
+    if (to.hash) return { el: to.hash, behavior: 'smooth' }
     return { top: 0, behavior: 'smooth' }
   },
 })
 
-// ============================================================================
-// NAVIGATION GUARDS
-// ============================================================================
-
+// Guards
 router.beforeEach(async (to, from, next) => {
-  // 1. Обновляем title
+  // Title
   const title = to.meta.title as string | undefined
   document.title = title ? `${title} | Pictorium` : 'Pictorium'
 
-  // 2. Проверяем auth для protected routes
-  if (to.matched.some((record) => record.meta.requiresAuth)) {
+  // Auth check
+  if (to.meta.requiresAuth) {
     return authGuard(to, from, next)
   }
 
-  // 3. Public routes - пропускаем
   next()
 })
 
-// Error handling
-router.onError((error) => {
-  console.error('[Router] Navigation error:', error)
-
-  if (error.message.includes('Failed to fetch dynamically imported module')) {
-    window.location.reload()
-  }
-})
-
 export default router
-
-// ============================================================================
-// TYPE AUGMENTATION
-// ============================================================================
-
-declare module 'vue-router' {
-  interface RouteMeta {
-    title?: string
-    requiresAuth?: boolean
-    roles?: string[]
-  }
-}

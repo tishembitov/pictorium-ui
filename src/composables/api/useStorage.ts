@@ -5,28 +5,45 @@
  * NOTE: Для загрузки файлов с preview используйте useFileUpload из features/
  */
 
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
 import { storageApi } from '@/api/storage.api'
-import type { ImageUploadRequest, ImageMetadata } from '@/types'
+import type {
+  ImageMetadata,
+  ConfirmUploadResponse,
+  ImageUrlResponse,
+} from '@/types'
+
+export interface UploadImageOptions {
+  category?: string
+  generateThumbnail?: boolean
+  thumbnailWidth?: number
+  thumbnailHeight?: number
+}
 
 export function useStorage() {
   const isUploading = ref(false)
   const uploadProgress = ref(0)
+  const uploadedImageId = ref<string | null>(null)
   const uploadedUrl = ref<string | null>(null)
   const error = ref<string | null>(null)
 
-  async function uploadImage(params: ImageUploadRequest): Promise<string> {
+  async function uploadImage(
+    file: File,
+    options?: UploadImageOptions,
+  ): Promise<ConfirmUploadResponse> {
     try {
       isUploading.value = true
       uploadProgress.value = 0
       error.value = null
 
-      const response = await storageApi.uploadImage(params)
+      // Используем новый presigned upload API
+      const response = await storageApi.uploadImage(file, options)
 
+      uploadedImageId.value = response.imageId
       uploadedUrl.value = response.imageUrl
       uploadProgress.value = 100
 
-      return response.imageUrl
+      return response
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Upload failed'
       throw err
@@ -40,7 +57,8 @@ export function useStorage() {
   }
 
   async function getImageUrl(imageId: string, expiry?: number): Promise<string> {
-    return await storageApi.getImageUrl(imageId, expiry)
+    const response: ImageUrlResponse = await storageApi.getImageUrl(imageId, expiry)
+    return response.url
   }
 
   async function getImageMetadata(imageId: string): Promise<ImageMetadata> {
@@ -52,6 +70,7 @@ export function useStorage() {
   }
 
   function reset() {
+    uploadedImageId.value = null
     uploadedUrl.value = null
     uploadProgress.value = 0
     error.value = null
@@ -60,6 +79,7 @@ export function useStorage() {
   return {
     isUploading: computed(() => isUploading.value),
     uploadProgress: computed(() => uploadProgress.value),
+    uploadedImageId: computed(() => uploadedImageId.value),
     uploadedUrl: computed(() => uploadedUrl.value),
     error: computed(() => error.value),
     uploadImage,

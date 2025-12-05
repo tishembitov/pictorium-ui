@@ -63,8 +63,8 @@ export const useUserStore = defineStore('user', () => {
       cacheUser(userData)
 
       await Promise.allSettled([
-        loadUserAvatar(userData.imageUrl),
-        loadUserBanner(userData.bannerImageUrl),
+        loadUserAvatar(userData.imageId),
+        loadUserBanner(userData.bannerImageId),
       ])
 
       console.log('[User] Profile loaded:', userData)
@@ -88,8 +88,8 @@ export const useUserStore = defineStore('user', () => {
       const user = await usersApi.getUserByUsername(username)
       cacheUser(user)
 
-      if (user.imageUrl) {
-        await loadUserAvatarById(user.id, user.imageUrl)
+      if (user.imageId) {
+        await loadUserAvatarById(user.id, user.imageId)
       }
 
       return user
@@ -109,8 +109,8 @@ export const useUserStore = defineStore('user', () => {
       const user = await usersApi.getUserById(userId)
       cacheUser(user)
 
-      if (user.imageUrl) {
-        await loadUserAvatarById(userId, user.imageUrl)
+      if (user.imageId) {
+        await loadUserAvatarById(userId, user.imageId)
       }
 
       return user
@@ -149,8 +149,7 @@ export const useUserStore = defineStore('user', () => {
     try {
       isUploadingAvatar.value = true
 
-      const uploadResponse = await storageApi.uploadImage({
-        file,
+      const uploadResponse = await storageApi.uploadImage(file, {
         category: 'avatars',
         generateThumbnail: true,
         thumbnailWidth: 200,
@@ -159,7 +158,6 @@ export const useUserStore = defineStore('user', () => {
 
       const updated = await usersApi.updateUser({
         imageId: uploadResponse.imageId,
-        imageUrl: uploadResponse.imageUrl,
       })
 
       currentUser.value = updated
@@ -187,8 +185,7 @@ export const useUserStore = defineStore('user', () => {
       isUploadingAvatar.value = true
 
       const updated = await usersApi.updateUser({
-        imageId: null,
-        imageUrl: null,
+        imageId: undefined,
       })
 
       currentUser.value = updated
@@ -218,15 +215,13 @@ export const useUserStore = defineStore('user', () => {
     try {
       isUploadingBanner.value = true
 
-      const uploadResponse = await storageApi.uploadImage({
-        file,
+      const uploadResponse = await storageApi.uploadImage(file, {
         category: 'banners',
         generateThumbnail: false,
       })
 
       const updated = await usersApi.updateUser({
         bannerImageId: uploadResponse.imageId,
-        bannerImageUrl: uploadResponse.imageUrl,
       })
 
       currentUser.value = updated
@@ -253,8 +248,7 @@ export const useUserStore = defineStore('user', () => {
       isUploadingBanner.value = true
 
       const updated = await usersApi.updateUser({
-        bannerImageId: null,
-        bannerImageUrl: null,
+        bannerImageId: undefined,
       })
 
       currentUser.value = updated
@@ -275,14 +269,14 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function loadUserAvatar(imageUrl: string | null) {
+  async function loadUserAvatar(imageId: string | null) {
     try {
-      if (!imageUrl) {
+      if (!imageId) {
         avatarBlobUrl.value = null
         return
       }
 
-      const blob = await storageApi.downloadImage(imageUrl)
+      const blob = await storageApi.downloadImage(imageId)
       avatarBlobUrl.value = URL.createObjectURL(blob)
 
       if (currentUser.value?.id) {
@@ -294,14 +288,14 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function loadUserBanner(imageUrl: string | null) {
+  async function loadUserBanner(bannerImageId: string | null) {
     try {
-      if (!imageUrl) {
+      if (!bannerImageId) {
         bannerBlobUrl.value = null
         return
       }
 
-      const blob = await storageApi.downloadImage(imageUrl)
+      const blob = await storageApi.downloadImage(bannerImageId)
       bannerBlobUrl.value = URL.createObjectURL(blob)
     } catch (error) {
       console.error('[User] Failed to load banner:', error)
@@ -309,14 +303,14 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function loadUserAvatarById(userId: string, imageUrl: string) {
+  async function loadUserAvatarById(userId: string, imageId: string) {
     try {
       if (avatarsCache.has(userId)) {
         updateAvatarCacheOrder(userId)
         return avatarsCache.get(userId)!
       }
 
-      const blob = await storageApi.downloadImage(imageUrl)
+      const blob = await storageApi.downloadImage(imageId)
       const blobUrl = URL.createObjectURL(blob)
 
       cacheAvatar(userId, blobUrl)
@@ -329,8 +323,8 @@ export const useUserStore = defineStore('user', () => {
 
   async function preloadAvatars(users: User[]) {
     const promises = users
-      .filter((user) => user.imageUrl && !avatarsCache.has(user.id))
-      .map((user) => loadUserAvatarById(user.id, user.imageUrl!))
+      .filter((user) => user.imageId && !avatarsCache.has(user.id))
+      .map((user) => loadUserAvatarById(user.id, user.imageId!))
 
     await Promise.allSettled(promises)
   }

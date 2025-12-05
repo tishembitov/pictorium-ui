@@ -5,7 +5,7 @@ export interface UserAvatarProps {
   user: {
     id: string
     username: string
-    imageUrl?: string
+    imageId?: string | null
     verified?: boolean
   }
   imageUrl?: string
@@ -37,7 +37,7 @@ const handleClick = () => {
     :class="['flex items-center gap-2', clickable && 'cursor-pointer hover:opacity-80 transition']"
   >
     <BaseAvatar
-      :src="imageUrl || user.imageUrl"
+      :src="imageUrl"
       :alt="user.username"
       :size="size"
       :status="online ? 'online' : null"

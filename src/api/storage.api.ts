@@ -1,35 +1,97 @@
 // src/api/storage.api.ts
 import { storageServiceClient } from './client'
 import type {
-  UploadImageResponse,
+  PresignedUploadRequest,
+  PresignedUploadResponse,
+  ConfirmUploadRequest,
+  ConfirmUploadResponse,
+  ImageUrlResponse,
   GetImageMetadataResponse,
   ListImagesResponse,
-  ImageUploadRequest,
 } from '@/types'
 
 const BASE_PATH = '/api/v1/images'
 
 export const storageApi = {
   /**
-   * Загрузить изображение
+   * Получить presigned URL для загрузки изображения
    */
-  uploadImage: async (params: ImageUploadRequest): Promise<UploadImageResponse> => {
-    const formData = new FormData()
-    formData.append('file', params.file)
-
-    if (params.category) formData.append('category', params.category)
-    if (params.generateThumbnail !== undefined) {
-      formData.append('generateThumbnail', String(params.generateThumbnail))
-    }
-    if (params.thumbnailWidth) formData.append('thumbnailWidth', String(params.thumbnailWidth))
-    if (params.thumbnailHeight) formData.append('thumbnailHeight', String(params.thumbnailHeight))
-
-    const { data } = await storageServiceClient.post(`${BASE_PATH}/upload`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+  getPresignedUploadUrl: async (
+    request: PresignedUploadRequest,
+  ): Promise<PresignedUploadResponse> => {
+    const { data } = await storageServiceClient.post(`${BASE_PATH}/presigned-upload`, request)
     return data
+  },
+
+  /**
+   * Загрузить файл на presigned URL
+   */
+  uploadToPresignedUrl: async (
+    uploadUrl: string,
+    file: File,
+    requiredHeaders: Record<string, string>,
+  ): Promise<void> => {
+    // Используем fetch для загрузки на presigned URL (может быть другой домен)
+    await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        ...requiredHeaders,
+        'Content-Type': file.type,
+      },
+      body: file,
+    })
+  },
+
+  /**
+   * Подтвердить загрузку изображения
+   */
+  confirmUpload: async (request: ConfirmUploadRequest): Promise<ConfirmUploadResponse> => {
+    const { data } = await storageServiceClient.post(`${BASE_PATH}/confirm`, request)
+    return data
+  },
+
+  /**
+   * Полный процесс загрузки изображения (presigned upload + confirm)
+   */
+  uploadImage: async (
+    file: File,
+    options?: {
+      category?: string
+      generateThumbnail?: boolean
+      thumbnailWidth?: number
+      thumbnailHeight?: number
+    },
+  ): Promise<ConfirmUploadResponse> => {
+    // 1. Получаем presigned URL
+    const presignedRequest: PresignedUploadRequest = {
+      fileName: file.name,
+      contentType: file.type,
+      fileSize: file.size,
+      category: options?.category,
+      generateThumbnail: options?.generateThumbnail,
+      thumbnailWidth: options?.thumbnailWidth,
+      thumbnailHeight: options?.thumbnailHeight,
+    }
+
+    const presignedResponse = await storageApi.getPresignedUploadUrl(presignedRequest)
+
+    // 2. Загружаем файл на presigned URL
+    await storageApi.uploadToPresignedUrl(
+      presignedResponse.uploadUrl,
+      file,
+      presignedResponse.requiredHeaders,
+    )
+
+    // 3. Подтверждаем загрузку
+    const confirmRequest: ConfirmUploadRequest = {
+      imageId: presignedResponse.imageId,
+      thumbnailImageId: presignedResponse.thumbnailImageId,
+      fileName: file.name,
+      contentType: file.type,
+      fileSize: file.size,
+    }
+
+    return await storageApi.confirmUpload(confirmRequest)
   },
 
   /**
@@ -44,23 +106,12 @@ export const storageApi = {
 
   /**
    * Получить URL изображения
-   * ✅ ИСПРАВЛЕНО: обрабатываем разные форматы ответа
    */
-  getImageUrl: async (imageId: string, expiry?: number): Promise<string> => {
+  getImageUrl: async (imageId: string, expiry?: number): Promise<ImageUrlResponse> => {
     const { data } = await storageServiceClient.get(`${BASE_PATH}/${imageId}/url`, {
       params: { expiry },
     })
-
-    // API может вернуть строку или объект { url: string }
-    if (typeof data === 'string') {
-      return data
-    }
-
-    if (data && typeof data === 'object' && 'url' in data) {
-      return data.url as string
-    }
-
-    throw new Error('Unexpected response format from getImageUrl')
+    return data
   },
 
   /**

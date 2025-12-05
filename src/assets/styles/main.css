@@ -1,10 +1,10 @@
 /* src/styles/main.css */
+/* PrimeIcons - must be before @tailwind */
+@import 'primeicons/primeicons.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* PrimeIcons */
-@import 'primeicons/primeicons.css';
 
 /* Custom base styles */
 @layer base {

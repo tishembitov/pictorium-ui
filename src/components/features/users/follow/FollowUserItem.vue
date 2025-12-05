@@ -10,7 +10,7 @@ import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import type { User } from '@/types'
 
 export interface FollowUserItemProps {
-  user: Pick<User, 'id' | 'username' | 'imageUrl'>
+  user: Pick<User, 'id' | 'username' | 'imageId'>
   avatarBlobUrl?: string | null
 }
 
@@ -32,7 +32,7 @@ function handleClick() {
     @click="handleClick"
   >
     <BaseAvatar
-      :src="avatarBlobUrl || user.imageUrl || undefined"
+      :src="avatarBlobUrl || undefined"
       :alt="user.username"
       size="xl"
       class="!w-20 !h-20"

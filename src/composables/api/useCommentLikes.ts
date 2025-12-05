@@ -40,9 +40,9 @@ export function useCommentLikes(
       const user = await usersApi.getUserById(userId)
       const likeUser: CommentLikeUser = { ...user }
 
-      if (user.imageUrl) {
+      if (user.imageId) {
         try {
-          const blob = await storageApi.downloadImage(user.imageUrl)
+          const blob = await storageApi.downloadImage(user.imageId)
           likeUser.avatarBlobUrl = URL.createObjectURL(blob)
         } catch (e) {
           console.warn(`[useCommentLikes] Failed to load avatar for user ${user.id}:`, e)

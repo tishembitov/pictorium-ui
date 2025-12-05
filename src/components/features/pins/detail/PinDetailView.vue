@@ -98,7 +98,7 @@ function handleDoubleTap() {
 
 // Media load handlers
 function handleMediaLoad() {
-  if (pin.value?.videoPreviewUrl) {
+  if (pin.value?.videoPreviewId) {
     pinVideoLoaded.value = true
   } else {
     pinImageLoaded.value = true

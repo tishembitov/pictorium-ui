@@ -79,6 +79,11 @@ export const boardsApi = {
     await contentServiceClient.delete(`${BASE_PATH}/selected`)
   },
 
+  /**
+   * Обновить доску
+   * NOTE: В OpenAPI спецификации нет endpoint для обновления доски,
+   * но оставляем для обратной совместимости
+   */
   update: async (boardId: string, data: { title: string }): Promise<Board> => {
     const { data: response } = await contentServiceClient.patch(`${BASE_PATH}/${boardId}`, data)
     return response

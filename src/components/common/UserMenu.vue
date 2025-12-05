@@ -16,9 +16,9 @@ export interface UserMenuProps {
 const props = defineProps<UserMenuProps>()
 
 const emit = defineEmits<{
-  (e: 'logout'): void
-  (e: 'settings'): void
-  (e: 'profile'): void
+  logout: []
+  settings: []
+  profile: []
 }>()
 
 const triggerRef = ref<HTMLElement | null>(null)
@@ -31,7 +31,13 @@ const { isOpen, toggle, close } = useDropdown(triggerRef, menuRef, {
 })
 
 const handleAction = (action: 'profile' | 'settings' | 'logout') => {
-  emit(action)
+  if (action === 'logout') {
+    emit('logout')
+  } else if (action === 'settings') {
+    emit('settings')
+  } else if (action === 'profile') {
+    emit('profile')
+  }
   close()
 }
 </script>

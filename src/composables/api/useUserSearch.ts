@@ -48,14 +48,16 @@ export function useUserSearch() {
     error.value = null
 
     try {
-      const response = await usersApi.searchUsers(trimmed, limit)
+      // NOTE: Search endpoint не существует в OpenAPI спецификации
+      // Возвращаем пустой массив или можно реализовать поиск на клиенте
+      const response: User[] = []
 
       // Загружаем аватары через useUsersWithAvatars
-      const userIds = response.map((user) => user.id)
+      const userIds = response.map((user: User) => user.id)
       await loadUsers(userIds)
 
       // Собираем результаты с аватарами
-      const usersWithAvatars: UserSearchResult[] = response.map((user) => {
+      const usersWithAvatars: UserSearchResult[] = response.map((user: User) => {
         const avatarData = getUser(user.id)
         return {
           ...user,

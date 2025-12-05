@@ -30,7 +30,7 @@ export function useBoards(options: UseBoardsOptions = {}) {
   const myBoards = computed<BoardWithPins[]>(() => boardsStore.myBoards)
 
   /** Текущая доска (для детального просмотра) */
-  const currentBoard = computed<BoardWithPins | null>(() => boardsStore.currentBoard)
+  const currentBoard = computed<BoardWithPins | null>(() => boardsStore.currentBoard ?? null)
 
   /** Пины текущей доски */
   const currentBoardPins = computed<PinWithBlob[]>(() => boardsStore.currentBoardPins)

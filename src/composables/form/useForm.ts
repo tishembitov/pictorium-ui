@@ -43,13 +43,13 @@ export function useForm<T extends Record<string, unknown>>(options: UseFormOptio
   const isValid = computed(() => Object.keys(errors.value).length === 0)
   const isDirty = computed(() => {
     return Object.keys(initialValues).some(
-      (key) => values[key as keyof T] !== initialValues[key as keyof T],
+      (key) => (values as any)[key] !== initialValues[key as keyof T],
     )
   })
 
   // Methods
   const setFieldValue = <K extends keyof T>(field: K, value: T[K]) => {
-    values[field] = value as UnwrapRef<T>[K]
+    ;(values as any)[field] = value
 
     if (validateOnChange) {
       validateFieldInternal(field)
@@ -57,7 +57,7 @@ export function useForm<T extends Record<string, unknown>>(options: UseFormOptio
   }
 
   const setFieldTouched = <K extends keyof T>(field: K) => {
-    touched[field] = true
+    ;(touched as any)[field] = true
 
     if (validateOnBlur) {
       validateFieldInternal(field)
@@ -73,7 +73,7 @@ export function useForm<T extends Record<string, unknown>>(options: UseFormOptio
   }
 
   const validateFieldInternal = async <K extends keyof T>(field: K) => {
-    const error = await validateField(field as string, values[field])
+    const error = await validateField(field as string, (values as any)[field])
     if (error) {
       errors.value[field] = error
     } else {
@@ -93,7 +93,7 @@ export function useForm<T extends Record<string, unknown>>(options: UseFormOptio
 
     // Touch all fields
     Object.keys(initialValues).forEach((key) => {
-      touched[key as keyof T] = true
+      ;(touched as any)[key] = true
     })
 
     const isFormValid = await validateForm()
@@ -101,7 +101,7 @@ export function useForm<T extends Record<string, unknown>>(options: UseFormOptio
 
     try {
       isSubmitting.value = true
-      await onSubmit?.(values as T)
+      await onSubmit?.({ ...values } as T)
     } finally {
       isSubmitting.value = false
     }
@@ -110,8 +110,8 @@ export function useForm<T extends Record<string, unknown>>(options: UseFormOptio
   const reset = () => {
     Object.keys(initialValues).forEach((key) => {
       const k = key as keyof T
-      values[k] = initialValues[k] as UnwrapRef<T>[keyof T]
-      touched[k] = false
+      ;(values as any)[k] = initialValues[k]
+      ;(touched as any)[k] = false
     })
     errors.value = {}
   }
@@ -147,14 +147,16 @@ export function useFieldArray<T>(defaultValue: T[] = []) {
 
   return {
     fields,
-    append: (value: T) => fields.value.push(value),
-    prepend: (value: T) => fields.value.unshift(value),
-    insert: (index: number, value: T) => fields.value.splice(index, 0, value),
+    append: (value: T) => fields.value.push(value as any),
+    prepend: (value: T) => fields.value.unshift(value as any),
+    insert: (index: number, value: T) => fields.value.splice(index, 0, value as any),
     remove: (index: number) => fields.value.splice(index, 1),
     swap: (a: number, b: number) => {
       const temp = fields.value[a]
-      fields.value[a] = fields.value[b] as T
-      fields.value[b] = temp as T
+      if (temp !== undefined && fields.value[b] !== undefined) {
+        fields.value[a] = fields.value[b]!
+        fields.value[b] = temp
+      }
     },
     clear: () => {
       fields.value = []

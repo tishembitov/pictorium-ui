@@ -1,15 +1,13 @@
-import React, { type ReactNode, useState, useCallback, useMemo, createContext, useContext } from 'react';
+import React, { 
+  ReactNode, 
+  useState, 
+  useCallback, 
+  useMemo
+} from 'react';
 import { ColorSchemeProvider, Box } from 'gestalt';
+import { ThemeContext, ThemeContextType } from '@/shared/hooks/useTheme';
 
 type ColorScheme = 'light' | 'dark' | 'userPreference';
-
-interface ThemeContextType {
-  colorScheme: ColorScheme;
-  setColorScheme: (scheme: ColorScheme) => void;
-  toggleColorScheme: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextType | null>(null);
 
 interface GestaltProviderProps {
   children: ReactNode;
@@ -19,7 +17,7 @@ interface GestaltProviderProps {
 const THEME_STORAGE_KEY = 'pinthis-color-scheme';
 
 const getInitialColorScheme = (defaultScheme: ColorScheme): ColorScheme => {
-  if (typeof window === 'undefined') return defaultScheme;
+  if (typeof globalThis.window === 'undefined') return defaultScheme;
   
   const stored = localStorage.getItem(THEME_STORAGE_KEY);
   if (stored && ['light', 'dark', 'userPreference'].includes(stored)) {
@@ -69,14 +67,6 @@ export const GestaltProvider: React.FC<GestaltProviderProps> = ({
       </ColorSchemeProvider>
     </ThemeContext.Provider>
   );
-};
-
-export const useTheme = (): ThemeContextType => {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a GestaltProvider');
-  }
-  return context;
 };
 
 export default GestaltProvider;

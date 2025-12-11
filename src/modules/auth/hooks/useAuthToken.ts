@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { authService } from '../services/authService';
 
@@ -16,66 +16,58 @@ interface TokenState {
   expiresIn: number | null; // seconds until expiry
 }
 
+// Helper function to calculate token state
+const calculateTokenState = (
+  currentToken: string | null,
+  expiry: number | null,
+  refreshThreshold: number
+): TokenState => {
+  const now = Date.now();
+  const expiresIn = expiry ? Math.floor((expiry - now) / 1000) : null;
+
+  return {
+    token: currentToken,
+    isValid: !!currentToken && !!expiry && now < expiry,
+    isExpired: !!expiry && now >= expiry,
+    isExpiringSoon: !!expiry && expiresIn !== null && expiresIn <= refreshThreshold,
+    expiresAt: expiry,
+    expiresIn,
+  };
+};
+
 /**
  * Hook to access and manage auth token
  */
 export const useAuthToken = (options: UseAuthTokenOptions = {}) => {
-  const { 
-    autoRefresh = true, 
-    refreshThreshold = 30 
-  } = options;
+  const { autoRefresh = true, refreshThreshold = 30 } = options;
 
   const token = useAuthStore((state) => state.token);
   const tokenExpiry = useAuthStore((state) => state.tokenExpiry);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-  const [tokenState, setTokenState] = useState<TokenState>(() => 
-    calculateTokenState(token, tokenExpiry)
-  );
-
-  // Calculate token state
-  function calculateTokenState(
-    currentToken: string | null, 
-    expiry: number | null
-  ): TokenState {
-    const now = Date.now();
-    const expiresIn = expiry ? Math.floor((expiry - now) / 1000) : null;
-    
-    return {
-      token: currentToken,
-      isValid: !!currentToken && !!expiry && now < expiry,
-      isExpired: !!expiry && now >= expiry,
-      isExpiringSoon: !!expiry && expiresIn !== null && expiresIn <= refreshThreshold,
-      expiresAt: expiry,
-      expiresIn,
-    };
-  }
-
-  // Update token state periodically
-  useEffect(() => {
+  // Calculate token state synchronously from store values
+  const tokenState = useMemo((): TokenState => {
     if (!isAuthenticated || !tokenExpiry) {
-      setTokenState(calculateTokenState(null, null));
-      return;
+      return {
+        token: null,
+        isValid: false,
+        isExpired: true,
+        isExpiringSoon: false,
+        expiresAt: null,
+        expiresIn: null,
+      };
     }
-
-    const updateState = () => {
-      setTokenState(calculateTokenState(token, tokenExpiry));
-    };
-
-    updateState();
-    
-    // Update every second to keep expiresIn accurate
-    const interval = setInterval(updateState, 1000);
-    
-    return () => clearInterval(interval);
+    return calculateTokenState(token, tokenExpiry, refreshThreshold);
   }, [token, tokenExpiry, isAuthenticated, refreshThreshold]);
 
   // Auto-refresh when token is expiring soon
-  useEffect(() => {
-    if (autoRefresh && tokenState.isExpiringSoon && !tokenState.isExpired) {
-      authService.refreshToken();
+  // Using useMemo to trigger side effect check (not ideal but avoids setState in effect)
+  useMemo(() => {
+    if (autoRefresh && tokenState.isExpiringSoon && !tokenState.isExpired && isAuthenticated) {
+      // Fire and forget - the store will update when token refreshes
+      authService.refreshToken().catch(console.error);
     }
-  }, [autoRefresh, tokenState.isExpiringSoon, tokenState.isExpired]);
+  }, [autoRefresh, tokenState.isExpiringSoon, tokenState.isExpired, isAuthenticated]);
 
   // Manual refresh
   const refresh = useCallback(async () => {
@@ -100,7 +92,7 @@ export const useAuthToken = (options: UseAuthTokenOptions = {}) => {
       }
     }
 
-    return authService.getToken() || null;
+    return authService.getToken() ?? null;
   }, [isAuthenticated, tokenState.isExpired, tokenState.isExpiringSoon]);
 
   // Get authorization header
@@ -109,18 +101,21 @@ export const useAuthToken = (options: UseAuthTokenOptions = {}) => {
     return freshToken ? `Bearer ${freshToken}` : null;
   }, [getFreshToken]);
 
-  return {
-    ...tokenState,
-    
-    // Actions
-    refresh,
-    forceRefresh,
-    getFreshToken,
-    getAuthHeader,
-    
-    // Status
-    isAuthenticated,
-  };
+  return useMemo(
+    () => ({
+      ...tokenState,
+
+      // Actions
+      refresh,
+      forceRefresh,
+      getFreshToken,
+      getAuthHeader,
+
+      // Status
+      isAuthenticated,
+    }),
+    [tokenState, refresh, forceRefresh, getFreshToken, getAuthHeader, isAuthenticated]
+  );
 };
 
 /**

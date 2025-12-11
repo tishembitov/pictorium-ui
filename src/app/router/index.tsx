@@ -1,14 +1,31 @@
-import React from 'react';
-import { useRoutes } from 'react-router-dom';
-import { routes } from './routes';
+import React, { ReactNode } from 'react';
+import { AuthProvider } from '@/app/providers/AuthProvider';
+import { QueryProvider } from '@/app/providers/QueryProvider';
+import { GestaltProvider } from '@/app/providers/GestaltProvider';
+import { RouterProvider } from '@/app/providers/RouterProvider';
 
-export const AppRouter: React.FC = () => {
-  const element = useRoutes(routes);
-  return <>{element}</>;
+interface AppProvidersProps {
+  children: ReactNode;
+}
+
+export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
+  return (
+    <GestaltProvider>
+      <AuthProvider fallback={<div>Loading...</div>}>
+        <QueryProvider>
+          <RouterProvider>
+            {children}
+          </RouterProvider>
+        </QueryProvider>
+      </AuthProvider>
+    </GestaltProvider>
+  );
 };
 
-export { routes, ROUTES, buildPath } from './routes';
-export { ProtectedRoute, withProtectedRoute } from './ProtectedRoute';
-export * from './LazyRoutes';
+// Re-export components
+export { AuthProvider } from '@/app/providers/AuthProvider';
+export { QueryProvider } from '@/app/providers/QueryProvider';
+export { GestaltProvider } from '@/app/providers/GestaltProvider';
+export { RouterProvider } from '@/app/providers/RouterProvider';
 
-export default AppRouter;
+export default AppProviders;

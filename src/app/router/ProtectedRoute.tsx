@@ -1,7 +1,6 @@
-import React, { type ReactNode, useEffect } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '../providers/AuthProvider';
-import { FullPageLoader } from '@/shared/components/feedback/FullPageLoader';
+import { useAuth } from '@/modules/auth';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -9,36 +8,48 @@ interface ProtectedRouteProps {
   fallback?: ReactNode;
 }
 
+const DefaultFallback: React.FC = () => (
+  <div style={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    height: '100vh' 
+  }}>
+    Loading...
+  </div>
+);
+
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   roles = [],
   fallback,
 }) => {
-  const { isAuthenticated, isLoading, isInitialized, login, roles: userRoles } = useAuth();
+  const { isAuthenticated, isLoading, isInitialized, login, hasRole } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
     if (isInitialized && !isLoading && !isAuthenticated) {
       // Redirect to login with return URL
-      login(`${window.location.origin}${location.pathname}${location.search}`);
+      login({ 
+        redirectUri: `${globalThis.location.origin}${location.pathname}${location.search}` 
+      });
     }
   }, [isInitialized, isLoading, isAuthenticated, login, location]);
 
   // Still loading
   if (!isInitialized || isLoading) {
-    return fallback ? <>{fallback}</> : <FullPageLoader />;
+    return fallback ? <>{fallback}</> : <DefaultFallback />;
   }
 
   // Not authenticated - will redirect
   if (!isAuthenticated) {
-    return fallback ? <>{fallback}</> : <FullPageLoader />;
+    return fallback ? <>{fallback}</> : <DefaultFallback />;
   }
 
   // Check roles if specified
   if (roles.length > 0) {
-    const hasRequiredRole = roles.some(role => userRoles.includes(role));
+    const hasRequiredRole = roles.some(role => hasRole(role));
     if (!hasRequiredRole) {
-      // User doesn't have required role - show unauthorized or redirect
       return (
         <div style={{ 
           display: 'flex', 
@@ -46,27 +57,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           alignItems: 'center', 
           height: '100vh' 
         }}>
-          <p>You don't have permission to access this page.</p>
+          <p>You don&apos;t have permission to access this page.</p>
         </div>
       );
     }
   }
 
   return <>{children}</>;
-};
-
-// HOC version for wrapping route elements
-export const withProtectedRoute = (
-  Component: React.ComponentType,
-  options?: { roles?: string[] }
-) => {
-  return function ProtectedComponent(props: any) {
-    return (
-      <ProtectedRoute roles={options?.roles}>
-        <Component {...props} />
-      </ProtectedRoute>
-    );
-  };
 };
 
 export default ProtectedRoute;

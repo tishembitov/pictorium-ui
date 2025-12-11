@@ -3,7 +3,7 @@ import { AppProviders } from './providers';
 import { AppRouter } from './router';
 
 // Import global styles
-import '@/styles/index.css';
+import '@/app/styles/index.css';
 
 export const App: React.FC = () => {
   return (

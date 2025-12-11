@@ -1,4 +1,4 @@
-import { env } from '@/config/env';
+import { env } from '@/app/config/env';
 
 // Base API URL (through gateway)
 export const API_BASE_URL = env.apiGatewayUrl;

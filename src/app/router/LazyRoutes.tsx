@@ -1,4 +1,4 @@
-import { lazy, Suspense, ComponentType } from 'react';
+import { lazy, Suspense, type ComponentType } from 'react';
 import { FullPageLoader } from '@/shared/components/feedback/FullPageLoader';
 
 // Helper for lazy loading with fallback

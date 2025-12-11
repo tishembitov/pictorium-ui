@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../stores/authStore';
 import { get } from '@/shared/api/apiClient';
 import { USER_ENDPOINTS } from '@/shared/api/apiEndpoints';
 import { queryKeys } from '@/app/config/queryClient';

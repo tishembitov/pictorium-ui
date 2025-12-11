@@ -45,63 +45,6 @@ export interface UploadProgressEvent {
   percentage: number;
 }
 
-// Presigned upload request/response (Storage Service)
-export interface PresignedUploadRequest {
-  fileName: string;
-  contentType: string;
-  fileSize: number;
-  category?: string;
-  generateThumbnail?: boolean;
-  thumbnailWidth?: number;
-  thumbnailHeight?: number;
-}
-
-export interface PresignedUploadResponse {
-  imageId: string;
-  uploadUrl: string;
-  expiresAt: number;
-  requiredHeaders?: Record<string, string>;
-  thumbnailImageId?: string;
-}
-
-// Confirm upload request/response
-export interface ConfirmUploadRequest {
-  imageId: string;
-  thumbnailImageId?: string;
-  fileName?: string;
-  contentType?: string;
-  fileSize?: number;
-}
-
-export interface ConfirmUploadResponse {
-  imageId: string;
-  imageUrl: string;
-  thumbnailUrl?: string;
-  fileName: string;
-  size: number;
-  contentType: string;
-  updatedAt: string;
-  confirmed: boolean;
-}
-
-// Image URL response
-export interface ImageUrlResponse {
-  imageId: string;
-  url: string;
-  expiresAt: number;
-}
-
-// Image metadata
-export interface ImageMetadata {
-  imageId: string;
-  fileName: string;
-  contentType: string;
-  size: number;
-  etag?: string;
-  updatedAt: string;
-  bucketName: string;
-}
-
 // Common filter params
 export interface BaseFilterParams {
   q?: string;

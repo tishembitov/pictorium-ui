@@ -1,13 +1,187 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pictorium-ui</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    
+    <!-- Primary Meta Tags -->
+    <title>PinThis - Share Your Ideas</title>
+    <meta name="title" content="PinThis - Share Your Ideas" />
+    <meta name="description" content="Discover and save creative ideas. PinThis is a visual discovery platform where you can find inspiration for all your interests." />
+    <meta name="keywords" content="pins, boards, ideas, inspiration, images, sharing, social" />
+    <meta name="author" content="PinThis" />
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#e60023" />
+    <meta name="msapplication-TileColor" content="#e60023" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://pinthis.com/" />
+    <meta property="og:title" content="PinThis - Share Your Ideas" />
+    <meta property="og:description" content="Discover and save creative ideas. PinThis is a visual discovery platform where you can find inspiration for all your interests." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:site_name" content="PinThis" />
+    <meta property="og:locale" content="en_US" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://pinthis.com/" />
+    <meta property="twitter:title" content="PinThis - Share Your Ideas" />
+    <meta property="twitter:description" content="Discover and save creative ideas. PinThis is a visual discovery platform where you can find inspiration for all your interests." />
+    <meta property="twitter:image" content="/og-image.png" />
+    
+    <!-- Security -->
+    <meta http-equiv="Content-Security-Policy" 
+          content="default-src 'self'; 
+                   script-src 'self' 'unsafe-inline' 'unsafe-eval'; 
+                   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
+                   font-src 'self' https://fonts.gstatic.com; 
+                   img-src 'self' data: blob: https:; 
+                   connect-src 'self' http://localhost:* https://*.keycloak.com https://*.amazonaws.com;" />
+    
+    <!-- Preconnect to important origins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- DNS Prefetch -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+    
+    <!-- Fonts (Optional - Gestalt uses system fonts by default) -->
+    <!-- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /> -->
+    
+    <!-- No-script fallback styles -->
+    <noscript>
+      <style>
+        .js-only { display: none !important; }
+        .no-js-message {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          padding: 20px;
+          text-align: center;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .no-js-message h1 {
+          color: #e60023;
+          margin-bottom: 16px;
+        }
+        .no-js-message p {
+          color: #333;
+          max-width: 400px;
+        }
+      </style>
+    </noscript>
+    
+    <!-- Initial loading styles -->
+    <style>
+      /* Initial loader before React mounts */
+      #initial-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: #ffffff;
+        z-index: 9999;
+        transition: opacity 0.3s ease;
+      }
+      
+      #initial-loader.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .loader-logo {
+        width: 60px;
+        height: 60px;
+        margin-bottom: 20px;
+      }
+      
+      .loader-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #e60023;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      /* Dark mode support */
+      @media (prefers-color-scheme: dark) {
+        #initial-loader {
+          background-color: #111111;
+        }
+        .loader-spinner {
+          border-color: #333333;
+          border-top-color: #e60023;
+        }
+      }
+    </style>
   </head>
+  
   <body>
+    <!-- Initial Loader -->
+    <div id="initial-loader">
+      <svg class="loader-logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="10" fill="#e60023"/>
+        <path d="M12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18C15.3137 18 18 15.3137 18 12" 
+              stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="3" fill="white"/>
+      </svg>
+      <div class="loader-spinner"></div>
+    </div>
+    
+    <!-- React Root -->
     <div id="root"></div>
+    
+    <!-- No JavaScript Fallback -->
+    <noscript>
+      <div class="no-js-message">
+        <h1>JavaScript Required</h1>
+        <p>
+          PinThis requires JavaScript to work properly. 
+          Please enable JavaScript in your browser settings and reload the page.
+        </p>
+      </div>
+    </noscript>
+    
+    <!-- Main Script -->
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Hide loader when app is ready -->
+    <script>
+      window.addEventListener('DOMContentLoaded', function() {
+        // Give React time to mount
+        setTimeout(function() {
+          var loader = document.getElementById('initial-loader');
+          if (loader) {
+            loader.classList.add('hidden');
+            setTimeout(function() {
+              loader.remove();
+            }, 300);
+          }
+        }, 100);
+      });
+    </script>
   </body>
 </html>

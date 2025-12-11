@@ -1,6 +1,6 @@
 import Keycloak from 'keycloak-js';
 import { keycloak, TOKEN_MIN_VALIDITY } from '@/app/config/keycloak';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../stores/authStore';
 import type {
   AuthUser,
   AuthError,

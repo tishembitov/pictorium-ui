@@ -1,14 +1,9 @@
 import { useCallback, useMemo } from 'react';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../stores/authStore';
 import { authService } from '../services/authService';
 import type { LoginOptions, LogoutOptions, RegisterOptions } from '../types/auth.types';
 
-/**
- * Main authentication hook
- * Provides authentication state and actions
- */
 export const useAuth = () => {
-  // Get state from store
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const isLoading = useAuthStore((state) => state.isLoading);

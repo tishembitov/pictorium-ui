@@ -1,0 +1,127 @@
+// App constants
+export const APP_NAME = 'PinThis';
+
+// Pagination
+export const PAGINATION = {
+  DEFAULT_PAGE: 0,
+  DEFAULT_SIZE: 20,
+  MAX_SIZE: 100,
+  PIN_GRID_SIZE: 25,
+  COMMENTS_SIZE: 10,
+  USERS_SIZE: 20,
+} as const;
+
+// Image constraints
+export const IMAGE = {
+  MAX_FILE_SIZE: 20 * 1024 * 1024, // 20MB
+  ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+  THUMBNAIL_WIDTH: 236,
+  THUMBNAIL_HEIGHT: 236,
+  PREVIEW_WIDTH: 600,
+  CATEGORY: {
+    PIN: 'pins',
+    AVATAR: 'avatars',
+    BANNER: 'banners',
+    COMMENT: 'comments',
+  },
+} as const;
+
+// Text constraints
+export const TEXT_LIMITS = {
+  PIN_TITLE: 200,
+  PIN_DESCRIPTION: 400,
+  COMMENT_CONTENT: 400,
+  BOARD_TITLE: 200,
+  USERNAME_MIN: 3,
+  USERNAME_MAX: 30,
+  USER_DESCRIPTION: 200,
+  TAG_NAME: 100,
+  HREF_MAX: 200,
+} as const;
+
+// Time constants (in ms)
+export const TIME = {
+  SECOND: 1000,
+  MINUTE: 60 * 1000,
+  HOUR: 60 * 60 * 1000,
+  DAY: 24 * 60 * 60 * 1000,
+  WEEK: 7 * 24 * 60 * 60 * 1000,
+  DEBOUNCE_DELAY: 300,
+  TOAST_DURATION: 5000,
+  TOKEN_REFRESH_INTERVAL: 10000,
+} as const;
+
+// Breakpoints (matching Gestalt)
+export const BREAKPOINTS = {
+  SM: 576,
+  MD: 768,
+  LG: 1312,
+} as const;
+
+// Z-index layers
+export const Z_INDEX = {
+  DROPDOWN: 100,
+  STICKY: 200,
+  MODAL: 300,
+  POPOVER: 400,
+  TOAST: 500,
+} as const;
+
+// Local storage keys
+export const STORAGE_KEYS = {
+  COLOR_SCHEME: 'pinthis-color-scheme',
+  SELECTED_BOARD: 'pinthis-selected-board',
+  RECENT_SEARCHES: 'pinthis-recent-searches',
+  AUTH_STATE: 'pinthis-auth-state',
+} as const;
+
+// Query keys prefixes
+export const QUERY_KEYS = {
+  USERS: 'users',
+  PINS: 'pins',
+  BOARDS: 'boards',
+  COMMENTS: 'comments',
+  TAGS: 'tags',
+  IMAGES: 'images',
+  SUBSCRIPTIONS: 'subscriptions',
+} as const;
+
+// Routes
+export const ROUTES = {
+  HOME: '/',
+  EXPLORE: '/explore',
+  SEARCH: '/search',
+  PIN: '/pin',
+  PIN_CREATE: '/pin/create',
+  PROFILE: '/profile',
+  SETTINGS: '/settings',
+  BOARD: '/board',
+} as const;
+
+// Error messages
+export const ERROR_MESSAGES = {
+  NETWORK_ERROR: 'Unable to connect to the server. Please check your internet connection.',
+  UNAUTHORIZED: 'Please sign in to continue.',
+  FORBIDDEN: 'You don\'t have permission to perform this action.',
+  NOT_FOUND: 'The requested resource was not found.',
+  SERVER_ERROR: 'Something went wrong. Please try again later.',
+  VALIDATION_ERROR: 'Please check your input and try again.',
+  UPLOAD_FAILED: 'Failed to upload file. Please try again.',
+  UNKNOWN_ERROR: 'An unexpected error occurred.',
+} as const;
+
+// Success messages
+export const SUCCESS_MESSAGES = {
+  PIN_CREATED: 'Pin created successfully!',
+  PIN_UPDATED: 'Pin updated successfully!',
+  PIN_DELETED: 'Pin deleted successfully!',
+  PIN_SAVED: 'Pin saved to board!',
+  PIN_UNSAVED: 'Pin removed from board.',
+  COMMENT_CREATED: 'Comment added!',
+  COMMENT_DELETED: 'Comment deleted.',
+  BOARD_CREATED: 'Board created!',
+  BOARD_DELETED: 'Board deleted.',
+  PROFILE_UPDATED: 'Profile updated!',
+  FOLLOWED: 'Following user.',
+  UNFOLLOWED: 'Unfollowed user.',
+} as const;

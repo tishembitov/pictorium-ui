@@ -1,0 +1,7 @@
+/* Gestalt CSS - must be imported first */
+@import 'gestalt/dist/gestalt.css';
+@import 'gestalt-datepicker/dist/gestalt-datepicker.css';
+
+/* Custom styles */
+@import './variables.css';
+@import './global.css';

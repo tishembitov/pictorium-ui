@@ -1,4 +1,3 @@
-// src/app/providers/index.tsx
 import React, { type ReactNode } from 'react';
 import { AuthProvider } from './AuthProvider';
 import { QueryProvider } from './QueryProvider';
@@ -30,8 +29,7 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
 // Экспорты провайдеров
 export { AuthProvider } from './AuthProvider';
 export { QueryProvider } from './QueryProvider';
-export { GestaltProvider, useTheme } from './GestaltProvider';
+export { GestaltProvider } from './GestaltProvider';
 export { RouterProvider } from './RouterProvider';
-
 
 export default AppProviders;

@@ -1,32 +1,38 @@
-// src/shared/components/layout/HeaderSearch.tsx
 import React, { useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SearchField, Box } from 'gestalt';
-import { ROUTES } from '../../utils/constants';
 
 export const HeaderSearch: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [query, setQuery] = useState(searchParams.get('q') || '');
+  
+  // Инициализируем значение из URL один раз
+  const initialQuery = searchParams.get('q') || '';
+  const [query, setQuery] = useState(initialQuery);
 
   const handleChange = useCallback(({ value }: { value: string }) => {
     setQuery(value);
   }, []);
 
   const handleSubmit = useCallback(() => {
-    if (query.trim()) {
-      navigate(`${ROUTES.SEARCH}?q=${encodeURIComponent(query.trim())}`);
+    const trimmedQuery = query.trim();
+    if (trimmedQuery) {
+      navigate(`/search?q=${encodeURIComponent(trimmedQuery)}`);
     }
   }, [query, navigate]);
 
   const handleKeyDown = useCallback(
-    ({ event }: { event: React.KeyboardEvent<HTMLInputElement>; value: string }) => {
+    ({ event }: { event: React.KeyboardEvent<HTMLInputElement> }) => {
       if (event.key === 'Enter') {
         handleSubmit();
       }
     },
     [handleSubmit]
   );
+
+  const handleClear = useCallback(() => {
+    setQuery('');
+  }, []);
 
   return (
     <Box width="100%">
@@ -38,6 +44,7 @@ export const HeaderSearch: React.FC = () => {
         value={query}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onBlur={handleClear}
       />
     </Box>
   );

@@ -1,6 +1,6 @@
-// src/shared/components/feedback/ErrorBoundary.tsx
 import { Component, type ReactNode, type ErrorInfo } from 'react';
 import { Box, Text, Button, Heading, Flex } from 'gestalt';
+import { env } from '@/app/config/env';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -24,7 +24,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    // Логируем только в development
+    if (env.isDevelopment) {
+      console.error('ErrorBoundary caught an error:', error, errorInfo);
+    }
+    
+    // В production отправляем в сервис мониторинга
+    if (env.isProduction) {
+      // TODO: Интегрировать с сервисом мониторинга (Sentry, etc.)
+      // sendToErrorTracking(error, errorInfo);
+    }
+    
     this.props.onError?.(error, errorInfo);
   }
 
@@ -59,7 +69,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           
           <Box marginBottom={6} maxWidth={400}>
             <Text align="center" color="subtle">
-              {this.state.error?.message || 'An unexpected error occurred. Please try again.'}
+              {env.isDevelopment && this.state.error?.message 
+                ? this.state.error.message 
+                : 'An unexpected error occurred. Please try again.'}
             </Text>
           </Box>
           

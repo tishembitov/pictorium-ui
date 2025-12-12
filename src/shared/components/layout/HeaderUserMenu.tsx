@@ -1,4 +1,3 @@
-// src/shared/components/layout/HeaderUserMenu.tsx
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -13,26 +12,29 @@ import {
   Flex,
 } from 'gestalt';
 import { useAuth, useCurrentUser } from '@/modules/auth';
-import { ROUTES } from '../../utils/constants';
+import { ROUTES, buildPath } from '@/app/router/routeConfig';
 
 export const HeaderUserMenu: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, login, logout } = useAuth();
   const { user, username } = useCurrentUser();
   const [isOpen, setIsOpen] = useState(false);
-  // Store anchor element in state instead of ref
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
   }, []);
 
+  const handleToggle = useCallback(() => {
+    setIsOpen(prev => !prev);
+  }, []);
+
   const handleLogin = useCallback(() => {
     login();
   }, [login]);
 
-  const handleLogout = useCallback(() => {
-    logout();
+  const handleLogout = useCallback(async () => {
+    await logout();
     setIsOpen(false);
   }, [logout]);
 
@@ -40,6 +42,13 @@ export const HeaderUserMenu: React.FC = () => {
     navigate(path);
     setIsOpen(false);
   }, [navigate]);
+
+  // Callback ref для установки anchor element
+  const setAnchorRef = useCallback((node: HTMLDivElement | null) => {
+    if (node !== null) {
+      setAnchorElement(node);
+    }
+  }, []);
 
   if (!isAuthenticated) {
     return (
@@ -62,6 +71,7 @@ export const HeaderUserMenu: React.FC = () => {
         icon="add"
         onClick={() => navigate(ROUTES.PIN_CREATE)}
         size="md"
+        bgColor="transparent"
       />
       
       {/* Notifications - placeholder */}
@@ -70,6 +80,7 @@ export const HeaderUserMenu: React.FC = () => {
         icon="bell"
         onClick={() => {}}
         size="md"
+        bgColor="transparent"
       />
       
       {/* Messages - placeholder */}
@@ -78,21 +89,15 @@ export const HeaderUserMenu: React.FC = () => {
         icon="speech"
         onClick={() => {}}
         size="md"
+        bgColor="transparent"
       />
       
       {/* User Avatar & Menu */}
-      <Box 
-        ref={(node: HTMLDivElement | null) => {
-          if (node && !anchorElement) {
-            setAnchorElement(node);
-          }
-        }}
-      >
-        <TapArea onTap={() => setIsOpen(prev => !prev)} rounding="circle">
+      <Box ref={setAnchorRef}>
+        <TapArea onTap={handleToggle} rounding="circle">
           <Avatar
             name={username || 'User'}
             size="sm"
-            src={user?.imageId ? `/api/v1/images/${user.imageId}` : undefined}
           />
         </TapArea>
       </Box>
@@ -121,14 +126,20 @@ export const HeaderUserMenu: React.FC = () => {
             
             {/* Menu Items */}
             <Box paddingY={2}>
-              <TapArea onTap={() => handleNavigate(`${ROUTES.PROFILE}/${username}`)}>
-                <Box padding={2} rounding={2}>
+              <TapArea 
+                onTap={() => handleNavigate(buildPath.profile(username || ''))}
+                rounding={2}
+              >
+                <Box padding={2}>
                   <Text size="200">Your profile</Text>
                 </Box>
               </TapArea>
               
-              <TapArea onTap={() => handleNavigate(ROUTES.SETTINGS)}>
-                <Box padding={2} rounding={2}>
+              <TapArea 
+                onTap={() => handleNavigate(ROUTES.SETTINGS)}
+                rounding={2}
+              >
+                <Box padding={2}>
                   <Text size="200">Settings</Text>
                 </Box>
               </TapArea>
@@ -138,8 +149,8 @@ export const HeaderUserMenu: React.FC = () => {
             
             {/* Logout */}
             <Box paddingY={2}>
-              <TapArea onTap={handleLogout}>
-                <Box padding={2} rounding={2}>
+              <TapArea onTap={handleLogout} rounding={2}>
+                <Box padding={2}>
                   <Text size="200">Log out</Text>
                 </Box>
               </TapArea>

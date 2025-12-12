@@ -1,4 +1,3 @@
-// src/shared/index.ts
 // Types
 export * from './types/common.types';
 export * from './types/pageable.types';
@@ -10,8 +9,9 @@ export {
   API_BASE_URL, 
   API_ENDPOINTS, 
   API_PREFIXES,
-  USER_ENDPOINTS,  
-  PIN_ENDPOINTS,   
+  USER_ENDPOINTS,
+  SUBSCRIPTION_ENDPOINTS,
+  PIN_ENDPOINTS,
   BOARD_ENDPOINTS, 
   COMMENT_ENDPOINTS, 
   TAG_ENDPOINTS,   

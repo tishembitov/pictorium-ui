@@ -1,6 +1,5 @@
-// src/shared/components/data-display/Pagination.tsx
 import React from 'react';
-import { IconButton, Text, Flex } from 'gestalt';
+import { Flex, IconButton, Text } from 'gestalt';
 
 interface PaginationProps {
   currentPage: number;
@@ -19,13 +18,13 @@ export const Pagination: React.FC<PaginationProps> = ({
   const isLastPage = currentPage >= totalPages - 1;
 
   const handlePrevious = () => {
-    if (!isFirstPage) {
+    if (!isFirstPage && !disabled) {
       onPageChange(currentPage - 1);
     }
   };
 
   const handleNext = () => {
-    if (!isLastPage) {
+    if (!isLastPage && !disabled) {
       onPageChange(currentPage + 1);
     }
   };
@@ -38,10 +37,11 @@ export const Pagination: React.FC<PaginationProps> = ({
     <Flex alignItems="center" justifyContent="center" gap={4}>
       <IconButton
         accessibilityLabel="Previous page"
-        icon="arrow-back"
+        icon="directional-arrow-left"
         onClick={handlePrevious}
         disabled={disabled || isFirstPage}
         size="md"
+        bgColor="transparent"
       />
       
       <Text size="200" color={disabled ? 'subtle' : 'default'}>
@@ -50,10 +50,11 @@ export const Pagination: React.FC<PaginationProps> = ({
       
       <IconButton
         accessibilityLabel="Next page"
-        icon="arrow-forward"
+        icon="directional-arrow-right"
         onClick={handleNext}
         disabled={disabled || isLastPage}
         size="md"
+        bgColor="transparent"
       />
     </Flex>
   );

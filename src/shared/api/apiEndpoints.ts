@@ -16,12 +16,15 @@ export const API_PREFIXES = {
 
 // User Service Endpoints
 export const USER_ENDPOINTS = {
-  // Users
+  // Users - согласно OpenAPI
   me: () => `${API_PREFIXES.users}/me`,
+  update: () => `${API_PREFIXES.users}/me`, // PATCH /api/v1/users/me
   byId: (userId: string) => `${API_PREFIXES.users}/user/id/${userId}`,
   byUsername: (username: string) => `${API_PREFIXES.users}/user/username/${username}`,
-  
-  // Subscriptions
+} as const;
+
+// Subscription Endpoints - отдельно для ясности
+export const SUBSCRIPTION_ENDPOINTS = {
   follow: (userId: string) => `${API_PREFIXES.subscriptions}/users/${userId}`,
   unfollow: (userId: string) => `${API_PREFIXES.subscriptions}/users/${userId}`,
   followers: (userId: string) => `${API_PREFIXES.subscriptions}/followers/${userId}`,
@@ -29,9 +32,9 @@ export const USER_ENDPOINTS = {
   checkFollow: (userId: string) => `${API_PREFIXES.subscriptions}/check/${userId}`,
 } as const;
 
-// Content Service Endpoints
+// Content Service - Pin Endpoints
 export const PIN_ENDPOINTS = {
-  // Pins
+  // Pins CRUD
   list: () => API_PREFIXES.pins,
   create: () => API_PREFIXES.pins,
   byId: (pinId: string) => `${API_PREFIXES.pins}/${pinId}`,
@@ -52,31 +55,45 @@ export const PIN_ENDPOINTS = {
   unsave: (pinId: string) => `${API_PREFIXES.pins}/${pinId}/saves`,
 } as const;
 
+// Board Endpoints
 export const BOARD_ENDPOINTS = {
-  // Boards
+  // Boards CRUD
   create: () => API_PREFIXES.boards,
   byId: (boardId: string) => `${API_PREFIXES.boards}/${boardId}`,
   delete: (boardId: string) => `${API_PREFIXES.boards}/${boardId}`,
+  
+  // Board Pins
   pins: (boardId: string) => `${API_PREFIXES.boards}/${boardId}/pins`,
   addPin: (boardId: string, pinId: string) => `${API_PREFIXES.boards}/${boardId}/pins/${pinId}`,
   removePin: (boardId: string, pinId: string) => `${API_PREFIXES.boards}/${boardId}/pins/${pinId}`,
+  
+  // User Boards
   byUser: (userId: string) => `${API_PREFIXES.boards}/user/${userId}`,
   my: () => `${API_PREFIXES.boards}/me`,
+  
+  // Selected Board
   selected: () => `${API_PREFIXES.boards}/selected`,
   select: (boardId: string) => `${API_PREFIXES.boards}/${boardId}/select`,
+  deselect: () => `${API_PREFIXES.boards}/selected`, // DELETE
 } as const;
 
+// Comment Endpoints
 export const COMMENT_ENDPOINTS = {
   byId: (commentId: string) => `${API_PREFIXES.comments}/${commentId}`,
   update: (commentId: string) => `${API_PREFIXES.comments}/${commentId}`,
   delete: (commentId: string) => `${API_PREFIXES.comments}/${commentId}`,
+  
+  // Replies
   replies: (commentId: string) => `${API_PREFIXES.comments}/${commentId}/replies`,
   createReply: (commentId: string) => `${API_PREFIXES.comments}/${commentId}/replies`,
+  
+  // Comment Likes
   likes: (commentId: string) => `${API_PREFIXES.comments}/${commentId}/likes`,
   like: (commentId: string) => `${API_PREFIXES.comments}/${commentId}/likes`,
   unlike: (commentId: string) => `${API_PREFIXES.comments}/${commentId}/likes`,
 } as const;
 
+// Tag Endpoints
 export const TAG_ENDPOINTS = {
   list: () => API_PREFIXES.tags,
   byId: (tagId: string) => `${API_PREFIXES.tags}/${tagId}`,
@@ -85,7 +102,7 @@ export const TAG_ENDPOINTS = {
   categories: () => `${API_PREFIXES.tags}/categories`,
 } as const;
 
-// Storage Service Endpoints
+// Storage Service - Image Endpoints
 export const IMAGE_ENDPOINTS = {
   presignedUpload: () => `${API_PREFIXES.images}/presigned-upload`,
   confirm: () => `${API_PREFIXES.images}/confirm`,
@@ -99,6 +116,7 @@ export const IMAGE_ENDPOINTS = {
 // All endpoints combined
 export const API_ENDPOINTS = {
   users: USER_ENDPOINTS,
+  subscriptions: SUBSCRIPTION_ENDPOINTS,
   pins: PIN_ENDPOINTS,
   boards: BOARD_ENDPOINTS,
   comments: COMMENT_ENDPOINTS,

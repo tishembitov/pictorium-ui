@@ -14,10 +14,15 @@ export const PAGINATION = {
 // Image constraints
 export const IMAGE = {
   MAX_FILE_SIZE: 20 * 1024 * 1024, // 20MB
-  ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-  THUMBNAIL_WIDTH: 236,
-  THUMBNAIL_HEIGHT: 236,
-  PREVIEW_WIDTH: 600,
+  ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const,
+  THUMBNAIL: {
+    MIN_WIDTH: 50,
+    MIN_HEIGHT: 50,
+    MAX_WIDTH: 1000,
+    MAX_HEIGHT: 1000,
+    DEFAULT_WIDTH: 236,
+    DEFAULT_HEIGHT: 236,
+  },
   CATEGORY: {
     PIN: 'pins',
     AVATAR: 'avatars',
@@ -26,17 +31,18 @@ export const IMAGE = {
   },
 } as const;
 
-// Text constraints
+// Text constraints - согласно API validation
 export const TEXT_LIMITS = {
   PIN_TITLE: 200,
   PIN_DESCRIPTION: 400,
+  PIN_HREF: 200,
   COMMENT_CONTENT: 400,
   BOARD_TITLE: 200,
   USERNAME_MIN: 3,
   USERNAME_MAX: 30,
   USER_DESCRIPTION: 200,
   TAG_NAME: 100,
-  HREF_MAX: 200,
+  SOCIAL_LINK: 100,
 } as const;
 
 // Time constants (in ms)
@@ -49,6 +55,7 @@ export const TIME = {
   DEBOUNCE_DELAY: 300,
   TOAST_DURATION: 5000,
   TOKEN_REFRESH_INTERVAL: 10000,
+  TOKEN_MIN_VALIDITY: 30, // seconds
 } as const;
 
 // Breakpoints (matching Gestalt)
@@ -75,7 +82,7 @@ export const STORAGE_KEYS = {
   AUTH_STATE: 'pinthis-auth-state',
 } as const;
 
-// Query keys prefixes
+// Query keys prefixes (для обратной совместимости)
 export const QUERY_KEYS = {
   USERS: 'users',
   PINS: 'pins',
@@ -86,7 +93,7 @@ export const QUERY_KEYS = {
   SUBSCRIPTIONS: 'subscriptions',
 } as const;
 
-// Routes
+// Routes - используются в навигации
 export const ROUTES = {
   HOME: '/',
   EXPLORE: '/explore',
@@ -98,16 +105,28 @@ export const ROUTES = {
   BOARD: '/board',
 } as const;
 
+// Pin filter scopes - согласно API enum
+export const PIN_SCOPES = {
+  ALL: 'ALL',
+  CREATED: 'CREATED',
+  SAVED: 'SAVED',
+  LIKED: 'LIKED',
+  RELATED: 'RELATED',
+} as const;
+
 // Error messages
 export const ERROR_MESSAGES = {
   NETWORK_ERROR: 'Unable to connect to the server. Please check your internet connection.',
   UNAUTHORIZED: 'Please sign in to continue.',
-  FORBIDDEN: 'You don\'t have permission to perform this action.',
+  FORBIDDEN: "You don't have permission to perform this action.",
   NOT_FOUND: 'The requested resource was not found.',
   SERVER_ERROR: 'Something went wrong. Please try again later.',
   VALIDATION_ERROR: 'Please check your input and try again.',
   UPLOAD_FAILED: 'Failed to upload file. Please try again.',
   UNKNOWN_ERROR: 'An unexpected error occurred.',
+  TOKEN_EXPIRED: 'Your session has expired. Please sign in again.',
+  FILE_TOO_LARGE: 'File size exceeds the maximum allowed limit.',
+  INVALID_FILE_TYPE: 'This file type is not supported.',
 } as const;
 
 // Success messages
@@ -117,11 +136,16 @@ export const SUCCESS_MESSAGES = {
   PIN_DELETED: 'Pin deleted successfully!',
   PIN_SAVED: 'Pin saved to board!',
   PIN_UNSAVED: 'Pin removed from board.',
+  PIN_LIKED: 'Pin liked!',
+  PIN_UNLIKED: 'Like removed.',
   COMMENT_CREATED: 'Comment added!',
+  COMMENT_UPDATED: 'Comment updated!',
   COMMENT_DELETED: 'Comment deleted.',
   BOARD_CREATED: 'Board created!',
   BOARD_DELETED: 'Board deleted.',
   PROFILE_UPDATED: 'Profile updated!',
   FOLLOWED: 'Following user.',
   UNFOLLOWED: 'Unfollowed user.',
+  COPIED_TO_CLIPBOARD: 'Copied to clipboard!',
+  IMAGE_UPLOADED: 'Image uploaded successfully!',
 } as const;

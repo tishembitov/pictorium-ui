@@ -1,6 +1,6 @@
 // src/modules/storage/hooks/useImageUpload.ts
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { uploadService } from '../services/uploadService';
 import { validateImageFile } from '../utils/fileUtils';
 import type {
@@ -19,13 +19,15 @@ interface UseImageUploadState {
 }
 
 interface UseImageUploadReturn extends UseImageUploadState {
-  upload: (file: File, options?: UploadOptions) => Promise<UploadResult>;
+  upload: (file: File, options?: Omit<UploadOptions, 'signal'>) => Promise<UploadResult>;
   validate: (file: File) => FileValidationResult;
   reset: () => void;
+  cancel: () => void;
   isIdle: boolean;
   isUploading: boolean;
   isCompleted: boolean;
   isError: boolean;
+  isCancelled: boolean;
 }
 
 const initialState: UseImageUploadState = {
@@ -36,17 +38,39 @@ const initialState: UseImageUploadState = {
 };
 
 /**
- * Comprehensive hook for image upload
+ * Comprehensive hook for image upload with cancellation support
  */
 export const useImageUpload = (): UseImageUploadReturn => {
   const [state, setState] = useState<UseImageUploadState>(initialState);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const validate = useCallback((file: File): FileValidationResult => {
     return validateImageFile(file);
   }, []);
 
+  const cancel = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setState((prev) => ({
+        ...prev,
+        status: 'cancelled',
+        error: 'Upload cancelled',
+      }));
+    }
+  }, []);
+
   const upload = useCallback(
-    async (file: File, options: UploadOptions = {}): Promise<UploadResult> => {
+    async (file: File, options: Omit<UploadOptions, 'signal'> = {}): Promise<UploadResult> => {
+      // Cancel any existing upload
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // Create new abort controller
+      abortControllerRef.current = new AbortController();
+      const { signal } = abortControllerRef.current;
+
       // Validate
       const validation = validate(file);
       if (!validation.valid) {
@@ -69,6 +93,7 @@ export const useImageUpload = (): UseImageUploadReturn => {
       try {
         const result = await uploadService.uploadFile(file, {
           ...options,
+          signal,
           onProgress: (progress) => {
             setState((prev) => ({
               ...prev,
@@ -86,14 +111,19 @@ export const useImageUpload = (): UseImageUploadReturn => {
           error: null,
         });
 
+        abortControllerRef.current = null;
         return result;
       } catch (error) {
+        const isCancelled = error instanceof Error && error.name === 'AbortError';
         const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+        
         setState((prev) => ({
           ...prev,
-          status: 'error',
+          status: isCancelled ? 'cancelled' : 'error',
           error: errorMessage,
         }));
+        
+        abortControllerRef.current = null;
         throw error;
       }
     },
@@ -101,14 +131,16 @@ export const useImageUpload = (): UseImageUploadReturn => {
   );
 
   const reset = useCallback(() => {
+    cancel();
     setState(initialState);
-  }, []);
+  }, [cancel]);
 
   return {
     ...state,
     upload,
     validate,
     reset,
+    cancel,
     isIdle: state.status === 'idle',
     isUploading:
       state.status === 'preparing' ||
@@ -116,6 +148,7 @@ export const useImageUpload = (): UseImageUploadReturn => {
       state.status === 'confirming',
     isCompleted: state.status === 'completed',
     isError: state.status === 'error',
+    isCancelled: state.status === 'cancelled',
   };
 };
 

@@ -1,12 +1,10 @@
 // src/modules/storage/components/ImagePreview.tsx
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Box, Image as GestaltImage, Mask, IconButton, Spinner } from 'gestalt';
 import { useImageUrl } from '../hooks/useImageUrl';
-import { createObjectUrl, revokeObjectUrl } from '../utils/imageUtils';
 
 interface ImagePreviewProps {
-  // Either file or imageId should be provided
   file?: File;
   imageId?: string | null;
   alt: string;
@@ -31,26 +29,40 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   showRemoveButton = false,
   placeholderColor = 'var(--bg-secondary)',
 }) => {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  // Generate a unique key for the current source
+  const sourceKey = useMemo(
+    () => `${file?.name || ''}-${file?.lastModified || ''}-${imageId || ''}`,
+    [file, imageId]
+  );
+
+  // Combined state with source key tracking
+  const [loadState, setLoadState] = useState({
+    key: '',
+    isLoaded: false,
+    hasError: false,
+  });
+
+  // Derive actual state - automatically resets when source changes
+  const isLoaded = loadState.key === sourceKey ? loadState.isLoaded : false;
+  const hasError = loadState.key === sourceKey ? loadState.hasError : false;
 
   // Fetch URL if imageId is provided
   const { data: imageUrlData, isLoading: isLoadingUrl } = useImageUrl(imageId, {
     enabled: !!imageId && !file,
   });
 
-  // Create local URL for file preview using useMemo to avoid effect
+  // Create local URL using useMemo instead of useState + useEffect
   const localUrl = useMemo(() => {
     if (!file) return null;
-    return createObjectUrl(file);
+    return URL.createObjectURL(file);
   }, [file]);
 
-  // Cleanup URL when component unmounts or file changes
-  React.useEffect(() => {
+  // Cleanup: revoke URL when it changes or component unmounts
+  useEffect(() => {
+    if (!localUrl) return;
+    
     return () => {
-      if (localUrl) {
-        revokeObjectUrl(localUrl);
-      }
+      URL.revokeObjectURL(localUrl);
     };
   }, [localUrl]);
 
@@ -58,13 +70,11 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   const displayUrl = localUrl || imageUrlData?.url;
 
   const handleLoad = () => {
-    setIsLoaded(true);
-    setHasError(false);
+    setLoadState({ key: sourceKey, isLoaded: true, hasError: false });
   };
 
   const handleError = () => {
-    setHasError(true);
-    setIsLoaded(true);
+    setLoadState({ key: sourceKey, isLoaded: true, hasError: true });
   };
 
   // Loading state

@@ -13,5 +13,7 @@ export {
 } from './useMediaQuery';
 export { useClickOutside, useClickOutsideMultiple } from './useClickOutside';
 export { useCopyToClipboard } from './useCopyToClipboard';
-export { useToast, useToastStore, type Toast, type ToastType } from './useToast';
+export { useToast, type Toast, type ToastType, type ToastOptions } from './useToast';
 export { useTheme, ThemeContext, type ThemeContextType } from './useTheme';
+export { useModal } from './useModal';
+export { useConfirmModal } from './useConfirmModal';

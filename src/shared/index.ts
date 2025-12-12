@@ -1,3 +1,4 @@
+// src/shared/index.ts
 // Types
 export * from './types/common.types';
 export * from './types/pageable.types';
@@ -18,6 +19,9 @@ export {
   IMAGE_ENDPOINTS,  
 } from './api/apiEndpoints';
 export * from './api/apiTypes';
+
+// Stores
+export * from './stores';
 
 // Components
 export * from './components';

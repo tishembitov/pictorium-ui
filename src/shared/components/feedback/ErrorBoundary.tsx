@@ -1,26 +1,39 @@
+// src/shared/components/feedback/ErrorBoundary.tsx
 import { Component, type ReactNode, type ErrorInfo } from 'react';
 import { Box, Text, Button, Heading, Flex } from 'gestalt';
 import { env } from '@/app/config/env';
+import { useToastStore } from '../../stores/toastStore';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  showToast?: boolean;
 }
 
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+  errorId: string | null;
 }
+
+// Функция для отправки toast (вызывается вне React компонента)
+const showErrorToast = (message: string) => {
+  useToastStore.getState().error(message, {
+    duration: 10000,
+    dismissible: true,
+  });
+};
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorId: null };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
+    const errorId = `error-${Date.now()}`;
+    return { hasError: true, error, errorId };
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
@@ -35,15 +48,30 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       // sendToErrorTracking(error, errorInfo);
     }
     
+    // Показываем toast если включено
+    if (this.props.showToast !== false) {
+      showErrorToast(
+        env.isDevelopment 
+          ? `Error: ${error.message}` 
+          : 'Something went wrong. Please try again.'
+      );
+    }
+    
     this.props.onError?.(error, errorInfo);
   }
 
   handleReset = (): void => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, errorId: null });
   };
 
   handleReload = (): void => {
     globalThis.location.reload();
+  };
+
+  handleReportError = (): void => {
+    // TODO: Открыть форму отправки отчёта об ошибке
+    const { error, errorId } = this.state;
+    console.log('Report error:', { errorId, error: error?.message });
   };
 
   override render(): ReactNode {
@@ -67,6 +95,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </Heading>
           </Box>
           
+          <Box marginBottom={2}>
+            <Text align="center" color="subtle" size="100">
+              Error ID: {this.state.errorId}
+            </Text>
+          </Box>
+          
           <Box marginBottom={6} maxWidth={400}>
             <Text align="center" color="subtle">
               {env.isDevelopment && this.state.error?.message 
@@ -88,6 +122,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               color="gray"
             />
           </Flex>
+          
+          {env.isDevelopment && this.state.error && (
+            <Box marginTop={6} padding={4} color="secondary" rounding={2} maxWidth={600}>
+              <Text size="100" overflow="breakWord">
+                <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+                  {this.state.error.stack}
+                </pre>
+              </Text>
+            </Box>
+          )}
         </Box>
       );
     }

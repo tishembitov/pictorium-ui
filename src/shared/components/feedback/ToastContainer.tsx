@@ -1,3 +1,4 @@
+// src/shared/components/feedback/ToastContainer.tsx
 import React from 'react';
 import { 
   Box, 
@@ -6,8 +7,10 @@ import {
   FixedZIndex,
   Icon,
   Flex,
+  TapArea,
+  Text,
 } from 'gestalt';
-import { useToastStore, type Toast, type ToastType } from '../../hooks/useToast';
+import { useToastStore, type Toast, type ToastType } from '../../stores/toastStore';
 import { Z_INDEX } from '../../utils/constants';
 
 // Иконки для разных типов уведомлений
@@ -29,7 +32,8 @@ const getToastIcon = (type: ToastType): React.ReactElement | undefined => {
 };
 
 export const ToastContainer: React.FC = () => {
-  const { toasts, removeToast } = useToastStore();
+  const toasts = useToastStore((state) => state.toasts);
+  const removeToast = useToastStore((state) => state.removeToast);
 
   if (toasts.length === 0) {
     return null;
@@ -70,6 +74,35 @@ interface ToastItemProps {
 const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
   const icon = getToastIcon(toast.type);
 
+  const renderText = () => {
+    const content = (
+      <Flex direction="column" gap={1}>
+        <Flex alignItems="center" gap={2}>
+          {icon}
+          <Text weight="bold" size="200">{toast.message}</Text>
+        </Flex>
+        {toast.description && (
+          <Text size="100" color="subtle">{toast.description}</Text>
+        )}
+      </Flex>
+    );
+
+    if (toast.action) {
+      return (
+        <Flex alignItems="center" gap={4}>
+          {content}
+          <TapArea onTap={toast.action.onClick}>
+            <Text weight="bold" size="200" color="shopping">
+              {toast.action.label}
+            </Text>
+          </TapArea>
+        </Flex>
+      );
+    }
+
+    return content;
+  };
+
   return (
     <Box 
       marginBottom={2}
@@ -78,16 +111,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
       }}
     >
       <GestaltToast
-        text={
-          icon ? (
-            <Flex alignItems="center" gap={2}>
-              {icon}
-              <span>{toast.message}</span>
-            </Flex>
-          ) : (
-            toast.message
-          )
-        }
+        text={renderText()}
         dismissButton={
           toast.dismissible
             ? {

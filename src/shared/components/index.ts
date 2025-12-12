@@ -7,6 +7,7 @@ export { HeaderSearch } from './layout/HeaderSearch';
 export { HeaderNav } from './layout/HeaderNav';
 export { HeaderUserMenu } from './layout/HeaderUserMenu';
 export { Sidebar } from './layout/Sidebar';
+export { MobileMenu } from './layout/MobileMenu';
 export { Footer } from './layout/Footer';
 
 // Feedback
@@ -31,3 +32,4 @@ export { Pagination } from './data-display/Pagination';
 // Modals
 export { BaseModal } from './modals/BaseModal';
 export { ConfirmModal } from './modals/ConfirmModal';
+export { GlobalModals } from './modals/GlobalModals';

@@ -12,6 +12,7 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   isLoading?: boolean;
+  destructive?: boolean;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -23,6 +24,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   isLoading = false,
+  destructive = false,
 }) => {
   const handleConfirm = () => {
     onConfirm();
@@ -41,7 +43,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         text={confirmText}
         onClick={handleConfirm}
         size="lg"
-        color="red"
+        color={destructive ? 'red' : 'blue'}
         disabled={isLoading}
       />
     </Flex>

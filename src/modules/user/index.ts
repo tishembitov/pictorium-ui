@@ -22,7 +22,7 @@ export type {
   
   // Hooks
   export { useUser } from './hooks/useUser';
-  export { useUserByUsername } from './hooks/useUserByUsername';
+  export { useUserByUsername } from './hooks/useUserByUsername'
   export { useUpdateUser } from './hooks/useUpdateUser';
   export { useFollowers, useInfiniteFollowers } from './hooks/useFollowers';
   export { useFollowing, useInfiniteFollowing } from './hooks/useFollowing';

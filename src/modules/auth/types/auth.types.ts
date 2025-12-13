@@ -149,5 +149,5 @@ export type AuthEvent =
 export interface AuthEventPayload {
   event: AuthEvent;
   timestamp: number;
-  data?: any;
+  data?: unknown;
 }

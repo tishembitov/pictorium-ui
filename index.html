@@ -39,14 +39,15 @@
     <meta property="twitter:description" content="Discover and save creative ideas. Pictorium is a visual discovery platform where you can find inspiration for all your interests." />
     <meta property="twitter:image" content="/og-image.png" />
     
-    <!-- Security -->
+    <!-- Security - ИСПРАВЛЕННЫЙ CSP -->
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self'; 
                    script-src 'self' 'unsafe-inline' 'unsafe-eval'; 
                    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
                    font-src 'self' https://fonts.gstatic.com; 
-                   img-src 'self' data: blob: https:; 
-                   connect-src 'self' http://localhost:* https://*.keycloak.com https://*.amazonaws.com;" />
+                   img-src 'self' data: blob: http://localhost:9000 https:; 
+                   frame-src 'self' http://localhost:9090; 
+                   connect-src 'self' http://localhost:* ws://localhost:* https://*.keycloak.com https://*.amazonaws.com;" />
     
     <!-- Preconnect to important origins -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -54,9 +55,6 @@
     
     <!-- DNS Prefetch -->
     <link rel="dns-prefetch" href="//fonts.googleapis.com" />
-    
-    <!-- Fonts (Optional - Gestalt uses system fonts by default) -->
-    <!-- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /> -->
     
     <!-- No-script fallback styles -->
     <noscript>
@@ -85,7 +83,6 @@
     
     <!-- Initial loading styles -->
     <style>
-      /* Initial loader before React mounts */
       #initial-loader {
         position: fixed;
         top: 0;
@@ -126,7 +123,6 @@
         100% { transform: rotate(360deg); }
       }
       
-      /* Dark mode support */
       @media (prefers-color-scheme: dark) {
         #initial-loader {
           background-color: #111111;
@@ -171,7 +167,6 @@
     <!-- Hide loader when app is ready -->
     <script>
       window.addEventListener('DOMContentLoaded', function() {
-        // Give React time to mount
         setTimeout(function() {
           var loader = document.getElementById('initial-loader');
           if (loader) {

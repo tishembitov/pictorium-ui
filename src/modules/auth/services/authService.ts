@@ -11,11 +11,12 @@ import type {
   TokenInfo,
   KeycloakTokenParsed,
   AuthEventPayload,
+  AuthEvent,
 } from '../types/auth.types';
 
 class AuthService {
-  private keycloak: Keycloak;
-  private eventListeners: Map<string, Set<(payload: AuthEventPayload) => void>> = new Map();
+  private readonly keycloak: Keycloak;
+  private readonly eventListeners: Map<string, Set<(payload: AuthEventPayload) => void>> = new Map();
   private tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
@@ -86,14 +87,19 @@ class AuthService {
   // Login
   async login(options?: LoginOptions): Promise<void> {
     try {
-      await this.keycloak.login({
-        redirectUri: options?.redirectUri || window.location.origin,
-        prompt: options?.prompt,
+      const loginOptions: Parameters<Keycloak['login']>[0] = {
+        redirectUri: options?.redirectUri || globalThis.location.origin,
         loginHint: options?.loginHint,
         idpHint: options?.idpHint,
         scope: options?.scope,
         locale: options?.locale,
-      });
+      };
+      
+      if (options?.prompt && options.prompt !== 'select_account') {
+        loginOptions.prompt = options.prompt;
+      }
+      
+      await this.keycloak.login(loginOptions);
     } catch (error) {
       this.handleError('LOGIN_FAILED', 'Failed to initiate login', error);
       throw error;
@@ -105,7 +111,7 @@ class AuthService {
     try {
       this.stopTokenRefresh();
       await this.keycloak.logout({
-        redirectUri: options?.redirectUri || window.location.origin,
+        redirectUri: options?.redirectUri || globalThis.location.origin,
       });
       useAuthStore.getState().reset();
     } catch (error) {
@@ -118,7 +124,7 @@ class AuthService {
   async register(options?: RegisterOptions): Promise<void> {
     try {
       await this.keycloak.register({
-        redirectUri: options?.redirectUri || window.location.origin,
+        redirectUri: options?.redirectUri || globalThis.location.origin,
         locale: options?.locale,
       });
     } catch (error) {
@@ -212,7 +218,7 @@ class AuthService {
   }
 
   // Subscribe to auth events
-  on(event: string, callback: (payload: AuthEventPayload) => void): () => void {
+  on(event: AuthEvent, callback: (payload: AuthEventPayload) => void): () => void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
@@ -224,9 +230,9 @@ class AuthService {
   }
 
   // Emit event
-  private emitEvent(event: string, data?: any): void {
+  private emitEvent(event: AuthEvent, data?: unknown): void {
     const payload: AuthEventPayload = {
-      event: event as any,
+      event,
       timestamp: Date.now(),
       data,
     };

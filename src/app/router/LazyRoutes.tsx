@@ -2,12 +2,14 @@ import { lazy, Suspense, type ComponentType } from 'react';
 import { FullPageLoader } from '@/shared/components/feedback/FullPageLoader';
 
 // Helper for lazy loading with fallback
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const lazyLoad = <T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>
 ) => {
   const LazyComponent = lazy(factory);
   
-  return (props: React.ComponentProps<T>) => (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (props: any) => (
     <Suspense fallback={<FullPageLoader />}>
       <LazyComponent {...props} />
     </Suspense>

@@ -8,14 +8,14 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 // Request config
 export interface RequestConfig {
-  params?: Record<string, any>;
+  params?: Record<string, unknown>;
   headers?: Record<string, string>;
   signal?: AbortSignal;
 }
 
 // Paginated request params
 export interface PaginatedRequest extends Pageable {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Generic list response (non-paginated)
@@ -35,7 +35,7 @@ export interface ApiErrorResponse {
 export interface ValidationError {
   field: string;
   message: string;
-  rejectedValue?: any;
+  rejectedValue?: unknown;
 }
 
 // Upload progress event
@@ -58,8 +58,8 @@ export const createSortParam = (field: string, direction: 'asc' | 'desc' = 'desc
 };
 
 // Pagination params helper
-export const createPaginationParams = (pageable: Pageable): Record<string, any> => {
-  const params: Record<string, any> = {};
+export const createPaginationParams = (pageable: Pageable): Record<string, unknown> => {
+  const params: Record<string, unknown> = {};
   
   if (pageable.page !== undefined) {
     params.page = pageable.page;

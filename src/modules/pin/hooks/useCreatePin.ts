@@ -1,0 +1,70 @@
+// src/modules/pin/hooks/useCreatePin.ts
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { queryKeys } from '@/app/config/queryClient';
+import { pinApi } from '../api/pinApi';
+import { useToast } from '@/shared/hooks/useToast';
+import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
+import { buildPath } from '@/app/router/routeConfig';
+import type { PinCreateRequest, PinResponse } from '../types/pin.types';
+
+interface UseCreatePinOptions {
+  onSuccess?: (data: PinResponse) => void;
+  onError?: (error: Error) => void;
+  showToast?: boolean;
+  navigateToPin?: boolean;
+}
+
+/**
+ * Hook to create a new pin
+ */
+export const useCreatePin = (options: UseCreatePinOptions = {}) => {
+  const { 
+    onSuccess, 
+    onError, 
+    showToast = true,
+    navigateToPin = true,
+  } = options;
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: (data: PinCreateRequest) => pinApi.create(data),
+    onSuccess: (data) => {
+      // Invalidate pins list
+      queryClient.invalidateQueries({ queryKey: queryKeys.pins.all });
+      
+      if (showToast) {
+        toast.success(SUCCESS_MESSAGES.PIN_CREATED);
+      }
+      
+      if (navigateToPin) {
+        navigate(buildPath.pin(data.id));
+      }
+      
+      onSuccess?.(data);
+    },
+    onError: (error: Error) => {
+      if (showToast) {
+        toast.error(error.message || 'Failed to create pin');
+      }
+      
+      onError?.(error);
+    },
+  });
+
+  return {
+    createPin: mutation.mutate,
+    createPinAsync: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+    isError: mutation.isError,
+    error: mutation.error,
+    isSuccess: mutation.isSuccess,
+    data: mutation.data,
+    reset: mutation.reset,
+  };
+};
+
+export default useCreatePin;

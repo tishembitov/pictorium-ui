@@ -1,5 +1,5 @@
 // App constants
-export const APP_NAME = 'PinThis';
+export const APP_NAME = 'Pictorium';
 
 // Pagination
 export const PAGINATION = {

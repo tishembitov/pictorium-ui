@@ -1,4 +1,34 @@
-# React + TypeScript + Vite
+# Pictorium UI
+
+A modern React application built with TypeScript, Vite, and Keycloak authentication.
+
+## Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```env
+# API Configuration
+VITE_API_GATEWAY_URL=http://localhost:8222
+
+# Keycloak Configuration
+VITE_KEYCLOAK_URL=http://localhost:9090
+VITE_KEYCLOAK_REALM=pictorium
+VITE_KEYCLOAK_CLIENT_ID=pictorium-app
+
+# App Configuration
+VITE_APP_NAME=Pictorium
+```
+
+## Keycloak Configuration
+
+The application is configured to work with Keycloak realm `pictorium` and client `pictorium-app`. Make sure your Keycloak instance is running and the client is properly configured with:
+- Redirect URIs: `http://localhost:5173/*`
+- Web Origins: `*`
+- Public Client: enabled
+- Standard Flow: enabled
+- Direct Access Grants: enabled
+
+## Getting Started
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

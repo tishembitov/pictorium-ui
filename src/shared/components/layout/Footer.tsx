@@ -38,7 +38,7 @@ export const Footer: React.FC = () => {
       </Box>
       
       <Text size="200" color="subtle">
-        © {currentYear} PinThis. All rights reserved.
+        © {currentYear} Pictorium. All rights reserved.
       </Text>
     </Box>
   );

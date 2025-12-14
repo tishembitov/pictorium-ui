@@ -27,11 +27,11 @@ interface EnvConfig {
     
     // Keycloak
     keycloakUrl: getEnvVar('VITE_KEYCLOAK_URL', 'http://localhost:9090'),
-    keycloakRealm: getEnvVar('VITE_KEYCLOAK_REALM', 'pinthis'),
-    keycloakClientId: getEnvVar('VITE_KEYCLOAK_CLIENT_ID', 'pinthis-client'),
+    keycloakRealm: getEnvVar('VITE_KEYCLOAK_REALM', 'pictorium'),
+    keycloakClientId: getEnvVar('VITE_KEYCLOAK_CLIENT_ID', 'pictorium-app'),
     
     // App
-    appName: getEnvVar('VITE_APP_NAME', 'PinThis'),
+    appName: getEnvVar('VITE_APP_NAME', 'Pictorium'),
     isDevelopment: import.meta.env.DEV,
     isProduction: import.meta.env.PROD,
   };

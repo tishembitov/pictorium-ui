@@ -10,7 +10,7 @@ export const HeaderLogo: React.FC = () => {
       <Flex alignItems="center" gap={1}>
         <Box color="errorBase" rounding="circle" padding={2}>
           <Icon 
-            accessibilityLabel="PinThis Logo" 
+            accessibilityLabel="Pictorium Logo" 
             icon="pin" 
             color="inverse" 
             size={20}
@@ -18,7 +18,7 @@ export const HeaderLogo: React.FC = () => {
         </Box>
         <Box display="none" smDisplay="block">
           <Text weight="bold" size="400" color="default">
-            PinThis
+            Pictorium
           </Text>
         </Box>
       </Flex>

@@ -248,7 +248,7 @@ const SettingsPage: React.FC = () => {
                 Appearance
               </Heading>
               <Text color="subtle" size="200">
-                Customize how PinThis looks
+                Customize how Pictorium looks
               </Text>
             </Box>
 

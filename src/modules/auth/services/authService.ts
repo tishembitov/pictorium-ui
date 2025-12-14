@@ -266,6 +266,17 @@ class AuthService {
       
       if (authenticated) {
         this.startTokenRefresh();
+        
+        // Clean up Keycloak redirect parameters from URL if user is already authenticated
+        setTimeout(() => {
+          if (globalThis.location.search) {
+            const urlParams = new URLSearchParams(globalThis.location.search);
+            if (urlParams.has('code') || urlParams.has('state') || urlParams.has('session_state')) {
+              const cleanUrl = globalThis.location.pathname + (globalThis.location.hash || '');
+              globalThis.history.replaceState({}, '', cleanUrl);
+            }
+          }
+        }, 100);
       }
     };
 
@@ -273,6 +284,18 @@ class AuthService {
       useAuthStore.getState().updateFromKeycloak(this.keycloak);
       this.emitEvent('onAuthSuccess');
       this.startTokenRefresh();
+      
+      // Clean up Keycloak redirect parameters from URL after successful authentication
+      // Use setTimeout to ensure Keycloak has fully processed the redirect
+      setTimeout(() => {
+        if (globalThis.location.search) {
+          const urlParams = new URLSearchParams(globalThis.location.search);
+          if (urlParams.has('code') || urlParams.has('state') || urlParams.has('session_state')) {
+            const cleanUrl = globalThis.location.pathname + (globalThis.location.hash || '');
+            globalThis.history.replaceState({}, '', cleanUrl);
+          }
+        }
+      }, 100);
     };
 
     this.keycloak.onAuthError = (error) => {

@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect } from 'react';
+import React, { ReactNode, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/modules/auth';
 
@@ -26,15 +26,32 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { isAuthenticated, isLoading, isInitialized, login, hasRole } = useAuth();
   const location = useLocation();
+  const hasRedirectedRef = useRef(false);
+  const redirectPathRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isInitialized && !isLoading && !isAuthenticated) {
+    // Store the current path for redirect (only once, before redirect)
+    if (!hasRedirectedRef.current && !isAuthenticated) {
+      redirectPathRef.current = `${location.pathname}${location.search}`;
+    }
+
+    // Reset redirect flag when authenticated
+    if (isAuthenticated) {
+      hasRedirectedRef.current = false;
+      redirectPathRef.current = null;
+      return;
+    }
+
+    // Redirect to login if not authenticated
+    if (isInitialized && !isLoading && !isAuthenticated && !hasRedirectedRef.current) {
+      hasRedirectedRef.current = true;
+      const redirectPath = redirectPathRef.current || `${location.pathname}${location.search}`;
       // Redirect to login with return URL
       login({ 
-        redirectUri: `${globalThis.location.origin}${location.pathname}${location.search}` 
+        redirectUri: `${globalThis.location.origin}${redirectPath}` 
       });
     }
-  }, [isInitialized, isLoading, isAuthenticated, login, location]);
+  }, [isInitialized, isLoading, isAuthenticated, login]);
 
   // Still loading
   if (!isInitialized || isLoading) {

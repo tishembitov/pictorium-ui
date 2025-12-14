@@ -1,4 +1,4 @@
-import React, { useEffect, type ReactNode } from 'react';
+import React, { useEffect, useRef, type ReactNode } from 'react';
 import { keycloak, keycloakInitOptions } from '../config/keycloak';
 import { authService } from '@/modules/auth/services/authService';
 import { useAuthStore } from '@/modules/auth/stores/authStore';
@@ -13,12 +13,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   fallback = null 
 }) => {
   const isInitialized = useAuthStore((state) => state.isInitialized);
+  const initStartedRef = useRef(false);
+  const handlersSetupRef = useRef(false);
 
   useEffect(() => {
+    // Prevent multiple initializations
+    if (initStartedRef.current) {
+      return;
+    }
+
+    initStartedRef.current = true;
+
     const initKeycloak = async () => {
       try {
+        // Setup event handlers only once, before init
+        if (!handlersSetupRef.current) {
+          authService.setupEventHandlers();
+          handlersSetupRef.current = true;
+        }
+
+        // Initialize Keycloak
         await keycloak.init(keycloakInitOptions);
-        authService.setupEventHandlers();
+        
+        // Update store state
         useAuthStore.getState().updateFromKeycloak(keycloak);
       } catch (error) {
         console.error('Keycloak initialization failed:', error);

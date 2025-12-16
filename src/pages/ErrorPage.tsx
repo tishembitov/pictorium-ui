@@ -6,7 +6,7 @@ import { useNavigate, useRouteError, isRouteErrorResponse } from 'react-router-d
 import { Box, Heading, Text, Button, Flex, Icon, Divider } from 'gestalt';
 import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard';
 import { useToast } from '@/shared/hooks/useToast';
-import { ROUTES } from '@/shared/utils/constants';
+import { ROUTES } from '@/app/router/routeConfig';
 import { env } from '@/app/config/env';
 
 const ErrorPage: React.FC = () => {

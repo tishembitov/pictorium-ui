@@ -5,7 +5,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Heading, Text, Button, Flex, Icon } from 'gestalt';
 import { CategoryGrid } from '@/modules/tag';
-import { ROUTES } from '@/shared/utils/constants';
+import { ROUTES } from '@/app/router/routeConfig';
 
 const NotFoundPage: React.FC = () => {
   const navigate = useNavigate();

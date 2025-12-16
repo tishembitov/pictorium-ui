@@ -16,7 +16,7 @@ import { CategoryGrid } from '@/modules/tag';
 import { useAuth } from '@/modules/auth';
 import { EmptyState } from '@/shared/components';
 import { useIsMobile } from '@/shared/hooks/useMediaQuery';
-import { ROUTES } from '@/shared/utils/constants';
+import { ROUTES } from '@/app/router/routeConfig';
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();

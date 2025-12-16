@@ -13,7 +13,7 @@ import {
 } from '@/modules/board';
 import { useIsOwner } from '@/modules/auth';
 import { ErrorMessage } from '@/shared/components';
-import { ROUTES } from '@/shared/utils/constants';
+import { ROUTES } from '@/app/router/routeConfig';
 import { PinGrid } from '@/modules/pin';
 
 const BoardDetailPage: React.FC = () => {

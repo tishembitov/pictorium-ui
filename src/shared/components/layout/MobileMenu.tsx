@@ -13,8 +13,8 @@ import {
 } from 'gestalt';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuth } from '@/modules/auth';
-import { ROUTES, Z_INDEX } from '../../utils/constants';
-import { buildPath } from '@/app/router/routeConfig';
+import { ROUTES, buildPath } from '@/app/router/routeConfig';
+import { Z_INDEX } from '../../utils/constants';
 
 interface MenuItem {
   path: string;

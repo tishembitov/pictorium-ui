@@ -37,8 +37,7 @@ import { useAuth, useIsOwner } from '@/modules/auth';
 import { ErrorMessage } from '@/shared/components';
 import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard';
 import { useToast } from '@/shared/hooks/useToast';
-import { ROUTES } from '@/shared/utils/constants';
-import { buildPath } from '@/app/router/routeConfig';
+import { ROUTES, buildPath } from '@/app/router/routeConfig';
 import { formatRelativeTime } from '@/shared/utils/formatters';
 
 const PinDetailPage: React.FC = () => {

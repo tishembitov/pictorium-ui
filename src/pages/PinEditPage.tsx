@@ -9,8 +9,7 @@ import { useIsOwner } from '@/modules/auth';
 import { ErrorMessage } from '@/shared/components';
 import { useToast } from '@/shared/hooks/useToast';
 import { useConfirmModal } from '@/shared/hooks/useConfirmModal';
-import { ROUTES } from '@/shared/utils/constants';
-import { buildPath } from '@/app/router/routeConfig';
+import { ROUTES, buildPath } from '@/app/router/routeConfig';
 
 const PinEditPage: React.FC = () => {
   const { pinId } = useParams<{ pinId: string }>();

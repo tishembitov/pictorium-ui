@@ -4,7 +4,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { Box, Text, Icon, Flex, Divider } from 'gestalt';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuth } from '@/modules/auth';
-import { ROUTES, Z_INDEX  } from '../../utils/constants';
+import { ROUTES } from '@/app/router/routeConfig';
+import { Z_INDEX } from '../../utils/constants';
 
 type SidebarIconName = 'home' | 'compass' | 'add' | 'person' | 'cog';
 

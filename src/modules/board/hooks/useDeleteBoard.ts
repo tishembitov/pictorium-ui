@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { queryKeys } from '@/app/config/queryClient';
 import { boardApi } from '../api/boardApi';
 import { useToast } from '@/shared/hooks/useToast';
-import { SUCCESS_MESSAGES, ROUTES } from '@/shared/utils/constants';
+import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
+import { ROUTES } from '@/app/router/routeConfig';
 import { useSelectedBoardStore } from '../stores/selectedBoardStore';
 
 interface UseDeleteBoardOptions {

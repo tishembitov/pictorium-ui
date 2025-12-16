@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { queryKeys } from '@/app/config/queryClient';
 import { pinApi } from '../api/pinApi';
 import { useToast } from '@/shared/hooks/useToast';
-import { SUCCESS_MESSAGES, ROUTES } from '@/shared/utils/constants';
+import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
+import { ROUTES } from '@/app/router/routeConfig';
 
 interface UseDeletePinOptions {
   onSuccess?: () => void;

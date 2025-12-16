@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Box, Flex, Icon, Text } from 'gestalt';
-import { ROUTES } from '../../utils/constants';
+import { ROUTES } from '@/app/router/routeConfig';
 
 export const HeaderLogo: React.FC = () => {
   return (

@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Box, Flex, Text } from 'gestalt';
-import { ROUTES } from '../../utils/constants';
+import { ROUTES } from '@/app/router/routeConfig';
 
 interface NavItem {
   path: string;

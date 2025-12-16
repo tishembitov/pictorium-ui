@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Flex, Button, Text } from 'gestalt';
 import { PinGrid, PinFilters, useInfinitePins, usePinFiltersStore } from '@/modules/pin';
 import { useIsOwner } from '@/modules/auth';
-import { ROUTES } from '@/shared/utils/constants';
+import { ROUTES } from '@/app/router/routeConfig';
 
 interface ProfileCreatedTabProps {
   userId: string;

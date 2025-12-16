@@ -1,4 +1,5 @@
-// src/shared/components/layout/MainLayout.tsx (обновлённый)
+// src/shared/components/layout/MainLayout.tsx
+
 import React, { useEffect, useRef } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Box } from 'gestalt';
@@ -10,6 +11,7 @@ import { GlobalModals } from '../modals/GlobalModals';
 import { FullPageLoader } from '../feedback/FullPageLoader';
 import { useUIStore } from '../../stores/uiStore';
 import { useIsMobile } from '../../hooks/useMediaQuery';
+import { LAYOUT } from '../../utils/constants'; // ✅ ИСПРАВЛЕНИЕ: импорт констант
 
 export const MainLayout: React.FC = () => {
   const isMobile = useIsMobile();
@@ -52,10 +54,12 @@ export const MainLayout: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [setScrollPosition, setIsScrollingUp]);
 
-  // Calculate content margin based on sidebar state
-  const getContentMarginLeft = () => {
+  // ✅ ИСПРАВЛЕНИЕ: Использование констант вместо магических чисел
+  const getContentMarginLeft = (): number => {
     if (isMobile || !isSidebarOpen) return 0;
-    return isSidebarCollapsed ? 72 : 240;
+    return isSidebarCollapsed 
+      ? LAYOUT.SIDEBAR_COLLAPSED_WIDTH 
+      : LAYOUT.SIDEBAR_WIDTH;
   };
 
   return (
@@ -74,13 +78,18 @@ export const MainLayout: React.FC = () => {
         paddingX={4}
         dangerouslySetInlineStyle={{
           __style: { 
-            paddingTop: 'var(--header-height)',
+            paddingTop: `${LAYOUT.HEADER_HEIGHT}px`, // ✅ ИСПРАВЛЕНИЕ
             marginLeft: getContentMarginLeft(),
             transition: 'margin-left 0.2s ease',
           },
         }}
       >
-        <Box maxWidth={1440} marginStart="auto" marginEnd="auto" width="100%">
+        <Box 
+          maxWidth={LAYOUT.MAX_CONTENT_WIDTH} // ✅ ИСПРАВЛЕНИЕ
+          marginStart="auto" 
+          marginEnd="auto" 
+          width="100%"
+        >
           <Outlet />
         </Box>
       </Box>

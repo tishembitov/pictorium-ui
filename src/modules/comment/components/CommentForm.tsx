@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Box, Flex, Button, TextArea, IconButton } from 'gestalt';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form'; // ✅ Добавлен useWatch
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ImageUploader, ImagePreview } from '@/modules/storage';
 import { UserAvatar, useUser } from '@/modules/user';
@@ -38,13 +38,13 @@ export const CommentForm: React.FC<CommentFormProps> = ({
   
   const [showImageUploader, setShowImageUploader] = useState(!!initialImageId);
   const [imageId, setImageId] = useState<string | null>(initialImageId || null);
-  const [content, setContent] = useState(initialContent);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
   const {
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<CommentFormData>({
     resolver: zodResolver(commentSchema),
@@ -54,6 +54,9 @@ export const CommentForm: React.FC<CommentFormProps> = ({
     },
     mode: 'onChange',
   });
+
+  // ✅ ИСПРАВЛЕНИЕ: Используем useWatch вместо дублирующего state
+  const content = useWatch({ control, name: 'content' });
 
   // Handle autoFocus
   useEffect(() => {
@@ -71,7 +74,6 @@ export const CommentForm: React.FC<CommentFormProps> = ({
         imageId: imageId || undefined,
       });
       reset();
-      setContent('');
       setImageId(null);
       setShowImageUploader(false);
     },
@@ -80,7 +82,6 @@ export const CommentForm: React.FC<CommentFormProps> = ({
 
   const handleCancel = useCallback(() => {
     reset();
-    setContent('');
     setImageId(null);
     setShowImageUploader(false);
     onCancel?.();
@@ -88,12 +89,14 @@ export const CommentForm: React.FC<CommentFormProps> = ({
 
   const handleImageUpload = useCallback((result: { imageId: string }) => {
     setImageId(result.imageId);
-  }, []);
+    setValue('imageId', result.imageId);
+  }, [setValue]);
 
   const handleRemoveImage = useCallback(() => {
     setImageId(null);
+    setValue('imageId', '');
     setShowImageUploader(false);
-  }, []);
+  }, [setValue]);
 
   if (!isAuthenticated) {
     return (
@@ -125,7 +128,7 @@ export const CommentForm: React.FC<CommentFormProps> = ({
                 value={field.value || ''}
                 onChange={({ value }) => {
                   field.onChange(value);
-                  setContent(value);
+                  // ✅ ИСПРАВЛЕНИЕ: Убрали setContent(value) - больше не нужно
                 }}
                 placeholder={placeholder}
                 rows={compact ? 1 : 2}

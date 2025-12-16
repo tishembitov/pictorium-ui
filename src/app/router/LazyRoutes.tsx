@@ -1,19 +1,22 @@
-import { lazy, Suspense, type ComponentType } from 'react';
+// src/app/router/LazyRoutes.tsx
+
+import { lazy, Suspense } from 'react';
+import type { ComponentType, FC } from 'react';
 import { FullPageLoader } from '@/shared/components/feedback/FullPageLoader';
 
-// Helper for lazy loading with fallback
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const lazyLoad = <T extends ComponentType<any>>(
-  factory: () => Promise<{ default: T }>
-) => {
+// ✅ Простая типизация для страниц без пропсов
+const lazyLoad = (
+  factory: () => Promise<{ default: ComponentType }>
+): FC => {
   const LazyComponent = lazy(factory);
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (props: any) => (
-    <Suspense fallback={<FullPageLoader />}>
-      <LazyComponent {...props} />
-    </Suspense>
-  );
+  return function LazyWrapper() {
+    return (
+      <Suspense fallback={<FullPageLoader />}>
+        <LazyComponent />
+      </Suspense>
+    );
+  };
 };
 
 // Page components - lazy loaded

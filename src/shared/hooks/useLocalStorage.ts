@@ -1,4 +1,5 @@
 // src/shared/hooks/useLocalStorage.ts
+
 import { useCallback, useSyncExternalStore } from 'react';
 
 type SetValue<T> = T | ((prev: T) => T);
@@ -57,7 +58,14 @@ export function useLocalStorage<T>(
     globalThis.addEventListener('storage', handleStorageChange);
     
     return () => {
-      storageListeners.get(key)?.delete(callback);
+      const listeners = storageListeners.get(key);
+      listeners?.delete(callback);
+      
+      // ✅ ИСПРАВЛЕНИЕ: Очистка пустых Set для предотвращения утечки памяти
+      if (listeners?.size === 0) {
+        storageListeners.delete(key);
+      }
+      
       globalThis.removeEventListener('storage', handleStorageChange);
     };
   }, [key]);

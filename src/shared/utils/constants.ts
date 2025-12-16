@@ -1,3 +1,5 @@
+// src/shared/utils/constants.ts
+
 // App constants
 export const APP_NAME = 'Pictorium';
 
@@ -65,6 +67,14 @@ export const BREAKPOINTS = {
   LG: 1312,
 } as const;
 
+// Layout dimensions
+export const LAYOUT = {
+  HEADER_HEIGHT: 80,
+  SIDEBAR_WIDTH: 240,
+  SIDEBAR_COLLAPSED_WIDTH: 72,
+  MAX_CONTENT_WIDTH: 1440,
+} as const;
+
 // Z-index layers
 export const Z_INDEX = {
   DROPDOWN: 100,
@@ -93,17 +103,8 @@ export const QUERY_KEYS = {
   SUBSCRIPTIONS: 'subscriptions',
 } as const;
 
-// Routes - используются в навигации
-export const ROUTES = {
-  HOME: '/',
-  EXPLORE: '/explore',
-  SEARCH: '/search',
-  PIN: '/pin',
-  PIN_CREATE: '/pin/create',
-  PROFILE: '/profile',
-  SETTINGS: '/settings',
-  BOARD: '/board',
-} as const;
+// ✅ ИСПРАВЛЕНИЕ: ROUTES удалены - используйте импорт из @/app/router/routeConfig
+// import { ROUTES, buildPath } from '@/app/router/routeConfig';
 
 // Pin filter scopes - согласно API enum
 export const PIN_SCOPES = {

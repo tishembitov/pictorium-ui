@@ -50,58 +50,56 @@ import axios, {
       return Promise.reject(error);
     }
   );
-  
+ 
   // Response interceptor - handle errors
-  apiClient.interceptors.response.use(
-    (response: AxiosResponse) => {
-      return response;
-    },
-    async (error: AxiosError<ApiErrorResponse>) => {
-      const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+apiClient.interceptors.response.use(
+  (response: AxiosResponse) => {
+    return response;
+  },
+  async (error: AxiosError<ApiErrorResponse>) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    
+    // Handle 401 Unauthorized
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
       
-      // Handle 401 Unauthorized
-      if (error.response?.status === 401 && !originalRequest._retry) {
-        originalRequest._retry = true;
+      try {
+        const refreshed = await keycloak.updateToken(-1);
         
-        try {
-          // Try to refresh token
-          const refreshed = await keycloak.updateToken(-1);
-          
-          if (refreshed && keycloak.token) {
-            originalRequest.headers.Authorization = `Bearer ${keycloak.token}`;
-            return apiClient(originalRequest);
-          }
-        } catch (refreshError) {
-          console.error('Token refresh failed:', refreshError);
-          // Redirect to login
-          keycloak.login();
-          return Promise.reject(refreshError);
+        if (refreshed && keycloak.token) {
+          originalRequest.headers.Authorization = `Bearer ${keycloak.token}`;
+          return apiClient(originalRequest);
         }
+      } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError);
+        keycloak.login();
+        return Promise.reject(refreshError);
       }
-      
-      // Handle 403 Forbidden
-      if (error.response?.status === 403) {
-        console.error('Access forbidden:', error.response.data);
-      }
-      
-      // Handle 404 Not Found
-      if (error.response?.status === 404) {
-        console.error('Resource not found:', error.config?.url);
-      }
-      
-      // Handle 500+ Server errors
-      if (error.response?.status && error.response.status >= 500) {
-        console.error('Server error:', error.response.data);
-      }
-      
-      // Handle network errors
-      if (!error.response) {
-        console.error('Network error:', error.message);
-      }
-      
-      return Promise.reject(error);
     }
-  );
+    
+    // Handle 403 Forbidden
+    if (error.response?.status === 403) {
+      console.error('Access forbidden:', error.response.data);
+    }
+    
+    // Handle 404 Not Found - use debug, not error (404 is often expected)
+    if (error.response?.status === 404) {
+      console.debug('Resource not found:', error.config?.url);
+    }
+    
+    // Handle 500+ Server errors
+    if (error.response?.status && error.response.status >= 500) {
+      console.error('Server error:', error.response.data);
+    }
+    
+    // Handle network errors
+    if (!error.response) {
+      console.error('Network error:', error.message);
+    }
+    
+    return Promise.reject(error);
+  }
+);
   
   // Helper type for API responses
   export type ApiResult<T> = Promise<T>;

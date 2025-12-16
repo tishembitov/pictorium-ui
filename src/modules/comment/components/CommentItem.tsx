@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Flex, Text, TapArea } from 'gestalt';
 import { Link } from 'react-router-dom';
-import { UserAvatar } from '@/modules/user';
+import { UserAvatar, useUser } from '@/modules/user';
 import { ImagePreview } from '@/modules/storage';
 import { useAuth, useIsOwner } from '@/modules/auth';
 import { useConfirmModal } from '@/shared/hooks/useConfirmModal';
@@ -45,6 +45,9 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   const { isAuthenticated } = useAuth();
   const isOwner = useIsOwner(comment.userId);
   const { confirm } = useConfirmModal();
+
+  // ✅ ИСПРАВЛЕНИЕ: Получаем данные пользователя для username и avatar
+  const { user: commentAuthor } = useUser(comment.userId);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
@@ -109,6 +112,13 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   // Determine if reply action should be shown
   const canReply = !isReply;
 
+  // ✅ ИСПРАВЛЕНИЕ: Получаем username и imageId из данных пользователя
+  const authorUsername = commentAuthor?.username || 'Unknown';
+  const authorImageId = commentAuthor?.imageId || null;
+  const profilePath = commentAuthor?.username 
+    ? buildPath.profile(commentAuthor.username) 
+    : '#';
+
   // Edit mode
   if (isEditing) {
     return (
@@ -134,25 +144,25 @@ export const CommentItem: React.FC<CommentItemProps> = ({
       }}
     >
       <Flex gap={3} alignItems="start">
-        {/* Avatar */}
-        <Link to={buildPath.profile(comment.userId)}>
+        {/* Avatar - ✅ ИСПРАВЛЕНО: используем данные из useUser */}
+        <Link to={profilePath}>
           <UserAvatar
-            imageId={null} // We don't have user imageId in comment response
-            name={comment.userId}
+            imageId={authorImageId}
+            name={authorUsername}
             size="sm"
           />
         </Link>
 
         {/* Content */}
         <Box flex="grow">
-          {/* Header */}
+          {/* Header - ✅ ИСПРАВЛЕНО: используем username вместо userId */}
           <Flex alignItems="center" gap={2}>
             <Link
-              to={buildPath.profile(comment.userId)}
+              to={profilePath}
               style={{ textDecoration: 'none' }}
             >
               <Text weight="bold" size="200">
-                {comment.userId}
+                {authorUsername}
               </Text>
             </Link>
             <Text color="subtle" size="100">

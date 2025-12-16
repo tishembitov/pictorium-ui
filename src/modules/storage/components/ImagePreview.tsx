@@ -1,6 +1,6 @@
 // src/modules/storage/components/ImagePreview.tsx
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Box, Image as GestaltImage, Mask, IconButton, Spinner } from 'gestalt';
 import { useImageUrl } from '../hooks/useImageUrl';
 
@@ -17,6 +17,12 @@ interface ImagePreviewProps {
   placeholderColor?: string;
 }
 
+interface LoadState {
+  sourceKey: string;
+  isLoaded: boolean;
+  hasError: boolean;
+}
+
 export const ImagePreview: React.FC<ImagePreviewProps> = ({
   file,
   imageId,
@@ -29,53 +35,77 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   showRemoveButton = false,
   placeholderColor = 'var(--bg-secondary)',
 }) => {
-  // Generate a unique key for the current source
+  // Уникальный ключ для текущего источника изображения
   const sourceKey = useMemo(
-    () => `${file?.name || ''}-${file?.lastModified || ''}-${imageId || ''}`,
-    [file, imageId]
+    () => `${file?.name ?? ''}-${file?.lastModified ?? ''}-${imageId ?? ''}`,
+    [file?.name, file?.lastModified, imageId]
   );
 
-  // Combined state with source key tracking
-  const [loadState, setLoadState] = useState({
-    key: '',
+  // Единое состояние с ключом источника - автоматически "сбрасывается" при смене источника
+  const [loadState, setLoadState] = useState<LoadState>({
+    sourceKey: '',
     isLoaded: false,
     hasError: false,
   });
 
-  // Derive actual state - automatically resets when source changes
-  const isLoaded = loadState.key === sourceKey ? loadState.isLoaded : false;
-  const hasError = loadState.key === sourceKey ? loadState.hasError : false;
+  // Вычисляем актуальное состояние - если ключ не совпадает, значит это новый источник
+  const isLoaded = loadState.sourceKey === sourceKey && loadState.isLoaded;
+  const hasError = loadState.sourceKey === sourceKey && loadState.hasError;
+
+  // Ref для отслеживания монтирования
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Создаём blob URL через useMemo (не вызываем setState!)
+  const localUrl = useMemo(() => {
+    if (!file) return null;
+    return URL.createObjectURL(file);
+  }, [file]);
+
+  // Очистка blob URL - только cleanup, без setState
+  useEffect(() => {
+    if (!localUrl) return;
+
+    const urlToRevoke = localUrl;
+
+    return () => {
+      // Откладываем revoke для избежания race condition
+      setTimeout(() => {
+        URL.revokeObjectURL(urlToRevoke);
+      }, 100);
+    };
+  }, [localUrl]);
 
   // Fetch URL if imageId is provided
   const { data: imageUrlData, isLoading: isLoadingUrl } = useImageUrl(imageId, {
     enabled: !!imageId && !file,
   });
 
-  // Create local URL using useMemo instead of useState + useEffect
-  const localUrl = useMemo(() => {
-    if (!file) return null;
-    return URL.createObjectURL(file);
-  }, [file]);
-
-  // Cleanup: revoke URL when it changes or component unmounts
-  useEffect(() => {
-    if (!localUrl) return;
-    
-    return () => {
-      URL.revokeObjectURL(localUrl);
-    };
-  }, [localUrl]);
-
   // Determine which URL to use
   const displayUrl = localUrl || imageUrlData?.url;
 
-  const handleLoad = () => {
-    setLoadState({ key: sourceKey, isLoaded: true, hasError: false });
-  };
+  // Обработчики вызываются только как callback от событий браузера
+  const handleLoad = useCallback(() => {
+    if (isMountedRef.current) {
+      setLoadState({ sourceKey, isLoaded: true, hasError: false });
+    }
+  }, [sourceKey]);
 
-  const handleError = () => {
-    setLoadState({ key: sourceKey, isLoaded: true, hasError: true });
-  };
+  const handleError = useCallback(() => {
+    if (isMountedRef.current) {
+      setLoadState({ sourceKey, isLoaded: true, hasError: true });
+      console.warn('ImagePreview: Failed to load image', {
+        hasFile: !!file,
+        hasImageId: !!imageId,
+      });
+    }
+  }, [sourceKey, file, imageId]);
 
   // Loading state
   if (isLoadingUrl && !localUrl) {
@@ -108,7 +138,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
       >
         <Box padding={4}>
           <Box color="tertiary" rounding="circle" padding={3}>
-            {/* Placeholder icon */}
+            {/* Error placeholder */}
           </Box>
         </Box>
       </Box>

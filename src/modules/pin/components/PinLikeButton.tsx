@@ -2,10 +2,13 @@
 
 import React, { useCallback, useMemo } from 'react';
 import { Button, IconButton, Flex, Text } from 'gestalt';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/app/config/queryClient';
 import { useAuth } from '@/modules/auth';
 import { useLikePin } from '../hooks/useLikePin';
 import { useUnlikePin } from '../hooks/useUnlikePin';
 import { formatCompactNumber } from '@/shared/utils/formatters';
+import type { PinResponse } from '../types/pin.types';
 
 interface PinLikeButtonProps {
   pinId: string;
@@ -24,14 +27,19 @@ const getIconButtonSize = (size: 'sm' | 'md' | 'lg'): 'xs' | 'md' | 'lg' => {
 
 export const PinLikeButton: React.FC<PinLikeButtonProps> = ({
   pinId,
-  isLiked,
-  likeCount,
+  isLiked: propIsLiked,
+  likeCount: propLikeCount,
   size = 'md',
   variant = 'button',
 }) => {
   const { isAuthenticated, login } = useAuth();
+  const queryClient = useQueryClient();
 
-  // Use the props directly instead of local state that syncs with props
+  // ✅ ИСПРАВЛЕНИЕ: Получаем актуальное состояние из cache
+  const cachedPin = queryClient.getQueryData<PinResponse>(queryKeys.pins.byId(pinId));
+  const isLiked = cachedPin?.isLiked ?? propIsLiked;
+  const likeCount = cachedPin?.likeCount ?? propLikeCount;
+
   const { likePin, isLoading: isLiking } = useLikePin();
   const { unlikePin, isLoading: isUnliking } = useUnlikePin();
 

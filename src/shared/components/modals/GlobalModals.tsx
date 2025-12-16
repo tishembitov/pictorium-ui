@@ -1,7 +1,34 @@
 // src/shared/components/modals/GlobalModals.tsx
+
 import React, { useState } from 'react';
 import { useUIStore } from '../../stores/uiStore';
 import { ConfirmModal } from './ConfirmModal';
+
+// ✅ ИСПРАВЛЕНИЕ: Типизация данных модалки
+interface ConfirmModalData {
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  destructive?: boolean;
+  onConfirm: () => void | Promise<void>;
+  onCancel?: () => void;
+}
+
+// ✅ ИСПРАВЛЕНИЕ: Type guard для безопасной проверки
+function isConfirmModalData(data: unknown): data is ConfirmModalData {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+  
+  const obj = data as Record<string, unknown>;
+  
+  return (
+    typeof obj.title === 'string' &&
+    typeof obj.message === 'string' &&
+    typeof obj.onConfirm === 'function'
+  );
+}
 
 /**
  * Компонент для рендера глобальных модалок на основе uiStore
@@ -14,15 +41,13 @@ export const GlobalModals: React.FC = () => {
 
   // Confirm Modal
   if (activeModal === 'confirm' && modalData) {
-    const data = modalData as {
-      title: string;
-      message: string;
-      confirmText?: string;
-      cancelText?: string;
-      destructive?: boolean;
-      onConfirm: () => void | Promise<void>;
-      onCancel?: () => void;
-    };
+    // ✅ ИСПРАВЛЕНИЕ: Runtime проверка типа
+    if (!isConfirmModalData(modalData)) {
+      console.error('GlobalModals: Invalid confirm modal data', modalData);
+      return null;
+    }
+
+    const data = modalData;
 
     const handleConfirm = async () => {
       try {

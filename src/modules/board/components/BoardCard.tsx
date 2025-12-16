@@ -5,24 +5,30 @@ import { Link } from 'react-router-dom';
 import { Box, Text, TapArea, Mask } from 'gestalt';
 import { buildPath } from '@/app/router/routeConfig';
 import { useImageUrl } from '@/modules/storage';
+import { useBoardPins } from '../hooks/useBoardPins';
 import { formatRelativeTime } from '@/shared/utils/formatters';
 import type { BoardResponse } from '../types/board.types';
 
 interface BoardCardProps {
   board: BoardResponse;
-  coverImageId?: string | null;
-  pinCount?: number;
   onClick?: () => void;
   showMeta?: boolean;
 }
 
 export const BoardCard: React.FC<BoardCardProps> = ({
   board,
-  coverImageId,
-  pinCount = 0,
   onClick,
   showMeta = true,
 }) => {
+  // ✅ ИСПРАВЛЕНИЕ: Получаем первый пин для обложки
+  const { pins, totalElements: pinCount } = useBoardPins(board.id, {
+    pageable: { page: 0, size: 1 },
+  });
+
+  // Получаем imageId из первого пина
+  const firstPin = pins[0];
+  const coverImageId = firstPin?.thumbnailId || firstPin?.imageId || null;
+
   const { data: coverData } = useImageUrl(coverImageId, {
     enabled: !!coverImageId,
   });

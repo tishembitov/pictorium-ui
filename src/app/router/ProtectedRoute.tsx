@@ -1,3 +1,5 @@
+// src/app/router/ProtectedRoute.tsx
+
 import React, { ReactNode, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/modules/auth';
@@ -29,6 +31,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const hasRedirectedRef = useRef(false);
   const redirectPathRef = useRef<string | null>(null);
 
+  // ✅ ИСПРАВЛЕНИЕ: Сброс refs при изменении пути
+  useEffect(() => {
+    hasRedirectedRef.current = false;
+    redirectPathRef.current = null;
+  }, [location.pathname]);
+
   useEffect(() => {
     // Store the current path for redirect (only once, before redirect)
     if (!hasRedirectedRef.current && !isAuthenticated) {
@@ -51,7 +59,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         redirectUri: `${globalThis.location.origin}${redirectPath}` 
       });
     }
-  }, [isInitialized, isLoading, isAuthenticated, login]);
+  }, [isInitialized, isLoading, isAuthenticated, login, location.pathname, location.search]);
 
   // Still loading
   if (!isInitialized || isLoading) {

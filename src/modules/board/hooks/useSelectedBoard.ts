@@ -7,26 +7,35 @@ import { selectedBoardApi } from '../api/selectedBoardApi';
 import { useSelectedBoardStore } from '../stores/selectedBoardStore';
 import { useAuth } from '@/modules/auth';
 import { isApiError } from '@/shared/api/apiClient';
+import type { BoardResponse } from '../types/board.types';
 
 interface UseSelectedBoardOptions {
   enabled?: boolean;
 }
 
-/**
- * Hook to get the currently selected board
- */
 export const useSelectedBoard = (options: UseSelectedBoardOptions = {}) => {
   const { enabled = true } = options;
   const { isAuthenticated } = useAuth();
   const setSelectedBoard = useSelectedBoardStore((state) => state.setSelectedBoard);
+  const clearSelectedBoard = useSelectedBoardStore((state) => state.clearSelectedBoard);
   const storedBoard = useSelectedBoardStore((state) => state.selectedBoard);
 
   const query = useQuery({
     queryKey: queryKeys.boards.selected(),
-    queryFn: () => selectedBoardApi.getSelected(),
+    queryFn: async (): Promise<BoardResponse | null> => {
+      try {
+        return await selectedBoardApi.getSelected();
+      } catch (error) {
+        // 404 означает что доска не выбрана - это нормальное состояние
+        if (isApiError(error) && error.response?.status === 404) {
+          return null;
+        }
+        throw error;
+      }
+    },
     enabled: enabled && isAuthenticated,
     staleTime: 1000 * 60 * 5,
-    // Don't throw on 404 - it means no board is selected
+    // Не ретраить 404 ошибки
     retry: (failureCount, error) => {
       if (isApiError(error) && error.response?.status === 404) {
         return false;
@@ -35,20 +44,21 @@ export const useSelectedBoard = (options: UseSelectedBoardOptions = {}) => {
     },
   });
 
-  // Check if error is 404
-  const is404Error = isApiError(query.error) && query.error.response?.status === 404;
-
   // Sync with store
   useEffect(() => {
-    if (query.data) {
-      setSelectedBoard(query.data);
+    if (query.isSuccess) {
+      if (query.data) {
+        setSelectedBoard(query.data);
+      } else {
+        clearSelectedBoard();
+      }
     }
-  }, [query.data, setSelectedBoard]);
+  }, [query.isSuccess, query.data, setSelectedBoard, clearSelectedBoard]);
 
   return {
     selectedBoard: query.data ?? storedBoard,
     isLoading: query.isLoading,
-    isError: query.isError && !is404Error,
+    isError: query.isError && !(isApiError(query.error) && query.error.response?.status === 404),
     error: query.error,
     refetch: query.refetch,
     hasSelectedBoard: !!(query.data ?? storedBoard),

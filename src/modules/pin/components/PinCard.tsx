@@ -28,7 +28,8 @@ export const PinCard: React.FC<PinCardProps> = ({
   const [isHovered, setIsHovered] = useState(false);
 
   const imageId = getPinImageId(pin);
-  const { data: imageData } = useImageUrl(imageId, {
+  
+  const { data: imageData} = useImageUrl(imageId, {
     enabled: !!imageId,
   });
 

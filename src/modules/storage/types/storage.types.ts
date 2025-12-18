@@ -10,9 +10,10 @@ export interface PresignedUploadRequest {
   contentType: string;   // minLength: 1
   fileSize: number;      // minimum: 1
   category?: string;
+  originalWidth: number;
+  originalHeight: number;
   generateThumbnail?: boolean;
-  thumbnailWidth?: number;   // 50-1000
-  thumbnailHeight?: number;  // 50-1000
+  thumbnailWidth?: number; // default 236
 }
 
 /**
@@ -37,6 +38,10 @@ export interface PresignedUploadResponse {
   expiresAt: number;
   requiredHeaders?: Record<string, string>;
   thumbnailImageId?: string;
+  originalWidth: number;
+  originalHeight: number;
+  thumbnailWidth: number;
+  thumbnailHeight: number;
 }
 
 /**
@@ -51,6 +56,10 @@ export interface ConfirmUploadResponse {
   contentType: string;
   updatedAt: string;  // date-time
   confirmed: boolean;
+  originalWidth: number;
+  originalHeight: number;
+  thumbnailWidth: number;
+  thumbnailHeight: number;
 }
 
 /**
@@ -130,6 +139,11 @@ export interface UploadResult {
   fileName: string;
   size: number;
   contentType: string;
+
+  originalWidth: number;
+  originalHeight: number;
+  thumbnailWidth: number;
+  thumbnailHeight: number;
 }
 
 export type ImageCategory = 'pins' | 'avatars' | 'banners' | 'comments';

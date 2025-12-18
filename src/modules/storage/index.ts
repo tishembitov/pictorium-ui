@@ -67,6 +67,7 @@ export type {
   } from './utils/fileUtils';
   
   export {
+    calculateThumbnailDimensions,
     getImageDimensions,
     calculateAspectRatio,
     calculateProportionalDimensions,

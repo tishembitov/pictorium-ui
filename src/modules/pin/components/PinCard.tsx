@@ -1,15 +1,16 @@
-// src/modules/pin/components/PinCard.tsx
+// ================================================
+// FILE: src/modules/pin/components/PinCard.tsx
+// ================================================
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Mask, TapArea, Text, Flex } from 'gestalt';
+import { Box, Mask, TapArea, Text, Flex, Image as GestaltImage } from 'gestalt';
 import { buildPath } from '@/app/router/routeConfig';
 import { useImageUrl } from '@/modules/storage';
 import { useAuth } from '@/modules/auth';
 import { PinLikeButton } from './PinLikeButton';
 import { PinSaveButton } from './PinSaveButton';
 import { PinMenuButton } from './PinMenuButton';
-import { getPinImageId, getPinTitle } from '../utils/pinUtils';
 import type { PinResponse } from '../types/pin.types';
 
 interface PinCardProps {
@@ -26,10 +27,12 @@ export const PinCard: React.FC<PinCardProps> = ({
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  const imageId = getPinImageId(pin);
+  // Используем thumbnailId для сетки
+  const imageId = pin.thumbnailId || pin.imageId;
   
-  const { data: imageData} = useImageUrl(imageId, {
+  const { data: imageData } = useImageUrl(imageId, {
     enabled: !!imageId,
   });
 
@@ -39,6 +42,13 @@ export const PinCard: React.FC<PinCardProps> = ({
 
   const handleMouseEnter = useCallback(() => setIsHovered(true), []);
   const handleMouseLeave = useCallback(() => setIsHovered(false), []);
+  const handleImageLoad = useCallback(() => setIsLoaded(true), []);
+
+  // === Размеры известны заранее! ===
+  const dimensions = useMemo(() => ({
+    width: pin.thumbnailWidth,
+    height: pin.thumbnailHeight,
+  }), [pin.thumbnailWidth, pin.thumbnailHeight]);
 
   return (
     <Box
@@ -48,31 +58,26 @@ export const PinCard: React.FC<PinCardProps> = ({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* Main Image */}
       <TapArea onTap={handleClick} rounding={4}>
         <Mask rounding={4}>
-          {imageData?.url ? (
-            <img
-              src={imageData.url}
-              alt={getPinTitle(pin)}
-              style={{
-                width: '100%',
-                display: 'block',
-                objectFit: 'cover',
-              }}
-              loading="lazy"
-            />
-          ) : (
-            <Box
-              color="secondary"
-              height={200}
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Text color="subtle">Loading...</Text>
-            </Box>
-          )}
+          {/* Placeholder с ТОЧНЫМИ размерами - никаких прыжков! */}
+          <Box
+            position="relative"
+            width={dimensions.width}
+            height={dimensions.height}
+            color={isLoaded ? undefined : 'secondary'}
+          >
+            {imageData?.url && (
+              <GestaltImage
+                src={imageData.url}
+                alt={pin.title || 'Pin'}
+                naturalWidth={dimensions.width}
+                naturalHeight={dimensions.height}
+                onLoad={handleImageLoad}
+                fit="cover"
+              />
+            )}
+          </Box>
         </Mask>
       </TapArea>
 
@@ -89,7 +94,7 @@ export const PinCard: React.FC<PinCardProps> = ({
           justifyContent="between"
           dangerouslySetInlineStyle={{
             __style: {
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.4) 100%)',
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 25%, transparent 75%, rgba(0,0,0,0.3) 100%)',
               pointerEvents: 'none',
             },
           }}
@@ -97,7 +102,7 @@ export const PinCard: React.FC<PinCardProps> = ({
           {/* Top Actions */}
           <Box padding={2} display="flex" justifyContent="end">
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
-              <Flex gap={2}>
+              <Flex gap={1}>
                 {isAuthenticated && (
                   <PinSaveButton
                     pinId={pin.id}
@@ -112,15 +117,13 @@ export const PinCard: React.FC<PinCardProps> = ({
           {/* Bottom Actions */}
           <Box padding={2} display="flex" justifyContent="between" alignItems="center">
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
-              <Flex gap={2}>
-                <PinLikeButton
-                  pinId={pin.id}
-                  isLiked={pin.isLiked}
-                  likeCount={pin.likeCount}
-                  size="sm"
-                  variant="icon"
-                />
-              </Flex>
+              <PinLikeButton
+                pinId={pin.id}
+                isLiked={pin.isLiked}
+                likeCount={pin.likeCount}
+                size="sm"
+                variant="icon"
+              />
             </Box>
             
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
@@ -134,10 +137,10 @@ export const PinCard: React.FC<PinCardProps> = ({
         </Box>
       )}
 
-      {/* Title (always visible) */}
+      {/* Title */}
       {pin.title && (
         <Box paddingX={1} paddingY={2}>
-          <Text size="200" weight="bold" lineClamp={2}>
+          <Text size="100" weight="bold" lineClamp={2}>
             {pin.title}
           </Text>
         </Box>

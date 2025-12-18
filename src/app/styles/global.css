@@ -101,6 +101,47 @@ select {
   color: var(--color-primary-hover);
 }
 
+/* Compact Masonry Grid */
+.masonry-grid {
+  margin: 0 auto;
+  padding: 0 var(--spacing-sm);
+}
+
+/* Pin Cards - тонкие тени */
+.pin-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pin-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Compact header */
+.header-compact {
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+/* Sidebar compact */
+.sidebar-compact {
+  padding: var(--spacing-xs);
+}
+
+.sidebar-compact .sidebar-item {
+  padding: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+/* Remove extra margins in main content */
+.main-content {
+  padding: var(--spacing-sm);
+}
+
+/* Gestalt overrides for compact layout */
+[class*="Box"] {
+  /* Reduce default Gestalt padding where needed */
+}
+
 /* Utility classes */
 .visually-hidden {
   position: absolute;

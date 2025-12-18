@@ -13,6 +13,11 @@ export interface PinCreateRequest {
   description?: string;      // maxLength: 400
   href?: string;             // maxLength: 200
   tags?: string[];           // unique items, each maxLength: 100
+
+  originalWidth: number;
+  originalHeight: number;
+  thumbnailWidth: number;
+  thumbnailHeight: number;
 }
 
 /**
@@ -49,6 +54,11 @@ export interface PinResponse {
   commentCount: number;
   likeCount: number;
   viewCount: number;
+
+  originalWidth: number;
+  originalHeight: number;
+  thumbnailWidth: number;
+  thumbnailHeight: number;
 }
 
 /**

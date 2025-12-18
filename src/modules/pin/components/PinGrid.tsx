@@ -1,8 +1,10 @@
-// src/modules/pin/components/PinGrid.tsx
+// ================================================
+// FILE: src/modules/pin/components/PinGrid.tsx
+// ================================================
 
 import React, { useCallback, useRef } from 'react';
-import { Box, Spinner} from 'gestalt';
-import { MasonryGrid, EmptyState } from '@/shared/components';
+import { Box, Masonry, Spinner } from 'gestalt';
+import { EmptyState } from '@/shared/components';
 import { PinCard } from './PinCard';
 import type { PinResponse } from '../types/pin.types';
 
@@ -17,12 +19,15 @@ interface PinGridProps {
     text: string;
     onClick: () => void;
   };
-  columnWidth?: number;
-  gutterWidth?: number;
 }
 
+// === Константы Masonry ===
+const COLUMN_WIDTH = 236;
+const GUTTER_WIDTH = 8; // Минимальные отступы
+const MIN_COLUMNS = 2;
+
 // Masonry item component
-const PinGridItem: React.FC<{ data: PinResponse }> = ({ data }) => {
+const GridItem = ({ data }: { data: PinResponse }) => {
   return <PinCard pin={data} />;
 };
 
@@ -34,20 +39,26 @@ export const PinGrid: React.FC<PinGridProps> = ({
   fetchNextPage,
   emptyMessage = 'No pins found',
   emptyAction,
-  columnWidth = 236,
-  gutterWidth = 14,
 }) => {
   const scrollContainerRef = useRef<HTMLElement | null>(null);
 
+  // Memoize scroll container getter
   const getScrollContainer = useCallback(() => {
     scrollContainerRef.current ??= document.documentElement;
     return scrollContainerRef.current;
   }, []);
 
-  // Loading state
+  // Handle load more
+  const handleLoadMore = useCallback(() => {
+    if (!isFetchingNextPage && hasNextPage && fetchNextPage) {
+      fetchNextPage();
+    }
+  }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
+
+  // Initial loading
   if (isLoading && pins.length === 0) {
     return (
-      <Box display="flex" justifyContent="center" padding={8}>
+      <Box display="flex" justifyContent="center" padding={6}>
         <Spinner accessibilityLabel="Loading pins" show />
       </Box>
     );
@@ -66,17 +77,23 @@ export const PinGrid: React.FC<PinGridProps> = ({
 
   return (
     <Box width="100%">
-      <MasonryGrid
+      <Masonry
         items={pins}
-        renderItem={PinGridItem}
-        columnWidth={columnWidth}
-        gutterWidth={gutterWidth}
-        minCols={2}
-        loadMore={fetchNextPage}
-        hasMore={hasNextPage}
-        isLoading={isFetchingNextPage}
+        renderItem={GridItem}
+        columnWidth={COLUMN_WIDTH}
+        gutterWidth={GUTTER_WIDTH}
+        minCols={MIN_COLUMNS}
+        loadItems={handleLoadMore}
         scrollContainer={getScrollContainer}
+        virtualize
+        // === Layout вычисляется мгновенно благодаря известным размерам ===
       />
+      
+      {isFetchingNextPage && (
+        <Box display="flex" justifyContent="center" padding={4}>
+          <Spinner accessibilityLabel="Loading more pins" show />
+        </Box>
+      )}
     </Box>
   );
 };

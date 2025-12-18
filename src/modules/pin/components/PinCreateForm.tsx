@@ -1,4 +1,6 @@
-// src/modules/pin/components/PinCreateForm.tsx
+// ================================================
+// FILE: src/modules/pin/components/PinCreateForm.tsx
+// ================================================
 
 import React, { useState, useCallback } from 'react';
 import { Box, Flex, Button, Divider, Text } from 'gestalt';
@@ -21,8 +23,8 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
-  const [imageId, setImageId] = useState<string | null>(null);
-  const [thumbnailId, setThumbnailId] = useState<string | null>(null);
+  // === Храним полный результат загрузки с размерами ===
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
 
   const { createPin, isLoading } = useCreatePin({
     onSuccess: () => {
@@ -49,11 +51,12 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
 
   const handleImageUpload = useCallback(
     (result: UploadResult) => {
-      setImageId(result.imageId);
+      console.log('Upload complete with dimensions:', result);
+      
+      setUploadResult(result);
       setValue('imageId', result.imageId);
       
       if (result.thumbnailId) {
-        setThumbnailId(result.thumbnailId);
         setValue('thumbnailId', result.thumbnailId);
       }
     },
@@ -61,51 +64,68 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   );
 
   const handleRemoveImage = useCallback(() => {
-    setImageId(null);
-    setThumbnailId(null);
+    setUploadResult(null);
     setValue('imageId', '');
     setValue('thumbnailId', undefined);
   }, [setValue]);
 
   const onSubmit = (data: PinCreateFormData) => {
+    if (!uploadResult) {
+      return;
+    }
+
+    // === Передаем ВСЕ размеры при создании пина ===
     const submitData = {
-      ...data,
-      imageId: imageId!,
-      thumbnailId: thumbnailId || undefined,
+      imageId: uploadResult.imageId,
+      thumbnailId: uploadResult.thumbnailId,
+      originalWidth: uploadResult.originalWidth,
+      originalHeight: uploadResult.originalHeight,
+      thumbnailWidth: uploadResult.thumbnailWidth,
+      thumbnailHeight: uploadResult.thumbnailHeight,
+      title: data.title || undefined,
+      description: data.description || undefined,
       href: data.href ? ensurePinLinkProtocol(data.href) : undefined,
       tags: data.tags?.length ? data.tags : undefined,
     };
 
+    console.log('Creating pin with dimensions:', submitData);
     createPin(submitData);
   };
 
-  const hasImage = !!imageId;
+  const hasImage = !!uploadResult;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <Flex direction="column" gap={6}>
+      <Flex direction="column" gap={4}>
         {/* Image Upload */}
         <Box>
-          <Text weight="bold" size="300">
+          <Text weight="bold" size="200">
             Image *
           </Text>
           <Box marginTop={2}>
             {hasImage ? (
-              <ImagePreview
-                imageId={imageId}
-                alt="Pin image"
-                height={300}
-                rounding={4}
-                showRemoveButton
-                onRemove={handleRemoveImage}
-              />
+              <Box>
+                <ImagePreview
+                  imageId={uploadResult.imageId}
+                  alt="Pin image"
+                  height={300}
+                  rounding={4}
+                  showRemoveButton
+                  onRemove={handleRemoveImage}
+                />
+                {/* Показываем размеры для отладки */}
+                <Box marginTop={2}>
+                  <Text size="100" color="subtle">
+                    Original: {uploadResult.originalWidth}×{uploadResult.originalHeight} | 
+                    Thumbnail: {uploadResult.thumbnailWidth}×{uploadResult.thumbnailHeight}
+                  </Text>
+                </Box>
+              </Box>
             ) : (
               <ImageUploader
                 onUploadComplete={handleImageUpload}
                 category="pins"
-                generateThumbnail
-                thumbnailWidth={236}
-                thumbnailHeight={236}
+                compact
               />
             )}
             {errors.imageId && (
@@ -152,7 +172,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
               placeholder="Tell everyone what your Pin is about"
               errorMessage={errors.description?.message}
               maxLength={400}
-              rows={4}
+              rows={3}
             />
           )}
         />
@@ -190,7 +210,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
               placeholder="Search or create tags"
               maxTags={10}
               errorMessage={errors.tags?.message}
-              helperText="Add up to 10 tags to help people find your Pin"
             />
           )}
         />

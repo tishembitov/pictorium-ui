@@ -1,34 +1,23 @@
-// src/modules/storage/services/uploadService.ts
+// ================================================
+// FILE: src/modules/storage/services/uploadService.ts
+// ================================================
 
 import { uploadToPresignedUrl } from '@/shared/api/apiClient';
 import { storageApi } from '../api/storageApi';
-import { validateImageFile } from '../utils/fileUtils';
 import type {
   UploadOptions,
   UploadResult,
   UploadProgress,
   PresignedUploadRequest,
 } from '../types/storage.types';
+import { validateImageFile } from '../utils/fileUtils';
+import { getImageDimensions } from '../utils/imageUtils';
 
-export interface UploadServiceConfig {
-  retryAttempts?: number;
-  retryDelay?: number;
-}
-
-const DEFAULT_CONFIG: UploadServiceConfig = {
-  retryAttempts: 3,
-  retryDelay: 1000,
-};
+const THUMBNAIL_WIDTH = 236; // Masonry column width
 
 class UploadService {
-  private readonly config: UploadServiceConfig;
-
-  constructor(config: UploadServiceConfig = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
-  }
-
   /**
-   * Upload a single file with cancellation support
+   * Upload с автоматическим чтением размеров
    */
   async uploadFile(
     file: File,
@@ -36,9 +25,6 @@ class UploadService {
   ): Promise<UploadResult> {
     const {
       category,
-      generateThumbnail = false,
-      thumbnailWidth,
-      thumbnailHeight,
       onProgress,
       onSuccess,
       onError,
@@ -46,7 +32,6 @@ class UploadService {
     } = options;
 
     try {
-      // Check for cancellation
       this.checkAborted(signal);
 
       // Validate file
@@ -55,21 +40,30 @@ class UploadService {
         throw new Error(validation.error);
       }
 
-      // Step 1: Get presigned URL
+      // === Step 1: Читаем размеры оригинала на фронтенде ===
+      this.checkAborted(signal);
+      const dimensions = await getImageDimensions(file);
+      
+      console.log('Image dimensions:', dimensions);
+
+      // === Step 2: Запрашиваем presigned URL с размерами ===
       this.checkAborted(signal);
       const presignedRequest: PresignedUploadRequest = {
         fileName: file.name,
         contentType: file.type,
         fileSize: file.size,
         category,
-        generateThumbnail,
-        thumbnailWidth,
-        thumbnailHeight,
+        originalWidth: dimensions.width,
+        originalHeight: dimensions.height,
+        generateThumbnail: true,
+        thumbnailWidth: THUMBNAIL_WIDTH,
       };
 
       const presignedResponse = await storageApi.getPresignedUploadUrl(presignedRequest);
 
-      // Step 2: Upload to presigned URL
+      console.log('Presigned response:', presignedResponse);
+
+      // === Step 3: Загружаем в MinIO ===
       this.checkAborted(signal);
       await this.uploadWithRetry(
         presignedResponse.uploadUrl,
@@ -79,7 +73,7 @@ class UploadService {
         signal
       );
 
-      // Step 3: Confirm upload
+      // === Step 4: Подтверждаем загрузку ===
       this.checkAborted(signal);
       const confirmResponse = await storageApi.confirmUpload({
         imageId: presignedResponse.imageId,
@@ -89,6 +83,9 @@ class UploadService {
         fileSize: file.size,
       });
 
+      console.log('Confirm response:', confirmResponse);
+
+      // === Step 5: Возвращаем результат с размерами ===
       const result: UploadResult = {
         imageId: confirmResponse.imageId,
         imageUrl: confirmResponse.imageUrl,
@@ -97,12 +94,17 @@ class UploadService {
         fileName: confirmResponse.fileName,
         size: confirmResponse.size,
         contentType: confirmResponse.contentType,
+        // Размеры из ответа сервера
+        originalWidth: confirmResponse.originalWidth,
+        originalHeight: confirmResponse.originalHeight,
+        thumbnailWidth: confirmResponse.thumbnailWidth,
+        thumbnailHeight: confirmResponse.thumbnailHeight,
       };
 
       onSuccess?.(result);
       return result;
+      
     } catch (error) {
-      // Handle cancellation
       if (error instanceof Error && error.name === 'AbortError') {
         const cancelError = new Error('Upload cancelled');
         cancelError.name = 'AbortError';
@@ -116,9 +118,6 @@ class UploadService {
     }
   }
 
-  /**
-   * Check if operation was aborted
-   */
   private checkAborted(signal?: AbortSignal): void {
     if (signal?.aborted) {
       const error = new Error('Upload cancelled');
@@ -127,9 +126,6 @@ class UploadService {
     }
   }
 
-  /**
-   * Upload with retry logic
-   */
   private async uploadWithRetry(
     url: string,
     file: File,
@@ -149,83 +145,18 @@ class UploadService {
         });
       });
     } catch (error) {
-      // Don't retry on cancellation
       if (error instanceof Error && error.name === 'AbortError') {
         throw error;
       }
 
-      if (attempt < (this.config.retryAttempts || 3)) {
-        await this.delay(this.config.retryDelay || 1000);
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
         return this.uploadWithRetry(url, file, headers, onProgress, signal, attempt + 1);
       }
       throw error;
     }
   }
-
-  /**
-   * Upload multiple files with concurrency control
-   */
-  async uploadFiles(
-    files: File[],
-    options: UploadOptions & { maxConcurrent?: number } = {}
-  ): Promise<UploadResult[]> {
-    const { maxConcurrent = 3, signal, ...uploadOptions } = options;
-    const results: UploadResult[] = [];
-    const errors: Error[] = [];
-
-    // Process files in chunks
-    for (let i = 0; i < files.length; i += maxConcurrent) {
-      // Check for cancellation before each chunk
-      this.checkAborted(signal);
-
-      const chunk = files.slice(i, i + maxConcurrent);
-      const chunkResults = await Promise.allSettled(
-        chunk.map((file) => this.uploadFile(file, { ...uploadOptions, signal }))
-      );
-
-      for (const result of chunkResults) {
-        if (result.status === 'fulfilled') {
-          results.push(result.value);
-        } else {
-          // Stop on cancellation
-          if (result.reason?.name === 'AbortError') {
-            throw result.reason;
-          }
-          errors.push(result.reason);
-        }
-      }
-    }
-
-    if (errors.length > 0 && results.length === 0) {
-      throw errors[0];
-    }
-
-    return results;
-  }
-
-  /**
-   * Get image URL
-   */
-  async getImageUrl(imageId: string, expiry?: number): Promise<string> {
-    const response = await storageApi.getImageUrl(imageId, expiry);
-    return response.url;
-  }
-
-  /**
-   * Delete image
-   */
-  async deleteImage(imageId: string): Promise<void> {
-    await storageApi.deleteImage(imageId);
-  }
-
-  /**
-   * Delay helper
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 }
 
 export const uploadService = new UploadService();
-
 export default uploadService;

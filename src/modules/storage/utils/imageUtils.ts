@@ -5,7 +5,23 @@ import type { ImageDimensions, ThumbnailOptions } from '../types/storage.types';
 /**
  * Get image dimensions from file
  */
-export const getImageDimensions = (file: File): Promise<ImageDimensions> => {
+export const getImageDimensions = async (file: File): Promise<ImageDimensions> => {
+  // Пробуем createImageBitmap (быстрее, не блокирует UI)
+  if ('createImageBitmap' in globalThis) {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const dimensions = {
+        width: bitmap.width,
+        height: bitmap.height,
+      };
+      bitmap.close(); // Освобождаем память
+      return dimensions;
+    } catch {
+      // Fallback to Image API
+    }
+  }
+
+  // Fallback: Image API
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -25,6 +41,21 @@ export const getImageDimensions = (file: File): Promise<ImageDimensions> => {
     
     img.src = url;
   });
+};
+
+/**
+ * Вычисляет размеры thumbnail с сохранением пропорций
+ */
+export const calculateThumbnailDimensions = (
+  originalWidth: number,
+  originalHeight: number,
+  targetWidth: number = 236
+): ImageDimensions => {
+  const aspectRatio = originalHeight / originalWidth;
+  return {
+    width: targetWidth,
+    height: Math.round(targetWidth * aspectRatio),
+  };
 };
 
 /**

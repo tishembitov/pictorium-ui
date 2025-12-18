@@ -1,9 +1,6 @@
-// ================================================
-// FILE: src/pages/HomePage.tsx
-// ================================================
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Heading, Flex, Divider, IconButton, Tooltip } from 'gestalt';
+import { Box, Heading, Flex, Divider, IconButton, Tooltip, Text} from 'gestalt';
 import { 
   PinGrid, 
   PinFilters, 
@@ -25,15 +22,12 @@ const HomePage: React.FC = () => {
   
   const [showFilters, setShowFilters] = useState(false);
   
-  // Filters from store
   const filter = usePinFiltersStore((state) => state.filter);
   const hasActiveFilters = usePinFiltersStore((state) => state.hasActiveFilters);
   const clearFilter = usePinFiltersStore((state) => state.clearFilter);
   
-  // Selected board
   const { selectedBoard, hasSelectedBoard } = useSelectedBoard();
 
-  // Pins query
   const {
     pins,
     totalElements,
@@ -66,44 +60,43 @@ const HomePage: React.FC = () => {
   };
 
   return (
-    <Box paddingY={4}>
-      {/* Header Section */}
+    // === Минимальные отступы ===
+    <Box paddingY={2}>
+      {/* Header Section - компактный */}
       <Flex 
         direction={isMobile ? 'column' : 'row'} 
         justifyContent="between" 
         alignItems={isMobile ? 'start' : 'center'}
-        gap={4}
+        gap={2}
       >
         <Box>
-          <Heading size="400" accessibilityLevel={1}>
-            {isAuthenticated ? 'Your Home Feed' : 'Discover Ideas'}
+          <Heading size="300" accessibilityLevel={1}>
+            {isAuthenticated ? 'Home Feed' : 'Discover'}
           </Heading>
           {totalElements > 0 && (
-            <Box marginTop={1}>
-              <Heading size="200" color="subtle" accessibilityLevel={2}>
-                {totalElements.toLocaleString()} pins
-              </Heading>
-            </Box>
+            <Text size="100" color="subtle">
+              {totalElements.toLocaleString()} pins
+            </Text>
           )}
         </Box>
 
-        {/* Action Buttons */}
-        <Flex gap={2} alignItems="center">
+        {/* Action Buttons - компактные */}
+        <Flex gap={1} alignItems="center">
           {/* Search Bar */}
-          <Box width={isMobile ? '100%' : 300}>
+          <Box width={isMobile ? '100%' : 240}>
             <PinSearchBar 
-              placeholder="Search pins..." 
+              placeholder="Search..." 
               navigateOnSearch 
             />
           </Box>
 
           {/* Filter Toggle */}
-          <Tooltip text={showFilters ? 'Hide filters' : 'Show filters'}>
+          <Tooltip text={showFilters ? 'Hide filters' : 'Filters'}>
             <IconButton
               accessibilityLabel="Toggle filters"
               icon="filter"
               onClick={toggleFilters}
-              size="md"
+              size="sm"
               bgColor={hasActiveFilters() ? 'red' : 'transparent'}
               iconColor={hasActiveFilters() ? 'white' : 'darkGray'}
             />
@@ -111,17 +104,17 @@ const HomePage: React.FC = () => {
 
           {/* Board Picker */}
           {isAuthenticated && (
-            <BoardPicker size="md" />
+            <BoardPicker size="sm" />
           )}
 
           {/* Create Pin */}
           {isAuthenticated && (
-            <Tooltip text="Create pin">
+            <Tooltip text="Create">
               <IconButton
                 accessibilityLabel="Create pin"
                 icon="add"
                 onClick={handleCreatePin}
-                size="md"
+                size="sm"
                 bgColor="red"
                 iconColor="white"
               />
@@ -130,20 +123,18 @@ const HomePage: React.FC = () => {
         </Flex>
       </Flex>
 
-      {/* Selected Board Indicator */}
+      {/* Selected Board Indicator - компактный */}
       {hasSelectedBoard && selectedBoard && (
-        <Box marginTop={3} padding={3} color="secondary" rounding={2}>
-          <Flex alignItems="center" justifyContent="between">
-            <Heading size="200" accessibilityLevel={3}>
-              Saving to: {selectedBoard.title}
-            </Heading>
-          </Flex>
+        <Box marginTop={2} padding={2} color="secondary" rounding={2}>
+          <Text size="100" weight="bold">
+            Saving to: {selectedBoard.title}
+          </Text>
         </Box>
       )}
 
       {/* Filters Section */}
       {showFilters && (
-        <Box marginTop={4}>
+        <Box marginTop={2}>
           <PinFilters showSort showTags showClear />
           <Divider />
         </Box>
@@ -151,10 +142,10 @@ const HomePage: React.FC = () => {
 
       {/* Categories for Non-Authenticated Users */}
       {!isAuthenticated && pins.length === 0 && !isLoading && (
-        <Box marginTop={6} marginBottom={6}>
+        <Box marginTop={3} marginBottom={3}>
           <CategoryGrid 
             limit={6} 
-            size="md" 
+            size="sm" 
             title="Popular Categories"
             showTitle
           />
@@ -164,7 +155,7 @@ const HomePage: React.FC = () => {
 
       {/* Error State */}
       {isError && (
-        <Box marginTop={6}>
+        <Box marginTop={4}>
           <EmptyState
             title="Failed to load pins"
             description="Something went wrong. Please try again."
@@ -177,8 +168,8 @@ const HomePage: React.FC = () => {
         </Box>
       )}
 
-      {/* Pins Grid */}
-      <Box marginTop={4}>
+      {/* Pins Grid - минимальные отступы */}
+      <Box marginTop={2}>
         <PinGrid
           pins={pins}
           isLoading={isLoading}

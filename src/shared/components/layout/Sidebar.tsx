@@ -1,11 +1,14 @@
-// src/shared/components/layout/Sidebar.tsx
+// ================================================
+// FILE: src/shared/components/layout/Sidebar.tsx
+// ================================================
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Box, Text, Icon, Flex, Divider } from 'gestalt';
+import { Box, Text, Icon, Flex, Divider, Tooltip } from 'gestalt';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuth } from '@/modules/auth';
 import { ROUTES } from '@/app/router/routeConfig';
-import { Z_INDEX } from '../../utils/constants';
+import { Z_INDEX, LAYOUT } from '../../utils/constants';
 
 type SidebarIconName = 'home' | 'compass' | 'add' | 'person' | 'cog';
 
@@ -30,7 +33,6 @@ export const Sidebar: React.FC = () => {
   const location = useLocation();
   const { isAuthenticated } = useAuth();
   
-  // UI Store
   const isSidebarOpen = useUIStore((state) => state.isSidebarOpen);
   const isSidebarCollapsed = useUIStore((state) => state.isSidebarCollapsed);
   const closeSidebar = useUIStore((state) => state.closeSidebar);
@@ -45,35 +47,35 @@ export const Sidebar: React.FC = () => {
   const renderItem = (item: SidebarItem) => {
     const isActive = location.pathname === item.path;
     
-    return (
+    const content = (
       <Link 
         key={item.path} 
         to={item.path} 
         style={{ textDecoration: 'none' }}
         onClick={() => {
-          // Close sidebar on mobile after navigation
           if (window.innerWidth < 768) {
             closeSidebar();
           }
         }}
       >
         <Box
-          padding={3}
-          rounding={3}
+          padding={2}
+          rounding={2}
           color={isActive ? 'secondary' : 'transparent'}
           display="flex"
           alignItems="center"
           width="100%"
         >
-          <Flex alignItems="center" gap={3}>
+          <Flex alignItems="center" gap={2}>
             <Icon
               accessibilityLabel=""
               icon={item.icon}
-              size={20}
+              size={18}
               color={isActive ? 'default' : 'subtle'}
             />
             {!isSidebarCollapsed && (
               <Text
+                size="200"
                 weight={isActive ? 'bold' : 'normal'}
                 color={isActive ? 'default' : 'subtle'}
               >
@@ -84,15 +86,28 @@ export const Sidebar: React.FC = () => {
         </Box>
       </Link>
     );
+
+    // Tooltip в collapsed режиме
+    if (isSidebarCollapsed) {
+      return (
+        <Tooltip key={item.path} text={item.label} idealDirection="right">
+          {content}
+        </Tooltip>
+      );
+    }
+
+    return content;
   };
 
-  const sidebarWidth = isSidebarCollapsed ? 72 : 240;
+  const sidebarWidth = isSidebarCollapsed 
+    ? LAYOUT.SIDEBAR_COLLAPSED_WIDTH 
+    : LAYOUT.SIDEBAR_WIDTH;
 
   return (
     <Box
       as="aside"
       color="default"
-      padding={2}
+      padding={1}
       height="100%"
       position="fixed"
       top
@@ -102,7 +117,7 @@ export const Sidebar: React.FC = () => {
       dangerouslySetInlineStyle={{
         __style: {
           width: sidebarWidth,
-          paddingTop: 'var(--header-height)',
+          paddingTop: `${LAYOUT.HEADER_HEIGHT}px`,
           borderRight: '1px solid var(--border-light)',
           transition: 'width 0.2s ease',
           zIndex: Z_INDEX.STICKY - 1,
@@ -120,7 +135,7 @@ export const Sidebar: React.FC = () => {
       {filterItems(bottomItems).length > 0 && (
         <Box>
           <Divider />
-          <Box paddingY={2}>
+          <Box paddingY={1}>
             <Flex direction="column" gap={1}>
               {filterItems(bottomItems).map(renderItem)}
             </Flex>
@@ -130,6 +145,5 @@ export const Sidebar: React.FC = () => {
     </Box>
   );
 };
-
 
 export default Sidebar;

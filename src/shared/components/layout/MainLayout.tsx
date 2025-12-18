@@ -1,4 +1,6 @@
-// src/shared/components/layout/MainLayout.tsx
+// ================================================
+// FILE: src/shared/components/layout/MainLayout.tsx
+// ================================================
 
 import React, { useEffect, useRef } from 'react';
 import { Outlet } from 'react-router-dom';
@@ -11,13 +13,12 @@ import { GlobalModals } from '../modals/GlobalModals';
 import { FullPageLoader } from '../feedback/FullPageLoader';
 import { useUIStore } from '../../stores/uiStore';
 import { useIsMobile } from '../../hooks/useMediaQuery';
-import { LAYOUT } from '../../utils/constants'; // ✅ ИСПРАВЛЕНИЕ: импорт констант
+import { LAYOUT } from '../../utils/constants';
 
 export const MainLayout: React.FC = () => {
   const isMobile = useIsMobile();
   const lastScrollY = useRef(0);
   
-  // UI Store
   const isSidebarOpen = useUIStore((state) => state.isSidebarOpen);
   const isSidebarCollapsed = useUIStore((state) => state.isSidebarCollapsed);
   const isGlobalLoading = useUIStore((state) => state.isGlobalLoading);
@@ -27,21 +28,18 @@ export const MainLayout: React.FC = () => {
   const closeSidebar = useUIStore((state) => state.closeSidebar);
   const closeMobileMenu = useUIStore((state) => state.closeMobileMenu);
 
-  // Close sidebar on mobile by default
   useEffect(() => {
     if (isMobile) {
       closeSidebar();
     }
   }, [isMobile, closeSidebar]);
 
-  // Close mobile menu on resize to desktop
   useEffect(() => {
     if (!isMobile) {
       closeMobileMenu();
     }
   }, [isMobile, closeMobileMenu]);
 
-  // Track scroll position
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -54,7 +52,6 @@ export const MainLayout: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [setScrollPosition, setIsScrollingUp]);
 
-  // ✅ ИСПРАВЛЕНИЕ: Использование констант вместо магических чисел
   const getContentMarginLeft = (): number => {
     if (isMobile || !isSidebarOpen) return 0;
     return isSidebarCollapsed 
@@ -66,35 +63,34 @@ export const MainLayout: React.FC = () => {
     <Box minHeight="100vh" display="flex" direction="column" color="default">
       <Header />
       
-      {/* Sidebar - hidden on mobile */}
       {!isMobile && <Sidebar />}
-      
-      {/* Mobile Menu */}
       {isMobile && <MobileMenu />}
       
       <Box 
         as="main" 
         flex="grow"
-        paddingX={4}
+        // === Минимальные отступы ===
+        paddingX={1}
         dangerouslySetInlineStyle={{
           __style: { 
-            paddingTop: `${LAYOUT.HEADER_HEIGHT}px`, // ✅ ИСПРАВЛЕНИЕ
+            paddingTop: `${LAYOUT.HEADER_HEIGHT}px`,
             marginLeft: getContentMarginLeft(),
             transition: 'margin-left 0.2s ease',
           },
         }}
       >
         <Box 
-          maxWidth={LAYOUT.MAX_CONTENT_WIDTH} // ✅ ИСПРАВЛЕНИЕ
+          maxWidth={LAYOUT.MAX_CONTENT_WIDTH}
           marginStart="auto" 
           marginEnd="auto" 
           width="100%"
+          // === Минимальный padding ===
+          padding={1}
         >
           <Outlet />
         </Box>
       </Box>
       
-      {/* Global Loading Overlay */}
       {isGlobalLoading && (
         <Box
           position="fixed"
@@ -116,10 +112,7 @@ export const MainLayout: React.FC = () => {
         </Box>
       )}
       
-      {/* Global Modals */}
       <GlobalModals />
-      
-      {/* Toasts */}
       <ToastContainer />
     </Box>
   );

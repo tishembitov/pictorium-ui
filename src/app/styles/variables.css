@@ -61,10 +61,22 @@
     --font-size-2xl: 24px;
     --font-size-3xl: 32px;
     
-    /* Layout */
-    --header-height: 80px;
-    --sidebar-width: 240px;
-    --max-content-width: 1440px;
+    /* Layout - МИНИМАЛЬНЫЕ */
+    --header-height: 64px;
+    --sidebar-width: 180px;
+    --sidebar-collapsed-width: 56px;
+    --max-content-width: 1600px;
+    
+    /* Spacing - уменьшенные */
+    --spacing-xs: 2px;
+    --spacing-sm: 4px;
+    --spacing-md: 8px;
+    --spacing-lg: 16px;
+    --spacing-xl: 24px;
+    
+    /* Masonry */
+    --masonry-column-width: 236px;
+    --masonry-gutter: 8px;
     
     /* Animation */
     --transition-fast: 150ms ease;

@@ -1,7 +1,7 @@
 // src/modules/user/components/FollowingList.tsx
 
 import React from 'react';
-import { Box, Flex, Spinner, Text } from 'gestalt';
+import { Box, Flex, Spinner, Text, Heading } from 'gestalt';
 import { UserCard } from './UserCard';
 import { EmptyState, InfiniteScroll } from '@/shared/components';
 import { useInfiniteFollowing } from '../hooks/useFollowing';
@@ -9,11 +9,13 @@ import { formatCompactNumber } from '@/shared/utils/formatters';
 
 interface FollowingListProps {
   userId: string;
+  username?: string;
   emptyMessage?: string;
 }
 
 export const FollowingList: React.FC<FollowingListProps> = ({
   userId,
+  username,
   emptyMessage = 'Not following anyone yet',
 }) => {
   const {
@@ -28,15 +30,15 @@ export const FollowingList: React.FC<FollowingListProps> = ({
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" padding={6}>
-        <Spinner accessibilityLabel="Loading following" show />
+      <Box display="flex" justifyContent="center" padding={8}>
+        <Spinner accessibilityLabel="Loading following" show size="lg" />
       </Box>
     );
   }
 
   if (isError) {
     return (
-      <Box padding={4}>
+      <Box padding={6}>
         <Text color="error" align="center">
           Failed to load following
         </Text>
@@ -48,6 +50,7 @@ export const FollowingList: React.FC<FollowingListProps> = ({
     return (
       <EmptyState
         title={emptyMessage}
+        description={username ? `${username} isn't following anyone yet` : undefined}
         icon="person"
       />
     );
@@ -55,25 +58,26 @@ export const FollowingList: React.FC<FollowingListProps> = ({
 
   return (
     <Box>
-      <Box marginBottom={2}>
-        <Text color="subtle" size="200">
-          Following {formatCompactNumber(totalElements)} {totalElements === 1 ? 'user' : 'users'}
-        </Text>
+      {/* Header */}
+      <Box marginBottom={4}>
+        <Heading size="400">
+          Following {formatCompactNumber(totalElements)} {totalElements === 1 ? 'person' : 'people'}
+        </Heading>
       </Box>
 
+      {/* List */}
       <InfiniteScroll
         loadMore={() => fetchNextPage()}
         hasMore={hasNextPage ?? false}
         isLoading={isFetchingNextPage}
       >
-        <Flex direction="column" gap={1}>
+        <Flex direction="column" gap={2}>
           {following.map((user) => (
             <UserCard
               key={user.id}
               user={user}
               showFollowButton
-              showDescription
-              showFormattedUsername
+              variant="horizontal"
             />
           ))}
         </Flex>

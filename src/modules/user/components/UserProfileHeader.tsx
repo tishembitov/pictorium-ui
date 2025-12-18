@@ -1,8 +1,8 @@
 // src/modules/user/components/UserProfileHeader.tsx
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Flex, Text, Heading, Button, IconButton, Tooltip, TapArea } from 'gestalt';
+import { Box, Flex, Text, Heading, Button, IconButton, TapArea } from 'gestalt';
 import { buildPath, ROUTES } from '@/app/router/routeConfig';
 import { UserAvatar } from './UserAvatar';
 import { FollowButton } from './FollowButton';
@@ -15,7 +15,6 @@ import {
   formatUsername, 
   hasSocialLinks, 
   getSocialUrls,
-  getProfileCompletionPercentage,
 } from '../utils/userUtils';
 import type { UserResponse } from '../types/user.types';
 
@@ -24,6 +23,48 @@ interface UserProfileHeaderProps {
   pinsCount?: number;
 }
 
+// Helper components
+interface StatItemProps {
+  value: number;
+  label: string;
+  clickable?: boolean;
+}
+
+const StatItem: React.FC<StatItemProps> = ({ value, label, clickable }) => (
+  <Flex direction="column" alignItems="center">
+    <Text weight="bold" size="400">
+      {formatCompactNumber(value)}
+    </Text>
+    <Text 
+      color="subtle" 
+      size="200"
+      underline={clickable}
+    >
+      {label}
+    </Text>
+  </Flex>
+);
+
+interface SocialButtonProps {
+  label: string;
+  onClick: () => void;
+}
+
+const SocialButton: React.FC<SocialButtonProps> = ({ label, onClick }) => (
+  <TapArea onTap={onClick} rounding="pill" tapStyle="compress">
+    <Box
+      paddingX={3}
+      paddingY={2}
+      rounding="pill"
+      color="secondary"
+    >
+      <Text size="200" weight="bold">
+        {label}
+      </Text>
+    </Box>
+  </TapArea>
+);
+
 export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
   user,
   pinsCount = 0,
@@ -31,6 +72,7 @@ export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const isCurrentUser = currentUser?.id === user.id;
+  const [bannerError, setBannerError] = useState(false);
 
   // Get banner image
   const { data: bannerData } = useImageUrl(user.bannerImageId, {
@@ -45,11 +87,9 @@ export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
     pageable: { page: 0, size: 1 },
   });
 
-  // Используем утилиты
   const formattedUsername = formatUsername(user.username);
   const socialUrls = getSocialUrls(user);
   const showSocialLinks = hasSocialLinks(user);
-  const profileCompletion = getProfileCompletionPercentage(user);
 
   const handleEditProfile = () => {
     navigate(ROUTES.SETTINGS);
@@ -65,125 +105,162 @@ export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
 
   const openSocialLink = (url: string | null) => {
     if (url) {
-      window.open(url, '_blank', 'noopener,noreferrer');
+      globalThis.open(url, '_blank', 'noopener,noreferrer');
     }
   };
 
+  const showBanner = !!bannerData?.url && !bannerError;
+
   return (
     <Box>
-      {/* Banner */}
+      {/* Banner Section */}
       <Box
-        height={200}
-        width="100%"
-        color="secondary"
-        rounding={4}
-        overflow="hidden"
         position="relative"
+        width="100%"
+        dangerouslySetInlineStyle={{
+          __style: {
+            height: showBanner ? 280 : 180,
+            background: showBanner 
+              ? 'transparent' 
+              : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            borderRadius: '0 0 24px 24px',
+            overflow: 'hidden',
+          },
+        }}
       >
-        {bannerData?.url && (
-          <Box
-            width="100%"
-            height="100%"
-            dangerouslySetInlineStyle={{
-              __style: {
-                backgroundImage: `url(${bannerData.url})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              },
+        {showBanner && bannerData?.url && (
+          <img
+            src={bannerData.url}
+            alt="Profile banner"
+            onError={() => setBannerError(true)}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
             }}
           />
         )}
+        
+        {/* Gradient overlay */}
+        <Box
+          position="absolute"
+          bottom
+          left
+          right
+          height={100}
+          dangerouslySetInlineStyle={{
+            __style: {
+              background: 'linear-gradient(transparent, rgba(0,0,0,0.3))',
+            },
+          }}
+        />
       </Box>
 
-      {/* Profile Info */}
+      {/* Profile Info Section */}
       <Box
         display="flex"
         direction="column"
         alignItems="center"
-        marginTop={-8}
+        marginTop={-12}
         paddingX={4}
       >
         {/* Avatar */}
         <Box
-          padding={1}
-          color="default"
-          rounding="circle"
+          dangerouslySetInlineStyle={{
+            __style: {
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              borderRadius: '50%',
+            },
+          }}
         >
           <UserAvatar
             imageId={user.imageId}
             name={user.username}
-            size="xl"
+            size="xxl"
             outline
           />
         </Box>
 
-        {/* Username */}
-        <Box marginTop={3}>
+        {/* Name & Username */}
+        <Box marginTop={4} width="100%" maxWidth={500}>
           <Heading size="400" align="center">
             {user.username}
           </Heading>
-          <Text align="center" color="subtle" size="200">
-            {formattedUsername}
-          </Text>
-        </Box>
-
-        {/* Profile completion hint for current user */}
-        {isCurrentUser && profileCompletion < 100 && (
-          <Box marginTop={2}>
-            <Text size="100" color="subtle">
-              Profile {profileCompletion}% complete
+          <Box marginTop={1}>
+            <Text align="center" color="subtle" size="300">
+              {formattedUsername}
             </Text>
           </Box>
-        )}
+        </Box>
 
         {/* Description */}
         {user.description && (
-          <Box marginTop={2} maxWidth={500}>
-            <Text align="center" color="subtle">
+          <Box marginTop={3} maxWidth={600} paddingX={4}>
+            <Text align="center" size="300">
               {user.description}
             </Text>
           </Box>
         )}
 
+        {/* Social Links */}
+        {showSocialLinks && (
+          <Box marginTop={4}>
+            <Flex gap={3} justifyContent="center" wrap>
+              {socialUrls.instagram && (
+                <SocialButton
+                  label="Instagram"
+                  onClick={() => openSocialLink(socialUrls.instagram)}
+                />
+              )}
+              {socialUrls.pinterest && (
+                <SocialButton
+                  label="Pinterest"
+                  onClick={() => openSocialLink(socialUrls.pinterest)}
+                />
+              )}
+              {socialUrls.tiktok && (
+                <SocialButton
+                  label="TikTok"
+                  onClick={() => openSocialLink(socialUrls.tiktok)}
+                />
+              )}
+              {socialUrls.telegram && (
+                <SocialButton
+                  label="Telegram"
+                  onClick={() => openSocialLink(socialUrls.telegram)}
+                />
+              )}
+            </Flex>
+          </Box>
+        )}
+
         {/* Stats */}
         <Box marginTop={4}>
-          <Flex gap={6} justifyContent="center">
-            <Flex direction="column" alignItems="center">
-              <Text weight="bold" size="300">
-                {formatCompactNumber(pinsCount)}
-              </Text>
-              <Text color="subtle" size="200">
-                Pins
-              </Text>
-            </Flex>
-
+          <Flex gap={8} justifyContent="center">
+            <StatItem 
+              value={pinsCount} 
+              label="pins" 
+            />
             <TapArea onTap={handleFollowersClick}>
-              <Flex direction="column" alignItems="center">
-                <Text weight="bold" size="300">
-                  {formatCompactNumber(followersCount)}
-                </Text>
-                <Text color="subtle" size="200">
-                  Followers
-                </Text>
-              </Flex>
+              <StatItem 
+                value={followersCount} 
+                label="followers" 
+                clickable
+              />
             </TapArea>
-
             <TapArea onTap={handleFollowingClick}>
-              <Flex direction="column" alignItems="center">
-                <Text weight="bold" size="300">
-                  {formatCompactNumber(followingCount)}
-                </Text>
-                <Text color="subtle" size="200">
-                  Following
-                </Text>
-              </Flex>
+              <StatItem 
+                value={followingCount} 
+                label="following" 
+                clickable
+              />
             </TapArea>
           </Flex>
         </Box>
 
         {/* Actions */}
-        <Box marginTop={4}>
-          <Flex gap={2}>
+        <Box marginTop={5}>
+          <Flex gap={3}>
             {isCurrentUser ? (
               <>
                 <Button
@@ -196,74 +273,21 @@ export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
                   accessibilityLabel="Share profile"
                   icon="share"
                   size="lg"
-                  bgColor="transparent"
+                  bgColor="lightGray"
                 />
               </>
             ) : (
               <>
                 <FollowButton userId={user.id} size="lg" />
-                <IconButton
-                  accessibilityLabel="Message"
-                  icon="speech"
+                <Button
+                  text="Message"
                   size="lg"
-                  bgColor="transparent"
+                  color="gray"
                 />
               </>
             )}
           </Flex>
         </Box>
-
-        {/* Social Links - используем getSocialUrls */}
-        {showSocialLinks && (
-          <Box marginTop={4}>
-            <Flex gap={3} justifyContent="center">
-              {socialUrls.instagram && (
-                <Tooltip text="Instagram">
-                  <IconButton
-                    accessibilityLabel={`Instagram: ${user.instagram}`}
-                    icon="visit"
-                    size="md"
-                    bgColor="transparent"
-                    onClick={() => openSocialLink(socialUrls.instagram)}
-                  />
-                </Tooltip>
-              )}
-              {socialUrls.pinterest && (
-                <Tooltip text="Pinterest">
-                  <IconButton
-                    accessibilityLabel={`Pinterest: ${user.pinterest}`}
-                    icon="pinterest"
-                    size="md"
-                    bgColor="transparent"
-                    onClick={() => openSocialLink(socialUrls.pinterest)}
-                  />
-                </Tooltip>
-              )}
-              {socialUrls.tiktok && (
-                <Tooltip text="TikTok">
-                  <IconButton
-                    accessibilityLabel={`TikTok: ${user.tiktok}`}
-                    icon="visit"
-                    size="md"
-                    bgColor="transparent"
-                    onClick={() => openSocialLink(socialUrls.tiktok)}
-                  />
-                </Tooltip>
-              )}
-              {socialUrls.telegram && (
-                <Tooltip text="Telegram">
-                  <IconButton
-                    accessibilityLabel={`Telegram: ${user.telegram}`}
-                    icon="send"
-                    size="md"
-                    bgColor="transparent"
-                    onClick={() => openSocialLink(socialUrls.telegram)}
-                  />
-                </Tooltip>
-              )}
-            </Flex>
-          </Box>
-        )}
       </Box>
     </Box>
   );

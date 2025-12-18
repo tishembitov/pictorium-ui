@@ -167,6 +167,11 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
       console.error('Avatar upload failed:', error);
       setAvatarPreview(null);
     }
+    
+    // Сбрасываем value инпута, чтобы можно было загрузить тот же файл повторно
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = '';
+    }
   };
 
   const handleBannerSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -183,16 +188,11 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
       console.error('Banner upload failed:', error);
       setBannerPreview(null);
     }
-  };
-
-  const handleRemoveAvatar = () => {
-    setAvatarImageId(null);
-    setAvatarPreview(null);
-  };
-
-  const handleRemoveBanner = () => {
-    setBannerImageId(null);
-    setBannerPreview(null);
+    
+    // Сбрасываем value инпута, чтобы можно было загрузить тот же файл повторно
+    if (bannerInputRef.current) {
+      bannerInputRef.current.value = '';
+    }
   };
 
   const handleReset = () => {
@@ -226,31 +226,35 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
           </Text>
           
           <Box marginTop={3}>
-            <TapArea
-              onTap={() => bannerInputRef.current?.click()}
+            {/* Banner Preview */}
+            <Box
+              position="relative"
+              width="100%"
+              height={200}
               rounding={4}
-              disabled={isUploadingBanner}
+              overflow="hidden"
+              dangerouslySetInlineStyle={{
+                __style: {
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: (bannerPreview || bannerImageId) 
+                    ? 'none' 
+                    : '2px dashed var(--border-default)',
+                },
+              }}
             >
-              <Box
-                position="relative"
-                width="100%"
-                height={200}
-                rounding={4}
-                overflow="hidden"
-                dangerouslySetInlineStyle={{
-                  __style: {
-                    backgroundColor: 'var(--bg-secondary)',
-                    border: '2px dashed var(--border-default)',
-                    cursor: 'pointer',
-                  },
-                }}
-              >
-                {(bannerPreview ?? bannerImageId) ? (
-                  <BannerImage
-                    imageId={bannerImageId}
-                    previewUrl={bannerPreview}
-                  />
-                ) : (
+              {(bannerPreview || bannerImageId) ? (
+                <BannerImage
+                  imageId={bannerImageId}
+                  previewUrl={bannerPreview}
+                />
+              ) : (
+                <TapArea
+                  onTap={() => bannerInputRef.current?.click()}
+                  rounding={4}
+                  disabled={isUploadingBanner}
+                  fullWidth
+                  fullHeight
+                >
                   <Box
                     width="100%"
                     height="100%"
@@ -275,17 +279,41 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
                       </>
                     )}
                   </Box>
-                )}
-              </Box>
-            </TapArea>
-            
-            {bannerImageId && (
-              <Box marginTop={2}>
-                <TapArea onTap={handleRemoveBanner}>
-                  <Text color="error" size="200">
-                    Remove banner
-                  </Text>
                 </TapArea>
+              )}
+              
+              {/* Loading overlay for existing banner */}
+              {isUploadingBanner && (bannerPreview || bannerImageId) && (
+                <Box
+                  position="absolute"
+                  top
+                  left
+                  right
+                  bottom
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  dangerouslySetInlineStyle={{
+                    __style: {
+                      backgroundColor: 'rgba(255,255,255,0.8)',
+                    },
+                  }}
+                >
+                  <Spinner accessibilityLabel="Uploading" show />
+                </Box>
+              )}
+            </Box>
+            
+            {/* Banner Change Button */}
+            {(bannerPreview || bannerImageId) && (
+              <Box marginTop={2}>
+                <Button
+                  text="Change"
+                  onClick={() => bannerInputRef.current?.click()}
+                  size="sm"
+                  color="gray"
+                  disabled={isUploadingBanner}
+                />
               </Box>
             )}
           </Box>
@@ -316,8 +344,6 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
                   src={avatarPreview}
                   name={user.username}
                   size="xxl"
-                  showEditOverlay
-                  onEditClick={() => avatarInputRef.current?.click()}
                 />
                 {isUploadingAvatar && (
                   <Box
@@ -341,22 +367,13 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
                 )}
               </Box>
               
-              <Flex direction="column" gap={2}>
-                <Button
-                  text="Change"
-                  onClick={() => avatarInputRef.current?.click()}
-                  size="sm"
-                  color="gray"
-                  disabled={isUploadingAvatar}
-                />
-                {avatarImageId && (
-                  <TapArea onTap={handleRemoveAvatar}>
-                    <Text color="error" size="200">
-                      Remove
-                    </Text>
-                  </TapArea>
-                )}
-              </Flex>
+              <Button
+                text="Change"
+                onClick={() => avatarInputRef.current?.click()}
+                size="sm"
+                color="gray"
+                disabled={isUploadingAvatar}
+              />
             </Flex>
           </Box>
           

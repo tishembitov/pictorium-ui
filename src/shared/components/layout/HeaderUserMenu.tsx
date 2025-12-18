@@ -1,3 +1,5 @@
+// src/shared/components/layout/HeaderUserMenu.tsx
+
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -7,17 +9,17 @@ import {
   Text, 
   Button,
   Divider,
-  Avatar,
   TapArea,
   Flex,
 } from 'gestalt';
 import { useAuth, useCurrentUser } from '@/modules/auth';
+import { UserAvatar } from '@/modules/user';
 import { ROUTES, buildPath } from '@/app/router/routeConfig';
 
 export const HeaderUserMenu: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, login, logout } = useAuth();
-  const { user, username } = useCurrentUser();
+  const { user, username, imageId } = useCurrentUser();
   const [isOpen, setIsOpen] = useState(false);
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
 
@@ -64,7 +66,7 @@ export const HeaderUserMenu: React.FC = () => {
   }
 
   return (
-    <Flex alignItems="center" gap={2}>
+    <Flex alignItems="center" gap={3}>
       {/* Create Pin Button */}
       <IconButton
         accessibilityLabel="Create pin"
@@ -94,10 +96,11 @@ export const HeaderUserMenu: React.FC = () => {
       
       {/* User Avatar & Menu */}
       <Box ref={setAnchorRef}>
-        <TapArea onTap={handleToggle} rounding="circle">
-          <Avatar
+        <TapArea onTap={handleToggle} rounding="circle" tapStyle="compress">
+          <UserAvatar
+            imageId={imageId}
             name={username || 'User'}
-            size="sm"
+            size="md"
           />
         </TapArea>
       </Box>
@@ -112,14 +115,23 @@ export const HeaderUserMenu: React.FC = () => {
           color="white"
         >
           <Box padding={4} width={280}>
-            {/* User Info */}
+            {/* User Info with Avatar */}
             <Box marginBottom={3}>
-              <Text weight="bold" size="300">
-                {user?.email}
-              </Text>
-              <Text color="subtle" size="200">
-                @{username}
-              </Text>
+              <Flex alignItems="center" gap={3}>
+                <UserAvatar
+                  imageId={imageId}
+                  name={username || 'User'}
+                  size="lg"
+                />
+                <Flex direction="column" flex="grow">
+                  <Text weight="bold" size="300">
+                    {username}
+                  </Text>
+                  <Text color="subtle" size="200">
+                    {user?.email}
+                  </Text>
+                </Flex>
+              </Flex>
             </Box>
             
             <Divider />

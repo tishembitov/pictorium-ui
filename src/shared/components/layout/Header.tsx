@@ -1,4 +1,5 @@
 // src/shared/components/layout/Header.tsx
+
 import React from 'react';
 import { Box, Flex, FixedZIndex, IconButton } from 'gestalt';
 import { HeaderLogo } from './HeaderLogo';
@@ -7,7 +8,7 @@ import { HeaderNav } from './HeaderNav';
 import { HeaderUserMenu } from './HeaderUserMenu';
 import { useUIStore } from '../../stores/uiStore';
 import { useIsMobile } from '../../hooks/useMediaQuery';
-import { Z_INDEX } from '../../utils/constants';
+import { Z_INDEX, LAYOUT } from '../../utils/constants';
 
 export const Header: React.FC = () => {
   const isMobile = useIsMobile();
@@ -27,13 +28,13 @@ export const Header: React.FC = () => {
       right
       color="default"
       paddingX={4}
-      paddingY={3}
+      paddingY={2}
       display="flex"
       alignItems="center"
       zIndex={new FixedZIndex(Z_INDEX.STICKY)}
       dangerouslySetInlineStyle={{
         __style: {
-          height: 'var(--header-height)',
+          height: `${LAYOUT.HEADER_HEIGHT}px`,
           borderBottom: '1px solid var(--border-light)',
         },
       }}

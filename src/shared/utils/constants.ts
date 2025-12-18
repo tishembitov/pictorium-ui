@@ -67,15 +67,13 @@ export const BREAKPOINTS = {
   LG: 1312,
 } as const;
 
-// Layout dimensions - МИНИМАЛЬНЫЕ
 export const LAYOUT = {
-  HEADER_HEIGHT: 64,           // Уменьшено с 80
-  SIDEBAR_WIDTH: 180,          // Уменьшено с 240
-  SIDEBAR_COLLAPSED_WIDTH: 56, // Уменьшено с 72
-  MAX_CONTENT_WIDTH: 1600,     // Увеличено с 1440
-  CONTENT_PADDING: 8,          // Минимальные отступы
+  HEADER_HEIGHT: 80,           // Увеличено с 64 для большего аватара
+  SIDEBAR_WIDTH: 180,
+  SIDEBAR_COLLAPSED_WIDTH: 56,
+  MAX_CONTENT_WIDTH: 1600,
+  CONTENT_PADDING: 8,
 } as const;
-
 // Masonry grid settings
 export const MASONRY = {
   COLUMN_WIDTH: 236,

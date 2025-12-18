@@ -1,5 +1,3 @@
-// src/modules/pin/components/PinCardSkeleton.tsx
-
 import React, { useMemo } from 'react';
 import { Box } from 'gestalt';
 

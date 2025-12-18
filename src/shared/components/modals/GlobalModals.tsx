@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { useUIStore } from '../../stores/uiStore';
 import { ConfirmModal } from './ConfirmModal';
 
-// ✅ ИСПРАВЛЕНИЕ: Типизация данных модалки
 interface ConfirmModalData {
   title: string;
   message: string;

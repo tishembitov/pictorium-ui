@@ -1,6 +1,4 @@
-// ================================================
-// FILE: src/modules/pin/components/PinCreateForm.tsx
-// ================================================
+// src/modules/pin/components/PinCreateForm.tsx
 
 import React, { useState, useCallback } from 'react';
 import { Box, Flex, Button, Divider, Text } from 'gestalt';
@@ -23,7 +21,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
-  // === Храним полный результат загрузки с размерами ===
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
 
   const { createPin, isLoading } = useCreatePin({
@@ -51,8 +48,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
 
   const handleImageUpload = useCallback(
     (result: UploadResult) => {
-      console.log('Upload complete with dimensions:', result);
-      
       setUploadResult(result);
       setValue('imageId', result.imageId);
       
@@ -74,7 +69,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
       return;
     }
 
-    // === Передаем ВСЕ размеры при создании пина ===
     const submitData = {
       imageId: uploadResult.imageId,
       thumbnailId: uploadResult.thumbnailId,
@@ -88,7 +82,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
       tags: data.tags?.length ? data.tags : undefined,
     };
 
-    console.log('Creating pin with dimensions:', submitData);
     createPin(submitData);
   };
 
@@ -104,23 +97,15 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
           </Text>
           <Box marginTop={2}>
             {hasImage ? (
-              <Box>
-                <ImagePreview
-                  imageId={uploadResult.imageId}
-                  alt="Pin image"
-                  height={300}
-                  rounding={4}
-                  showRemoveButton
-                  onRemove={handleRemoveImage}
-                />
-                {/* Показываем размеры для отладки */}
-                <Box marginTop={2}>
-                  <Text size="100" color="subtle">
-                    Original: {uploadResult.originalWidth}×{uploadResult.originalHeight} | 
-                    Thumbnail: {uploadResult.thumbnailWidth}×{uploadResult.thumbnailHeight}
-                  </Text>
-                </Box>
-              </Box>
+              <ImagePreview
+                imageId={uploadResult.imageId}
+                src={uploadResult.imageUrl}
+                alt="Pin image"
+                height={300}
+                rounding={4}
+                showRemoveButton
+                onRemove={handleRemoveImage}
+              />
             ) : (
               <ImageUploader
                 onUploadComplete={handleImageUpload}

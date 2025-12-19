@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Flex, Text, Heading, Button, IconButton, TapArea } from 'gestalt';
+import { Box, Flex, Text, Heading, Button, TapArea } from 'gestalt';
 import { buildPath, ROUTES } from '@/app/router/routeConfig';
 import { UserAvatar } from './UserAvatar';
 import { FollowButton } from './FollowButton';
+import { ProfileShareButton } from './ProfileShareButton';
 import { useAuth } from '@/modules/auth';
 import { useImageUrl } from '@/modules/storage';
 import { useFollowers } from '../hooks/useFollowers';
@@ -269,12 +270,7 @@ export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
                   size="lg"
                   color="gray"
                 />
-                <IconButton
-                  accessibilityLabel="Share profile"
-                  icon="share"
-                  size="lg"
-                  bgColor="lightGray"
-                />
+                <ProfileShareButton user={user} size="lg" />
               </>
             ) : (
               <>
@@ -284,6 +280,7 @@ export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
                   size="lg"
                   color="gray"
                 />
+                <ProfileShareButton user={user} size="lg" />
               </>
             )}
           </Flex>

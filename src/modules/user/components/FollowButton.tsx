@@ -29,7 +29,7 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
 
   const isLoading = isCheckLoading || isFollowLoading || isUnfollowLoading;
 
-  const handleClick = useCallback(() => {
+  const handleAction = useCallback(() => {
     if (!isAuthenticated) {
       login();
       return;
@@ -41,6 +41,26 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
       follow(userId);
     }
   }, [isAuthenticated, isFollowing, userId, login, follow, unfollow]);
+
+  // Gestalt Button передаёт объект с event
+  const handleButtonClick = useCallback(
+    ({ event }: { event: React.SyntheticEvent<HTMLButtonElement> }) => {
+      event.stopPropagation();
+      event.preventDefault();
+      handleAction();
+    },
+    [handleAction]
+  );
+
+  // Gestalt TapArea передаёт объект с event
+  const handleTapAreaClick = useCallback(
+    ({ event }: { event: React.MouseEvent<HTMLDivElement> | React.KeyboardEvent<HTMLDivElement> }) => {
+      event.stopPropagation();
+      event.preventDefault();
+      handleAction();
+    },
+    [handleAction]
+  );
 
   const getButtonText = (): string => {
     if (isLoading) return '';
@@ -67,7 +87,7 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
         width={fullWidth ? '100%' : undefined}
       >
         <TapArea
-          onTap={handleClick}
+          onTap={handleTapAreaClick}
           rounding="pill"
           disabled={isLoading}
           tapStyle="compress"
@@ -117,7 +137,7 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
     >
       <Button
         text={getButtonText()}
-        onClick={handleClick}
+        onClick={handleButtonClick}
         size={size}
         color={isFollowing ? 'gray' : 'red'}
         disabled={isLoading}

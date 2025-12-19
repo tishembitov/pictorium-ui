@@ -1,7 +1,7 @@
 // src/modules/user/components/UserProfileForm.tsx
 
 import React, { useState, useRef } from 'react';
-import { Box, Flex, Button, Text, IconButton, TapArea, Spinner } from 'gestalt';
+import { Box, Flex, Button, Text, TapArea, Spinner, Icon } from 'gestalt';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FormField, FormTextArea } from '@/shared/components';
@@ -212,6 +212,8 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
     bannerImageId !== user.bannerImageId;
 
   const isLoading = isSaving || isUploadingAvatar || isUploadingBanner;
+  
+  const hasBanner = !!(bannerPreview || bannerImageId);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -236,13 +238,13 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
               dangerouslySetInlineStyle={{
                 __style: {
                   backgroundColor: 'var(--bg-secondary)',
-                  border: (bannerPreview || bannerImageId) 
+                  border: hasBanner 
                     ? 'none' 
                     : '2px dashed var(--border-default)',
                 },
               }}
             >
-              {(bannerPreview || bannerImageId) ? (
+              {hasBanner ? (
                 <BannerImage
                   imageId={bannerImageId}
                   previewUrl={bannerPreview}
@@ -267,15 +269,22 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
                       <Spinner accessibilityLabel="Uploading" show />
                     ) : (
                       <>
-                        <IconButton
-                          accessibilityLabel="Upload banner"
-                          icon="add"
-                          size="lg"
-                          bgColor="transparent"
-                        />
-                        <Text color="subtle" size="200">
-                          Click to upload banner
+                        <Box marginBottom={2}>
+                          <Icon
+                            accessibilityLabel="No banner"
+                            icon="camera"
+                            size={40}
+                            color="subtle"
+                          />
+                        </Box>
+                        <Text weight="bold" color="subtle" size="300">
+                          No banner
                         </Text>
+                        <Box marginTop={1}>
+                          <Text color="subtle" size="200">
+                            Click to upload a banner image
+                          </Text>
+                        </Box>
                       </>
                     )}
                   </Box>
@@ -283,7 +292,7 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
               )}
               
               {/* Loading overlay for existing banner */}
-              {isUploadingBanner && (bannerPreview || bannerImageId) && (
+              {isUploadingBanner && hasBanner && (
                 <Box
                   position="absolute"
                   top
@@ -305,7 +314,7 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
             </Box>
             
             {/* Banner Change Button */}
-            {(bannerPreview || bannerImageId) && (
+            {hasBanner && (
               <Box marginTop={2}>
                 <Button
                   text="Change"

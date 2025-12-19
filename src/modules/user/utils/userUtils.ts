@@ -100,3 +100,10 @@ export const getProfileCompletionPercentage = (user: UserResponse): number => {
   const completedFields = fields.filter(Boolean).length;
   return Math.round((completedFields / fields.length) * 100);
 };
+
+/**
+ * Build share URL for profile
+ */
+export const buildProfileShareUrl = (username: string): string => {
+  return `${globalThis.location.origin}/profile/${username}`;
+};

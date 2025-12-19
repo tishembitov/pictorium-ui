@@ -35,6 +35,7 @@ export { UserAvatar } from './components/UserAvatar';
 export { UserCard } from './components/UserCard';
 export { UserProfileHeader } from './components/UserProfileHeader';
 export { UserProfileForm } from './components/UserProfileForm';
+export { ProfileShareButton } from './components/ProfileShareButton';
 export { userProfileSchema, type UserProfileFormData } from './components/userProfileSchema';
 export { FollowButton } from './components/FollowButton';
 export { FollowersList } from './components/FollowersList';
@@ -51,4 +52,5 @@ export {
   getSocialUrls,
   isProfileComplete,
   getProfileCompletionPercentage,
+  buildProfileShareUrl,
 } from './utils/userUtils';

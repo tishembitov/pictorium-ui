@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth, useIsOwner } from '@/modules/auth';
 import { useDeletePin } from '../hooks/useDeletePin';
 import { useConfirmModal } from '@/shared/hooks/useConfirmModal';
+import { useToast } from '@/shared/hooks/useToast';
+import { useDownloadImage } from '@/modules/storage';
 import { buildPath } from '@/app/router/routeConfig';
 import type { PinResponse } from '../types/pin.types';
 
@@ -15,7 +17,6 @@ interface PinMenuButtonProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-// Helper to get icon button size
 const getIconButtonSize = (size: 'sm' | 'md' | 'lg'): 'xs' | 'md' | 'lg' => {
   if (size === 'sm') return 'xs';
   if (size === 'lg') return 'lg';
@@ -28,13 +29,14 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
   size = 'md',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  // Use state instead of ref for anchor element
   const [anchorElement, setAnchorElement] = useState<HTMLButtonElement | null>(null);
   
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const isOwner = useIsOwner(pin.userId);
   const { confirm } = useConfirmModal();
+  const { toast } = useToast();
+  const { download, isDownloading } = useDownloadImage();
 
   const { deletePin } = useDeletePin({
     onSuccess: () => {
@@ -62,16 +64,24 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
   }, [confirm, deletePin, pin.id]);
 
   const handleReport = useCallback(() => {
-    // Report functionality - could open a modal or navigate to report page
     console.log('Report pin:', pin.id);
     setIsOpen(false);
   }, [pin.id]);
 
-  const handleDownload = useCallback(() => {
-    // Open image in new tab for download
-    globalThis.open(`/api/v1/images/${pin.imageId}`, '_blank');
+  const handleDownload = useCallback(async () => {
     setIsOpen(false);
-  }, [pin.imageId]);
+    
+    try {
+      await download(pin.imageId, {
+        fileName: pin.title || undefined,
+        onSuccess: () => {
+          toast.success('Image downloaded!');
+        },
+      });
+    } catch {
+      toast.error('Failed to download image');
+    }
+  }, [download, pin.imageId, pin.title, toast]);
 
   const handleToggle = useCallback(() => {
     setIsOpen((prev) => !prev);
@@ -81,7 +91,6 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
     setIsOpen(false);
   }, []);
 
-  // Callback ref to capture the anchor element
   const setAnchorRef = useCallback((node: HTMLButtonElement | null) => {
     setAnchorElement(node);
   }, []);
@@ -110,7 +119,10 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
         >
           <Dropdown.Item
             onSelect={handleDownload}
-            option={{ value: 'download', label: 'Download image' }}
+            option={{ 
+              value: 'download', 
+              label: isDownloading ? 'Downloading...' : 'Download image' 
+            }}
           />
           
           {isOwner && (

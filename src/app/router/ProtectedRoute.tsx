@@ -31,7 +31,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const hasRedirectedRef = useRef(false);
   const redirectPathRef = useRef<string | null>(null);
 
-  // ✅ ИСПРАВЛЕНИЕ: Сброс refs при изменении пути
   useEffect(() => {
     hasRedirectedRef.current = false;
     redirectPathRef.current = null;

@@ -3,68 +3,87 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { savedPinApi } from '../api/savedPinApi';
-import { useToast } from '@/shared/hooks/useToast';
-import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
 import { useAuthStore } from '@/modules/auth';
-import type { PinResponse } from '../types/pin.types';
+import type { PinResponse, PagePinResponse } from '../types/pin.types';
+import type { InfiniteData } from '@tanstack/react-query';
 
 interface UseUnsavePinOptions {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
-  showToast?: boolean;
 }
 
-/**
- * Hook to unsave a pin with optimistic update
- */
+const createPinUpdater = (pinId: string, updates: Partial<PinResponse>) => {
+  return (pin: PinResponse): PinResponse => {
+    if (pin.id !== pinId) return pin;
+    return { ...pin, ...updates };
+  };
+};
+
 export const useUnsavePin = (options: UseUnsavePinOptions = {}) => {
-  const { onSuccess, onError, showToast = true } = options;
+  const { onSuccess, onError } = options;
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const userId = useAuthStore((state) => state.user?.id);
 
   const mutation = useMutation({
     mutationFn: (pinId: string) => savedPinApi.unsave(pinId),
     onMutate: async (pinId) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.byId(pinId) });
+      await queryClient.cancelQueries({ queryKey: queryKeys.pins.all });
 
       const previousPin = queryClient.getQueryData<PinResponse>(
         queryKeys.pins.byId(pinId)
       );
 
+      const currentSaveCount = previousPin?.saveCount ?? 1;
+      const updates = {
+        isSaved: false,
+        saveCount: Math.max(0, currentSaveCount - 1),
+      };
+
+      const updatePin = createPinUpdater(pinId, updates);
+
       if (previousPin) {
-        queryClient.setQueryData<PinResponse>(queryKeys.pins.byId(pinId), {
-          ...previousPin,
-          isSaved: false,
-          saveCount: Math.max(0, previousPin.saveCount - 1),
+        queryClient.setQueryData<PinResponse>(
+          queryKeys.pins.byId(pinId),
+          updatePin(previousPin)
+        );
+      }
+
+      queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
+        { queryKey: queryKeys.pins.all },
+        (oldData) => {
+          if (!oldData?.pages) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              content: page.content.map(updatePin),
+            })),
+          };
+        }
+      );
+
+      return { previousPin, pinId };
+    },
+    onSuccess: () => {
+      if (userId) {
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.pins.saved(userId),
+          exact: true,
         });
       }
 
-      return { previousPin };
-    },
-    onSuccess: (_data, pinId) => {
-      // Invalidate saved pins list for current user
-      if (userId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.pins.saved(userId) });
-      }
-      // Also invalidate the specific pin to refresh its state
-      queryClient.invalidateQueries({ queryKey: queryKeys.pins.byId(pinId) });
-      
-      if (showToast) {
-        toast.success(SUCCESS_MESSAGES.PIN_UNSAVED);
-      }
-      
       onSuccess?.();
     },
     onError: (error: Error, pinId, context) => {
       if (context?.previousPin) {
-        queryClient.setQueryData(queryKeys.pins.byId(pinId), context.previousPin);
+        queryClient.setQueryData(
+          queryKeys.pins.byId(pinId), 
+          context.previousPin
+        );
       }
-      
-      if (showToast) {
-        toast.error(error.message || 'Failed to unsave pin');
-      }
-      
+      queryClient.invalidateQueries({ queryKey: queryKeys.pins.all });
+
       onError?.(error);
     },
   });

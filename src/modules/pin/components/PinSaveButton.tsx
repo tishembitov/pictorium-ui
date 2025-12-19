@@ -2,12 +2,9 @@
 
 import React, { useCallback, useMemo } from 'react';
 import { Button, IconButton } from 'gestalt';
-import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/app/config/queryClient';
 import { useAuth } from '@/modules/auth';
 import { useSavePin } from '../hooks/useSavePin';
 import { useUnsavePin } from '../hooks/useUnsavePin';
-import type { PinResponse } from '../types/pin.types';
 
 interface PinSaveButtonProps {
   pinId: string;
@@ -17,7 +14,6 @@ interface PinSaveButtonProps {
   variant?: 'button' | 'icon';
 }
 
-// Helper to get icon button size
 const getIconButtonSize = (size: 'sm' | 'md' | 'lg'): 'xs' | 'md' | 'lg' => {
   if (size === 'sm') return 'xs';
   if (size === 'lg') return 'lg';
@@ -26,17 +22,12 @@ const getIconButtonSize = (size: 'sm' | 'md' | 'lg'): 'xs' | 'md' | 'lg' => {
 
 export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
   pinId,
-  isSaved: propIsSaved,
+  isSaved,
   size = 'md',
   fullWidth = false,
   variant = 'button',
 }) => {
   const { isAuthenticated, login } = useAuth();
-  const queryClient = useQueryClient();
-
-  // ✅ ИСПРАВЛЕНИЕ: Получаем актуальное состояние из cache
-  const cachedPin = queryClient.getQueryData<PinResponse>(queryKeys.pins.byId(pinId));
-  const isSaved = cachedPin?.isSaved ?? propIsSaved;
 
   const { savePin, isLoading: isSaving } = useSavePin();
   const { unsavePin, isLoading: isUnsaving } = useUnsavePin();
@@ -71,12 +62,13 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
     );
   }
 
+  // ✅ Красная только когда saved, серая когда не saved
   return (
     <Button
       text={isSaved ? 'Saved' : 'Save'}
       onClick={handleClick}
       size={size}
-      color="red"
+      color={isSaved ? 'red' : 'gray'}
       disabled={isLoading}
       fullWidth={fullWidth}
     />

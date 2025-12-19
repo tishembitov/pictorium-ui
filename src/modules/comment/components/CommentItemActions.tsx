@@ -13,6 +13,7 @@ interface CommentItemActionsProps {
   likeCount: number;
   replyCount: number;
   isOwner: boolean;
+  canReply?: boolean;
   onReply?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -24,6 +25,7 @@ export const CommentItemActions: React.FC<CommentItemActionsProps> = ({
   likeCount,
   replyCount,
   isOwner,
+  canReply = false,
   onReply,
   onEdit,
   onDelete,
@@ -38,7 +40,6 @@ export const CommentItemActions: React.FC<CommentItemActionsProps> = ({
       setOptimisticCount((prev) => prev + 1);
     },
     onError: () => {
-      // Revert on error
       setOptimisticLiked(isLiked);
       setOptimisticCount(likeCount);
     },
@@ -50,7 +51,6 @@ export const CommentItemActions: React.FC<CommentItemActionsProps> = ({
       setOptimisticCount((prev) => Math.max(0, prev - 1));
     },
     onError: () => {
-      // Revert on error
       setOptimisticLiked(isLiked);
       setOptimisticCount(likeCount);
     },
@@ -100,8 +100,8 @@ export const CommentItemActions: React.FC<CommentItemActionsProps> = ({
         </TapArea>
       </Flex>
 
-      {/* Reply button */}
-      {onReply && (
+      {/* Reply button - показываем только если canReply */}
+      {canReply && onReply && (
         <TapArea onTap={onReply}>
           <Flex alignItems="center" gap={1}>
             <Text size="100" color="subtle" weight="bold">
@@ -114,6 +114,13 @@ export const CommentItemActions: React.FC<CommentItemActionsProps> = ({
             )}
           </Flex>
         </TapArea>
+      )}
+
+      {/* Reply count for replies (без кнопки) */}
+      {!canReply && replyCount > 0 && (
+        <Text size="100" color="subtle">
+          {formatCompactNumber(replyCount)} {replyCount === 1 ? 'reply' : 'replies'}
+        </Text>
       )}
 
       {/* Owner actions */}

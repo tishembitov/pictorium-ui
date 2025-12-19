@@ -1,6 +1,3 @@
-// ================================================
-// FILE: src/pages/PinDetailPage.tsx
-// ================================================
 import React from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import { 

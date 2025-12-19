@@ -42,11 +42,10 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   isReply = false,
   onDeleted,
 }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user: currentUser } = useAuth();
   const isOwner = useIsOwner(comment.userId);
   const { confirm } = useConfirmModal();
 
-  // ✅ ИСПРАВЛЕНИЕ: Получаем данные пользователя для username и avatar
   const { user: commentAuthor } = useUser(comment.userId);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -109,10 +108,11 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     setShowRepliesSection((prev) => !prev);
   }, []);
 
-  // Determine if reply action should be shown
-  const canReply = !isReply;
+  // ✅ Можно отвечать только на комментарии верхнего уровня (не reply)
+  // ✅ И нельзя отвечать на свой собственный комментарий
+  const isOwnComment = currentUser?.id === comment.userId;
+  const canReply = !isReply && !isOwnComment && isAuthenticated;
 
-  // ✅ ИСПРАВЛЕНИЕ: Получаем username и imageId из данных пользователя
   const authorUsername = commentAuthor?.username || 'Unknown';
   const authorImageId = commentAuthor?.imageId || null;
   const profilePath = commentAuthor?.username 
@@ -144,7 +144,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
       }}
     >
       <Flex gap={3} alignItems="start">
-        {/* Avatar - ✅ ИСПРАВЛЕНО: используем данные из useUser */}
+        {/* Avatar */}
         <Link to={profilePath}>
           <UserAvatar
             imageId={authorImageId}
@@ -155,7 +155,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
 
         {/* Content */}
         <Box flex="grow">
-          {/* Header - ✅ ИСПРАВЛЕНО: используем username вместо userId */}
+          {/* Header */}
           <Flex alignItems="center" gap={2}>
             <Link
               to={profilePath}
@@ -201,6 +201,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               likeCount={comment.likeCount}
               replyCount={comment.replyCount}
               isOwner={isOwner}
+              canReply={canReply}
               onReply={canReply ? handleReply : undefined}
               onEdit={isOwner ? handleEdit : undefined}
               onDelete={isOwner ? handleDelete : undefined}
@@ -216,8 +217,8 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             />
           )}
 
-          {/* Show replies toggle */}
-          {showReplies && canReply && comment.replyCount > 0 && (
+          {/* Show replies toggle - только для комментариев верхнего уровня */}
+          {showReplies && !isReply && comment.replyCount > 0 && (
             <Box marginTop={2}>
               <TapArea onTap={toggleReplies}>
                 <Text size="100" color="subtle" weight="bold">
@@ -228,7 +229,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
           )}
 
           {/* Replies section */}
-          {showReplies && canReply && showRepliesSection && (
+          {showReplies && !isReply && showRepliesSection && (
             <Box marginTop={2}>
               <CommentReplies commentId={comment.id} />
             </Box>

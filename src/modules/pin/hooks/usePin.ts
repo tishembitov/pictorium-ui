@@ -22,6 +22,9 @@ export const usePin = (
     queryFn: () => pinApi.getById(pinId!),
     enabled: enabled && !!pinId,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    // ✅ Не рефетчить автоматически - мы обновляем кэш оптимистично
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   return {

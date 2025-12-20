@@ -1,8 +1,7 @@
-// ================================================
-// FILE: src/pages/ProfilePage.tsx
-// ================================================
-import React from 'react';
-import { useParams, useLocation, Navigate, useNavigate } from 'react-router-dom';
+// src/pages/ProfilePage.tsx
+
+import React, { useState, useMemo, useCallback } from 'react';
+import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import { Box, Tabs, Divider, Spinner, Flex, IconButton, Tooltip } from 'gestalt';
 import { 
   UserProfileHeader, 
@@ -11,62 +10,67 @@ import {
 import { useInfinitePins } from '@/modules/pin';
 import { useIsOwner } from '@/modules/auth';
 import { ErrorMessage } from '@/shared/components';
-import { buildPath, ROUTES } from '@/app/router/routeConfig';
+import { ROUTES } from '@/app/router/routeConfig';
 import ProfileCreatedTab from './ProfileCreatedTab';
 import ProfileSavedTab from './ProfileSavedTab';
+import ProfileLikedTab from './ProfileLikedTab';
 import ProfileBoardsTab from './ProfileBoardsTab';
 
-type ProfileTab = 'created' | 'saved' | 'boards';
+type ProfileTab = 'created' | 'saved' | 'liked' | 'boards';
+
+const TABS: { id: ProfileTab; text: string }[] = [
+  { id: 'created', text: 'Created' },
+  { id: 'saved', text: 'Saved' },
+  { id: 'liked', text: 'Liked' },
+  { id: 'boards', text: 'Boards' },
+];
 
 const ProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
-  const location = useLocation();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<ProfileTab>('created');
 
   const { user, isLoading, isError, error, refetch } = useUserByUsername(username);
   const isOwner = useIsOwner(user?.id);
 
-  // Get pins count
+  // Get pins count for header
   const { totalElements: pinsCount } = useInfinitePins(
     { authorId: user?.id },
     { enabled: !!user?.id, pageSize: 1 }
   );
 
-  // Determine active tab from URL
-  const getActiveTab = (): ProfileTab => {
-    if (location.pathname.includes('/saved')) return 'saved';
-    if (location.pathname.includes('/boards')) return 'boards';
-    return 'created';
-  };
-
-  const activeTab = getActiveTab();
-
-  const handleTabChange = ({ activeTabIndex }: { activeTabIndex: number }) => {
-    if (!username) return;
-    
-    const tabs: ProfileTab[] = ['created', 'saved', 'boards'];
-    const tab = tabs[activeTabIndex];
-    
-    switch (tab) {
-      case 'saved':
-        navigate(buildPath.profileSaved(username));
-        break;
-      case 'boards':
-        navigate(buildPath.profileBoards(username));
-        break;
-      default:
-        navigate(buildPath.profileCreated(username));
+  const handleTabChange = useCallback(({ activeTabIndex }: { activeTabIndex: number }) => {
+    const tab = TABS[activeTabIndex];
+    if (tab) {
+      setActiveTab(tab.id);
     }
-  };
+  }, []);
 
-  const getTabIndex = (): number => {
-    const tabs: ProfileTab[] = ['created', 'saved', 'boards'];
-    return tabs.indexOf(activeTab);
-  };
+  const activeTabIndex = useMemo(() => {
+    return TABS.findIndex((tab) => tab.id === activeTab);
+  }, [activeTab]);
 
-  const handleSettings = () => {
+  const handleSettings = useCallback(() => {
     navigate(ROUTES.SETTINGS);
-  };
+  }, [navigate]);
+
+  // Memoized tab content to prevent unnecessary re-renders
+  const tabContent = useMemo(() => {
+    if (!user) return null;
+    
+    switch (activeTab) {
+      case 'created':
+        return <ProfileCreatedTab userId={user.id} isOwner={isOwner} />;
+      case 'saved':
+        return <ProfileSavedTab userId={user.id} isOwner={isOwner} />;
+      case 'liked':
+        return <ProfileLikedTab userId={user.id} isOwner={isOwner} />;
+      case 'boards':
+        return <ProfileBoardsTab userId={user.id} isOwner={isOwner} />;
+      default:
+        return null;
+    }
+  }, [activeTab, user, isOwner]);
 
   if (!username) {
     return <Navigate to={ROUTES.HOME} replace />;
@@ -114,26 +118,31 @@ const ProfilePage: React.FC = () => {
       {/* Profile Header */}
       <UserProfileHeader user={user} pinsCount={pinsCount} />
 
-      {/* Tabs */}
+      {/* Tabs - no href navigation, just local state */}
       <Box marginTop={6}>
         <Tabs
-          activeTabIndex={getTabIndex()}
+          activeTabIndex={activeTabIndex}
           onChange={handleTabChange}
-          tabs={[
-            { href: buildPath.profileCreated(username), text: 'Created' },
-            { href: buildPath.profileSaved(username), text: 'Saved' },
-            { href: buildPath.profileBoards(username), text: 'Boards' },
-          ]}
+          tabs={TABS.map((tab) => ({ 
+            href: `#${tab.id}`, // Dummy href for accessibility
+            text: tab.text,
+          }))}
+          wrap
         />
       </Box>
 
       <Divider />
 
-      {/* Tab Content */}
-      <Box marginTop={4}>
-        {activeTab === 'created' && <ProfileCreatedTab userId={user.id} />}
-        {activeTab === 'saved' && <ProfileSavedTab userId={user.id} isOwner={isOwner} />}
-        {activeTab === 'boards' && <ProfileBoardsTab userId={user.id} isOwner={isOwner} />}
+      {/* Tab Content - key ensures smooth transition */}
+      <Box 
+        marginTop={4}
+        dangerouslySetInlineStyle={{
+          __style: {
+            minHeight: '400px', // Prevent layout shift
+          },
+        }}
+      >
+        {tabContent}
       </Box>
     </Box>
   );

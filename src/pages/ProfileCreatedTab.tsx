@@ -1,6 +1,5 @@
-// ================================================
-// FILE: src/pages/ProfileCreatedTab.tsx
-// ================================================
+// src/pages/ProfileCreatedTab.tsx
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Flex, Button, Text } from 'gestalt';
@@ -10,11 +9,16 @@ import { ROUTES } from '@/app/router/routeConfig';
 
 interface ProfileCreatedTabProps {
   userId: string;
+  isOwner?: boolean;
 }
 
-const ProfileCreatedTab: React.FC<ProfileCreatedTabProps> = ({ userId }) => {
+const ProfileCreatedTab: React.FC<ProfileCreatedTabProps> = ({ 
+  userId, 
+  isOwner = false,
+}) => {
   const navigate = useNavigate();
-  const isOwner = useIsOwner(userId);
+  const isCurrentUserOwner = useIsOwner(userId);
+  const effectiveIsOwner = isOwner || isCurrentUserOwner;
   
   const filter = usePinFiltersStore((state) => state.filter);
   const hasActiveFilters = usePinFiltersStore((state) => state.hasActiveFilters);
@@ -34,14 +38,14 @@ const ProfileCreatedTab: React.FC<ProfileCreatedTabProps> = ({ userId }) => {
 
   return (
     <Box>
-      {/* Header - Flex обёрнут в Box для marginBottom */}
+      {/* Header */}
       <Box marginBottom={4}>
         <Flex justifyContent="between" alignItems="center">
           <Text size="300" weight="bold">
             {totalElements} {totalElements === 1 ? 'Pin' : 'Pins'}
           </Text>
           
-          {isOwner && (
+          {effectiveIsOwner && (
             <Button
               text="Create Pin"
               onClick={handleCreatePin}
@@ -64,9 +68,9 @@ const ProfileCreatedTab: React.FC<ProfileCreatedTabProps> = ({ userId }) => {
         isFetchingNextPage={isFetchingNextPage}
         hasNextPage={hasNextPage}
         fetchNextPage={fetchNextPage}
-        emptyMessage={isOwner ? "You haven't created any pins yet" : "No pins created yet"}
+        emptyMessage={effectiveIsOwner ? "You haven't created any pins yet" : "No pins created yet"}
         emptyAction={
-          isOwner
+          effectiveIsOwner
             ? { text: 'Create your first pin', onClick: handleCreatePin }
             : undefined
         }

@@ -27,7 +27,7 @@ export const usePins = (options: UsePinsOptions = {}) => {
     queryKey: queryKeys.pins.list({ ...filter, ...pageable } as Record<string, unknown>),
     queryFn: () => pinApi.getAll(filter, pageable),
     enabled,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 60 * 2,
   });
 
   return {
@@ -63,11 +63,15 @@ export const useInfinitePins = (
   });
 
   const pins = query.data?.pages.flatMap((page) => page.content) ?? [];
+  
+  // ✅ ИСПРАВЛЕНИЕ: Используем точный подсчёт из первой страницы
+  // который обновляется при оптимистичных удалениях
   const totalElements = query.data?.pages[0]?.totalElements ?? 0;
 
   return {
     pins,
     totalElements,
+    data: query.data, // ✅ Добавляем data для использования в компонентах
     isLoading: query.isLoading,
     isFetchingNextPage: query.isFetchingNextPage,
     hasNextPage: query.hasNextPage,

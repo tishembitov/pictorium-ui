@@ -1,6 +1,5 @@
-// ================================================
-// FILE: src/pages/ProfileSavedTab.tsx
-// ================================================
+// src/pages/ProfileSavedTab.tsx
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Flex, Text } from 'gestalt';
@@ -34,13 +33,16 @@ const ProfileSavedTab: React.FC<ProfileSavedTabProps> = ({ userId, isOwner = fal
     navigate(ROUTES.EXPLORE);
   };
 
+  // ✅ Используем длину pins для точного отображения после оптимистичных удалений
+  const displayCount = pins.length > 0 ? totalElements : 0;
+
   return (
     <Box>
-      {/* Header - Flex обёрнут в Box для marginBottom */}
+      {/* Header */}
       <Box marginBottom={4}>
         <Flex justifyContent="between" alignItems="center" wrap>
           <Text size="300" weight="bold">
-            {totalElements} Saved {totalElements === 1 ? 'Pin' : 'Pins'}
+            {displayCount} Saved {displayCount === 1 ? 'Pin' : 'Pins'}
           </Text>
           
           {isOwner && (

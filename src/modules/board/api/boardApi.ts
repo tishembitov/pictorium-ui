@@ -1,11 +1,11 @@
 // src/modules/board/api/boardApi.ts
 
-import { get, post, del } from '@/shared/api/apiClient';
+import { get, post, del, patch } from '@/shared/api/apiClient';
 import { BOARD_ENDPOINTS } from '@/shared/api/apiEndpoints';
 import { createPaginationParams } from '@/shared/api/apiTypes';
 import type { Pageable } from '@/shared/types/pageable.types';
 import type { PagePinResponse } from '@/modules/pin';
-import type { BoardResponse, BoardCreateRequest } from '../types/board.types';
+import type { BoardResponse, BoardCreateRequest, BoardUpdateRequest } from '../types/board.types';
 
 /**
  * Board API client
@@ -23,6 +23,10 @@ export const boardApi = {
    */
   getById: (boardId: string) => {
     return get<BoardResponse>(BOARD_ENDPOINTS.byId(boardId));
+  },
+
+  update: (boardId: string, data: BoardUpdateRequest) => {
+    return patch<BoardResponse, BoardUpdateRequest>(BOARD_ENDPOINTS.byId(boardId), data);
   },
 
   /**

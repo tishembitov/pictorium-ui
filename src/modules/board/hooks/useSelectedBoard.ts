@@ -42,6 +42,8 @@ export const useSelectedBoard = (options: UseSelectedBoardOptions = {}) => {
       }
       return failureCount < 3;
     },
+    // ✅ Не показывать ошибку для 404
+    throwOnError: false,
   });
 
   // Sync with store
@@ -55,11 +57,14 @@ export const useSelectedBoard = (options: UseSelectedBoardOptions = {}) => {
     }
   }, [query.isSuccess, query.data, setSelectedBoard, clearSelectedBoard]);
 
+  // ✅ Не считаем 404 за ошибку
+  const is404Error = isApiError(query.error) && query.error.response?.status === 404;
+
   return {
     selectedBoard: query.data ?? storedBoard,
     isLoading: query.isLoading,
-    isError: query.isError && !(isApiError(query.error) && query.error.response?.status === 404),
-    error: query.error,
+    isError: query.isError && !is404Error,
+    error: is404Error ? null : query.error,
     refetch: query.refetch,
     hasSelectedBoard: !!(query.data ?? storedBoard),
   };

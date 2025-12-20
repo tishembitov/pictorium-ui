@@ -1,6 +1,8 @@
+// src/pages/HomePage.tsx
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Heading, Flex, Divider, IconButton, Tooltip, Text} from 'gestalt';
+import { Box, Heading, Flex, Divider, IconButton, Tooltip, Text, Button, TapArea } from 'gestalt';
 import { 
   PinGrid, 
   PinFilters, 
@@ -8,17 +10,19 @@ import {
   useInfinitePins, 
   usePinFiltersStore,
 } from '@/modules/pin';
-import { BoardPicker, useSelectedBoard } from '@/modules/board';
+import { BoardPicker, useSelectedBoard, useSelectBoard } from '@/modules/board';
 import { CategoryGrid } from '@/modules/tag';
 import { useAuth } from '@/modules/auth';
 import { EmptyState } from '@/shared/components';
 import { useIsMobile } from '@/shared/hooks/useMediaQuery';
+import { useToast } from '@/shared/hooks/useToast';
 import { ROUTES } from '@/app/router/routeConfig';
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   
   const [showFilters, setShowFilters] = useState(false);
   
@@ -27,6 +31,7 @@ const HomePage: React.FC = () => {
   const clearFilter = usePinFiltersStore((state) => state.clearFilter);
   
   const { selectedBoard, hasSelectedBoard } = useSelectedBoard();
+  const { deselectBoard } = useSelectBoard();
 
   const {
     pins,
@@ -59,10 +64,20 @@ const HomePage: React.FC = () => {
     void refetch();
   };
 
+  const handleBoardChange = (board: { title: string } | null) => {
+    if (board) {
+      toast.success(`Saving to "${board.title}"`);
+    }
+  };
+
+  const handleDeselectBoard = () => {
+    deselectBoard();
+    toast.success('Board deselected');
+  };
+
   return (
-    // === Минимальные отступы ===
     <Box paddingY={2}>
-      {/* Header Section - компактный */}
+      {/* Header Section */}
       <Flex 
         direction={isMobile ? 'column' : 'row'} 
         justifyContent="between" 
@@ -80,8 +95,8 @@ const HomePage: React.FC = () => {
           )}
         </Box>
 
-        {/* Action Buttons - компактные */}
-        <Flex gap={1} alignItems="center">
+        {/* Action Buttons */}
+        <Flex gap={2} alignItems="center">
           {/* Search Bar */}
           <Box width={isMobile ? '100%' : 240}>
             <PinSearchBar 
@@ -96,39 +111,56 @@ const HomePage: React.FC = () => {
               accessibilityLabel="Toggle filters"
               icon="filter"
               onClick={toggleFilters}
-              size="sm"
+              size="md"
               bgColor={hasActiveFilters() ? 'red' : 'transparent'}
               iconColor={hasActiveFilters() ? 'white' : 'darkGray'}
             />
           </Tooltip>
 
-          {/* Board Picker */}
+          {/* Board Picker - Pinterest style */}
           {isAuthenticated && (
-            <BoardPicker size="sm" />
+            <BoardPicker 
+              size="md"
+              onBoardChange={handleBoardChange}
+            />
           )}
 
           {/* Create Pin */}
           {isAuthenticated && (
-            <Tooltip text="Create">
-              <IconButton
-                accessibilityLabel="Create pin"
-                icon="add"
-                onClick={handleCreatePin}
-                size="sm"
-                bgColor="red"
-                iconColor="white"
-              />
-            </Tooltip>
+            <Button
+              text="Create"
+              onClick={handleCreatePin}
+              color="red"
+              size="md"
+              iconEnd="add"
+            />
           )}
         </Flex>
       </Flex>
 
-      {/* Selected Board Indicator - компактный */}
+      {/* Selected Board Banner */}
       {hasSelectedBoard && selectedBoard && (
-        <Box marginTop={2} padding={2} color="secondary" rounding={2}>
-          <Text size="100" weight="bold">
-            Saving to: {selectedBoard.title}
-          </Text>
+        <Box 
+          marginTop={3} 
+          padding={3} 
+          color="infoBase" 
+          rounding={3}
+        >
+          <Flex alignItems="center" justifyContent="between">
+            <Flex alignItems="center" gap={2}>
+              <Text color="inverse" weight="bold" size="200">
+                📌 Quick saving to:
+              </Text>
+              <Text color="inverse" size="200">
+                {selectedBoard.title}
+              </Text>
+            </Flex>
+            <TapArea onTap={handleDeselectBoard}>
+              <Text color="inverse" size="100" underline>
+                Change
+              </Text>
+            </TapArea>
+          </Flex>
         </Box>
       )}
 
@@ -168,7 +200,7 @@ const HomePage: React.FC = () => {
         </Box>
       )}
 
-      {/* Pins Grid - минимальные отступы */}
+      {/* Pins Grid */}
       <Box marginTop={2}>
         <PinGrid
           pins={pins}

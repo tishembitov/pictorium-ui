@@ -9,6 +9,11 @@ export interface BoardCreateRequest {
   title: string; // required, maxLength: 200
 }
 
+export interface BoardUpdateRequest {
+  title?: string;
+  description?: string;
+}
+
 /**
  * Board response from API
  */

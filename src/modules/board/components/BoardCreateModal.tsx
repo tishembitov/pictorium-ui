@@ -1,6 +1,6 @@
 // src/modules/board/components/BoardCreateModal.tsx
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Box,
   Button,
@@ -8,6 +8,8 @@ import {
   Heading,
   Layer,
   Modal,
+  Text,
+  Switch,
 } from 'gestalt';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,30 +21,39 @@ interface BoardCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (boardId: string) => void;
+  initialTitle?: string;
 }
 
 export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  initialTitle = '',
 }) => {
+  const [keepOpen, setKeepOpen] = useState(false);
+
   const { createBoard, isLoading } = useCreateBoard({
     onSuccess: (data) => {
       onSuccess?.(data.id);
-      onClose();
+      if (!keepOpen) {
+        onClose();
+      }
+      reset({ title: '' });
     },
   });
 
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isValid },
     reset,
+    getValues,
   } = useForm<BoardCreateFormData>({
     resolver: zodResolver(boardCreateSchema),
     defaultValues: {
-      title: '',
+      title: initialTitle,
     },
+    mode: 'onChange',
   });
 
   const handleClose = useCallback(() => {
@@ -50,12 +61,14 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
     onClose();
   }, [reset, onClose]);
 
-  // Wrapper для совместимости с Gestalt Button onClick
-  const handleCreateClick = useCallback(() => {
+  const handleCreate = useCallback(() => {
     handleSubmit((data: BoardCreateFormData) => {
       createBoard(data);
     })();
   }, [handleSubmit, createBoard]);
+
+  // ✅ Используем getValues вместо watch для избежания предупреждения
+  const titleValue = getValues('title');
 
   if (!isOpen) return null;
 
@@ -64,46 +77,65 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
       <Modal
         accessibilityModalLabel="Create board"
         heading={
-          <Heading size="400" accessibilityLevel={1}>
-            Create board
-          </Heading>
+          <Box paddingX={8} paddingY={4}>
+            <Heading size="400" accessibilityLevel={1} align="center">
+              Create board
+            </Heading>
+          </Box>
         }
         onDismiss={handleClose}
         footer={
-          <Flex justifyContent="end" gap={2}>
-            <Button
-              text="Cancel"
-              onClick={handleClose}
-              color="gray"
-              disabled={isLoading}
-            />
-            <Button
-              text={isLoading ? 'Creating...' : 'Create'}
-              onClick={handleCreateClick}
-              color="red"
-              disabled={isLoading}
-            />
-          </Flex>
+          <Box paddingX={8} paddingY={4}>
+            <Flex justifyContent="end" gap={2}>
+              <Button
+                text="Create"
+                onClick={handleCreate}
+                color="red"
+                disabled={isLoading || !isValid || !titleValue?.trim()}
+                size="lg"
+              />
+            </Flex>
+          </Box>
         }
         size="sm"
       >
-        <Box paddingX={4} paddingY={2}>
+        <Box paddingX={8} paddingY={4}>
           <form onSubmit={handleSubmit((data) => createBoard(data))}>
-            <Controller
-              name="title"
-              control={control}
-              render={({ field }) => (
-                <FormField
-                  id="board-title"
-                  label="Name"
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                  placeholder="Like 'Places to visit' or 'Recipes'"
-                  errorMessage={errors.title?.message}
+            <Flex direction="column" gap={6}>
+              {/* Name Field */}
+              <Controller
+                name="title"
+                control={control}
+                render={({ field }) => (
+                  <FormField
+                    id="create-board-title"
+                    label="Name"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    placeholder='Like "Places to Go" or "Recipes to Make"'
+                    errorMessage={errors.title?.message}
+                  />
+                )}
+              />
+
+              {/* Keep Open Switch */}
+              <Flex alignItems="center" justifyContent="between">
+                <Box>
+                  <Text weight="bold" size="200">
+                    Keep this modal open
+                  </Text>
+                  <Text color="subtle" size="100">
+                    Create multiple boards quickly
+                  </Text>
+                </Box>
+                <Switch
+                  id="keep-modal-open"
+                  switched={keepOpen}
+                  onChange={() => setKeepOpen(!keepOpen)}
                 />
-              )}
-            />
+              </Flex>
+            </Flex>
           </form>
         </Box>
       </Modal>

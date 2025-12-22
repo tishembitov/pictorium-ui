@@ -2,7 +2,14 @@
 
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Flex, Text, SegmentedControl, Spinner } from 'gestalt';
+import { 
+  Box, 
+  Flex, 
+  Text, 
+  Spinner,
+  Heading,
+  Icon,
+} from 'gestalt';
 import { 
   BoardGrid, 
   BoardEditModal,
@@ -17,14 +24,11 @@ interface ProfileBoardsTabProps {
   isOwner?: boolean;
 }
 
-type ViewMode = 'grid' | 'list';
-
 const ProfileBoardsTab: React.FC<ProfileBoardsTabProps> = ({ 
   userId, 
   isOwner = false,
 }) => {
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [editingBoard, setEditingBoard] = useState<BoardResponse | null>(null);
   
   const { boards, isLoading, refetch } = useUserBoards(userId);
@@ -39,22 +43,18 @@ const ProfileBoardsTab: React.FC<ProfileBoardsTabProps> = ({
   }, []);
 
   const handleCreateSuccess = useCallback((boardId: string) => {
-    refetch();
+    void refetch();
     navigate(buildPath.board(boardId));
   }, [refetch, navigate]);
 
   const handleEditClose = useCallback(() => {
     setEditingBoard(null);
-    refetch();
+    void refetch();
   }, [refetch]);
-
-  const handleViewChange = useCallback(({ activeIndex }: { activeIndex: number }) => {
-    setViewMode(activeIndex === 0 ? 'grid' : 'list');
-  }, []);
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" padding={8}>
+      <Box display="flex" justifyContent="center" padding={12}>
         <Spinner accessibilityLabel="Loading boards" show />
       </Box>
     );
@@ -62,57 +62,71 @@ const ProfileBoardsTab: React.FC<ProfileBoardsTabProps> = ({
 
   return (
     <Box>
-      {/* Header - обёрнут в Box для marginBottom */}
-      <Box marginBottom={4}>
-        <Flex justifyContent="between" alignItems="center">
-          <Flex alignItems="center" gap={2}>
-            <Text size="400" weight="bold">
+      {/* Header */}
+      <Box marginBottom={6}>
+        <Flex alignItems="center" gap={3}>
+          <Heading size="400" accessibilityLevel={2}>
+            Boards
+          </Heading>
+          <Box 
+            color="secondary" 
+            rounding="pill" 
+            paddingX={3} 
+            paddingY={1}
+          >
+            <Text size="200" weight="bold">
               {boards.length}
             </Text>
-            <Text size="400" color="subtle">
-              {boards.length === 1 ? 'board' : 'boards'}
-            </Text>
-          </Flex>
-
-          {/* View Toggle */}
-          <SegmentedControl
-            items={['Grid', 'List']}
-            selectedItemIndex={viewMode === 'grid' ? 0 : 1}
-            onChange={handleViewChange}
-          />
+          </Box>
         </Flex>
       </Box>
 
       {/* Selected Board Indicator */}
       {isOwner && selectedBoard && (
         <Box 
-          marginBottom={4} 
-          padding={3} 
-          color="infoBase" 
-          rounding={3}
+          marginBottom={6} 
+          padding={4} 
+          rounding={4}
+          dangerouslySetInlineStyle={{
+            __style: {
+              background: 'linear-gradient(135deg, #0a7c42 0%, #0d9f4f 100%)',
+            },
+          }}
         >
-          <Flex alignItems="center" gap={2}>
-            <Text size="200" color="inverse">
-              📌 Currently saving to:
-            </Text>
-            <Text size="200" weight="bold" color="inverse">
-              {selectedBoard.title}
-            </Text>
+          <Flex alignItems="center" gap={3}>
+            <Box 
+              color="light" 
+              rounding="circle" 
+              padding={2}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Icon accessibilityLabel="" icon="check" size={16} color="success" />
+            </Box>
+            <Flex direction="column">
+              <Text size="100" color="inverse">
+                Currently saving new pins to
+              </Text>
+              <Text weight="bold" color="inverse" size="300">
+                {selectedBoard.title}
+              </Text>
+            </Flex>
           </Flex>
         </Box>
       )}
 
-      {/* Boards Grid */}
+      {/* Boards Grid - только grid, без переключателя */}
       <BoardGrid
         boards={boards}
-        columns={viewMode === 'grid' ? 4 : 2}
-        cardSize={viewMode === 'grid' ? 'md' : 'lg'}
+        columns={4}
+        cardSize="md"
         onBoardClick={handleBoardClick}
         onBoardEdit={isOwner ? handleBoardEdit : undefined}
         showCreateButton={isOwner}
         onCreateSuccess={handleCreateSuccess}
         emptyMessage={isOwner ? "You haven't created any boards yet" : "No boards yet"}
-        emptyDescription={isOwner ? "Organize your pins with boards" : undefined}
+        emptyDescription={isOwner ? "Create boards to organize your saved pins" : undefined}
       />
 
       {/* Edit Modal */}

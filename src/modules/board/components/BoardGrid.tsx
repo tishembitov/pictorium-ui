@@ -1,7 +1,7 @@
 // src/modules/board/components/BoardGrid.tsx
 
-import React, { useState, useCallback, useMemo } from 'react';
-import { Box, Spinner, Text, IconButton, Tooltip } from 'gestalt';
+import React, { useState, useCallback } from 'react';
+import { Box, Spinner, Text, TapArea, Icon, Heading } from 'gestalt';
 import { BoardCard } from './BoardCard';
 import { BoardCreateModal } from './BoardCreateModal';
 import { EmptyState } from '@/shared/components';
@@ -22,7 +22,63 @@ interface BoardGridProps {
   onCreateSuccess?: (boardId: string) => void;
   columns?: 2 | 3 | 4 | 5;
   cardSize?: 'sm' | 'md' | 'lg';
+  title?: string;
 }
+
+// Create board card with modern design
+const CreateBoardCard: React.FC<{
+  height: number;
+  onClick: () => void;
+}> = ({ height, onClick }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <TapArea onTap={onClick} rounding={4}>
+      <Box
+        height={height}
+        rounding={4}
+        display="flex"
+        direction="column"
+        alignItems="center"
+        justifyContent="center"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        dangerouslySetInlineStyle={{
+          __style: {
+            border: '2px dashed var(--border-default)',
+            background: isHovered 
+              ? 'linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%)' 
+              : 'var(--bg-secondary)',
+            transition: 'all 0.2s ease',
+            transform: isHovered ? 'scale(1.02)' : 'scale(1)',
+          },
+        }}
+      >
+        <Box
+          rounding="circle"
+          padding={3}
+          color={isHovered ? 'primary' : 'secondary'}
+          marginBottom={2}
+          dangerouslySetInlineStyle={{
+            __style: {
+              transition: 'all 0.2s ease',
+            },
+          }}
+        >
+          <Icon 
+            accessibilityLabel="" 
+            icon="add" 
+            size={24} 
+            color={isHovered ? 'inverse' : 'default'}
+          />
+        </Box>
+        <Text weight="bold" size="200">
+          Create board
+        </Text>
+      </Box>
+    </TapArea>
+  );
+};
 
 export const BoardGrid: React.FC<BoardGridProps> = ({
   boards,
@@ -36,6 +92,7 @@ export const BoardGrid: React.FC<BoardGridProps> = ({
   onCreateSuccess,
   columns = 4,
   cardSize = 'md',
+  title,
 }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -48,12 +105,7 @@ export const BoardGrid: React.FC<BoardGridProps> = ({
     onCreateSuccess?.(boardId);
   }, [onCreateSuccess]);
 
-  // ✅ Вынесен в отдельную переменную
-  const cardHeight = useMemo(() => {
-    if (cardSize === 'sm') return 120;
-    if (cardSize === 'lg') return 200;
-    return 160;
-  }, [cardSize]);
+  const cardHeight = cardSize === 'sm' ? 120 : cardSize === 'lg' ? 200 : 160;
 
   if (isLoading) {
     return (
@@ -84,6 +136,15 @@ export const BoardGrid: React.FC<BoardGridProps> = ({
 
   return (
     <>
+      {/* Title */}
+      {title && (
+        <Box marginBottom={4}>
+          <Heading size="400" accessibilityLevel={2}>
+            {title}
+          </Heading>
+        </Box>
+      )}
+
       <Box
         dangerouslySetInlineStyle={{
           __style: {
@@ -95,30 +156,13 @@ export const BoardGrid: React.FC<BoardGridProps> = ({
       >
         {/* Create Board Card */}
         {showCreateButton && (
-          <Box
-            height={cardHeight}
-            rounding={4}
-            color="secondary"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            dangerouslySetInlineStyle={{
-              __style: {
-                border: '2px dashed var(--color-gray-300)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              },
-            }}
-          >
-            <Tooltip text="Create new board">
-              <IconButton
-                accessibilityLabel="Create board"
-                icon="add"
-                size="lg"
-                bgColor="transparent"
-                onClick={handleCreateClick}
-              />
-            </Tooltip>
+          <Box>
+            <CreateBoardCard height={cardHeight} onClick={handleCreateClick} />
+            <Box paddingY={2}>
+              <Text weight="bold" size="300">
+                New board
+              </Text>
+            </Box>
           </Box>
         )}
 
@@ -136,7 +180,7 @@ export const BoardGrid: React.FC<BoardGridProps> = ({
 
       {/* Empty state with create option */}
       {boards.length === 0 && showCreateButton && (
-        <Box marginTop={4}>
+        <Box marginTop={6}>
           <Text align="center" color="subtle">
             {emptyMessage}
           </Text>

@@ -10,6 +10,7 @@ import {
   SearchField,
   TapArea,
   Icon,
+  Heading,
 } from 'gestalt';
 import { BoardCreateModal } from './BoardCreateModal';
 import { useMyBoards } from '../hooks/useMyBoards';
@@ -25,34 +26,38 @@ interface BoardSelectorProps {
   onClose?: () => void;
 }
 
-// Mini board preview item
+// Board item with preview - исправленные цвета
 const BoardSelectorItem: React.FC<{
   board: BoardResponse;
   isSelected: boolean;
   onSelect: () => void;
-}> = ({ board, isSelected, onSelect }) => {
+  isSaving: boolean;
+}> = ({ board, isSelected, onSelect, isSaving }) => {
   const { pins, totalElements: pinCount } = useBoardPins(board.id, { pageable: { page: 0, size: 1 } });
   const coverImageId = pins[0]?.thumbnailId || pins[0]?.imageId;
   const { data: coverData } = useImageUrl(coverImageId, { enabled: !!coverImageId });
 
   return (
-    <TapArea onTap={onSelect} rounding={3}>
+    <TapArea onTap={onSelect} rounding={3} disabled={isSaving}>
       <Box
-        padding={2}
+        padding={3}
         rounding={3}
-        color={isSelected ? 'secondary' : 'transparent'}
         dangerouslySetInlineStyle={{
           __style: {
-            transition: 'background-color 0.15s ease',
+            transition: 'all 0.2s ease',
+            // ✅ Исправлено: светлый фон для выделенной доски
+            backgroundColor: isSelected ? 'rgba(230, 0, 35, 0.08)' : 'transparent',
+            border: isSelected ? '2px solid #e60023' : '2px solid transparent',
+            opacity: isSaving ? 0.6 : 1,
           },
         }}
       >
         <Flex alignItems="center" gap={3}>
           {/* Board Cover */}
           <Box
-            width={48}
-            height={48}
-            rounding={2}
+            width={56}
+            height={56}
+            rounding={3}
             overflow="hidden"
             color="secondary"
             display="flex"
@@ -67,24 +72,37 @@ const BoardSelectorItem: React.FC<{
             }}
           >
             {!coverData?.url && (
-              <Icon accessibilityLabel="" icon="board" size={20} color="subtle" />
+              <Icon accessibilityLabel="" icon="board" size={24} color="subtle" />
             )}
           </Box>
 
           {/* Board Info */}
-          <Flex direction="column" flex="grow">
+          <Flex direction="column" flex="grow" gap={1}>
             <Text weight="bold" size="200" lineClamp={1}>
               {board.title}
             </Text>
-            <Text color="subtle" size="100">
-              {pinCount} {pinCount === 1 ? 'pin' : 'pins'}
-            </Text>
+            <Flex alignItems="center" gap={2}>
+              <Text color="subtle" size="100">
+                {pinCount} {pinCount === 1 ? 'pin' : 'pins'}
+              </Text>
+              {isSelected && (
+                <>
+                  <Text color="subtle" size="100">•</Text>
+                  <Text color="success" size="100" weight="bold">
+                    Default
+                  </Text>
+                </>
+              )}
+            </Flex>
           </Flex>
 
-          {/* Selected Indicator */}
-          {isSelected && (
-            <Icon accessibilityLabel="Selected" icon="check" size={20} color="default" />
-          )}
+          {/* Save Button */}
+          <Button
+            text={isSaving ? '...' : 'Save'}
+            size="sm"
+            color="red"
+            disabled={isSaving}
+          />
         </Flex>
       </Box>
     </TapArea>
@@ -98,11 +116,15 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
 }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [savingToBoardId, setSavingToBoardId] = useState<string | null>(null);
 
   const { boards, isLoading, isEmpty } = useMyBoards();
   const { selectedBoard } = useSelectedBoard();
-  const { addPinToBoard, isLoading: isSaving } = useAddPinToBoard({
-    onSuccess: onClose,
+  const { addPinToBoard } = useAddPinToBoard({
+    onSuccess: () => {
+      setSavingToBoardId(null);
+      onClose?.();
+    },
   });
 
   // Filter boards by search
@@ -115,11 +137,13 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
   }, [boards, searchQuery]);
 
   const handleBoardSelect = useCallback((board: BoardResponse) => {
+    setSavingToBoardId(board.id);
     addPinToBoard({ boardId: board.id, pinId });
     onSelect?.(board);
   }, [addPinToBoard, pinId, onSelect]);
 
   const handleCreateSuccess = useCallback((boardId: string) => {
+    setSavingToBoardId(boardId);
     addPinToBoard({ boardId, pinId });
     setShowCreateModal(false);
   }, [addPinToBoard, pinId]);
@@ -135,13 +159,18 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
   return (
     <Box>
       <Flex direction="column" gap={3}>
+        {/* Header */}
+        <Heading size="400" accessibilityLevel={2}>
+          Save to board
+        </Heading>
+
         {/* Search Field */}
-        {boards.length > 5 && (
+        {boards.length > 4 && (
           <SearchField
             id="board-selector-search"
             accessibilityLabel="Search boards"
             accessibilityClearButtonLabel="Clear search"
-            placeholder="Search boards..."
+            placeholder="Search your boards..."
             value={searchQuery}
             onChange={({ value }) => setSearchQuery(value)}
           />
@@ -149,7 +178,7 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
 
         {/* Create Board Button */}
         <Button
-          text="Create board"
+          text="Create new board"
           onClick={() => setShowCreateModal(true)}
           size="lg"
           color="gray"
@@ -159,18 +188,18 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
 
         {/* Boards List */}
         {isEmpty ? (
-          <Box padding={4}>
-            <Text align="center" color="subtle">
-              You don't have any boards yet
-            </Text>
+          <Box padding={6} color="secondary" rounding={4}>
+            <Flex direction="column" alignItems="center" gap={3}>
+              <Icon accessibilityLabel="" icon="board" size={48} color="subtle" />
+              <Text align="center" color="subtle">
+                You don't have any boards yet.
+              </Text>
+            </Flex>
           </Box>
         ) : (
           <Box 
             maxHeight={300} 
             overflow="scrollY"
-            dangerouslySetInlineStyle={{
-              __style: { marginRight: '-8px', paddingRight: '8px' },
-            }}
           >
             <Flex direction="column" gap={1}>
               {filteredBoards.map((board) => (
@@ -179,6 +208,7 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
                   board={board}
                   isSelected={selectedBoard?.id === board.id}
                   onSelect={() => handleBoardSelect(board)}
+                  isSaving={savingToBoardId === board.id}
                 />
               ))}
             </Flex>
@@ -191,14 +221,6 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
               </Box>
             )}
           </Box>
-        )}
-
-        {/* Saving indicator */}
-        {isSaving && (
-          <Flex justifyContent="center" alignItems="center" gap={2}>
-            <Spinner accessibilityLabel="Saving" show size="sm" />
-            <Text size="200" color="subtle">Saving...</Text>
-          </Flex>
         )}
       </Flex>
 

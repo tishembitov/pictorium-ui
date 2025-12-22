@@ -4,6 +4,7 @@
 export type {
   BoardResponse,
   BoardCreateRequest,
+  BoardUpdateRequest,
   PageBoardResponse,
   BoardWithState,
   BoardFormValues,
@@ -20,6 +21,7 @@ export { useMyBoards } from './hooks/useMyBoards';
 export { useUserBoards } from './hooks/useUserBoards';
 export { useBoardPins, useInfiniteBoardPins } from './hooks/useBoardPins';
 export { useCreateBoard } from './hooks/useCreateBoard';
+export { useUpdateBoard } from './hooks/useUpdateBoard';
 export { useDeleteBoard } from './hooks/useDeleteBoard';
 export { useAddPinToBoard } from './hooks/useAddPinToBoard';
 export { useRemovePinFromBoard } from './hooks/useRemovePinFromBoard';

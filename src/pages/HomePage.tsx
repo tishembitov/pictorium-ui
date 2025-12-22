@@ -2,7 +2,16 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Heading, Flex, Divider, IconButton, Tooltip, Text, Button, TapArea } from 'gestalt';
+import { 
+  Box, 
+  Heading, 
+  Flex, 
+  IconButton, 
+  Tooltip, 
+  Text, 
+  Button, 
+  Icon,
+} from 'gestalt';
 import { 
   PinGrid, 
   PinFilters, 
@@ -17,6 +26,69 @@ import { EmptyState } from '@/shared/components';
 import { useIsMobile } from '@/shared/hooks/useMediaQuery';
 import { useToast } from '@/shared/hooks/useToast';
 import { ROUTES } from '@/app/router/routeConfig';
+
+// Selected Board Banner Component
+const SelectedBoardBanner: React.FC<{
+  boardTitle: string;
+  onDeselect: () => void;
+  onChangBoard: () => void;
+}> = ({ boardTitle, onDeselect }) => {
+  return (
+    <Box 
+      marginTop={4} 
+      marginBottom={4}
+      rounding={4}
+      overflow="hidden"
+      dangerouslySetInlineStyle={{
+        __style: {
+          background: 'linear-gradient(135deg, #e60023 0%, #bd081c 100%)',
+        },
+      }}
+    >
+      <Box padding={4}>
+        <Flex alignItems="center" justifyContent="between">
+          <Flex alignItems="center" gap={3}>
+            <Box 
+              color="light"
+              rounding="circle" 
+              padding={2}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Icon accessibilityLabel="" icon="board" size={16} color="error" />
+            </Box>
+            <Flex direction="column">
+              <Text size="100" color="inverse">
+                Auto-saving new pins to
+              </Text>
+              <Text weight="bold" color="inverse" size="300">
+                {boardTitle}
+              </Text>
+            </Flex>
+          </Flex>
+          
+          <Flex gap={2}>
+            <Button
+              text="Change"
+              size="sm"
+              color="white"
+              onClick={() => {}}
+            />
+            <IconButton
+              accessibilityLabel="Stop auto-saving"
+              icon="cancel"
+              size="sm"
+              bgColor="transparent"
+              iconColor="white"
+              onClick={onDeselect}
+            />
+          </Flex>
+        </Flex>
+      </Box>
+    </Box>
+  );
+};
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -66,62 +138,65 @@ const HomePage: React.FC = () => {
 
   const handleBoardChange = (board: { title: string } | null) => {
     if (board) {
-      toast.success(`Saving to "${board.title}"`);
+      toast.success(`Pins will be saved to "${board.title}"`);
     }
   };
 
   const handleDeselectBoard = () => {
     deselectBoard();
-    toast.success('Board deselected');
+    toast.success('Auto-save disabled');
   };
 
   return (
-    <Box paddingY={2}>
+    <Box paddingY={4}>
       {/* Header Section */}
       <Flex 
         direction={isMobile ? 'column' : 'row'} 
         justifyContent="between" 
         alignItems={isMobile ? 'start' : 'center'}
-        gap={2}
+        gap={3}
       >
         <Box>
-          <Heading size="300" accessibilityLevel={1}>
-            {isAuthenticated ? 'Home Feed' : 'Discover'}
+          <Heading size="400" accessibilityLevel={1}>
+            {isAuthenticated ? 'Home Feed' : 'Discover Ideas'}
           </Heading>
           {totalElements > 0 && (
-            <Text size="100" color="subtle">
-              {totalElements.toLocaleString()} pins
-            </Text>
+            <Box marginTop={1}>
+              <Text size="200" color="subtle">
+                {totalElements.toLocaleString()} pins to explore
+              </Text>
+            </Box>
           )}
         </Box>
 
         {/* Action Buttons */}
-        <Flex gap={2} alignItems="center">
+        <Flex gap={3} alignItems="center" wrap>
           {/* Search Bar */}
-          <Box width={isMobile ? '100%' : 240}>
+          <Box width={isMobile ? '100%' : 280}>
             <PinSearchBar 
-              placeholder="Search..." 
+              placeholder="Search pins..." 
               navigateOnSearch 
             />
           </Box>
 
           {/* Filter Toggle */}
-          <Tooltip text={showFilters ? 'Hide filters' : 'Filters'}>
+          <Tooltip text={showFilters ? 'Hide filters' : 'Show filters'}>
             <IconButton
               accessibilityLabel="Toggle filters"
               icon="filter"
               onClick={toggleFilters}
               size="md"
-              bgColor={hasActiveFilters() ? 'red' : 'transparent'}
+              bgColor={hasActiveFilters() ? 'red' : 'gray'}
               iconColor={hasActiveFilters() ? 'white' : 'darkGray'}
             />
           </Tooltip>
 
-          {/* Board Picker - Pinterest style */}
+          {/* Board Picker */}
           {isAuthenticated && (
             <BoardPicker 
               size="md"
               onBoardChange={handleBoardChange}
+              showLabel
             />
           )}
 
@@ -131,7 +206,7 @@ const HomePage: React.FC = () => {
               text="Create"
               onClick={handleCreatePin}
               color="red"
-              size="md"
+              size="lg"
               iconEnd="add"
             />
           )}
@@ -140,60 +215,47 @@ const HomePage: React.FC = () => {
 
       {/* Selected Board Banner */}
       {hasSelectedBoard && selectedBoard && (
-        <Box 
-          marginTop={3} 
-          padding={3} 
-          color="infoBase" 
-          rounding={3}
-        >
-          <Flex alignItems="center" justifyContent="between">
-            <Flex alignItems="center" gap={2}>
-              <Text color="inverse" weight="bold" size="200">
-                📌 Quick saving to:
-              </Text>
-              <Text color="inverse" size="200">
-                {selectedBoard.title}
-              </Text>
-            </Flex>
-            <TapArea onTap={handleDeselectBoard}>
-              <Text color="inverse" size="100" underline>
-                Change
-              </Text>
-            </TapArea>
-          </Flex>
-        </Box>
+        <SelectedBoardBanner
+          boardTitle={selectedBoard.title}
+          onDeselect={handleDeselectBoard}
+          onChangBoard={() => {}}
+        />
       )}
 
       {/* Filters Section */}
       {showFilters && (
-        <Box marginTop={2}>
-          <PinFilters showSort showTags showClear />
-          <Divider />
+        <Box marginTop={4} marginBottom={4}>
+          <Box 
+            padding={4} 
+            color="secondary" 
+            rounding={4}
+          >
+            <PinFilters showSort showTags showClear />
+          </Box>
         </Box>
       )}
 
       {/* Categories for Non-Authenticated Users */}
       {!isAuthenticated && pins.length === 0 && !isLoading && (
-        <Box marginTop={3} marginBottom={3}>
+        <Box marginTop={6} marginBottom={6}>
           <CategoryGrid 
-            limit={6} 
-            size="sm" 
+            limit={8} 
+            size="md" 
             title="Popular Categories"
             showTitle
           />
-          <Divider />
         </Box>
       )}
 
       {/* Error State */}
       {isError && (
-        <Box marginTop={4}>
+        <Box marginTop={6}>
           <EmptyState
-            title="Failed to load pins"
-            description="Something went wrong. Please try again."
+            title="Something went wrong"
+            description="We couldn't load the pins. Please try again."
             icon="workflow-status-problem"
             action={{
-              text: 'Retry',
+              text: 'Try again',
               onClick: handleRetry,
             }}
           />
@@ -201,7 +263,7 @@ const HomePage: React.FC = () => {
       )}
 
       {/* Pins Grid */}
-      <Box marginTop={2}>
+      <Box marginTop={4}>
         <PinGrid
           pins={pins}
           isLoading={isLoading}
@@ -211,7 +273,7 @@ const HomePage: React.FC = () => {
           emptyMessage={
             hasActiveFilters() 
               ? 'No pins match your filters' 
-              : 'No pins to show. Start exploring!'
+              : 'No pins to show yet'
           }
           emptyAction={
             hasActiveFilters()

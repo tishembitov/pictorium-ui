@@ -13,7 +13,7 @@ interface PinDetailActionsProps {
 export const PinDetailActions: React.FC<PinDetailActionsProps> = ({ pin }) => {
   return (
     <Box>
-      <Flex gap={3}>
+      <Flex gap={3} alignItems="center">
         <PinLikeButton
           pinId={pin.id}
           isLiked={pin.isLiked}
@@ -21,10 +21,12 @@ export const PinDetailActions: React.FC<PinDetailActionsProps> = ({ pin }) => {
           size="lg"
           variant="button"
         />
+        {/* Pinterest-style Save Button с выбором доски */}
         <PinSaveButton
           pinId={pin.id}
           isSaved={pin.isSaved}
           size="lg"
+          variant="button"
         />
       </Flex>
     </Box>

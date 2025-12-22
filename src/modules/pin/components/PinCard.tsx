@@ -1,10 +1,8 @@
-// ================================================
-// FILE: src/modules/pin/components/PinCard.tsx
-// ================================================
+// src/modules/pin/components/PinCard.tsx
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Mask, TapArea, Text, Flex, Image as GestaltImage } from 'gestalt';
+import { Box, Mask, TapArea, Text, Image as GestaltImage } from 'gestalt';
 import { buildPath } from '@/app/router/routeConfig';
 import { useImageUrl } from '@/modules/storage';
 import { useAuth } from '@/modules/auth';
@@ -44,7 +42,7 @@ export const PinCard: React.FC<PinCardProps> = ({
   const handleMouseLeave = useCallback(() => setIsHovered(false), []);
   const handleImageLoad = useCallback(() => setIsLoaded(true), []);
 
-  // === Размеры известны заранее! ===
+  // Размеры известны заранее
   const dimensions = useMemo(() => ({
     width: pin.thumbnailWidth,
     height: pin.thumbnailHeight,
@@ -60,7 +58,6 @@ export const PinCard: React.FC<PinCardProps> = ({
     >
       <TapArea onTap={handleClick} rounding={4}>
         <Mask rounding={4}>
-          {/* Placeholder с ТОЧНЫМИ размерами - никаких прыжков! */}
           <Box
             position="relative"
             width={dimensions.width}
@@ -94,23 +91,22 @@ export const PinCard: React.FC<PinCardProps> = ({
           justifyContent="between"
           dangerouslySetInlineStyle={{
             __style: {
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 25%, transparent 75%, rgba(0,0,0,0.3) 100%)',
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.4) 100%)',
               pointerEvents: 'none',
             },
           }}
         >
-          {/* Top Actions */}
+          {/* Top Actions - Save Button */}
           <Box padding={2} display="flex" justifyContent="end">
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
-              <Flex gap={1}>
-                {isAuthenticated && (
-                  <PinSaveButton
-                    pinId={pin.id}
-                    isSaved={pin.isSaved}
-                    size="sm"
-                  />
-                )}
-              </Flex>
+              {isAuthenticated && (
+                <PinSaveButton
+                  pinId={pin.id}
+                  isSaved={pin.isSaved}
+                  size="sm"
+                  variant="icon"
+                />
+              )}
             </Box>
           </Box>
 

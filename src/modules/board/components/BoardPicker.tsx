@@ -3,7 +3,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { 
   Box, 
-  IconButton, 
   Tooltip, 
   Flex, 
   Text, 
@@ -14,6 +13,7 @@ import {
   Popover,
   Layer,
   Spinner,
+  Button,
 } from 'gestalt';
 import { useMyBoards } from '../hooks/useMyBoards';
 import { useSelectedBoard } from '../hooks/useSelectedBoard';
@@ -26,9 +26,11 @@ import type { BoardResponse } from '../types/board.types';
 interface BoardPickerProps {
   onBoardChange?: (board: BoardResponse | null) => void;
   size?: 'sm' | 'md' | 'lg';
+  showLabel?: boolean;
+  allowDeselect?: boolean; // Контролирует возможность отмены выбора
 }
 
-// Mini board item for picker
+// Compact board item for picker
 const BoardPickerItem: React.FC<{
   board: BoardResponse;
   isSelected: boolean;
@@ -42,20 +44,21 @@ const BoardPickerItem: React.FC<{
     <TapArea onTap={onSelect} rounding={2}>
       <Box
         paddingY={2}
-        paddingX={3}
+        paddingX={2}
         rounding={2}
-        color={isSelected ? 'secondary' : 'transparent'}
         dangerouslySetInlineStyle={{
           __style: {
-            transition: 'background-color 0.15s ease',
+            transition: 'all 0.15s ease',
+            border: isSelected ? '2px solid var(--color-primary)' : '2px solid transparent',
+            backgroundColor: isSelected ? 'rgba(230, 0, 35, 0.08)' : 'transparent',
           },
         }}
       >
-        <Flex alignItems="center" gap={3}>
+        <Flex alignItems="center" gap={2}>
           {/* Mini Cover */}
           <Box
-            width={40}
-            height={40}
+            width={36}
+            height={36}
             rounding={2}
             overflow="hidden"
             color="secondary"
@@ -84,7 +87,7 @@ const BoardPickerItem: React.FC<{
 
           {/* Check */}
           {isSelected && (
-            <Icon accessibilityLabel="Selected" icon="check" size={16} color="default" />
+            <Icon accessibilityLabel="Selected" icon="check" size={14} color="success" />
           )}
         </Flex>
       </Box>
@@ -95,12 +98,13 @@ const BoardPickerItem: React.FC<{
 export const BoardPicker: React.FC<BoardPickerProps> = ({
   onBoardChange,
   size = 'md',
+  showLabel = false,
+  allowDeselect = true, // По умолчанию можно отменить выбор
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  // ✅ Используем state вместо ref для anchor element
-  const [anchorElement, setAnchorElement] = useState<HTMLButtonElement | null>(null);
+  const [anchorElement, setAnchorElement] = useState<HTMLDivElement | null>(null);
 
   const { boards, isLoading: isBoardsLoading } = useMyBoards();
   const { selectedBoard } = useSelectedBoard();
@@ -124,7 +128,8 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
   }, []);
 
   const handleBoardSelect = useCallback((board: BoardResponse) => {
-    if (selectedBoard?.id === board.id) {
+    // Если кликнули на уже выбранную доску и разрешена отмена выбора
+    if (selectedBoard?.id === board.id && allowDeselect) {
       deselectBoard();
       onBoardChange?.(null);
     } else {
@@ -132,13 +137,7 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
       onBoardChange?.(board);
     }
     setIsOpen(false);
-  }, [selectedBoard, selectBoard, deselectBoard, onBoardChange]);
-
-  const handleDeselect = useCallback(() => {
-    deselectBoard();
-    onBoardChange?.(null);
-    setIsOpen(false);
-  }, [deselectBoard, onBoardChange]);
+  }, [selectedBoard, allowDeselect, selectBoard, deselectBoard, onBoardChange]);
 
   const handleCreateNew = useCallback(() => {
     setIsOpen(false);
@@ -150,31 +149,55 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
     setShowCreateModal(false);
   }, [selectBoard]);
 
-  // ✅ Callback ref для установки anchor element
-  const setAnchorRef = useCallback((node: HTMLButtonElement | null) => {
+  const setAnchorRef = useCallback((node: HTMLDivElement | null) => {
     setAnchorElement(node);
   }, []);
 
-  const iconSize = useMemo((): 'xs' | 'md' | 'lg' => {
-    if (size === 'sm') return 'xs';
-    if (size === 'lg') return 'lg';
-    return 'md';
-  }, [size]);
+  // Размеры в зависимости от size
+  const paddingX = size === 'sm' ? 2 : 3;
+  const paddingY = size === 'sm' ? 1 : 2;
+  const iconSize = size === 'sm' ? 14 : 16;
 
   return (
     <>
-      <Tooltip text={selectedBoard ? `Saving to: ${selectedBoard.title}` : 'Select board'}>
-        <IconButton
-          ref={setAnchorRef}
-          accessibilityLabel="Select board"
-          accessibilityExpanded={isOpen}
-          accessibilityHaspopup
-          icon="board"
-          onClick={handleToggle}
-          size={iconSize}
-          bgColor={selectedBoard ? 'red' : 'transparent'}
-          iconColor={selectedBoard ? 'white' : 'darkGray'}
-        />
+      <Tooltip text={selectedBoard ? `Saving to: ${selectedBoard.title}` : 'Select default board'}>
+        <Box ref={setAnchorRef}>
+          <TapArea onTap={handleToggle} rounding="pill">
+            <Box
+              paddingX={paddingX}
+              paddingY={paddingY}
+              rounding="pill"
+              color={selectedBoard ? 'primary' : 'secondary'}
+              display="flex"
+              alignItems="center"
+            >
+              <Flex alignItems="center" gap={1}>
+                <Icon 
+                  accessibilityLabel="" 
+                  icon="board" 
+                  size={iconSize} 
+                  color={selectedBoard ? 'inverse' : 'default'} 
+                />
+                {(showLabel || selectedBoard) && (
+                  <Text 
+                    size="200"
+                    weight="bold" 
+                    color={selectedBoard ? 'inverse' : 'default'}
+                    lineClamp={1}
+                  >
+                    {selectedBoard?.title || 'Board'}
+                  </Text>
+                )}
+                <Icon 
+                  accessibilityLabel="" 
+                  icon="arrow-down" 
+                  size={10} 
+                  color={selectedBoard ? 'inverse' : 'default'} 
+                />
+              </Flex>
+            </Box>
+          </TapArea>
+        </Box>
       </Tooltip>
 
       {isOpen && anchorElement && (
@@ -184,20 +207,23 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
             onDismiss={handleDismiss}
             idealDirection="down"
             positionRelativeToAnchor={false}
-            size="md"
+            size="flexible"
             color="white"
           >
-            <Box padding={3} width={300}>
+            <Box padding={3} width={260}>
               {/* Header */}
-              <Box marginBottom={3}>
+              <Box marginBottom={2}>
                 <Text weight="bold" size="300">
-                  Save to board
+                  Default save board
+                </Text>
+                <Text color="subtle" size="100">
+                  New pins will be saved here
                 </Text>
               </Box>
 
-              {/* Search */}
-              {boards.length > 5 && (
-                <Box marginBottom={3}>
+              {/* Search - только если много досок */}
+              {boards.length > 4 && (
+                <Box marginBottom={2}>
                   <SearchField
                     id="board-picker-search"
                     accessibilityLabel="Search boards"
@@ -210,88 +236,58 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
                 </Box>
               )}
 
-              {/* Create New */}
-              <TapArea onTap={handleCreateNew} rounding={2}>
-                <Box paddingY={2} paddingX={3}>
-                  <Flex alignItems="center" gap={3}>
-                    <Box
-                      width={40}
-                      height={40}
-                      rounding={2}
-                      color="secondary"
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="center"
-                    >
-                      <Icon accessibilityLabel="" icon="add" size={16} />
-                    </Box>
-                    <Text weight="bold" size="200">
-                      Create board
-                    </Text>
-                  </Flex>
-                </Box>
-              </TapArea>
-
-              {/* ✅ Обёрнут Divider в Box для margin */}
-              <Box marginTop={2} marginBottom={2}>
-                <Divider />
+              {/* Create New Button */}
+              <Box marginBottom={2}>
+                <Button
+                  text="Create board"
+                  onClick={handleCreateNew}
+                  size="md"
+                  color="gray"
+                  fullWidth
+                  iconEnd="add"
+                />
               </Box>
 
-              {/* Board List */}
-              {isBoardsLoading ? (
-                <Box display="flex" justifyContent="center" padding={4}>
-                  <Spinner accessibilityLabel="Loading boards" show size="sm" />
-                </Box>
-              ) : (
-                <Box 
-                  maxHeight={280} 
-                  overflow="scrollY"
-                  dangerouslySetInlineStyle={{
-                    __style: { marginRight: '-8px', paddingRight: '8px' },
-                  }}
-                >
-                  {/* Deselect Option */}
-                  {selectedBoard && (
-                    <TapArea onTap={handleDeselect} rounding={2}>
-                      <Box paddingY={2} paddingX={3}>
-                        <Flex alignItems="center" gap={3}>
-                          <Box
-                            width={40}
-                            height={40}
-                            rounding={2}
-                            color="secondary"
-                            display="flex"
-                            alignItems="center"
-                            justifyContent="center"
-                          >
-                            <Icon accessibilityLabel="" icon="cancel" size={16} color="subtle" />
-                          </Box>
-                          <Text size="200" color="subtle">
-                            No board selected
+              <Divider />
+
+              {/* Board List - БЕЗ опции None */}
+              <Box marginTop={2}>
+                {isBoardsLoading ? (
+                  <Box display="flex" justifyContent="center" padding={3}>
+                    <Spinner accessibilityLabel="Loading boards" show size="sm" />
+                  </Box>
+                ) : (
+                  <Box maxHeight={200} overflow="scrollY">
+                    <Flex direction="column" gap={1}>
+                      {/* Boards - без опции None */}
+                      {filteredBoards.map((board) => (
+                        <BoardPickerItem
+                          key={board.id}
+                          board={board}
+                          isSelected={selectedBoard?.id === board.id}
+                          onSelect={() => handleBoardSelect(board)}
+                        />
+                      ))}
+
+                      {/* No results */}
+                      {filteredBoards.length === 0 && !isBoardsLoading && (
+                        <Box padding={3}>
+                          <Text align="center" color="subtle" size="100">
+                            {searchQuery ? 'No boards found' : 'No boards yet'}
                           </Text>
-                        </Flex>
-                      </Box>
-                    </TapArea>
-                  )}
+                        </Box>
+                      )}
+                    </Flex>
+                  </Box>
+                )}
+              </Box>
 
-                  {/* Boards */}
-                  {filteredBoards.map((board) => (
-                    <BoardPickerItem
-                      key={board.id}
-                      board={board}
-                      isSelected={selectedBoard?.id === board.id}
-                      onSelect={() => handleBoardSelect(board)}
-                    />
-                  ))}
-
-                  {/* No results */}
-                  {filteredBoards.length === 0 && !isBoardsLoading && (
-                    <Box padding={4}>
-                      <Text align="center" color="subtle" size="200">
-                        {searchQuery ? `No boards matching "${searchQuery}"` : 'No boards yet'}
-                      </Text>
-                    </Box>
-                  )}
+              {/* Hint about deselection */}
+              {selectedBoard && allowDeselect && (
+                <Box marginTop={2} paddingTop={2}>
+                  <Text align="center" color="subtle" size="100">
+                    Tap selected board to deselect
+                  </Text>
                 </Box>
               )}
             </Box>

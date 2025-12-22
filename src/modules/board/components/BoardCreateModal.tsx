@@ -10,6 +10,8 @@ import {
   Modal,
   Text,
   Switch,
+  Icon,
+  TapArea,
 } from 'gestalt';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -24,6 +26,9 @@ interface BoardCreateModalProps {
   initialTitle?: string;
 }
 
+// Suggestion chips data
+const BOARD_SUGGESTIONS = ['Travel', 'Recipes', 'Home Decor', 'Fashion', 'Art'];
+
 export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
   isOpen,
   onClose,
@@ -31,14 +36,18 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
   initialTitle = '',
 }) => {
   const [keepOpen, setKeepOpen] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const { createBoard, isLoading } = useCreateBoard({
     onSuccess: (data) => {
       onSuccess?.(data.id);
-      if (!keepOpen) {
+      if (keepOpen) {
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 2000);
+        reset({ title: '' });
+      } else {
         onClose();
       }
-      reset({ title: '' });
     },
   });
 
@@ -56,8 +65,10 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
     mode: 'onChange',
   });
 
+  // ✅ Исправлено: вместо useEffect используем обработчик в handleClose и при открытии
   const handleClose = useCallback(() => {
-    reset();
+    reset({ title: '' });
+    setShowSuccess(false);
     onClose();
   }, [reset, onClose]);
 
@@ -67,7 +78,10 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
     })();
   }, [handleSubmit, createBoard]);
 
-  // ✅ Используем getValues вместо watch для избежания предупреждения
+  const handleSuggestionClick = useCallback((suggestion: string) => {
+    reset({ title: suggestion });
+  }, [reset]);
+
   const titleValue = getValues('title');
 
   if (!isOpen) return null;
@@ -77,18 +91,36 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
       <Modal
         accessibilityModalLabel="Create board"
         heading={
-          <Box paddingX={8} paddingY={4}>
-            <Heading size="400" accessibilityLevel={1} align="center">
-              Create board
-            </Heading>
+          <Box paddingX={6} paddingY={4}>
+            <Flex alignItems="center" gap={3}>
+              <Box
+                color="primary"
+                rounding="circle"
+                padding={2}
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Icon accessibilityLabel="" icon="board" color="inverse" size={16} />
+              </Box>
+              <Heading size="400" accessibilityLevel={1}>
+                Create board
+              </Heading>
+            </Flex>
           </Box>
         }
         onDismiss={handleClose}
         footer={
-          <Box paddingX={8} paddingY={4}>
+          <Box paddingX={6} paddingY={3}>
             <Flex justifyContent="end" gap={2}>
               <Button
-                text="Create"
+                text="Cancel"
+                onClick={handleClose}
+                size="lg"
+                color="gray"
+              />
+              <Button
+                text={isLoading ? 'Creating...' : 'Create'}
                 onClick={handleCreate}
                 color="red"
                 disabled={isLoading || !isValid || !titleValue?.trim()}
@@ -99,9 +131,9 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
         }
         size="sm"
       >
-        <Box paddingX={8} paddingY={4}>
+        <Box paddingX={6} paddingY={4}>
           <form onSubmit={handleSubmit((data) => createBoard(data))}>
-            <Flex direction="column" gap={6}>
+            <Flex direction="column" gap={4}>
               {/* Name Field */}
               <Controller
                 name="title"
@@ -119,22 +151,63 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
                 )}
               />
 
-              {/* Keep Open Switch */}
-              <Flex alignItems="center" justifyContent="between">
-                <Box>
-                  <Text weight="bold" size="200">
-                    Keep this modal open
-                  </Text>
-                  <Text color="subtle" size="100">
-                    Create multiple boards quickly
-                  </Text>
+              {/* Suggestion chips */}
+              <Box>
+                <Text size="100" color="subtle">
+                  Quick suggestions
+                </Text>
+                <Box marginTop={2}>
+                  <Flex gap={2} wrap>
+                    {BOARD_SUGGESTIONS.map((suggestion) => (
+                      <TapArea 
+                        key={suggestion} 
+                        onTap={() => handleSuggestionClick(suggestion)}
+                        rounding="pill"
+                      >
+                        <Box
+                          rounding="pill"
+                          color="secondary"
+                          paddingX={3}
+                          paddingY={1}
+                        >
+                          <Text size="100">{suggestion}</Text>
+                        </Box>
+                      </TapArea>
+                    ))}
+                  </Flex>
                 </Box>
-                <Switch
-                  id="keep-modal-open"
-                  switched={keepOpen}
-                  onChange={() => setKeepOpen(!keepOpen)}
-                />
-              </Flex>
+              </Box>
+
+              {/* Keep Open Switch */}
+              <Box color="secondary" rounding={3} padding={3}>
+                <Flex alignItems="center" justifyContent="between">
+                  <Box>
+                    <Text weight="bold" size="200">
+                      Keep creating
+                    </Text>
+                    <Text color="subtle" size="100">
+                      Create multiple boards quickly
+                    </Text>
+                  </Box>
+                  <Switch
+                    id="keep-modal-open"
+                    switched={keepOpen}
+                    onChange={() => setKeepOpen(!keepOpen)}
+                  />
+                </Flex>
+              </Box>
+
+              {/* Success indicator */}
+              {showSuccess && (
+                <Box color="successBase" rounding={3} padding={3}>
+                  <Flex alignItems="center" gap={2}>
+                    <Icon accessibilityLabel="" icon="check-circle" color="inverse" size={16} />
+                    <Text color="inverse" size="200">
+                      Board created! Add another one.
+                    </Text>
+                  </Flex>
+                </Box>
+              )}
             </Flex>
           </form>
         </Box>

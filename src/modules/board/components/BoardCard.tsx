@@ -2,11 +2,12 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Box, Text, TapArea, Mask, IconButton } from 'gestalt';
+import { Box, Text, TapArea, Mask, IconButton, Icon, Flex } from 'gestalt';
 import { buildPath } from '@/app/router/routeConfig';
 import { useImageUrl } from '@/modules/storage';
 import { useBoardPins } from '../hooks/useBoardPins';
 import { useIsOwner } from '@/modules/auth';
+import { useSelectedBoardStore } from '../stores/selectedBoardStore';
 import type { BoardResponse } from '../types/board.types';
 
 interface BoardCardProps {
@@ -15,14 +16,15 @@ interface BoardCardProps {
   onEdit?: () => void;
   showMeta?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  showSelectIndicator?: boolean;
 }
 
-// Pinterest-style коллаж из 3 изображений
+// Pinterest-style коллаж из изображений
 const BoardCoverCollage: React.FC<{
   images: Array<{ id: string; url?: string }>;
   height: number;
-}> = ({ images, height }) => {
-  const [img1, img2, img3] = images;
+  isSelected?: boolean;
+}> = ({ images, height, isSelected }) => {
   const hasMultiple = images.length > 1;
   const gap = 2;
 
@@ -35,18 +37,37 @@ const BoardCoverCollage: React.FC<{
         alignItems="center"
         justifyContent="center"
         rounding={4}
+        dangerouslySetInlineStyle={{
+          __style: {
+            border: isSelected ? '3px solid var(--color-primary)' : undefined,
+          },
+        }}
       >
-        <Text color="subtle" size="200">
-          No pins yet
-        </Text>
+        <Flex direction="column" alignItems="center" gap={2}>
+          <Icon accessibilityLabel="" icon="board" size={32} color="subtle" />
+          <Text color="subtle" size="200">
+            No pins yet
+          </Text>
+        </Flex>
       </Box>
     );
   }
 
+  const [img1, img2, img3] = images;
+
   // Один пин - одно большое изображение
   if (!hasMultiple && img1?.url) {
     return (
-      <Box height={height} rounding={4} overflow="hidden">
+      <Box 
+        height={height} 
+        rounding={4} 
+        overflow="hidden"
+        dangerouslySetInlineStyle={{
+          __style: {
+            border: isSelected ? '3px solid var(--color-primary)' : undefined,
+          },
+        }}
+      >
         <img
           src={img1.url}
           alt=""
@@ -61,10 +82,6 @@ const BoardCoverCollage: React.FC<{
   }
 
   // Pinterest-style коллаж: большое слева, 2 маленьких справа
-  const mainWidth = '66%';
-  const sideWidth = '34%';
-  const sideHeight = `calc(50% - ${gap / 2}px)`;
-
   return (
     <Box 
       height={height} 
@@ -72,17 +89,20 @@ const BoardCoverCollage: React.FC<{
       rounding={4} 
       overflow="hidden"
       dangerouslySetInlineStyle={{
-        __style: { gap: `${gap}px` },
+        __style: { 
+          gap: `${gap}px`,
+          border: isSelected ? '3px solid var(--color-primary)' : undefined,
+        },
       }}
     >
       {/* Main large image */}
       <Box 
-        width={mainWidth} 
+        width="66%" 
         height="100%"
         dangerouslySetInlineStyle={{
           __style: {
             backgroundImage: img1?.url ? `url(${img1.url})` : undefined,
-            backgroundColor: img1?.url ? undefined : 'var(--color-gray-200)',
+            backgroundColor: img1?.url ? undefined : 'var(--bg-secondary)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             borderRadius: '16px 0 0 16px',
@@ -92,7 +112,7 @@ const BoardCoverCollage: React.FC<{
 
       {/* Right column with 2 smaller images */}
       <Box 
-        width={sideWidth}
+        width="34%"
         display="flex"
         direction="column"
         dangerouslySetInlineStyle={{
@@ -100,12 +120,11 @@ const BoardCoverCollage: React.FC<{
         }}
       >
         <Box
-          height={sideHeight}
           flex="grow"
           dangerouslySetInlineStyle={{
             __style: {
               backgroundImage: img2?.url ? `url(${img2.url})` : undefined,
-              backgroundColor: img2?.url ? undefined : 'var(--color-gray-200)',
+              backgroundColor: img2?.url ? undefined : 'var(--bg-secondary)',
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               borderRadius: '0 16px 0 0',
@@ -113,12 +132,11 @@ const BoardCoverCollage: React.FC<{
           }}
         />
         <Box
-          height={sideHeight}
           flex="grow"
           dangerouslySetInlineStyle={{
             __style: {
               backgroundImage: img3?.url ? `url(${img3.url})` : undefined,
-              backgroundColor: img3?.url ? undefined : 'var(--color-gray-200)',
+              backgroundColor: img3?.url ? undefined : 'var(--bg-secondary)',
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               borderRadius: '0 0 16px 0',
@@ -136,9 +154,12 @@ export const BoardCard: React.FC<BoardCardProps> = ({
   onEdit,
   showMeta = true,
   size = 'md',
+  showSelectIndicator = true,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const isOwner = useIsOwner(board.userId);
+  const selectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
+  const isSelected = selectedBoard?.id === board.id;
 
   // Получаем первые 3 пина для коллажа
   const { pins, totalElements: pinCount } = useBoardPins(board.id, {
@@ -164,7 +185,6 @@ export const BoardCard: React.FC<BoardCardProps> = ({
   const handleMouseEnter = useCallback(() => setIsHovered(true), []);
   const handleMouseLeave = useCallback(() => setIsHovered(false), []);
 
-  // ✅ Исправлен тип для Gestalt IconButton onClick
   const handleEditClick = useCallback(() => {
     onEdit?.();
   }, [onEdit]);
@@ -183,58 +203,109 @@ export const BoardCard: React.FC<BoardCardProps> = ({
       position="relative"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      dangerouslySetInlineStyle={{
+        __style: {
+          transition: 'transform 0.2s ease',
+          transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
+        },
+      }}
     >
       {/* Cover Collage */}
       <Mask rounding={4}>
         <Box
           dangerouslySetInlineStyle={{
             __style: {
-              transition: 'transform 0.2s ease, filter 0.2s ease',
-              transform: isHovered ? 'scale(1.02)' : 'scale(1)',
+              transition: 'filter 0.2s ease',
               filter: isHovered ? 'brightness(0.92)' : 'brightness(1)',
             },
           }}
         >
           <BoardCoverCollage 
             images={coverImages} 
-            height={dimensions.height} 
+            height={dimensions.height}
+            isSelected={showSelectIndicator && isSelected}
           />
         </Box>
       </Mask>
 
+      {/* Selected Badge */}
+      {showSelectIndicator && isSelected && (
+        <Box
+          position="absolute"
+          top
+          left
+          padding={2}
+        >
+          <Box
+            color="primary"
+            rounding="pill"
+            paddingX={2}
+            paddingY={1}
+            display="flex"
+            alignItems="center"
+          >
+            <Flex alignItems="center" gap={1}>
+              <Icon accessibilityLabel="" icon="check" size={12} color="inverse" />
+              <Text size="100" color="inverse" weight="bold">
+                Active
+              </Text>
+            </Flex>
+          </Box>
+        </Box>
+      )}
+
       {/* Hover Overlay with Edit Button */}
-      {isHovered && isOwner && onEdit && (
+      {isHovered && (
         <Box
           position="absolute"
           top
           right
+          bottom
+          left
+          display="flex"
+          justifyContent="end"
           padding={2}
           dangerouslySetInlineStyle={{
-            __style: { zIndex: 1 },
+            __style: {
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 40%)',
+              borderRadius: '16px',
+            },
           }}
         >
-          <IconButton
-            accessibilityLabel="Edit board"
-            icon="edit"
-            size="sm"
-            bgColor="white"
-            onClick={handleEditClick}
-          />
+          {isOwner && onEdit && (
+            <IconButton
+              accessibilityLabel="Edit board"
+              icon="edit"
+              size="sm"
+              bgColor="white"
+              onClick={handleEditClick}
+            />
+          )}
         </Box>
       )}
 
       {/* Board Info */}
       <Box paddingY={2}>
-        <Text weight="bold" size={dimensions.titleSize} lineClamp={1}>
-          {board.title}
-        </Text>
-        {showMeta && (
-          <Box marginTop={1}>
-            <Text color="subtle" size="100">
-              {pinCount} {pinCount === 1 ? 'Pin' : 'Pins'}
-            </Text>
-          </Box>
-        )}
+        <Flex direction="column" gap={1}>
+          <Text weight="bold" size={dimensions.titleSize} lineClamp={1}>
+            {board.title}
+          </Text>
+          {showMeta && (
+            <Flex alignItems="center" gap={2}>
+              <Text color="subtle" size="100">
+                {pinCount} {pinCount === 1 ? 'Pin' : 'Pins'}
+              </Text>
+              {isSelected && !showSelectIndicator && (
+                <>
+                  <Text color="subtle" size="100">•</Text>
+                  <Text color="success" size="100" weight="bold">
+                    Saving here
+                  </Text>
+                </>
+              )}
+            </Flex>
+          )}
+        </Flex>
       </Box>
     </Box>
   );

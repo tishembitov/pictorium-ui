@@ -9,6 +9,9 @@ export type {
   BoardWithState,
   BoardFormValues,
   BoardPinAction,
+  BoardWithPinStatusResponse,
+  SavePinToBoardsRequest,
+  BatchBoardPinAction,
 } from './types/board.types';
 
 // API
@@ -18,13 +21,16 @@ export { selectedBoardApi } from './api/selectedBoardApi';
 // Hooks
 export { useBoard } from './hooks/useBoard';
 export { useMyBoards } from './hooks/useMyBoards';
+export { useMyBoardsForPin } from './hooks/useMyBoardsForPin';  // NEW
 export { useUserBoards } from './hooks/useUserBoards';
 export { useBoardPins, useInfiniteBoardPins } from './hooks/useBoardPins';
 export { useCreateBoard } from './hooks/useCreateBoard';
 export { useUpdateBoard } from './hooks/useUpdateBoard';
 export { useDeleteBoard } from './hooks/useDeleteBoard';
-export { useAddPinToBoard } from './hooks/useAddPinToBoard';
-export { useRemovePinFromBoard } from './hooks/useRemovePinFromBoard';
+export { useSavePinToBoard } from './hooks/useSavePinToBoard';           // RENAMED
+export { useRemovePinFromBoard } from './hooks/useRemovePinFromBoard';   // RENAMED
+export { useSavePinToBoards } from './hooks/useSavePinToBoards';         // NEW
+export { useRemovePinFromAllBoards } from './hooks/useRemovePinFromAllBoards'; // NEW
 export { useSelectedBoard } from './hooks/useSelectedBoard';
 export { useSelectBoard } from './hooks/useSelectBoard';
 

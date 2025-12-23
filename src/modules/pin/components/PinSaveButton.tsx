@@ -14,38 +14,71 @@ import {
   Spinner,
   SearchField,
   Divider,
+  Checkbox,
 } from 'gestalt';
 import { useAuth } from '@/modules/auth';
-import { useMyBoards, useAddPinToBoard, useRemovePinFromBoard, useSelectedBoard, BoardCreateModal } from '@/modules/board';
+import { 
+  useMyBoardsForPin, 
+  useSavePinToBoard,
+  useRemovePinFromBoard,
+  useSelectedBoard,
+  BoardCreateModal,
+} from '@/modules/board';
 import { useBoardPins } from '@/modules/board/hooks/useBoardPins';
 import { useImageUrl } from '@/modules/storage';
 import { useToast } from '@/shared/hooks/useToast';
-import type { BoardResponse } from '@/modules/board';
+import type { BoardWithPinStatusResponse } from '@/modules/board';
 
 interface PinSaveButtonProps {
   pinId: string;
   isSaved: boolean;
-  savedBoardId?: string | null; // ID доски, в которой сохранен пин
+  savedToBoardName?: string | null;
+  savedToBoardCount?: number;
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   variant?: 'button' | 'icon';
-  onSaveChange?: (isSaved: boolean, boardId?: string) => void;
 }
 
-// Mini board item for quick save
-const QuickSaveBoardItem: React.FC<{
-  board: BoardResponse;
+const getBoardItemBackground = (hasPin: boolean, isDefault: boolean): string => {
+  if (hasPin) {
+    return 'rgba(230, 0, 35, 0.08)';
+  }
+  if (isDefault) {
+    return 'rgba(0, 0, 0, 0.04)';
+  }
+  return 'transparent';
+};
+
+const renderBoardItemStatus = (
+  isProcessing: boolean,
+  hasPin: boolean
+): React.ReactNode => {
+  if (isProcessing) {
+    return <Spinner accessibilityLabel="Processing" show size="sm" />;
+  }
+  
+  if (hasPin) {
+    return <Icon accessibilityLabel="Saved" icon="check" size={16} color="success" />;
+  }
+  
+  return null;
+};
+
+// Board item with save status
+const SaveBoardItem: React.FC<{
+  board: BoardWithPinStatusResponse;
   isDefault: boolean;
-  isSavedHere: boolean;
-  onSelect: () => void;
+  onToggle: (board: BoardWithPinStatusResponse) => void;
   isProcessing: boolean;
-}> = ({ board, isDefault, isSavedHere, onSelect, isProcessing }) => {
+}> = ({ board, isDefault, onToggle, isProcessing }) => {
   const { pins } = useBoardPins(board.id, { pageable: { page: 0, size: 1 } });
   const coverImageId = pins[0]?.thumbnailId || pins[0]?.imageId;
   const { data: coverData } = useImageUrl(coverImageId, { enabled: !!coverImageId });
 
+  const backgroundColor = getBoardItemBackground(board.hasPin, isDefault);
+
   return (
-    <TapArea onTap={onSelect} rounding={2} disabled={isProcessing}>
+    <TapArea onTap={() => onToggle(board)} rounding={2} disabled={isProcessing}>
       <Box
         paddingY={2}
         paddingX={2}
@@ -53,15 +86,19 @@ const QuickSaveBoardItem: React.FC<{
         dangerouslySetInlineStyle={{
           __style: {
             transition: 'all 0.15s ease',
-            backgroundColor: isSavedHere 
-              ? 'rgba(230, 0, 35, 0.08)' 
-              : isDefault 
-                ? 'rgba(0, 0, 0, 0.04)' 
-                : 'transparent',
+            backgroundColor, 
           },
         }}
       >
-        <Flex alignItems="center" gap={2}>
+        <Flex alignItems="center" gap={3}>
+          {/* Checkbox */}
+          <Checkbox
+            id={`board-${board.id}`}
+            checked={board.hasPin}
+            onChange={() => onToggle(board)}
+            size="sm"
+          />
+
           {/* Mini Cover */}
           <Box
             width={40}
@@ -85,35 +122,28 @@ const QuickSaveBoardItem: React.FC<{
             )}
           </Box>
 
-          {/* Title */}
+          {/* Board Info */}
           <Box flex="grow">
             <Flex direction="column">
-              <Text weight="bold" size="200" lineClamp={1}>
+              <Text weight={board.hasPin ? 'bold' : 'normal'} size="200" lineClamp={1}>
                 {board.title}
               </Text>
-              <Flex gap={1}>
+              <Flex gap={1} alignItems="center">
+                <Text color="subtle" size="100">
+                  {board.pinCount} pins
+                </Text>
                 {isDefault && (
-                  <Text color="subtle" size="100">
-                    Default
-                  </Text>
-                )}
-                {isSavedHere && (
-                  <Text color="success" size="100">
-                    {isDefault ? ' • ' : ''}Saved
-                  </Text>
+                  <>
+                    <Text color="subtle" size="100">•</Text>
+                    <Text color="success" size="100">Default</Text>
+                  </>
                 )}
               </Flex>
             </Flex>
           </Box>
 
-          {/* Action indicator */}
-          {isProcessing ? (
-            <Spinner accessibilityLabel="Processing" show size="sm" />
-          ) : isSavedHere ? (
-            <Icon accessibilityLabel="Saved" icon="check" size={16} color="success" />
-          ) : (
-            <Icon accessibilityLabel="" icon="add" size={14} color="subtle" />
-          )}
+          {/* Status indicator */}
+          {renderBoardItemStatus(isProcessing, board.hasPin)}
         </Flex>
       </Box>
     </TapArea>
@@ -129,11 +159,11 @@ const getIconButtonSize = (size: 'sm' | 'md' | 'lg'): 'xs' | 'md' | 'lg' => {
 export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
   pinId,
   isSaved,
-  savedBoardId,
+  savedToBoardName,
+  savedToBoardCount = 0,
   size = 'md',
   fullWidth = false,
   variant = 'button',
-  onSaveChange,
 }) => {
   const { isAuthenticated, login } = useAuth();
   const { toast } = useToast();
@@ -144,87 +174,86 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
   const [processingBoardId, setProcessingBoardId] = useState<string | null>(null);
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
 
-  const { boards, isLoading: isBoardsLoading } = useMyBoards();
+  // Используем новый хук для получения досок с состоянием пина
+  const { 
+    boards, 
+    boardsWithPin,
+    isLoading: isBoardsLoading,
+    refetch: refetchBoards,
+  } = useMyBoardsForPin(pinId, { enabled: isOpen });
+  
   const { selectedBoard } = useSelectedBoard();
   
-  const { addPinToBoard } = useAddPinToBoard({
+  const { savePinToBoard } = useSavePinToBoard({
     onSuccess: () => {
       setProcessingBoardId(null);
-      setIsOpen(false);
+      void refetchBoards();
     },
     onError: () => {
       setProcessingBoardId(null);
     },
+    showToast: false, // Мы сами показываем toast
   });
 
   const { removePinFromBoard } = useRemovePinFromBoard({
     onSuccess: () => {
       setProcessingBoardId(null);
-      setIsOpen(false);
+      void refetchBoards();
     },
     onError: () => {
       setProcessingBoardId(null);
     },
+    showToast: false,
   });
 
   const iconButtonSize = useMemo(() => getIconButtonSize(size), [size]);
 
-  // Filter boards
+  // Filter boards by search
   const filteredBoards = useMemo(() => {
     if (!searchQuery.trim()) return boards;
     const query = searchQuery.toLowerCase();
     return boards.filter(b => b.title.toLowerCase().includes(query));
   }, [boards, searchQuery]);
 
-  // Handle save/unsave toggle
-  const handleBoardAction = useCallback((board: BoardResponse) => {
-    const isSavedInThisBoard = savedBoardId === board.id;
-    
+  // Toggle save/unsave for a board
+  const handleBoardToggle = useCallback((board: BoardWithPinStatusResponse) => {
     setProcessingBoardId(board.id);
     
-    if (isSavedInThisBoard) {
-      // Unsave from this board
+    if (board.hasPin) {
       removePinFromBoard({ boardId: board.id, pinId });
       toast.success(`Removed from "${board.title}"`);
-      onSaveChange?.(false, undefined);
     } else {
-      // Save to this board
-      addPinToBoard({ boardId: board.id, pinId });
+      savePinToBoard({ boardId: board.id, pinId });
       toast.success(`Saved to "${board.title}"`);
-      onSaveChange?.(true, board.id);
     }
-  }, [savedBoardId, removePinFromBoard, addPinToBoard, pinId, toast, onSaveChange]);
+  }, [removePinFromBoard, savePinToBoard, pinId, toast]);
 
-  // Quick save/unsave to default board
-  const handleQuickAction = useCallback(() => {
+  // Quick save to default board
+  const handleQuickSave = useCallback(() => {
     if (!isAuthenticated) {
       login();
       return;
     }
 
-    // If already saved - unsave
-    if (isSaved && savedBoardId) {
-      const savedBoard = boards.find(b => b.id === savedBoardId);
-      if (savedBoard) {
-        setProcessingBoardId(savedBoardId);
-        removePinFromBoard({ boardId: savedBoardId, pinId });
-        toast.success(`Removed from "${savedBoard.title}"`);
-        onSaveChange?.(false, undefined);
-        return;
-      }
+    // Если нет выбранной доски - открываем dropdown
+    if (!selectedBoard) {
+      setIsOpen(true);
+      return;
     }
 
-    // If has default board - save there
-    if (selectedBoard) {
-      setProcessingBoardId(selectedBoard.id);
-      addPinToBoard({ boardId: selectedBoard.id, pinId });
-      toast.success(`Saved to "${selectedBoard.title}"`);
-      onSaveChange?.(true, selectedBoard.id);
-    } else {
-      // No default board - open selector
+    // Проверяем, сохранён ли уже в default board
+    const defaultBoardStatus = boards.find(b => b.id === selectedBoard.id);
+    
+    if (defaultBoardStatus?.hasPin) {
+      // Уже сохранён - открываем dropdown для управления
       setIsOpen(true);
+    } else {
+      // Сохраняем в default board
+      setProcessingBoardId(selectedBoard.id);
+      savePinToBoard({ boardId: selectedBoard.id, pinId });
+      toast.success(`Saved to "${selectedBoard.title}"`);
     }
-  }, [isAuthenticated, login, isSaved, savedBoardId, boards, selectedBoard, removePinFromBoard, addPinToBoard, pinId, toast, onSaveChange]);
+  }, [isAuthenticated, login, selectedBoard, boards, savePinToBoard, pinId, toast]);
 
   // Open dropdown
   const handleOpenDropdown = useCallback(() => {
@@ -243,11 +272,10 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
 
   const handleCreateSuccess = useCallback((boardId: string) => {
     setProcessingBoardId(boardId);
-    addPinToBoard({ boardId, pinId });
+    savePinToBoard({ boardId, pinId });
     setShowCreateModal(false);
     toast.success('Saved to new board!');
-    onSaveChange?.(true, boardId);
-  }, [addPinToBoard, pinId, toast, onSaveChange]);
+  }, [savePinToBoard, pinId, toast]);
 
   const setAnchorRef = useCallback((node: HTMLElement | null) => {
     setAnchorElement(node);
@@ -255,14 +283,29 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
 
   const isProcessing = processingBoardId !== null;
 
-  // Get saved board name for display
-  const savedBoardName = useMemo(() => {
-    if (savedBoardId) {
-      const board = boards.find(b => b.id === savedBoardId);
-      return board?.title;
+  // Button text
+  const buttonText = useMemo(() => {
+    if (isProcessing) return 'Saving...';
+    
+    if (isSaved && savedToBoardCount > 0) {
+      if (savedToBoardCount === 1 && savedToBoardName) {
+        const truncated = savedToBoardName.length > 10 
+          ? savedToBoardName.slice(0, 10) + '...' 
+          : savedToBoardName;
+        return `Saved to ${truncated}`;
+      }
+      return `Saved to ${savedToBoardCount} boards`;
     }
-    return null;
-  }, [savedBoardId, boards]);
+    
+    if (selectedBoard) {
+      const truncated = selectedBoard.title.length > 10 
+        ? selectedBoard.title.slice(0, 10) + '...' 
+        : selectedBoard.title;
+      return `Save to ${truncated}`;
+    }
+    
+    return 'Save';
+  }, [isProcessing, isSaved, savedToBoardCount, savedToBoardName, selectedBoard]);
 
   // Icon variant
   if (variant === 'icon') {
@@ -291,17 +334,17 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
               size="flexible"
               color="white"
             >
-              <SaveToBoardDropdown
+              <SaveDropdownContent
                 boards={filteredBoards}
                 selectedBoard={selectedBoard}
-                savedBoardId={savedBoardId}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
-                onBoardAction={handleBoardAction}
+                onBoardToggle={handleBoardToggle}
                 onCreateNew={() => { setIsOpen(false); setShowCreateModal(true); }}
                 processingBoardId={processingBoardId}
                 isLoading={isBoardsLoading}
                 showSearch={boards.length > 4}
+                savedCount={boardsWithPin.length}
               />
             </Popover>
           </Layer>
@@ -316,34 +359,14 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
     );
   }
 
-  // Button variant
-  const buttonText = useMemo(() => {
-    if (isProcessing) return 'Saving...';
-    if (isSaved) {
-      if (savedBoardName) {
-        const truncated = savedBoardName.length > 12 
-          ? savedBoardName.slice(0, 12) + '...' 
-          : savedBoardName;
-        return `Saved to ${truncated}`;
-      }
-      return 'Saved';
-    }
-    if (selectedBoard) {
-      const truncated = selectedBoard.title.length > 10 
-        ? selectedBoard.title.slice(0, 10) + '...' 
-        : selectedBoard.title;
-      return `Save to ${truncated}`;
-    }
-    return 'Save';
-  }, [isProcessing, isSaved, savedBoardName, selectedBoard]);
-
+  // Button variant with dropdown trigger
   return (
     <>
       <Flex alignItems="center" gap={0}>
         {/* Main save button */}
         <Button
           text={buttonText}
-          onClick={handleQuickAction}
+          onClick={handleQuickSave}
           size={size}
           color="red"
           disabled={isProcessing}
@@ -359,7 +382,7 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
           }}
         >
           <IconButton
-            accessibilityLabel="Choose board"
+            accessibilityLabel="Choose boards"
             accessibilityExpanded={isOpen}
             accessibilityHaspopup
             icon="arrow-down"
@@ -381,17 +404,17 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
             size="flexible"
             color="white"
           >
-            <SaveToBoardDropdown
+            <SaveDropdownContent
               boards={filteredBoards}
               selectedBoard={selectedBoard}
-              savedBoardId={savedBoardId}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
-              onBoardAction={handleBoardAction}
+              onBoardToggle={handleBoardToggle}
               onCreateNew={() => { setIsOpen(false); setShowCreateModal(true); }}
               processingBoardId={processingBoardId}
               isLoading={isBoardsLoading}
               showSearch={boards.length > 4}
+              savedCount={boardsWithPin.length}
             />
           </Popover>
         </Layer>
@@ -407,41 +430,53 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
 };
 
 // Dropdown content component
-const SaveToBoardDropdown: React.FC<{
-  boards: BoardResponse[];
-  selectedBoard: BoardResponse | null;
-  savedBoardId?: string | null;
+const SaveDropdownContent: React.FC<{
+  boards: BoardWithPinStatusResponse[];
+  selectedBoard: { id: string; title: string } | null;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  onBoardAction: (board: BoardResponse) => void;
+  onBoardToggle: (board: BoardWithPinStatusResponse) => void;
   onCreateNew: () => void;
   processingBoardId: string | null;
   isLoading: boolean;
   showSearch: boolean;
+  savedCount: number;
 }> = ({
   boards,
   selectedBoard,
-  savedBoardId,
   searchQuery,
   onSearchChange,
-  onBoardAction,
+  onBoardToggle,
   onCreateNew,
   processingBoardId,
   isLoading,
   showSearch,
+  savedCount,
 }) => {
   return (
-    <Box padding={3} width={280}>
+    <Box padding={3} width={300}>
       {/* Header */}
       <Box marginBottom={2}>
-        <Text weight="bold" size="300">
-          {savedBoardId ? 'Saved to board' : 'Save to board'}
-        </Text>
-        {savedBoardId && (
-          <Text color="subtle" size="100">
-            Tap to remove or save to another board
+        <Flex justifyContent="between" alignItems="center">
+          <Text weight="bold" size="300">
+            Save to board
           </Text>
-        )}
+          {savedCount > 0 && (
+            <Box 
+              color="successBase" 
+              rounding="pill" 
+              paddingX={2} 
+              paddingY={1}
+            >
+              <Text size="100" color="inverse">
+                {savedCount} saved
+              </Text>
+            </Box>
+          )}
+        </Flex>
+        <Text color="subtle" size="100">
+          Select boards to save this pin
+        </Text>
       </Box>
 
       {/* Search */}
@@ -480,15 +515,14 @@ const SaveToBoardDropdown: React.FC<{
             <Spinner accessibilityLabel="Loading boards" show size="sm" />
           </Box>
         ) : (
-          <Box maxHeight={220} overflow="scrollY">
+          <Box maxHeight={260} overflow="scrollY">
             <Flex direction="column" gap={1}>
               {boards.map((board) => (
-                <QuickSaveBoardItem
+                <SaveBoardItem
                   key={board.id}
                   board={board}
                   isDefault={selectedBoard?.id === board.id}
-                  isSavedHere={savedBoardId === board.id}
-                  onSelect={() => onBoardAction(board)}
+                  onToggle={onBoardToggle}
                   isProcessing={processingBoardId === board.id}
                 />
               ))}

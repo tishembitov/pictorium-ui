@@ -61,13 +61,13 @@ export const queryKeys = {
   // Boards
   boards: {
     all: ['boards'] as const,
-    byId: (id: string) => [...queryKeys.boards.all, 'byId', id] as const,
-    my: () => [...queryKeys.boards.all, 'my'] as const,
-    byUser: (userId: string) => [...queryKeys.boards.all, 'byUser', userId] as const,
-    pins: (boardId: string) => [...queryKeys.boards.all, 'pins', boardId] as const,
-    selected: () => [...queryKeys.boards.all, 'selected'] as const,
+    byId: (boardId: string) => ['boards', 'byId', boardId] as const,
+    byUser: (userId: string) => ['boards', 'byUser', userId] as const,
+    my: () => ['boards', 'my'] as const,
+    forPin: (pinId: string) => ['boards', 'forPin', pinId] as const, // NEW
+    pins: (boardId: string) => ['boards', 'pins', boardId] as const,
+    selected: () => ['boards', 'selected'] as const,
   },
-  
   // Comments
   comments: {
     all: ['comments'] as const,

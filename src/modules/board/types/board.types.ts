@@ -11,7 +11,6 @@ export interface BoardCreateRequest {
 
 export interface BoardUpdateRequest {
   title?: string;
-  description?: string;
 }
 
 /**
@@ -23,6 +22,21 @@ export interface BoardResponse {
   title: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Board with pin status - для отображения при сохранении пина
+ */
+export interface BoardWithPinStatusResponse extends BoardResponse {
+  hasPin: boolean;   // true если пин уже в этой доске
+  pinCount: number;  // количество пинов в доске
+}
+
+/**
+ * Request to save pin to multiple boards
+ */
+export interface SavePinToBoardsRequest {
+  boardIds: string[]; // minItems: 1
 }
 
 /**
@@ -47,9 +61,17 @@ export interface BoardFormValues {
 }
 
 /**
- * Board pin action
+ * Board pin action - для одиночных операций
  */
 export interface BoardPinAction {
   boardId: string;
   pinId: string;
+}
+
+/**
+ * Batch board pin action - для множественных операций
+ */
+export interface BatchBoardPinAction {
+  pinId: string;
+  boardIds: string[];
 }

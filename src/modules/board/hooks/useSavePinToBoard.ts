@@ -1,4 +1,4 @@
-// src/modules/board/hooks/useRemovePinFromBoard.ts
+// src/modules/board/hooks/useSavePinToBoard.ts
 
 import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
@@ -7,7 +7,7 @@ import { useToast } from '@/shared/hooks/useToast';
 import type { BoardPinAction } from '../types/board.types';
 import type { PinResponse, PagePinResponse } from '@/modules/pin';
 
-interface UseRemovePinFromBoardOptions {
+interface UseSavePinToBoardOptions {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
   showToast?: boolean;
@@ -16,29 +16,25 @@ interface UseRemovePinFromBoardOptions {
 // ✅ Вынесены хелперы для уменьшения вложенности
 
 /**
- * Creates updated pin with decremented save count
+ * Creates updated pin with saved status
  */
-const createUnsavedPin = (pin: PinResponse): PinResponse => {
-  const newSavedCount = Math.max(0, pin.savedToBoardCount - 1);
-  return {
-    ...pin,
-    isSaved: newSavedCount > 0,
-    savedToBoardCount: newSavedCount,
-    savedToBoardName: newSavedCount === 0 ? null : pin.savedToBoardName,
-  };
-};
+const createSavedPin = (pin: PinResponse): PinResponse => ({
+  ...pin,
+  isSaved: true,
+  savedToBoardCount: pin.savedToBoardCount + 1,
+});
 
 /**
  * Updates pin in array if it matches pinId
  */
 const updatePinInArray = (pins: PinResponse[], pinId: string): PinResponse[] => {
-  return pins.map((pin) => (pin.id === pinId ? createUnsavedPin(pin) : pin));
+  return pins.map((pin) => (pin.id === pinId ? createSavedPin(pin) : pin));
 };
 
 /**
- * Updates pages with unsaved pin status
+ * Updates pages with saved pin status
  */
-const updatePagesWithUnsavedPin = (
+const updatePagesWithSavedPin = (
   data: InfiniteData<PagePinResponse> | undefined,
   pinId: string
 ): InfiniteData<PagePinResponse> | undefined => {
@@ -54,21 +50,23 @@ const updatePagesWithUnsavedPin = (
 };
 
 /**
- * Hook to remove a pin from a single board
+ * Hook to save a pin to a single board
  */
-export const useRemovePinFromBoard = (options: UseRemovePinFromBoardOptions = {}) => {
+export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const mutation = useMutation({
     mutationFn: ({ boardId, pinId }: BoardPinAction) =>
-      boardApi.removePinFromBoard(boardId, pinId),
+      boardApi.savePinToBoard(boardId, pinId),
     
-    onMutate: async ({ pinId }) => {
+    onMutate: async ({ boardId, pinId }) => {
+      // Cancel related queries
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.byId(pinId) });
       await queryClient.cancelQueries({ queryKey: queryKeys.boards.forPin(pinId) });
 
+      // Snapshot previous data
       const previousPin = queryClient.getQueryData<PinResponse>(
         queryKeys.pins.byId(pinId)
       );
@@ -77,31 +75,33 @@ export const useRemovePinFromBoard = (options: UseRemovePinFromBoardOptions = {}
       if (previousPin) {
         queryClient.setQueryData<PinResponse>(
           queryKeys.pins.byId(pinId),
-          createUnsavedPin(previousPin)
+          createSavedPin(previousPin)
         );
       }
 
-      // Update all pin lists
+      // Optimistic update for all pin lists
       queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
         { queryKey: queryKeys.pins.all },
-        (oldData) => updatePagesWithUnsavedPin(oldData, pinId)
+        (oldData) => updatePagesWithSavedPin(oldData, pinId)
       );
 
-      return { previousPin, pinId };
+      return { previousPin, boardId, pinId };
     },
 
     onSuccess: (_, { boardId, pinId }) => {
+      // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.boards.pins(boardId) });
 
       if (showToast) {
-        toast.success('Pin removed from board');
+        toast.success('Pin saved to board!');
       }
 
       onSuccess?.();
     },
 
     onError: (error: Error, { pinId }, context) => {
+      // Rollback
       if (context?.previousPin) {
         queryClient.setQueryData(
           queryKeys.pins.byId(pinId),
@@ -111,7 +111,7 @@ export const useRemovePinFromBoard = (options: UseRemovePinFromBoardOptions = {}
       queryClient.invalidateQueries({ queryKey: queryKeys.pins.all });
 
       if (showToast) {
-        toast.error(error.message || 'Failed to remove pin');
+        toast.error(error.message || 'Failed to save pin');
       }
 
       onError?.(error);
@@ -119,12 +119,12 @@ export const useRemovePinFromBoard = (options: UseRemovePinFromBoardOptions = {}
   });
 
   return {
-    removePinFromBoard: mutation.mutate,
-    removePinFromBoardAsync: mutation.mutateAsync,
+    savePinToBoard: mutation.mutate,
+    savePinToBoardAsync: mutation.mutateAsync,
     isLoading: mutation.isPending,
     isError: mutation.isError,
     error: mutation.error,
   };
 };
 
-export default useRemovePinFromBoard;
+export default useSavePinToBoard;

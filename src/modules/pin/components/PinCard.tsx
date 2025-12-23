@@ -103,6 +103,8 @@ export const PinCard: React.FC<PinCardProps> = ({
                 <PinSaveButton
                   pinId={pin.id}
                   isSaved={pin.isSaved}
+                  savedToBoardName={pin.savedToBoardName}
+                  savedToBoardCount={pin.savedToBoardCount}
                   size="sm"
                   variant="icon"
                 />

@@ -67,9 +67,14 @@ export const BOARD_ENDPOINTS = {
   addPin: (boardId: string, pinId: string) => `${API_PREFIXES.boards}/${boardId}/pins/${pinId}`,
   removePin: (boardId: string, pinId: string) => `${API_PREFIXES.boards}/${boardId}/pins/${pinId}`,
   
+  // Batch Pin Operations - NEW
+  savePinToBoards: (pinId: string) => `${API_PREFIXES.boards}/pins/${pinId}`,
+  removePinFromAllBoards: (pinId: string) => `${API_PREFIXES.boards}/pins/${pinId}`,
+  
   // User Boards
   byUser: (userId: string) => `${API_PREFIXES.boards}/user/${userId}`,
   my: () => `${API_PREFIXES.boards}/me`,
+  myForPin: (pinId: string) => `${API_PREFIXES.boards}/me/for-pin/${pinId}`, // NEW
   
   // Selected Board
   selected: () => `${API_PREFIXES.boards}/selected`,

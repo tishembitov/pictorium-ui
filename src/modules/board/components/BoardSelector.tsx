@@ -14,7 +14,7 @@ import {
 } from 'gestalt';
 import { BoardCreateModal } from './BoardCreateModal';
 import { useMyBoards } from '../hooks/useMyBoards';
-import { useAddPinToBoard } from '../hooks/useAddPinToBoard';
+import { useSavePinToBoard } from '../hooks/useSavePinToBoard';
 import { useSelectedBoard } from '../hooks/useSelectedBoard';
 import { useImageUrl } from '@/modules/storage';
 import { useBoardPins } from '../hooks/useBoardPins';
@@ -120,7 +120,7 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
 
   const { boards, isLoading, isEmpty } = useMyBoards();
   const { selectedBoard } = useSelectedBoard();
-  const { addPinToBoard } = useAddPinToBoard({
+  const { savePinToBoard } = useSavePinToBoard({
     onSuccess: () => {
       setSavingToBoardId(null);
       onClose?.();
@@ -138,15 +138,15 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
 
   const handleBoardSelect = useCallback((board: BoardResponse) => {
     setSavingToBoardId(board.id);
-    addPinToBoard({ boardId: board.id, pinId });
+    savePinToBoard({ boardId: board.id, pinId });
     onSelect?.(board);
-  }, [addPinToBoard, pinId, onSelect]);
+  }, [savePinToBoard, pinId, onSelect]);
 
   const handleCreateSuccess = useCallback((boardId: string) => {
     setSavingToBoardId(boardId);
-    addPinToBoard({ boardId, pinId });
+    savePinToBoard({ boardId, pinId });
     setShowCreateModal(false);
-  }, [addPinToBoard, pinId]);
+  }, [savePinToBoard, pinId]);
 
   if (isLoading) {
     return (

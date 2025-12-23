@@ -13,11 +13,10 @@ export interface PinCreateRequest {
   description?: string;      // maxLength: 400
   href?: string;             // maxLength: 200
   tags?: string[];           // unique items, each maxLength: 100
-
-  originalWidth: number;
-  originalHeight: number;
-  thumbnailWidth: number;
-  thumbnailHeight: number;
+  originalWidth: number;     // required, min: 1
+  originalHeight: number;    // required, min: 1
+  thumbnailWidth: number;    // required, min: 1
+  thumbnailHeight: number;   // required, min: 1
 }
 
 /**
@@ -34,7 +33,7 @@ export interface PinUpdateRequest {
 }
 
 /**
- * Pin response from API
+ * Pin response from API - UPDATED согласно OpenAPI
  */
 export interface PinResponse {
   id: string;
@@ -48,13 +47,22 @@ export interface PinResponse {
   createdAt: string;
   updatedAt: string;
   tags: string[];
+  
+  // Like status
   isLiked: boolean;
-  isSaved: boolean;
-  saveCount: number;
-  commentCount: number;
   likeCount: number;
+  
+  // Save status - UPDATED
+  isSaved: boolean;
+  savedToBoardName: string | null;   // NEW: название первой доски
+  savedToBoardCount: number;          // NEW: количество досок, в которые сохранён
+  saveCount: number;                  // общее количество сохранений (всеми пользователями)
+  
+  // Other stats
+  commentCount: number;
   viewCount: number;
 
+  // Dimensions
   originalWidth: number;
   originalHeight: number;
   thumbnailWidth: number;
@@ -95,5 +103,4 @@ export interface PinPreview {
   imageId: string;
   thumbnailId: string | null;
   videoPreviewId: string | null;
-  title?: string;
 }

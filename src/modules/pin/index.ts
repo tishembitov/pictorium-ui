@@ -30,7 +30,6 @@ export type {
   // API
   export { pinApi } from './api/pinApi';
   export { pinLikeApi } from './api/pinLikeApi';
-  export { savedPinApi } from './api/savedPinApi';
   export { pinCommentApi } from './api/pinCommentApi';
   
   // Hooks
@@ -42,8 +41,6 @@ export type {
   export { useLikePin } from './hooks/useLikePin';
   export { useUnlikePin } from './hooks/useUnlikePin';
   export { usePinLikes, useInfinitePinLikes } from './hooks/usePinLikes';
-  export { useSavePin } from './hooks/useSavePin';
-  export { useUnsavePin } from './hooks/useUnsavePin';
   export { usePinComments, useInfinitePinComments } from './hooks/usePinComments';
   export { useCreateComment } from './hooks/useCreateComment';
   export { useRelatedPins } from './hooks/useRelatedPins';

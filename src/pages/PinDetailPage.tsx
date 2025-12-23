@@ -1,3 +1,5 @@
+// src/pages/PinDetailPage.tsx
+
 import React from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import { 
@@ -29,8 +31,7 @@ import {
 } from '@/modules/comment';
 import { TagList } from '@/modules/tag';
 import { UserCard, useUser } from '@/modules/user';
-import { BoardSelector } from '@/modules/board';
-import { useAuth, useIsOwner } from '@/modules/auth';
+import { useIsOwner } from '@/modules/auth';
 import { ErrorMessage } from '@/shared/components';
 import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard';
 import { useToast } from '@/shared/hooks/useToast';
@@ -40,18 +41,14 @@ import { formatRelativeTime } from '@/shared/utils/formatters';
 const PinDetailPage: React.FC = () => {
   const { pinId } = useParams<{ pinId: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const { copy, copied } = useCopyToClipboard();
 
-  // Pin data
   const { pin, isLoading, isError, error, refetch } = usePin(pinId);
   const isOwner = useIsOwner(pin?.userId);
 
-  // Author data
   const { user: author } = useUser(pin?.userId);
 
-  // Comments
   const {
     comments,
     totalElements: commentCount,
@@ -61,10 +58,8 @@ const PinDetailPage: React.FC = () => {
     fetchNextPage: fetchMoreComments,
   } = useInfinitePinComments(pinId, { enabled: !!pin });
 
-  // Create comment
   const { createComment, isLoading: isCreatingComment } = useCreateComment(pinId || '');
 
-  // Related pins
   const {
     pins: relatedPins,
     isLoading: isLoadingRelated,
@@ -256,7 +251,7 @@ const PinDetailPage: React.FC = () => {
 
             <Divider />
 
-            {/* Author */}
+            {/* Author - убран size prop */}
             {author && (
               <Box marginTop={4}>
                 <Text size="200" weight="bold" color="subtle">
@@ -267,7 +262,6 @@ const PinDetailPage: React.FC = () => {
                     user={author} 
                     showFollowButton={!isOwner}
                     showDescription
-                    size="md"
                   />
                 </Box>
               </Box>
@@ -279,22 +273,6 @@ const PinDetailPage: React.FC = () => {
                 {formatRelativeTime(pin.createdAt)}
               </Text>
             </Box>
-
-            <Divider />
-
-            {/* Board Selector (for saving) */}
-            {isAuthenticated && (
-              <Box marginTop={4}>
-                <Text size="200" weight="bold" color="subtle">
-                  Save to board
-                </Text>
-                <Box marginTop={2}>
-                  <BoardSelector 
-                    pinId={pin.id}
-                  />
-                </Box>
-              </Box>
-            )}
 
             <Divider />
 

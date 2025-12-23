@@ -12,15 +12,13 @@ import { useIsOwner } from '@/modules/auth';
 import { ErrorMessage } from '@/shared/components';
 import { ROUTES } from '@/app/router/routeConfig';
 import ProfileCreatedTab from './ProfileCreatedTab';
-import ProfileSavedTab from './ProfileSavedTab';
 import ProfileLikedTab from './ProfileLikedTab';
 import ProfileBoardsTab from './ProfileBoardsTab';
 
-type ProfileTab = 'created' | 'saved' | 'liked' | 'boards';
+type ProfileTab = 'created' | 'liked' | 'boards';
 
 const TABS: { id: ProfileTab; text: string }[] = [
   { id: 'created', text: 'Created' },
-  { id: 'saved', text: 'Saved' },
   { id: 'liked', text: 'Liked' },
   { id: 'boards', text: 'Boards' },
 ];
@@ -54,15 +52,13 @@ const ProfilePage: React.FC = () => {
     navigate(ROUTES.SETTINGS);
   }, [navigate]);
 
-  // Memoized tab content to prevent unnecessary re-renders
+  // Memoized tab content
   const tabContent = useMemo(() => {
     if (!user) return null;
     
     switch (activeTab) {
       case 'created':
         return <ProfileCreatedTab userId={user.id} isOwner={isOwner} />;
-      case 'saved':
-        return <ProfileSavedTab userId={user.id} isOwner={isOwner} />;
       case 'liked':
         return <ProfileLikedTab userId={user.id} isOwner={isOwner} />;
       case 'boards':
@@ -118,13 +114,13 @@ const ProfilePage: React.FC = () => {
       {/* Profile Header */}
       <UserProfileHeader user={user} pinsCount={pinsCount} />
 
-      {/* Tabs - no href navigation, just local state */}
+      {/* Tabs */}
       <Box marginTop={6}>
         <Tabs
           activeTabIndex={activeTabIndex}
           onChange={handleTabChange}
           tabs={TABS.map((tab) => ({ 
-            href: `#${tab.id}`, // Dummy href for accessibility
+            href: `#${tab.id}`,
             text: tab.text,
           }))}
           wrap
@@ -133,12 +129,12 @@ const ProfilePage: React.FC = () => {
 
       <Divider />
 
-      {/* Tab Content - key ensures smooth transition */}
+      {/* Tab Content */}
       <Box 
         marginTop={4}
         dangerouslySetInlineStyle={{
           __style: {
-            minHeight: '400px', // Prevent layout shift
+            minHeight: '400px',
           },
         }}
       >

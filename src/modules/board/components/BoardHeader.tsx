@@ -1,7 +1,6 @@
 // src/modules/board/components/BoardHeader.tsx
 
 import React, { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
   Flex, 
@@ -26,17 +25,14 @@ import type { BoardResponse } from '../types/board.types';
 interface BoardHeaderProps {
   board: BoardResponse;
   pinCount?: number;
-  onBack?: () => void;
   onEdit?: () => void;
 }
 
 export const BoardHeader: React.FC<BoardHeaderProps> = ({
   board,
   pinCount = 0,
-  onBack,
   onEdit,
 }) => {
-  const navigate = useNavigate();
   const { confirm } = useConfirmModal();
   const { toast } = useToast();
   const { copy } = useCopyToClipboard();
@@ -48,17 +44,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   const { deleteBoard } = useDeleteBoard();
 
   const isSelected = selectedBoard?.id === board.id;
-
-  // Build share URL
   const shareUrl = `${globalThis.location.origin}/board/${board.id}`;
-
-  const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else {
-      navigate(-1);
-    }
-  };
 
   const handleSelectBoard = () => {
     if (isSelected) {
@@ -70,7 +56,6 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
     }
   };
 
-  // Share handlers
   const handleCopyLink = useCallback(async () => {
     const success = await copy(shareUrl);
     if (success) {
@@ -92,17 +77,11 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
     setShowMenu(false);
   }, [shareUrl]);
 
-  const handleSharePinterest = useCallback(() => {
-    const url = `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shareUrl)}&description=${encodeURIComponent(board.title)}`;
-    globalThis.open(url, '_blank', 'noopener,noreferrer');
-    setShowMenu(false);
-  }, [board.title, shareUrl]);
-
   const handleDelete = () => {
     setShowMenu(false);
     confirm({
       title: 'Delete this board?',
-      message: `Are you sure you want to delete "${board.title}"? This cannot be undone. Pins in this board won't be deleted.`,
+      message: `Are you sure you want to delete "${board.title}"? This cannot be undone.`,
       confirmText: 'Delete',
       destructive: true,
       onConfirm: () => deleteBoard(board.id),
@@ -111,22 +90,6 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
 
   return (
     <Box paddingY={6}>
-      {/* Back Button - Absolute positioned */}
-      <Box 
-        position="absolute" 
-        dangerouslySetInlineStyle={{ __style: { left: 16, top: 24 } }}
-      >
-        <Tooltip text="Go back">
-          <IconButton
-            accessibilityLabel="Go back"
-            icon="arrow-back"
-            onClick={handleBack}
-            size="lg"
-            bgColor="transparent"
-          />
-        </Tooltip>
-      </Box>
-
       <Flex direction="column" alignItems="center" gap={4}>
         {/* Selected Badge */}
         {isSelected && (
@@ -145,8 +108,8 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
           </Box>
         )}
 
-        {/* Board Title */}
-        <Heading size="500" align="center" accessibilityLevel={1}>
+        {/* Board Title - исправлено: size="400" вместо "500" */}
+        <Heading size="400" align="center" accessibilityLevel={1}>
           {board.title}
         </Heading>
 
@@ -157,17 +120,14 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
 
         {/* Actions */}
         <Flex gap={3} alignItems="center">
-          {/* Select/Deselect Board */}
           <Button
             text={isSelected ? 'Deselect' : 'Set as default'}
             onClick={handleSelectBoard}
             size="lg"
             color={isSelected ? 'gray' : 'red'}
             disabled={isSelecting}
-            iconEnd={isSelected ? undefined : 'add-pin'}
           />
 
-          {/* Edit Button */}
           {onEdit && (
             <Tooltip text="Edit board">
               <IconButton
@@ -180,7 +140,6 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
             </Tooltip>
           )}
 
-          {/* More Options Menu - Pinterest style */}
           <Box>
             <Tooltip text="More options">
               <IconButton
@@ -201,7 +160,6 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
                 id="board-header-menu"
                 onDismiss={() => setShowMenu(false)}
               >
-                {/* Share Options */}
                 <Dropdown.Section label="Share">
                   <Dropdown.Item
                     onSelect={handleCopyLink}
@@ -215,13 +173,8 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
                     onSelect={handleShareFacebook}
                     option={{ value: 'facebook', label: 'Share on Facebook' }}
                   />
-                  <Dropdown.Item
-                    onSelect={handleSharePinterest}
-                    option={{ value: 'pinterest', label: 'Share on Pinterest' }}
-                  />
                 </Dropdown.Section>
 
-                {/* Board Actions */}
                 {onEdit && (
                   <Dropdown.Section label="Board">
                     <Dropdown.Item

@@ -27,7 +27,6 @@ export const PinCard: React.FC<PinCardProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Используем thumbnailId для сетки
   const imageId = pin.thumbnailId || pin.imageId;
   
   const { data: imageData } = useImageUrl(imageId, {
@@ -42,7 +41,6 @@ export const PinCard: React.FC<PinCardProps> = ({
   const handleMouseLeave = useCallback(() => setIsHovered(false), []);
   const handleImageLoad = useCallback(() => setIsLoaded(true), []);
 
-  // Размеры известны заранее
   const dimensions = useMemo(() => ({
     width: pin.thumbnailWidth,
     height: pin.thumbnailHeight,
@@ -103,10 +101,7 @@ export const PinCard: React.FC<PinCardProps> = ({
                 <PinSaveButton
                   pinId={pin.id}
                   isSaved={pin.isSaved}
-                  savedToBoardName={pin.savedToBoardName}
-                  savedToBoardCount={pin.savedToBoardCount}
                   size="sm"
-                  variant="icon"
                 />
               )}
             </Box>

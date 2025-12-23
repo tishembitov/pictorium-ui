@@ -14,15 +14,12 @@ import {
 } from 'gestalt';
 import { PinCreateForm } from '@/modules/pin';
 import { BoardPicker, useSelectedBoard } from '@/modules/board';
-import { useToast } from '@/shared/hooks/useToast';
 
 const PinCreatePage: React.FC = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { selectedBoard } = useSelectedBoard();
 
   const handleSuccess = () => {
-    toast.success('Pin created successfully!');
     navigate(-1);
   };
 
@@ -85,33 +82,6 @@ const PinCreatePage: React.FC = () => {
       </Box>
 
       <Divider />
-
-      {/* Board selection info banner */}
-      {!selectedBoard && (
-        <Box 
-          marginTop={4} 
-          padding={4} 
-          rounding={3}
-          dangerouslySetInlineStyle={{
-            __style: {
-              background: 'linear-gradient(135deg, #bd5b00 0%, #ff7a00 100%)',
-            },
-          }}
-        >
-          <Flex alignItems="center" gap={3}>
-            <Icon accessibilityLabel="" icon="workflow-status-warning" size={20} color="inverse" />
-            <Box flex="grow">
-              <Text color="inverse" weight="bold" size="200">
-                Select a board to save your pin
-              </Text>
-              <Text color="inverse" size="100">
-                You can also save it later from your profile
-              </Text>
-            </Box>
-            <BoardPicker size="sm" showLabel />
-          </Flex>
-        </Box>
-      )}
 
       {/* Form */}
       <Box marginTop={6}>

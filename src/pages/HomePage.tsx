@@ -10,7 +10,6 @@ import {
   Tooltip, 
   Text, 
   Button, 
-  Icon,
 } from 'gestalt';
 import { 
   PinGrid, 
@@ -19,91 +18,22 @@ import {
   useInfinitePins, 
   usePinFiltersStore,
 } from '@/modules/pin';
-import { BoardPicker, useSelectedBoard, useSelectBoard } from '@/modules/board';
-import { CategoryGrid } from '@/modules/tag';
 import { useAuth } from '@/modules/auth';
+import { CategoryGrid } from '@/modules/tag';
 import { EmptyState } from '@/shared/components';
 import { useIsMobile } from '@/shared/hooks/useMediaQuery';
-import { useToast } from '@/shared/hooks/useToast';
 import { ROUTES } from '@/app/router/routeConfig';
-
-// Selected Board Banner Component
-const SelectedBoardBanner: React.FC<{
-  boardTitle: string;
-  onDeselect: () => void;
-  onChangBoard: () => void;
-}> = ({ boardTitle, onDeselect }) => {
-  return (
-    <Box 
-      marginTop={4} 
-      marginBottom={4}
-      rounding={4}
-      overflow="hidden"
-      dangerouslySetInlineStyle={{
-        __style: {
-          background: 'linear-gradient(135deg, #e60023 0%, #bd081c 100%)',
-        },
-      }}
-    >
-      <Box padding={4}>
-        <Flex alignItems="center" justifyContent="between">
-          <Flex alignItems="center" gap={3}>
-            <Box 
-              color="light"
-              rounding="circle" 
-              padding={2}
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Icon accessibilityLabel="" icon="board" size={16} color="error" />
-            </Box>
-            <Flex direction="column">
-              <Text size="100" color="inverse">
-                Auto-saving new pins to
-              </Text>
-              <Text weight="bold" color="inverse" size="300">
-                {boardTitle}
-              </Text>
-            </Flex>
-          </Flex>
-          
-          <Flex gap={2}>
-            <Button
-              text="Change"
-              size="sm"
-              color="white"
-              onClick={() => {}}
-            />
-            <IconButton
-              accessibilityLabel="Stop auto-saving"
-              icon="cancel"
-              size="sm"
-              bgColor="transparent"
-              iconColor="white"
-              onClick={onDeselect}
-            />
-          </Flex>
-        </Flex>
-      </Box>
-    </Box>
-  );
-};
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const isMobile = useIsMobile();
-  const { toast } = useToast();
   
   const [showFilters, setShowFilters] = useState(false);
   
   const filter = usePinFiltersStore((state) => state.filter);
   const hasActiveFilters = usePinFiltersStore((state) => state.hasActiveFilters);
   const clearFilter = usePinFiltersStore((state) => state.clearFilter);
-  
-  const { selectedBoard, hasSelectedBoard } = useSelectedBoard();
-  const { deselectBoard } = useSelectBoard();
 
   const {
     pins,
@@ -134,17 +64,6 @@ const HomePage: React.FC = () => {
 
   const handleRetry = () => {
     void refetch();
-  };
-
-  const handleBoardChange = (board: { title: string } | null) => {
-    if (board) {
-      toast.success(`Pins will be saved to "${board.title}"`);
-    }
-  };
-
-  const handleDeselectBoard = () => {
-    deselectBoard();
-    toast.success('Auto-save disabled');
   };
 
   return (
@@ -191,15 +110,6 @@ const HomePage: React.FC = () => {
             />
           </Tooltip>
 
-          {/* Board Picker */}
-          {isAuthenticated && (
-            <BoardPicker 
-              size="md"
-              onBoardChange={handleBoardChange}
-              showLabel
-            />
-          )}
-
           {/* Create Pin */}
           {isAuthenticated && (
             <Button
@@ -212,15 +122,6 @@ const HomePage: React.FC = () => {
           )}
         </Flex>
       </Flex>
-
-      {/* Selected Board Banner */}
-      {hasSelectedBoard && selectedBoard && (
-        <SelectedBoardBanner
-          boardTitle={selectedBoard.title}
-          onDeselect={handleDeselectBoard}
-          onChangBoard={() => {}}
-        />
-      )}
 
       {/* Filters Section */}
       {showFilters && (

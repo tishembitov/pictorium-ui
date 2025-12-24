@@ -1,6 +1,6 @@
 // src/modules/pin/components/PinSaveButton.tsx
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import { 
   Box, 
   Flex, 
@@ -8,10 +8,10 @@ import {
   TapArea, 
   Icon,
   Spinner,
-  SearchField,
-  Divider,
   Popover,
   Layer,
+  SearchField,
+  Divider,
 } from 'gestalt';
 import { useAuth } from '@/modules/auth';
 import { 
@@ -23,51 +23,37 @@ import {
 import { useBoardPins } from '@/modules/board/hooks/useBoardPins';
 import { useImageUrl } from '@/modules/storage';
 import { useToast } from '@/shared/hooks/useToast';
+import { useSelectedBoard } from '@/modules/board/hooks/useSelectedBoard';
 import type { BoardWithPinStatusResponse } from '@/modules/board';
 
 interface PinSaveButtonProps {
   pinId: string;
   isSaved: boolean;
   size?: 'sm' | 'md' | 'lg';
+  variant?: 'default' | 'card';
 }
 
-// Type alias for button sizes
 type ButtonSize = 'sm' | 'md' | 'lg';
 
-// Gestalt Padding type
-type GestaltPadding = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
-
-// Helper functions with proper return types
-const getPaddingX = (size: ButtonSize): GestaltPadding => {
+// Helper functions to avoid nested ternaries
+const getButtonHeight = (size: ButtonSize): number => {
   switch (size) {
-    case 'sm': return 3;
-    case 'lg': return 5;
-    default: return 4;
+    case 'lg': return 48;
+    case 'sm': return 32;
+    default: return 40;
   }
 };
 
-const getPaddingY = (size: ButtonSize): GestaltPadding => {
+const getPaddingX = (size: ButtonSize): number => {
   switch (size) {
-    case 'sm': return 2;
-    case 'lg': return 3;
-    default: return 2;
+    case 'lg': return 20;
+    case 'sm': return 12;
+    default: return 16;
   }
 };
 
-const getTextSize = (size: ButtonSize): '200' | '300' | '400' => {
-  switch (size) {
-    case 'sm': return '200';
-    case 'lg': return '400';
-    default: return '300';
-  }
-};
-
-const getMinWidth = (size: ButtonSize): number => {
-  return size === 'lg' ? 80 : 60;
-};
-
-// Board item component
-const BoardItem: React.FC<{
+// Board item in dropdown
+const BoardDropdownItem: React.FC<{
   board: BoardWithPinStatusResponse;
   onSelect: (board: BoardWithPinStatusResponse) => void;
   isProcessing: boolean;
@@ -75,22 +61,27 @@ const BoardItem: React.FC<{
   const { pins } = useBoardPins(board.id, { pageable: { page: 0, size: 1 } });
   const coverImageId = pins[0]?.thumbnailId || pins[0]?.imageId;
   const { data: coverData } = useImageUrl(coverImageId, { enabled: !!coverImageId });
+  const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <TapArea onTap={() => onSelect(board)} rounding={2} disabled={isProcessing}>
+    <TapArea 
+      onTap={() => onSelect(board)} 
+      rounding={3} 
+      disabled={isProcessing || board.hasPin}
+    >
       <Box
-        paddingY={2}
-        paddingX={3}
-        rounding={2}
-        color={board.hasPin ? 'secondary' : 'transparent'}
+        padding={2}
+        rounding={3}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         dangerouslySetInlineStyle={{
           __style: {
-            transition: 'background-color 0.15s ease',
+            backgroundColor: isHovered ? '#e9e9e9' : 'transparent',
+            opacity: board.hasPin ? 0.6 : 1,
           },
         }}
       >
         <Flex alignItems="center" gap={3}>
-          {/* Cover */}
           <Box
             width={48}
             height={48}
@@ -113,7 +104,6 @@ const BoardItem: React.FC<{
             )}
           </Box>
 
-          {/* Info */}
           <Box flex="grow">
             <Text weight="bold" size="200" lineClamp={1}>
               {board.title}
@@ -123,12 +113,11 @@ const BoardItem: React.FC<{
             </Text>
           </Box>
 
-          {/* Status */}
           {isProcessing && (
             <Spinner accessibilityLabel="Saving" show size="sm" />
           )}
-          {!isProcessing && board.hasPin && (
-            <Icon accessibilityLabel="Saved" icon="check" size={20} color="dark" />
+          {board.hasPin && !isProcessing && (
+            <Icon accessibilityLabel="Already saved" icon="check" size={16} color="subtle" />
           )}
         </Flex>
       </Box>
@@ -136,33 +125,25 @@ const BoardItem: React.FC<{
   );
 };
 
-// Filtered boards hook
-const useFilteredBoards = (
-  boards: BoardWithPinStatusResponse[],
-  searchQuery: string
-): BoardWithPinStatusResponse[] => {
-  if (!searchQuery.trim()) return boards;
-  const query = searchQuery.toLowerCase();
-  return boards.filter(b => b.title.toLowerCase().includes(query));
-};
-
 export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
   pinId,
   isSaved,
   size = 'md',
+  variant = 'default',
 }) => {
   const { isAuthenticated, login } = useAuth();
   const { toast } = useToast();
+  const { selectedBoard } = useSelectedBoard();
   
   const [isOpen, setIsOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [processingBoardId, setProcessingBoardId] = useState<string | null>(null);
-  const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
+  const [anchorElement, setAnchorElement] = useState<HTMLDivElement | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
   const { 
     boards, 
-    boardsWithPin,
     isLoading: isBoardsLoading,
     refetch: refetchBoards,
   } = useMyBoardsForPin(pinId, { enabled: isOpen });
@@ -183,9 +164,24 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
     showToast: false,
   });
 
-  const filteredBoards = useFilteredBoards(boards, searchQuery);
+  const filteredBoards = useMemo(() => {
+    if (!searchQuery.trim()) return boards;
+    const query = searchQuery.toLowerCase();
+    return boards.filter(b => b.title.toLowerCase().includes(query));
+  }, [boards, searchQuery]);
 
-  const handleButtonClick = useCallback(() => {
+  const handleDropdownToggle = useCallback((e?: { event: React.MouseEvent | React.KeyboardEvent }) => {
+    e?.event.stopPropagation();
+    if (!isAuthenticated) {
+      login();
+      return;
+    }
+    setIsOpen(prev => !prev);
+    setSearchQuery('');
+  }, [isAuthenticated, login]);
+
+  const handleSaveClick = useCallback((e?: { event: React.MouseEvent | React.KeyboardEvent }) => {
+    e?.event.stopPropagation();
     if (!isAuthenticated) {
       login();
       return;
@@ -194,11 +190,14 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
     if (isSaved) {
       removePinFromAllBoards(pinId);
       toast.success('Removed from all boards');
+    } else if (selectedBoard) {
+      setProcessingBoardId(selectedBoard.id);
+      savePinToBoard({ boardId: selectedBoard.id, pinId });
+      toast.success(`Saved to "${selectedBoard.title}"`);
     } else {
       setIsOpen(true);
-      setSearchQuery('');
     }
-  }, [isAuthenticated, login, isSaved, removePinFromAllBoards, pinId, toast]);
+  }, [isAuthenticated, login, isSaved, selectedBoard, pinId, savePinToBoard, removePinFromAllBoards, toast]);
 
   const handleBoardSelect = useCallback((board: BoardWithPinStatusResponse) => {
     if (board.hasPin) return;
@@ -220,61 +219,134 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
     toast.success('Saved to new board!');
   }, [savePinToBoard, pinId, toast]);
 
-  const handleOpenCreateModal = useCallback(() => {
-    setIsOpen(false);
-    setShowCreateModal(true);
-  }, []);
-
-  const setAnchorRef = useCallback((node: HTMLElement | null) => {
+  // Correct ref callback type for HTMLDivElement
+  const setAnchorRef = useCallback((node: HTMLDivElement | null) => {
     setAnchorElement(node);
   }, []);
 
-  // Computed values
-  const paddingX = getPaddingX(size);
-  const paddingY = getPaddingY(size);
-  const textSize = getTextSize(size);
-  const minWidth = getMinWidth(size);
   const isProcessing = processingBoardId !== null || isRemoving;
-  const backgroundColor = isSaved ? '#111111' : '#e60023';
-  const buttonText = isSaved ? 'Saved' : 'Save';
   const showSearch = boards.length > 5;
 
-  return (
-    <>
-      {/* Pinterest-style Save Button */}
-      <Box ref={setAnchorRef}>
-        <TapArea 
-          onTap={handleButtonClick} 
+  // Use helper functions instead of nested ternaries
+  const buttonHeight = getButtonHeight(size);
+  const paddingX = getPaddingX(size);
+
+  // Card variant - compact save button for PinCard hover overlay
+  if (variant === 'card') {
+    return (
+      <>
+        <TapArea
+          onTap={handleSaveClick}
           rounding="pill"
           disabled={isProcessing}
         >
           <Box
-            paddingX={paddingX}
-            paddingY={paddingY}
+            paddingX={4}
+            paddingY={2}
             rounding="pill"
             display="flex"
             alignItems="center"
             justifyContent="center"
             dangerouslySetInlineStyle={{
               __style: {
-                backgroundColor,
-                transition: 'all 0.2s ease',
+                backgroundColor: isSaved ? '#111' : '#e60023',
                 cursor: isProcessing ? 'wait' : 'pointer',
-                opacity: isProcessing ? 0.7 : 1,
-                minWidth,
+                opacity: isProcessing ? 0.8 : 1,
+                transition: 'all 0.15s ease',
+                minWidth: 60,
               },
             }}
           >
             {isProcessing ? (
-              <Spinner accessibilityLabel="Processing" show size="sm" />
+              <Spinner accessibilityLabel="Saving" show size="sm" />
             ) : (
-              <Text color="inverse" weight="bold" size={textSize}>
-                {buttonText}
+              <Text color="inverse" weight="bold" size="200">
+                {isSaved ? 'Saved' : 'Save'}
               </Text>
             )}
           </Box>
         </TapArea>
-      </Box>
+
+        <BoardCreateModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      </>
+    );
+  }
+
+  // Default variant - full Pinterest-style with dropdown
+  return (
+    <>
+      <Flex alignItems="center">
+        {/* Wrapper Box with ref */}
+        <Box ref={setAnchorRef} display="flex">
+          {/* Board Selector Dropdown Toggle */}
+          <TapArea onTap={handleDropdownToggle} rounding={2}>
+            <Box
+              display="flex"
+              alignItems="center"
+              paddingX={3}
+              onMouseEnter={() => setIsHovered(true)}
+              onMouseLeave={() => setIsHovered(false)}
+              dangerouslySetInlineStyle={{
+                __style: {
+                  height: buttonHeight,
+                  backgroundColor: isHovered ? '#e2e2e2' : '#efefef',
+                  borderRadius: '8px 0 0 8px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease',
+                },
+              }}
+            >
+              <Flex alignItems="center" gap={2}>
+                <Text size="200" weight="bold" lineClamp={1}>
+                  {selectedBoard?.title || 'Profile'}
+                </Text>
+                <Icon 
+                  accessibilityLabel="" 
+                  icon="arrow-down" 
+                  size={12} 
+                  color="dark"
+                />
+              </Flex>
+            </Box>
+          </TapArea>
+
+          {/* Save Button */}
+          <TapArea 
+            onTap={handleSaveClick} 
+            disabled={isProcessing}
+          >
+            <Box
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              dangerouslySetInlineStyle={{
+                __style: {
+                  height: buttonHeight,
+                  paddingLeft: paddingX,
+                  paddingRight: paddingX,
+                  backgroundColor: isSaved ? '#111' : '#e60023',
+                  borderRadius: '0 8px 8px 0',
+                  cursor: isProcessing ? 'wait' : 'pointer',
+                  opacity: isProcessing ? 0.7 : 1,
+                  transition: 'all 0.15s ease',
+                },
+              }}
+            >
+              {isProcessing ? (
+                <Spinner accessibilityLabel="Saving" show size="sm" />
+              ) : (
+                <Text color="inverse" weight="bold" size="300">
+                  {isSaved ? 'Saved' : 'Save'}
+                </Text>
+              )}
+            </Box>
+          </TapArea>
+        </Box>
+      </Flex>
 
       {/* Board Picker Popover */}
       {isOpen && anchorElement && (
@@ -287,39 +359,36 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
             size="flexible"
             color="white"
           >
-            <Box padding={3} width={320}>
-              {/* Header */}
+            <Box padding={4} width={360}>
               <Box marginBottom={3}>
-                <Text weight="bold" size="300" align="center">
-                  Save to board
+                <Text weight="bold" size="400" align="center">
+                  Save
                 </Text>
               </Box>
 
-              {/* Search */}
               {showSearch && (
                 <Box marginBottom={3}>
                   <SearchField
-                    id="save-board-search"
+                    id="board-picker-search"
                     accessibilityLabel="Search boards"
                     accessibilityClearButtonLabel="Clear"
                     placeholder="Search"
                     value={searchQuery}
                     onChange={({ value }) => setSearchQuery(value)}
-                    size="md"
+                    size="lg"
                   />
                 </Box>
               )}
 
-              {/* Board List */}
-              <Box maxHeight={300} overflow="scrollY">
+              <Box maxHeight={320} overflow="scrollY">
                 {isBoardsLoading ? (
-                  <Box display="flex" justifyContent="center" padding={4}>
-                    <Spinner accessibilityLabel="Loading boards" show size="md" />
+                  <Box display="flex" justifyContent="center" padding={6}>
+                    <Spinner accessibilityLabel="Loading boards" show />
                   </Box>
                 ) : (
                   <Flex direction="column" gap={1}>
                     {filteredBoards.map((board) => (
-                      <BoardItem
+                      <BoardDropdownItem
                         key={board.id}
                         board={board}
                         onSelect={handleBoardSelect}
@@ -340,21 +409,23 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
 
               <Divider />
 
-              {/* Create Board */}
               <Box marginTop={3}>
-                <TapArea onTap={handleOpenCreateModal} rounding={2}>
-                  <Box padding={3} rounding={2}>
+                <TapArea 
+                  onTap={() => { setIsOpen(false); setShowCreateModal(true); }}
+                  rounding={3}
+                >
+                  <Box padding={3} rounding={3}>
                     <Flex alignItems="center" gap={3}>
                       <Box
                         width={48}
                         height={48}
-                        rounding={2}
+                        rounding="circle"
                         color="secondary"
                         display="flex"
                         alignItems="center"
                         justifyContent="center"
                       >
-                        <Icon accessibilityLabel="" icon="add" size={24} />
+                        <Icon accessibilityLabel="" icon="add" size={20} />
                       </Box>
                       <Text weight="bold" size="200">
                         Create board
@@ -363,21 +434,11 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
                   </Box>
                 </TapArea>
               </Box>
-
-              {/* Saved count info */}
-              {boardsWithPin.length > 0 && (
-                <Box marginTop={2} paddingX={3}>
-                  <Text size="100" color="subtle" align="center">
-                    Saved to {boardsWithPin.length} {boardsWithPin.length === 1 ? 'board' : 'boards'}
-                  </Text>
-                </Box>
-              )}
             </Box>
           </Popover>
         </Layer>
       )}
 
-      {/* Create Board Modal */}
       <BoardCreateModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}

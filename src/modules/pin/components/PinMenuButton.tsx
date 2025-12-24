@@ -1,6 +1,6 @@
 // src/modules/pin/components/PinMenuButton.tsx
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { IconButton, Dropdown, Tooltip } from 'gestalt';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, useIsOwner } from '@/modules/auth';
@@ -16,12 +16,6 @@ interface PinMenuButtonProps {
   onDelete?: () => void;
   size?: 'sm' | 'md' | 'lg';
 }
-
-const getIconButtonSize = (size: 'sm' | 'md' | 'lg'): 'xs' | 'md' | 'lg' => {
-  if (size === 'sm') return 'xs';
-  if (size === 'lg') return 'lg';
-  return 'md';
-};
 
 export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
   pin,
@@ -45,8 +39,6 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
     navigateOnSuccess: !onDelete,
   });
 
-  const iconButtonSize = useMemo(() => getIconButtonSize(size), [size]);
-
   const handleEdit = useCallback(() => {
     navigate(buildPath.pinEdit(pin.id));
     setIsOpen(false);
@@ -55,8 +47,8 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
   const handleDelete = useCallback(() => {
     setIsOpen(false);
     confirm({
-      title: 'Delete Pin?',
-      message: 'This action cannot be undone. Are you sure you want to delete this pin?',
+      title: 'Delete this Pin?',
+      message: 'This can\'t be undone.',
       confirmText: 'Delete',
       destructive: true,
       onConfirm: () => deletePin(pin.id),
@@ -64,16 +56,16 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
   }, [confirm, deletePin, pin.id]);
 
   const handleReport = useCallback(() => {
-    console.log('Report pin:', pin.id);
+    toast.info('Report feature coming soon');
     setIsOpen(false);
-  }, [pin.id]);
+  }, [toast]);
 
   const handleDownload = useCallback(async () => {
     setIsOpen(false);
     
     try {
       await download(pin.imageId, {
-        fileName: pin.title || undefined,
+        fileName: pin.title || 'pin-image',
         onSuccess: () => {
           toast.success('Image downloaded!');
         },
@@ -82,6 +74,11 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
       toast.error('Failed to download image');
     }
   }, [download, pin.imageId, pin.title, toast]);
+
+  const handleHidePin = useCallback(() => {
+    toast.info('Pin hidden from your feed');
+    setIsOpen(false);
+  }, [toast]);
 
   const handleToggle = useCallback(() => {
     setIsOpen((prev) => !prev);
@@ -95,6 +92,8 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
     setAnchorElement(node);
   }, []);
 
+  const iconButtonSize = size === 'sm' ? 'xs' : size === 'lg' ? 'lg' : 'md';
+
   return (
     <>
       <Tooltip text="More options">
@@ -106,8 +105,7 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
           icon="ellipsis"
           onClick={handleToggle}
           size={iconButtonSize}
-          bgColor="transparentDarkGray"
-          iconColor="white"
+          bgColor="transparent"
         />
       </Tooltip>
 
@@ -125,6 +123,13 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
             }}
           />
           
+          {!isOwner && isAuthenticated && (
+            <Dropdown.Item
+              onSelect={handleHidePin}
+              option={{ value: 'hide', label: 'Hide Pin' }}
+            />
+          )}
+          
           {isOwner && (
             <>
               <Dropdown.Item
@@ -134,7 +139,6 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
               <Dropdown.Item
                 onSelect={handleDelete}
                 option={{ value: 'delete', label: 'Delete Pin' }}
-                badge={{ text: 'Danger' }}
               />
             </>
           )}

@@ -63,6 +63,7 @@ export type {
   export { PinDetailActions } from './components/PinDetailActions';
   export { PinDetailImage } from './components/PinDetailImage';
   export { PinCreateForm } from './components/PinCreateForm';
+  export { PinDetailContent } from './components/PinDetailContent';
   export { pinCreateSchema, type PinCreateFormData } from './components/pinCreateSchema';
   export { PinEditForm } from './components/PinEditForm';
   export { pinEditSchema, type PinEditFormData } from './components/pinEditSchema';

@@ -1,6 +1,6 @@
 // src/modules/pin/components/PinShareButton.tsx
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   IconButton, 
   Dropdown, 
@@ -17,26 +17,17 @@ interface PinShareButtonProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-// Helper to get icon button size
-const getIconButtonSize = (size: 'sm' | 'md' | 'lg'): 'xs' | 'md' | 'lg' => {
-  if (size === 'sm') return 'xs';
-  if (size === 'lg') return 'lg';
-  return 'md';
-};
-
 export const PinShareButton: React.FC<PinShareButtonProps> = ({
   pin,
   size = 'md',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  // Use state instead of ref for anchor element
   const [anchorElement, setAnchorElement] = useState<HTMLButtonElement | null>(null);
   
   const { copy } = useCopyToClipboard();
   const { toast } = useToast();
 
   const shareUrl = buildPinShareUrl(pin.id);
-  const iconButtonSize = useMemo(() => getIconButtonSize(size), [size]);
 
   const handleCopyLink = useCallback(async () => {
     const success = await copy(shareUrl);
@@ -59,9 +50,18 @@ export const PinShareButton: React.FC<PinShareButtonProps> = ({
     setIsOpen(false);
   }, [shareUrl]);
 
-  const handleSharePinterest = useCallback(() => {
-    const url = `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shareUrl)}&description=${encodeURIComponent(pin.title || '')}`;
+  const handleShareWhatsApp = useCallback(() => {
+    const text = pin.title || 'Check out this pin!';
+    const url = `https://wa.me/?text=${encodeURIComponent(`${text} ${shareUrl}`)}`;
     globalThis.open(url, '_blank', 'noopener,noreferrer');
+    setIsOpen(false);
+  }, [pin.title, shareUrl]);
+
+  const handleShareEmail = useCallback(() => {
+    const subject = pin.title || 'Check out this pin!';
+    const body = `I found this on Pictorium and thought you might like it!\n\n${shareUrl}`;
+    const url = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    globalThis.open(url);
     setIsOpen(false);
   }, [pin.title, shareUrl]);
 
@@ -73,10 +73,11 @@ export const PinShareButton: React.FC<PinShareButtonProps> = ({
     setIsOpen(false);
   }, []);
 
-  // Callback ref to capture the anchor element
   const setAnchorRef = useCallback((node: HTMLButtonElement | null) => {
     setAnchorElement(node);
   }, []);
+
+  const iconButtonSize = size === 'sm' ? 'xs' : size === 'lg' ? 'lg' : 'md';
 
   return (
     <>
@@ -99,22 +100,30 @@ export const PinShareButton: React.FC<PinShareButtonProps> = ({
           id="pin-share-dropdown"
           onDismiss={handleDismiss}
         >
-          <Dropdown.Item
-            onSelect={handleCopyLink}
-            option={{ value: 'copy', label: 'Copy link' }}
-          />
-          <Dropdown.Item
-            onSelect={handleShareTwitter}
-            option={{ value: 'twitter', label: 'Share on Twitter' }}
-          />
-          <Dropdown.Item
-            onSelect={handleShareFacebook}
-            option={{ value: 'facebook', label: 'Share on Facebook' }}
-          />
-          <Dropdown.Item
-            onSelect={handleSharePinterest}
-            option={{ value: 'pinterest', label: 'Share on Pinterest' }}
-          />
+          <Dropdown.Section label="Share to">
+            <Dropdown.Item
+              onSelect={handleShareFacebook}
+              option={{ value: 'facebook', label: 'Facebook' }}
+            />
+            <Dropdown.Item
+              onSelect={handleShareTwitter}
+              option={{ value: 'twitter', label: 'Twitter' }}
+            />
+            <Dropdown.Item
+              onSelect={handleShareWhatsApp}
+              option={{ value: 'whatsapp', label: 'WhatsApp' }}
+            />
+            <Dropdown.Item
+              onSelect={handleShareEmail}
+              option={{ value: 'email', label: 'Email' }}
+            />
+          </Dropdown.Section>
+          <Dropdown.Section label="Other options">
+            <Dropdown.Item
+              onSelect={handleCopyLink}
+              option={{ value: 'copy', label: 'Copy link' }}
+            />
+          </Dropdown.Section>
         </Dropdown>
       )}
     </>

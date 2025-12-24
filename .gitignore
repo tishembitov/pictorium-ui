@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 .history
 .cursor
+.txt
+build-import-tree.js

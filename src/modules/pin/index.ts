@@ -76,7 +76,6 @@ export { PinDetailCard } from './components/detail/PinDetailCard';
 export { PinDetailImage } from './components/detail/PinDetailImage';
 export { PinDetailContent } from './components/detail/PinDetailContent';
 export { PinDetailHeader } from './components/detail/PinDetailHeader';
-export { PinDetailActions } from './components/detail/PinDetailActions';
 export { PinDetailInfo } from './components/detail/PinDetailInfo';
 export { PinDetailAuthor } from './components/detail/PinDetailAuthor';
 export { PinDetailStats } from './components/detail/PinDetailStats';

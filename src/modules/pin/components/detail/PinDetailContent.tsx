@@ -1,9 +1,8 @@
 // src/modules/pin/components/detail/PinDetailContent.tsx
 
 import React from 'react';
-import { Box, Divider } from 'gestalt';
+import { Box } from 'gestalt';
 import { PinDetailHeader } from './PinDetailHeader';
-import { PinDetailActions } from './PinDetailActions';
 import { PinDetailInfo } from './PinDetailInfo';
 import { PinDetailAuthor } from './PinDetailAuthor';
 import { PinDetailStats } from './PinDetailStats';
@@ -16,9 +15,33 @@ interface PinDetailContentProps {
   onBack?: () => void;
 }
 
+const SoftDivider: React.FC<{ 
+  width?: string; 
+  opacity?: number;
+}> = ({ 
+  width = '90%', 
+  opacity = 0.6 
+}) => (
+  <Box 
+    display="flex" 
+    justifyContent="center" 
+    paddingY={1}
+  >
+    <Box
+      dangerouslySetInlineStyle={{
+        __style: {
+          width,
+          height: 1,
+          backgroundColor: `rgba(0, 0, 0, ${opacity * 0.1})`,
+          borderRadius: 1,
+        },
+      }}
+    />
+  </Box>
+);
+
 /**
  * Правая часть детальной страницы пина.
- * Ответственность: компоновка всех информационных блоков.
  */
 export const PinDetailContent: React.FC<PinDetailContentProps> = ({
   pin,
@@ -28,32 +51,27 @@ export const PinDetailContent: React.FC<PinDetailContentProps> = ({
 
   return (
     <Box padding={4} height="100%">
-      {/* Header with navigation and menu */}
+      {/* Header with all actions */}
       <PinDetailHeader pin={pin} onBack={onBack} />
-
-      <Divider />
-
-      {/* Main Actions */}
-      <PinDetailActions pin={pin} />
-
-      <Divider />
 
       {/* Pin Info: title, description, link, tags */}
       <Box paddingY={3}>
         <PinDetailInfo pin={pin} />
       </Box>
 
-      <Divider />
-
       {/* Stats */}
-      <PinDetailStats pin={pin} onCommentsClick={scrollToComments} />
+      <Box paddingY={2}>
+        <PinDetailStats pin={pin} onCommentsClick={scrollToComments} />
+      </Box>
 
-      <Divider />
+      <SoftDivider />
 
       {/* Author */}
-      <PinDetailAuthor userId={pin.userId} />
+      <Box paddingY={3}>
+        <PinDetailAuthor userId={pin.userId} />
+      </Box>
 
-      <Divider />
+      <SoftDivider />
 
       {/* Comments */}
       <PinDetailComments pinId={pin.id} commentsRef={commentsRef} />

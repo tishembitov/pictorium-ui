@@ -1,18 +1,22 @@
-// src/modules/pin/components/PinDetailActions.tsx
+// src/modules/pin/components/detail/PinDetailActions.tsx
 
 import React from 'react';
 import { Box, Flex } from 'gestalt';
-import { PinLikeButton } from './PinLikeButton';
-import { PinSaveButton } from './PinSaveButton';
-import type { PinResponse } from '../types/pin.types';
+import { PinLikeButton } from '../PinLikeButton';
+import { PinSaveButton } from '../PinSaveButton';
+import type { PinResponse } from '../../types/pin.types';
 
 interface PinDetailActionsProps {
   pin: PinResponse;
 }
 
+/**
+ * Основные действия над пином: лайк и сохранение.
+ * Ответственность: отображение и обработка like/save действий.
+ */
 export const PinDetailActions: React.FC<PinDetailActionsProps> = ({ pin }) => {
   return (
-    <Box>
+    <Box paddingY={3}>
       <Flex gap={3} alignItems="center">
         <PinLikeButton
           pinId={pin.id}
@@ -21,12 +25,11 @@ export const PinDetailActions: React.FC<PinDetailActionsProps> = ({ pin }) => {
           size="lg"
           variant="button"
         />
-        {/* Pinterest-style Save Button с выбором доски */}
         <PinSaveButton
           pinId={pin.id}
           isSaved={pin.isSaved}
           size="lg"
-          variant="button"
+          variant="default"
         />
       </Flex>
     </Box>

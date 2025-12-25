@@ -1,29 +1,33 @@
 /* src/app/styles/variables.css */
 
 :root {
-  /* Colors - Pinterest inspired */
+  /* Colors - Pinterest exact */
   --color-primary: #e60023;
   --color-primary-hover: #ad081b;
-  --color-primary-light: #ffe0e5;
+  --color-primary-light: #ffecee;
   
   --color-secondary: #111111;
-  --color-secondary-hover: #333333;
+  --color-secondary-hover: #1a1a1a;
   
   /* Background colors */
   --bg-default: #ffffff;
-  --bg-secondary: #f5f5f5;
-  --bg-tertiary: #efefef;
+  --bg-secondary: #f0f0f0;
+  --bg-tertiary: #e9e9e9;
   --bg-dark: #111111;
+  --bg-overlay: rgba(0, 0, 0, 0.65);
+  --bg-hover: rgba(0, 0, 0, 0.06);
   
   /* Text colors */
   --text-primary: #111111;
   --text-secondary: #767676;
-  --text-tertiary: #b5b5b5;
+  --text-tertiary: #ababab;
   --text-inverse: #ffffff;
+  --text-link: #1e73be;
   
   /* Border colors */
   --border-default: #cdcdcd;
-  --border-light: #efefef;
+  --border-light: #dcdcdc;
+  --border-focus: #0074e8;
   
   /* Status colors */
   --color-success: #0a7c42;
@@ -31,52 +35,59 @@
   --color-error: #cc0000;
   --color-info: #0074e8;
   
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.15);
-  --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.2);
+  /* Shadows - Pinterest style (very subtle) */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 1px 8px 0 rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 2px 10px 0 rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 0 8px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.1);
+  --shadow-card: 0 1px 20px 0 rgba(0, 0, 0, 0.1);
   
-  /* Border radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  /* Border radius - Pinterest uses 16px and 32px extensively */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
   --radius-full: 9999px;
   
-  /* Spacing */
-  --spacing-xs: 2px;
-  --spacing-sm: 4px;
-  --spacing-md: 8px;
-  --spacing-lg: 16px;
-  --spacing-xl: 24px;
+  /* Spacing - Pinterest specific */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
   --spacing-2xl: 48px;
   --spacing-3xl: 64px;
   
-  /* Typography */
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  /* Typography - Pinterest uses specific sizes */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-size-xs: 12px;
   --font-size-sm: 14px;
   --font-size-md: 16px;
-  --font-size-lg: 18px;
-  --font-size-xl: 20px;
-  --font-size-2xl: 24px;
-  --font-size-3xl: 32px;
+  --font-size-lg: 20px;
+  --font-size-xl: 28px;
+  --font-size-2xl: 36px;
+  --font-size-3xl: 48px;
   
-  /* Layout - УВЕЛИЧЕННЫЙ HEADER */
+  /* Layout */
   --header-height: 80px;
   --sidebar-width: 180px;
   --sidebar-collapsed-width: 56px;
   --max-content-width: 1600px;
   
+  /* Pin Detail specific */
+  --pin-detail-max-width: 1016px;
+  --pin-detail-image-width: 508px;
+  --pin-detail-content-width: 508px;
+  
   /* Masonry */
   --masonry-column-width: 236px;
-  --masonry-gutter: 8px;
+  --masonry-gutter: 16px;
   
-  /* Animation */
-  --transition-fast: 150ms ease;
-  --transition-normal: 250ms ease;
-  --transition-slow: 350ms ease;
+  /* Animation - Pinterest is snappy */
+  --transition-fast: 100ms ease-out;
+  --transition-normal: 200ms ease-out;
+  --transition-slow: 300ms ease-out;
   
   /* Z-index layers */
   --z-dropdown: 100;
@@ -84,18 +95,5 @@
   --z-modal: 300;
   --z-popover: 400;
   --z-toast: 500;
-}
-
-/* Dark mode overrides */
-[data-color-scheme="dark"] {
-  --bg-default: #111111;
-  --bg-secondary: #1e1e1e;
-  --bg-tertiary: #2d2d2d;
-  
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --text-tertiary: #6e6e6e;
-  
-  --border-default: #3d3d3d;
-  --border-light: #2d2d2d;
+  --z-pin-detail: 250;
 }

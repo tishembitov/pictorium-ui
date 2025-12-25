@@ -1,3 +1,5 @@
+/* src/app/styles/global.css */
+
 /* Reset & Base Styles */
 *,
 *::before,
@@ -29,6 +31,540 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+/* ============================================
+   PIN DETAIL PAGE - PINTEREST EXACT STYLES
+   ============================================ */
+
+/* Main Pin Detail Container */
+.pin-detail-wrapper {
+  max-width: var(--pin-detail-max-width);
+  margin: 0 auto;
+  padding: var(--spacing-lg) var(--spacing-md);
+}
+
+/* Pin Detail Card - The main white card */
+.pin-detail-card {
+  display: flex;
+  background: var(--bg-default);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  min-height: 500px;
+  max-height: calc(100vh - 120px);
+}
+
+/* Image Section - Left side */
+.pin-detail-image {
+  flex: 0 0 50%;
+  max-width: var(--pin-detail-image-width);
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-radius: var(--radius-xl) 0 0 var(--radius-xl);
+  overflow: hidden;
+}
+
+.pin-detail-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Zoom button overlay */
+.pin-detail-zoom-hint {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 48px;
+  height: 48px;
+  background: var(--bg-default);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  cursor: pointer;
+}
+
+.pin-detail-image:hover .pin-detail-zoom-hint {
+  opacity: 1;
+}
+
+/* Content Section - Right side */
+.pin-detail-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 120px);
+  overflow: hidden;
+}
+
+/* Sticky Header with Actions */
+.pin-detail-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-default);
+  padding: 20px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* Action Buttons (left side) */
+.pin-detail-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pin-action-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
+}
+
+.pin-action-btn:hover {
+  background: var(--bg-hover);
+}
+
+.pin-action-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: var(--text-primary);
+}
+
+/* Save Button Group (right side) - Pinterest exact */
+.save-btn-group {
+  display: flex;
+  align-items: stretch;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.board-selector-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  height: 48px;
+  background: var(--bg-secondary);
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: background var(--transition-fast);
+}
+
+.board-selector-btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.board-selector-btn svg {
+  width: 12px;
+  height: 12px;
+  fill: var(--text-primary);
+}
+
+.save-main-btn {
+  height: 48px;
+  padding: 0 24px;
+  background: var(--color-primary);
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-inverse);
+  transition: background var(--transition-fast);
+}
+
+.save-main-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.save-main-btn.saved {
+  background: var(--color-secondary);
+}
+
+.save-main-btn.saved:hover {
+  background: var(--color-secondary-hover);
+}
+
+/* Scrollable Body */
+.pin-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px 32px;
+}
+
+.pin-detail-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pin-detail-body::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 4px;
+}
+
+.pin-detail-body::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Source Link - Pinterest pill style */
+.source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background var(--transition-fast);
+  margin-bottom: 16px;
+}
+
+.source-link:hover {
+  background: var(--bg-tertiary);
+}
+
+.source-link svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--text-primary);
+}
+
+/* Title - Pinterest large bold */
+.pin-title {
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  word-break: break-word;
+}
+
+/* Description */
+.pin-description {
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  margin-bottom: 24px;
+}
+
+/* Tags */
+.pin-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.pin-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: background var(--transition-fast);
+}
+
+.pin-tag:hover {
+  background: var(--bg-tertiary);
+}
+
+/* Author Section - Pinterest style */
+.author-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 0;
+  border-top: 1px solid var(--border-light);
+  margin-top: 8px;
+}
+
+.author-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.author-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.author-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.author-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.author-followers {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* Follow Button */
+.follow-btn {
+  padding: 12px 20px;
+  background: var(--bg-secondary);
+  border: none;
+  border-radius: var(--radius-full);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.follow-btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.follow-btn.following {
+  background: var(--color-secondary);
+  color: var(--text-inverse);
+}
+
+/* Comments Section */
+.comments-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-light);
+}
+
+.comments-header {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+}
+
+/* Comment Input - Pinterest pill style */
+.comment-input-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.comment-input-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.comment-input-field {
+  flex: 1;
+  position: relative;
+}
+
+.comment-input {
+  width: 100%;
+  padding: 14px 20px;
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-full);
+  font-size: 16px;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.comment-input:focus {
+  border-color: var(--border-focus);
+}
+
+.comment-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Comment Item */
+.comment-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.comment-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.comment-content {
+  flex: 1;
+}
+
+.comment-author {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-right: 8px;
+}
+
+.comment-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.comment-time {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.comment-action {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.comment-action:hover {
+  color: var(--text-primary);
+}
+
+/* Close Button */
+.pin-close-btn {
+  position: fixed;
+  top: calc(var(--header-height) + 20px);
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  background: var(--bg-default);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-pin-detail);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.pin-close-btn:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-xl);
+}
+
+.pin-close-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: var(--text-primary);
+}
+
+/* More Like This Section */
+.more-like-this {
+  margin-top: 48px;
+  padding-top: 24px;
+}
+
+.more-like-this-title {
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-primary);
+  margin-bottom: 24px;
+}
+
+/* ============================================
+   RESPONSIVE STYLES
+   ============================================ */
+
+@media (max-width: 1024px) {
+  .pin-detail-card {
+    max-height: none;
+  }
+  
+  .pin-detail-content {
+    max-height: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .pin-detail-card {
+    flex-direction: column;
+    border-radius: 0;
+  }
+  
+  .pin-detail-image {
+    max-width: 100%;
+    border-radius: 0;
+    min-height: 300px;
+  }
+  
+  .pin-detail-header {
+    padding: 16px;
+  }
+  
+  .pin-detail-body {
+    padding: 16px;
+  }
+  
+  .pin-title {
+    font-size: 24px;
+  }
+  
+  .save-main-btn {
+    padding: 0 16px;
+  }
+  
+  .pin-close-btn {
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* ============================================
+   EXISTING STYLES (unchanged)
+   ============================================ */
 
 /* Links */
 a {
@@ -101,98 +637,6 @@ select {
   color: var(--color-primary-hover);
 }
 
-/* Compact Masonry Grid */
-.masonry-grid {
-  margin: 0 auto;
-  padding: 0 var(--spacing-sm);
-}
-
-/* Pin Cards - тонкие тени */
-.pin-card {
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.pin-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-/* Compact header */
-.header-compact {
-  padding: var(--spacing-sm) var(--spacing-md);
-}
-
-/* Board Card Styles */
-.board-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.board-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-}
-
-/* Board Cover Collage */
-.board-cover-collage {
-  position: relative;
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-/* Board Selector Scrollbar */
-.board-selector-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.board-selector-list::-webkit-scrollbar-thumb {
-  background: var(--color-gray-300);
-  border-radius: 3px;
-}
-
-/* Pinterest-style Modal */
-.board-modal-content {
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-/* Hover overlay for board cards */
-.board-card-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.3) 0%,
-    transparent 30%,
-    transparent 100%
-  );
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.board-card:hover .board-card-overlay {
-  opacity: 1;
-}
-
-/* Sidebar compact */
-.sidebar-compact {
-  padding: var(--spacing-xs);
-}
-
-.sidebar-compact .sidebar-item {
-  padding: var(--spacing-sm);
-  margin-bottom: var(--spacing-xs);
-}
-
-/* Remove extra margins in main content */
-.main-content {
-  padding: var(--spacing-sm);
-}
-
-/* Gestalt overrides for compact layout */
-[class*="Box"] {
-  /* Reduce default Gestalt padding where needed */
-}
-
 /* Utility classes */
 .visually-hidden {
   position: absolute;
@@ -228,68 +672,18 @@ select {
 
 /* Animation keyframes */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes slideInLeft {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideOutLeft {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-100%);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .animate-fade-in {
@@ -299,14 +693,3 @@ select {
 .animate-slide-up {
   animation: slideUp var(--transition-normal);
 }
-
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-.animate-pulse {
-  animation: pulse 2s ease-in-out infinite;
-}
-
-/* Gestalt overrides (if needed) */
-/* Be careful when overriding Gestalt styles */

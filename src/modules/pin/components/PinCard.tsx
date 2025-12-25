@@ -2,12 +2,12 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Mask, TapArea, Text, Image as GestaltImage } from 'gestalt';
+import { Box, Mask, TapArea, Text, Image as GestaltImage, Flex } from 'gestalt';
 import { buildPath } from '@/app/router/routeConfig';
 import { useImageUrl } from '@/modules/storage';
 import { useAuth } from '@/modules/auth';
-import { PinLikeButton } from './PinLikeButton';
-import { PinSaveButton } from './PinSaveButton';
+import { PinSaveSection } from './PinSaveSection';
+import { PinShareButton } from './PinShareButton';
 import { PinMenuButton } from './PinMenuButton';
 import type { PinResponse } from '../types/pin.types';
 
@@ -89,7 +89,7 @@ export const PinCard: React.FC<PinCardProps> = ({
           justifyContent="between"
           dangerouslySetInlineStyle={{
             __style: {
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.4) 100%)',
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 40%, transparent 60%, rgba(0,0,0,0.5) 100%)',
               pointerEvents: 'none',
             },
           }}
@@ -98,33 +98,22 @@ export const PinCard: React.FC<PinCardProps> = ({
           <Box padding={2} display="flex" justifyContent="end">
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
               {isAuthenticated && (
-                <PinSaveButton
+                <PinSaveSection
                   pinId={pin.id}
                   isSaved={pin.isSaved}
-                  size="sm"
+                  variant="compact"
                 />
               )}
             </Box>
           </Box>
 
-          {/* Bottom Actions */}
-          <Box padding={2} display="flex" justifyContent="between" alignItems="center">
+          {/* Bottom Actions - Share & Menu */}
+          <Box padding={2} display="flex" justifyContent="end">
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
-              <PinLikeButton
-                pinId={pin.id}
-                isLiked={pin.isLiked}
-                likeCount={pin.likeCount}
-                size="sm"
-                variant="icon"
-              />
-            </Box>
-            
-            <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
-              <PinMenuButton
-                pin={pin}
-                onDelete={onDelete}
-                size="sm"
-              />
+              <Flex gap={2} alignItems="center">
+                <PinShareButton pin={pin} size="sm" variant="overlay" />
+                <PinMenuButton pin={pin} onDelete={onDelete} size="sm" variant="overlay" />
+              </Flex>
             </Box>
           </Box>
         </Box>

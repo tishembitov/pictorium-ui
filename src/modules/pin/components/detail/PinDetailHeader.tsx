@@ -4,7 +4,7 @@ import React from 'react';
 import { Box, Flex, IconButton, Tooltip } from 'gestalt';
 import { useNavigate } from 'react-router-dom';
 import { PinLikeButton } from '../PinLikeButton';
-import { PinSaveButton } from '../PinSaveButton';
+import { PinSaveSection } from '../PinSaveSection';
 import { PinShareButton } from '../PinShareButton';
 import { PinMenuButton } from '../PinMenuButton';
 import type { PinResponse } from '../../types/pin.types';
@@ -58,12 +58,11 @@ export const PinDetailHeader: React.FC<PinDetailHeaderProps> = ({
           <PinMenuButton pin={pin} size="md" />
         </Flex>
 
-        {/* Right side - Save button */}
-        <PinSaveButton
+        {/* Right side - Board picker & Save button */}
+        <PinSaveSection
           pinId={pin.id}
           isSaved={pin.isSaved}
           size="md"
-          variant="default"
         />
       </Flex>
     </Box>

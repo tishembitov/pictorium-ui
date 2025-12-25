@@ -70,6 +70,7 @@ export { PinMenuButton } from './components/PinMenuButton';
 export { PinFilters } from './components/PinFilters';
 export { PinSearchBar } from './components/PinSearchBar';
 export { PinTagFilter } from './components/PinTagFilter';
+export { PinSaveSection } from './components/PinSaveSection';
 
 export { PinDetail } from './components/detail/PinDetail';
 export { PinDetailCard } from './components/detail/PinDetailCard';

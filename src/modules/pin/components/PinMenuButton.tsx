@@ -1,7 +1,7 @@
 // src/modules/pin/components/PinMenuButton.tsx
 
 import React, { useState, useCallback } from 'react';
-import { IconButton, Dropdown, Tooltip } from 'gestalt';
+import { IconButton, Dropdown, Tooltip, Box } from 'gestalt';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, useIsOwner } from '@/modules/auth';
 import { useDeletePin } from '../hooks/useDeletePin';
@@ -15,12 +15,27 @@ interface PinMenuButtonProps {
   pin: PinResponse;
   onDelete?: () => void;
   size?: 'sm' | 'md' | 'lg';
+  variant?: 'default' | 'overlay';
 }
+
+type IconButtonSize = 'xs' | 'md' | 'lg';
+type IconButtonBgColor = 'transparent' | 'transparentDarkGray';
+
+const getIconButtonSize = (size: 'sm' | 'md' | 'lg'): IconButtonSize => {
+  if (size === 'sm') return 'xs';
+  if (size === 'lg') return 'lg';
+  return 'md';
+};
+
+const getIconButtonBgColor = (variant: 'default' | 'overlay'): IconButtonBgColor => {
+  return variant === 'overlay' ? 'transparentDarkGray' : 'transparent';
+};
 
 export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
   pin,
   onDelete,
   size = 'md',
+  variant = 'default',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [anchorElement, setAnchorElement] = useState<HTMLButtonElement | null>(null);
@@ -92,10 +107,12 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
     setAnchorElement(node);
   }, []);
 
-  const iconButtonSize = size === 'sm' ? 'xs' : size === 'lg' ? 'lg' : 'md';
+  const iconButtonSize = getIconButtonSize(size);
+  const bgColor = getIconButtonBgColor(variant);
+  const iconColor = variant === 'overlay' ? 'white' : 'darkGray';
 
   return (
-    <>
+    <Box>
       <Tooltip text="More options">
         <IconButton
           ref={setAnchorRef}
@@ -105,7 +122,8 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
           icon="ellipsis"
           onClick={handleToggle}
           size={iconButtonSize}
-          bgColor="transparent"
+          bgColor={bgColor}
+          iconColor={iconColor}
         />
       </Tooltip>
 
@@ -151,7 +169,7 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
           )}
         </Dropdown>
       )}
-    </>
+    </Box>
   );
 };
 

@@ -5,6 +5,7 @@ import {
   IconButton, 
   Dropdown, 
   Tooltip,
+  Box,
 } from 'gestalt';
 import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard';
 import { useToast } from '@/shared/hooks/useToast';
@@ -15,11 +16,31 @@ import type { PinResponse } from '../types/pin.types';
 interface PinShareButtonProps {
   pin: PinResponse;
   size?: 'sm' | 'md' | 'lg';
+  variant?: 'default' | 'overlay';
 }
+
+type IconButtonSize = 'xs' | 'md' | 'lg';
+type IconButtonBgColor = 'transparent' | 'transparentDarkGray';
+
+const getIconButtonSize = (size: 'sm' | 'md' | 'lg'): IconButtonSize => {
+  if (size === 'sm') return 'xs';
+  if (size === 'lg') return 'lg';
+  return 'md';
+};
+
+const getIconButtonBgColor = (variant: 'default' | 'overlay'): IconButtonBgColor => {
+  return variant === 'overlay' ? 'transparentDarkGray' : 'transparent';
+};
+
+const buildWhatsAppUrl = (text: string, shareUrl: string): string => {
+  const message = `${text} ${shareUrl}`;
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
+};
 
 export const PinShareButton: React.FC<PinShareButtonProps> = ({
   pin,
   size = 'md',
+  variant = 'default',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [anchorElement, setAnchorElement] = useState<HTMLButtonElement | null>(null);
@@ -28,6 +49,7 @@ export const PinShareButton: React.FC<PinShareButtonProps> = ({
   const { toast } = useToast();
 
   const shareUrl = buildPinShareUrl(pin.id);
+  const shareText = pin.title || 'Check out this pin!';
 
   const handleCopyLink = useCallback(async () => {
     const success = await copy(shareUrl);
@@ -38,11 +60,10 @@ export const PinShareButton: React.FC<PinShareButtonProps> = ({
   }, [copy, shareUrl, toast]);
 
   const handleShareTwitter = useCallback(() => {
-    const text = pin.title || 'Check out this pin!';
-    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
     globalThis.open(url, '_blank', 'noopener,noreferrer');
     setIsOpen(false);
-  }, [pin.title, shareUrl]);
+  }, [shareText, shareUrl]);
 
   const handleShareFacebook = useCallback(() => {
     const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
@@ -51,19 +72,18 @@ export const PinShareButton: React.FC<PinShareButtonProps> = ({
   }, [shareUrl]);
 
   const handleShareWhatsApp = useCallback(() => {
-    const text = pin.title || 'Check out this pin!';
-    const url = `https://wa.me/?text=${encodeURIComponent(`${text} ${shareUrl}`)}`;
+    const url = buildWhatsAppUrl(shareText, shareUrl);
     globalThis.open(url, '_blank', 'noopener,noreferrer');
     setIsOpen(false);
-  }, [pin.title, shareUrl]);
+  }, [shareText, shareUrl]);
 
   const handleShareEmail = useCallback(() => {
-    const subject = pin.title || 'Check out this pin!';
+    const subject = shareText;
     const body = `I found this on Pictorium and thought you might like it!\n\n${shareUrl}`;
     const url = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     globalThis.open(url);
     setIsOpen(false);
-  }, [pin.title, shareUrl]);
+  }, [shareText, shareUrl]);
 
   const handleToggle = useCallback(() => {
     setIsOpen((prev) => !prev);
@@ -77,10 +97,12 @@ export const PinShareButton: React.FC<PinShareButtonProps> = ({
     setAnchorElement(node);
   }, []);
 
-  const iconButtonSize = size === 'sm' ? 'xs' : size === 'lg' ? 'lg' : 'md';
+  const iconButtonSize = getIconButtonSize(size);
+  const bgColor = getIconButtonBgColor(variant);
+  const iconColor = variant === 'overlay' ? 'white' : 'darkGray';
 
   return (
-    <>
+    <Box>
       <Tooltip text="Share">
         <IconButton
           ref={setAnchorRef}
@@ -90,7 +112,8 @@ export const PinShareButton: React.FC<PinShareButtonProps> = ({
           icon="share"
           onClick={handleToggle}
           size={iconButtonSize}
-          bgColor="transparent"
+          bgColor={bgColor}
+          iconColor={iconColor}
         />
       </Tooltip>
 
@@ -126,7 +149,7 @@ export const PinShareButton: React.FC<PinShareButtonProps> = ({
           </Dropdown.Section>
         </Dropdown>
       )}
-    </>
+    </Box>
   );
 };
 

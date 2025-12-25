@@ -27,10 +27,59 @@ interface BoardPickerProps {
   onBoardChange?: (board: BoardResponse | null) => void;
   size?: 'sm' | 'md' | 'lg';
   showLabel?: boolean;
-  allowDeselect?: boolean; // Контролирует возможность отмены выбора
 }
 
-// Compact board item for picker
+// Profile option item
+const ProfilePickerItem: React.FC<{
+  isSelected: boolean;
+  onSelect: () => void;
+}> = ({ isSelected, onSelect }) => {
+  return (
+    <TapArea onTap={onSelect} rounding={2}>
+      <Box
+        paddingY={2}
+        paddingX={2}
+        rounding={2}
+        dangerouslySetInlineStyle={{
+          __style: {
+            transition: 'all 0.15s ease',
+            border: isSelected ? '2px solid var(--color-primary)' : '2px solid transparent',
+            backgroundColor: isSelected ? 'rgba(230, 0, 35, 0.08)' : 'transparent',
+          },
+        }}
+      >
+        <Flex alignItems="center" gap={2}>
+          {/* Profile Icon */}
+          <Box
+            width={36}
+            height={36}
+            rounding={2}
+            color="secondary"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Icon accessibilityLabel="" icon="person" size={16} color="default" />
+          </Box>
+
+          {/* Title */}
+          <Box flex="grow">
+            <Text weight={isSelected ? 'bold' : 'normal'} size="200">
+              Profile
+            </Text>
+          </Box>
+
+          {/* Check */}
+          {isSelected && (
+            <Icon accessibilityLabel="Selected" icon="check" size={14} color="success" />
+          )}
+        </Flex>
+      </Box>
+    </TapArea>
+  );
+};
+
+// Board item for picker
 const BoardPickerItem: React.FC<{
   board: BoardResponse;
   isSelected: boolean;
@@ -99,7 +148,6 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
   onBoardChange,
   size = 'md',
   showLabel = false,
-  allowDeselect = true, // По умолчанию можно отменить выбор
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -108,7 +156,9 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
 
   const { boards, isLoading: isBoardsLoading } = useMyBoards();
   const { selectedBoard } = useSelectedBoard();
-  const { selectBoard, deselectBoard } = useSelectBoard();
+  const { selectBoard, switchToProfile } = useSelectBoard();
+
+  const isProfileMode = selectedBoard === null;
 
   // Filter boards
   const filteredBoards = useMemo(() => {
@@ -127,17 +177,17 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
     setSearchQuery('');
   }, []);
 
-  const handleBoardSelect = useCallback((board: BoardResponse) => {
-    // Если кликнули на уже выбранную доску и разрешена отмена выбора
-    if (selectedBoard?.id === board.id && allowDeselect) {
-      deselectBoard();
-      onBoardChange?.(null);
-    } else {
-      selectBoard(board.id);
-      onBoardChange?.(board);
-    }
+  const handleProfileSelect = useCallback(() => {
+    switchToProfile();
+    onBoardChange?.(null);
     setIsOpen(false);
-  }, [selectedBoard, allowDeselect, selectBoard, deselectBoard, onBoardChange]);
+  }, [switchToProfile, onBoardChange]);
+
+  const handleBoardSelect = useCallback((board: BoardResponse) => {
+    selectBoard(board.id);
+    onBoardChange?.(board);
+    setIsOpen(false);
+  }, [selectBoard, onBoardChange]);
 
   const handleCreateNew = useCallback(() => {
     setIsOpen(false);
@@ -158,41 +208,45 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
   const paddingY = size === 'sm' ? 1 : 2;
   const iconSize = size === 'sm' ? 14 : 16;
 
+  // Определяем что показывать в кнопке
+  const displayText = isProfileMode ? 'Profile' : selectedBoard?.title;
+  const displayIcon = isProfileMode ? 'person' : 'board';
+
   return (
     <>
-      <Tooltip text={selectedBoard ? `Saving to: ${selectedBoard.title}` : 'Select default board'}>
+      <Tooltip text={isProfileMode ? 'Saving to Profile' : `Saving to: ${selectedBoard?.title}`}>
         <Box ref={setAnchorRef}>
           <TapArea onTap={handleToggle} rounding="pill">
             <Box
               paddingX={paddingX}
               paddingY={paddingY}
               rounding="pill"
-              color={selectedBoard ? 'primary' : 'secondary'}
+              color="secondary"
               display="flex"
               alignItems="center"
             >
               <Flex alignItems="center" gap={1}>
                 <Icon 
                   accessibilityLabel="" 
-                  icon="board" 
+                  icon={displayIcon} 
                   size={iconSize} 
-                  color={selectedBoard ? 'inverse' : 'default'} 
+                  color="default" 
                 />
-                {(showLabel || selectedBoard) && (
+                {(showLabel || selectedBoard || isProfileMode) && (
                   <Text 
                     size="200"
                     weight="bold" 
-                    color={selectedBoard ? 'inverse' : 'default'}
+                    color="default"
                     lineClamp={1}
                   >
-                    {selectedBoard?.title || 'Board'}
+                    {displayText}
                   </Text>
                 )}
                 <Icon 
                   accessibilityLabel="" 
                   icon="arrow-down" 
                   size={10} 
-                  color={selectedBoard ? 'inverse' : 'default'} 
+                  color="default" 
                 />
               </Flex>
             </Box>
@@ -214,10 +268,10 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
               {/* Header */}
               <Box marginBottom={2}>
                 <Text weight="bold" size="300">
-                  Default save board
+                  Save to
                 </Text>
                 <Text color="subtle" size="100">
-                  New pins will be saved here
+                  Choose where to save new pins
                 </Text>
               </Box>
 
@@ -250,7 +304,7 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
 
               <Divider />
 
-              {/* Board List - БЕЗ опции None */}
+              {/* Options List */}
               <Box marginTop={2}>
                 {isBoardsLoading ? (
                   <Box display="flex" justifyContent="center" padding={3}>
@@ -259,7 +313,20 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
                 ) : (
                   <Box maxHeight={200} overflow="scrollY">
                     <Flex direction="column" gap={1}>
-                      {/* Boards - без опции None */}
+                      {/* Profile Option - First */}
+                      <ProfilePickerItem
+                        isSelected={isProfileMode}
+                        onSelect={handleProfileSelect}
+                      />
+
+                      {/* Divider between Profile and Boards */}
+                      {filteredBoards.length > 0 && (
+                        <Box paddingY={1}>
+                          <Divider />
+                        </Box>
+                      )}
+
+                      {/* Boards */}
                       {filteredBoards.map((board) => (
                         <BoardPickerItem
                           key={board.id}
@@ -270,10 +337,10 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
                       ))}
 
                       {/* No results */}
-                      {filteredBoards.length === 0 && !isBoardsLoading && (
+                      {filteredBoards.length === 0 && searchQuery && (
                         <Box padding={3}>
                           <Text align="center" color="subtle" size="100">
-                            {searchQuery ? 'No boards found' : 'No boards yet'}
+                            No boards found
                           </Text>
                         </Box>
                       )}
@@ -281,15 +348,6 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
                   </Box>
                 )}
               </Box>
-
-              {/* Hint about deselection */}
-              {selectedBoard && allowDeselect && (
-                <Box marginTop={2} paddingTop={2}>
-                  <Text align="center" color="subtle" size="100">
-                    Tap selected board to deselect
-                  </Text>
-                </Box>
-              )}
             </Box>
           </Popover>
         </Layer>

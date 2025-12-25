@@ -1,6 +1,6 @@
 // src/pages/ProfileSavedTab.tsx
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
@@ -9,7 +9,12 @@ import {
   Heading,
   Icon,
 } from 'gestalt';
-import { PinGrid, useInfinitePins, usePinFiltersStore } from '@/modules/pin';
+import { 
+  PinGrid, 
+  useInfinitePins, 
+  usePinFiltersStore,
+  selectFilter,
+} from '@/modules/pin';
 import { BoardPicker, useSelectedBoard } from '@/modules/board';
 import { ROUTES } from '@/app/router/routeConfig';
 import { useToast } from '@/shared/hooks/useToast';
@@ -26,8 +31,15 @@ const ProfileSavedTab: React.FC<ProfileSavedTabProps> = ({
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const filter = usePinFiltersStore((state) => state.filter);
+  // Use stable selector
+  const filter = usePinFiltersStore(selectFilter);
   const { selectedBoard } = useSelectedBoard();
+
+  // Memoize the combined filter
+  const combinedFilter = useMemo(() => ({
+    ...filter,
+    savedBy: userId,
+  }), [filter, userId]);
 
   const {
     pins,
@@ -36,11 +48,11 @@ const ProfileSavedTab: React.FC<ProfileSavedTabProps> = ({
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useInfinitePins({ ...filter, savedBy: userId });
+  } = useInfinitePins(combinedFilter);
 
-  const handleExplore = () => {
+  const handleExplore = useCallback(() => {
     navigate(ROUTES.EXPLORE);
-  };
+  }, [navigate]);
 
   const handleFetchNextPage = useCallback(() => {
     void fetchNextPage();
@@ -76,13 +88,12 @@ const ProfileSavedTab: React.FC<ProfileSavedTabProps> = ({
             </Box>
           </Flex>
           
-          {/* Board Picker для владельца - БЕЗ возможности деселекта */}
+          {/* Board Picker для владельца */}
           {isOwner && (
             <BoardPicker 
               size="md" 
               onBoardChange={handleBoardChange}
               showLabel
-              allowDeselect={false}
             />
           )}
         </Flex>

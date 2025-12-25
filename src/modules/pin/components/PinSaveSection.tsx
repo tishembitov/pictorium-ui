@@ -1,35 +1,79 @@
 // src/modules/pin/components/PinSaveSection.tsx
 
 import React, { useCallback, useState, useMemo } from 'react';
-import { Box, Flex, Text, TapArea, Icon, Popover, Layer, Spinner, SearchField, Divider } from 'gestalt';
+import { 
+  Box, 
+  Flex, 
+  Text, 
+  TapArea, 
+  Icon, 
+  Popover, 
+  Layer, 
+  Spinner, 
+  SearchField, 
+  Divider 
+} from 'gestalt';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/modules/auth';
 import { 
   useMyBoardsForPin, 
   useSavePinToBoard,
   useRemovePinFromBoard,
-  BoardPicker,
-  BoardDropdownItem,
   BoardCreateModal,
+  ProfileDropdownItem,
+  BoardDropdownItem,
 } from '@/modules/board';
+import { useSelectedBoardStore } from '@/modules/board/stores/selectedBoardStore';
+import { useSaveToProfile } from '../hooks/useSaveToProfile';
+import { useUnsaveFromProfile } from '../hooks/useUnsaveFromProfile';
 import { buildPath } from '@/app/router/routeConfig';
 import { useToast } from '@/shared/hooks/useToast';
 import { PinSaveButton } from './PinSaveButton';
-import type { BoardResponse, BoardWithPinStatusResponse } from '@/modules/board';
+import type { BoardWithPinStatusResponse } from '@/modules/board';
 
 interface PinSaveSectionProps {
   pinId: string;
+  isSaved: boolean;
+  isSavedToProfile: boolean;
   size?: 'sm' | 'md' | 'lg';
   variant?: 'default' | 'compact';
 }
 
 /**
- * Ссылка на сохранённую доску для compact варианта
+ * Ссылка на сохранённую доску/профиль для compact варианта
  */
-const SavedBoardLink: React.FC<{
-  board: BoardWithPinStatusResponse;
-}> = ({ board }) => {
+const SavedLocationLink: React.FC<{
+  board: BoardWithPinStatusResponse | null;
+  isProfile: boolean;
+}> = ({ board, isProfile }) => {
   const [isHovered, setIsHovered] = useState(false);
+
+  if (isProfile) {
+    return (
+      <Box
+        paddingX={2}
+        paddingY={1}
+        rounding="pill"
+        display="flex"
+        alignItems="center"
+        dangerouslySetInlineStyle={{
+          __style: {
+            backgroundColor: 'rgba(255,255,255,0.8)',
+            maxWidth: 120,
+          },
+        }}
+      >
+        <Flex alignItems="center" gap={1}>
+          <Icon accessibilityLabel="" icon="person" size={12} color="dark" />
+          <Text size="100" weight="bold" color="dark">
+            Profile
+          </Text>
+        </Flex>
+      </Box>
+    );
+  }
+
+  if (!board) return null;
 
   return (
     <Link 
@@ -68,18 +112,22 @@ const CompactSaveSection: React.FC<{
   pinId: string;
   boards: BoardWithPinStatusResponse[];
   savedBoard: BoardWithPinStatusResponse | undefined;
+  isSavedToProfile: boolean;
   isBoardsLoading: boolean;
   isSaving: boolean;
-  onSave: (board: BoardWithPinStatusResponse) => void;
+  onSaveToBoard: (board: BoardWithPinStatusResponse) => void;
+  onSaveToProfile: () => void;
   onUnsave: () => void;
   onCreateSuccess: (boardId: string) => void;
 }> = ({
   pinId,
   boards,
   savedBoard,
+  isSavedToProfile,
   isBoardsLoading,
   isSaving,
-  onSave,
+  onSaveToBoard,
+  onSaveToProfile,
   onUnsave,
   onCreateSuccess,
 }) => {
@@ -87,6 +135,9 @@ const CompactSaveSection: React.FC<{
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [anchorElement, setAnchorElement] = useState<HTMLDivElement | null>(null);
+
+  const selectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
+  const isProfileMode = selectedBoard === null;
 
   const filteredBoards = useMemo(() => {
     if (!searchQuery.trim()) return boards;
@@ -105,11 +156,17 @@ const CompactSaveSection: React.FC<{
 
   const showSearch = boards.length > 5;
 
-  // Если пин сохранён - показываем ссылку на доску + кнопку Saved
-  if (savedBoard) {
+  // Определяем текущее состояние сохранения
+  const isSavedAnywhere = isSavedToProfile || !!savedBoard;
+
+  // Если пин сохранён - показываем ссылку на место сохранения + кнопку Saved
+  if (isSavedAnywhere) {
     return (
       <Flex alignItems="center" gap={2}>
-        <SavedBoardLink board={savedBoard} />
+        <SavedLocationLink 
+          board={savedBoard || null} 
+          isProfile={isSavedToProfile && !savedBoard} 
+        />
         
         <TapArea
           onTap={onUnsave}
@@ -196,7 +253,7 @@ const CompactSaveSection: React.FC<{
             <Box padding={4} width={320}>
               <Box marginBottom={3}>
                 <Text weight="bold" size="300" align="center">
-                  Save to board
+                  Save to
                 </Text>
               </Box>
 
@@ -221,22 +278,41 @@ const CompactSaveSection: React.FC<{
                   </Box>
                 ) : (
                   <Flex direction="column" gap={1}>
+                    {/* Profile Option - First */}
+                    <ProfileDropdownItem
+                      isSelected={isProfileMode}
+                      isSavedToProfile={isSavedToProfile}
+                      onSelect={() => {
+                        onSaveToProfile();
+                        setIsOpen(false);
+                      }}
+                      isProcessing={isSaving}
+                    />
+
+                    {/* Divider */}
+                    {filteredBoards.length > 0 && (
+                      <Box paddingY={1}>
+                        <Divider />
+                      </Box>
+                    )}
+
+                    {/* Boards */}
                     {filteredBoards.map((board) => (
                       <BoardDropdownItem
                         key={board.id}
                         board={board}
                         onSelect={(selectedBoard) => {
-                          onSave(selectedBoard);
+                          onSaveToBoard(selectedBoard);
                           setIsOpen(false);
                         }}
                         isProcessing={isSaving}
                       />
                     ))}
 
-                    {filteredBoards.length === 0 && (
+                    {filteredBoards.length === 0 && searchQuery && (
                       <Box padding={4}>
                         <Text align="center" color="subtle">
-                          {searchQuery ? 'No boards found' : 'No boards yet'}
+                          No boards found
                         </Text>
                       </Box>
                     )}
@@ -290,12 +366,16 @@ const CompactSaveSection: React.FC<{
 
 export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
   pinId,
+  isSaved,
+  isSavedToProfile,
   size = 'md',
   variant = 'default',
 }) => {
   const { isAuthenticated, login } = useAuth();
   const { toast } = useToast();
-  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
+
+  const selectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
+  const isProfileMode = selectedBoard === null;
 
   const { 
     boards,
@@ -308,58 +388,82 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
     [boards]
   );
 
-  const { savePinToBoard, isLoading: isSaving } = useSavePinToBoard({
+  // Board operations
+  const { savePinToBoard, isLoading: isSavingToBoard } = useSavePinToBoard({
     onSuccess: () => {
       void refetchBoards();
     },
     showToast: false,
   });
 
-  const { removePinFromBoard, isLoading: isRemoving } = useRemovePinFromBoard({
+  const { removePinFromBoard, isLoading: isRemovingFromBoard } = useRemovePinFromBoard({
     showToast: false,
     onSuccess: () => {
-      setSelectedBoardId(null);
       void refetchBoards();
     },
   });
 
-  const handleBoardChange = useCallback((board: BoardResponse | null) => {
-    setSelectedBoardId(board?.id ?? null);
-  }, []);
+  // Profile operations
+  const { saveToProfile, isLoading: isSavingToProfile } = useSaveToProfile({
+    showToast: false,
+  });
 
-  const handleSave = useCallback(() => {
+  const { unsaveFromProfile, isLoading: isUnsavingFromProfile } = useUnsaveFromProfile({
+    showToast: false,
+  });
+
+  const isLoading = isSavingToBoard || isRemovingFromBoard || isSavingToProfile || isUnsavingFromProfile;
+
+  // Handlers
+  const handleSaveToProfile = useCallback(() => {
+    if (!isAuthenticated) {
+      login();
+      return;
+    }
+    saveToProfile(pinId);
+    toast.success('Saved to Profile!');
+  }, [isAuthenticated, login, pinId, saveToProfile, toast]);
+
+  const handleSaveToBoard = useCallback((board: BoardWithPinStatusResponse) => {
+    if (board.hasPin) return;
+    savePinToBoard({ boardId: board.id, pinId });
+    toast.success(`Saved to "${board.title}"`);
+  }, [savePinToBoard, pinId, toast]);
+
+  const handleUnsave = useCallback(() => {
+    // Unsave from where it's saved
+    if (isSavedToProfile) {
+      unsaveFromProfile(pinId);
+      toast.success('Removed from Profile');
+    } else if (savedBoard) {
+      removePinFromBoard({ boardId: savedBoard.id, pinId });
+      toast.success('Removed from board');
+    }
+  }, [isSavedToProfile, savedBoard, pinId, unsaveFromProfile, removePinFromBoard, toast]);
+
+  const handleQuickSave = useCallback(() => {
     if (!isAuthenticated) {
       login();
       return;
     }
 
-    if (!selectedBoardId) {
-      toast.error('Please select a board first');
-      return;
+    // Quick save based on selected target
+    if (isProfileMode) {
+      saveToProfile(pinId);
+      toast.success('Saved to Profile!');
+    } else if (selectedBoard) {
+      savePinToBoard({ boardId: selectedBoard.id, pinId });
+      toast.success(`Saved to "${selectedBoard.title}"`);
     }
-    savePinToBoard({ boardId: selectedBoardId, pinId });
-    toast.success('Saved!');
-  }, [isAuthenticated, login, selectedBoardId, pinId, savePinToBoard, toast]);
-
-  const handleUnsave = useCallback(() => {
-    if (savedBoard) {
-      removePinFromBoard({ boardId: savedBoard.id, pinId });
-      toast.success('Removed from board');
-    }
-  }, [savedBoard, pinId, removePinFromBoard, toast]);
-
-  const handleBoardSelect = useCallback((board: BoardWithPinStatusResponse) => {
-    if (board.hasPin) return;
-    savePinToBoard({ boardId: board.id, pinId });
-    toast.success(`Saved to "${board.title}"`);
-  }, [savePinToBoard, pinId, toast]);
+  }, [isAuthenticated, login, isProfileMode, selectedBoard, pinId, saveToProfile, savePinToBoard, toast]);
 
   const handleCreateSuccess = useCallback((boardId: string) => {
     savePinToBoard({ boardId, pinId });
     toast.success('Saved to new board!');
   }, [savePinToBoard, pinId, toast]);
 
-  const isLoading = isSaving || isRemoving;
+  // Определяем сохранён ли пин где-либо
+  const isSavedAnywhere = isSavedToProfile || isSaved;
 
   // Compact variant для PinCard
   if (variant === 'compact') {
@@ -368,9 +472,11 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
         pinId={pinId}
         boards={boards}
         savedBoard={savedBoard}
+        isSavedToProfile={isSavedToProfile}
         isBoardsLoading={isBoardsLoading}
         isSaving={isLoading}
-        onSave={handleBoardSelect}
+        onSaveToBoard={handleSaveToBoard}
+        onSaveToProfile={handleSaveToProfile}
         onUnsave={handleUnsave}
         onCreateSuccess={handleCreateSuccess}
       />
@@ -378,32 +484,50 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
   }
 
   // Default variant - для PinDetailHeader
-  if (savedBoard) {
+  if (isSavedAnywhere) {
     return (
       <Flex alignItems="center" gap={3}>
-        <Link 
-          to={buildPath.board(savedBoard.id)} 
-          style={{ textDecoration: 'none' }}
-        >
-          <TapArea rounding={2}>
-            <Box
-              paddingX={3}
-              paddingY={2}
-              rounding={2}
-              color="secondary"
-              display="flex"
-              alignItems="center"
-            >
-              <Flex alignItems="center" gap={2}>
-                <Icon accessibilityLabel="" icon="board" size={16} color="default" />
-                <Text weight="bold" size="200">
-                  {savedBoard.title}
-                </Text>
-                <Icon accessibilityLabel="" icon="visit" size={12} color="subtle" />
-              </Flex>
-            </Box>
-          </TapArea>
-        </Link>
+        {isSavedToProfile ? (
+          <Box
+            paddingX={3}
+            paddingY={2}
+            rounding={2}
+            color="secondary"
+            display="flex"
+            alignItems="center"
+          >
+            <Flex alignItems="center" gap={2}>
+              <Icon accessibilityLabel="" icon="person" size={16} color="default" />
+              <Text weight="bold" size="200">
+                Profile
+              </Text>
+            </Flex>
+          </Box>
+        ) : savedBoard && (
+          <Link 
+            to={buildPath.board(savedBoard.id)} 
+            style={{ textDecoration: 'none' }}
+          >
+            <TapArea rounding={2}>
+              <Box
+                paddingX={3}
+                paddingY={2}
+                rounding={2}
+                color="secondary"
+                display="flex"
+                alignItems="center"
+              >
+                <Flex alignItems="center" gap={2}>
+                  <Icon accessibilityLabel="" icon="board" size={16} color="default" />
+                  <Text weight="bold" size="200">
+                    {savedBoard.title}
+                  </Text>
+                  <Icon accessibilityLabel="" icon="visit" size={12} color="subtle" />
+                </Flex>
+              </Box>
+            </TapArea>
+          </Link>
+        )}
 
         <PinSaveButton
           isSaved={true}
@@ -415,18 +539,34 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
     );
   }
 
+  // Not saved - show picker + save button
   return (
     <Flex alignItems="center" gap={3}>
-      <BoardPicker
-        onBoardChange={handleBoardChange}
-        size={size}
-        showLabel
-        allowDeselect={false}
-      />
+      {/* Show current target */}
+      <Box
+        paddingX={3}
+        paddingY={2}
+        rounding={2}
+        color="secondary"
+        display="flex"
+        alignItems="center"
+      >
+        <Flex alignItems="center" gap={2}>
+          <Icon 
+            accessibilityLabel="" 
+            icon={isProfileMode ? 'person' : 'board'} 
+            size={16} 
+            color="default" 
+          />
+          <Text weight="bold" size="200">
+            {isProfileMode ? 'Profile' : selectedBoard?.title}
+          </Text>
+        </Flex>
+      </Box>
 
       <PinSaveButton
         isSaved={false}
-        onSave={handleSave}
+        onSave={handleQuickSave}
         isLoading={isLoading}
         size={size}
       />

@@ -39,6 +39,8 @@ export {
   useSelectedBoardStore,
   selectSelectedBoard,
   selectHasSelectedBoard,
+  selectIsProfileMode,  // NEW
+  type SaveTarget,      // NEW
 } from './stores/selectedBoardStore';
 
 // Components
@@ -51,4 +53,4 @@ export { BoardEditModal } from './components/BoardEditModal';
 export { boardCreateSchema, type BoardCreateFormData } from './components/boardCreateSchema';
 export { BoardSelector } from './components/BoardSelector';
 export { BoardPicker } from './components/BoardPicker';
-export { BoardDropdownItem } from './components/BoardDropdownItem';
+export { BoardDropdownItem, ProfileDropdownItem } from './components/BoardDropdownItem';

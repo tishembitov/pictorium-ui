@@ -1,9 +1,16 @@
 // src/pages/ProfileCreatedTab.tsx
 
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Flex, Button, Text } from 'gestalt';
-import { PinGrid, PinFilters, useInfinitePins, usePinFiltersStore } from '@/modules/pin';
+import { 
+  PinGrid, 
+  PinFilters, 
+  useInfinitePins, 
+  usePinFiltersStore,
+  selectFilter,
+} from '@/modules/pin';
+import { hasActiveFilters as checkActiveFilters } from '@/modules/pin/utils/pinFilterUtils';
 import { useIsOwner } from '@/modules/auth';
 import { ROUTES } from '@/app/router/routeConfig';
 
@@ -20,8 +27,17 @@ const ProfileCreatedTab: React.FC<ProfileCreatedTabProps> = ({
   const isCurrentUserOwner = useIsOwner(userId);
   const effectiveIsOwner = isOwner || isCurrentUserOwner;
   
-  const filter = usePinFiltersStore((state) => state.filter);
-  const hasActiveFilters = usePinFiltersStore((state) => state.hasActiveFilters);
+  // Use stable selector
+  const filter = usePinFiltersStore(selectFilter);
+  
+  // Memoize computed values
+  const hasFilters = useMemo(() => checkActiveFilters(filter), [filter]);
+  
+  // Memoize the combined filter
+  const combinedFilter = useMemo(() => ({
+    ...filter,
+    authorId: userId,
+  }), [filter, userId]);
 
   const {
     pins,
@@ -30,11 +46,15 @@ const ProfileCreatedTab: React.FC<ProfileCreatedTabProps> = ({
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useInfinitePins({ ...filter, authorId: userId });
+  } = useInfinitePins(combinedFilter);
 
-  const handleCreatePin = () => {
+  const handleCreatePin = useCallback(() => {
     navigate(ROUTES.PIN_CREATE);
-  };
+  }, [navigate]);
+
+  const handleFetchNextPage = useCallback(() => {
+    void fetchNextPage();
+  }, [fetchNextPage]);
 
   return (
     <Box>
@@ -58,7 +78,7 @@ const ProfileCreatedTab: React.FC<ProfileCreatedTabProps> = ({
 
       {/* Filters */}
       <Box marginBottom={4}>
-        <PinFilters showSort showTags={false} showClear={hasActiveFilters()} />
+        <PinFilters showSort showTags={false} showClear={hasFilters} showScope={false} />
       </Box>
 
       {/* Pins Grid */}
@@ -67,7 +87,7 @@ const ProfileCreatedTab: React.FC<ProfileCreatedTabProps> = ({
         isLoading={isLoading}
         isFetchingNextPage={isFetchingNextPage}
         hasNextPage={hasNextPage}
-        fetchNextPage={fetchNextPage}
+        fetchNextPage={handleFetchNextPage}
         emptyMessage={effectiveIsOwner ? "You haven't created any pins yet" : "No pins created yet"}
         emptyAction={
           effectiveIsOwner

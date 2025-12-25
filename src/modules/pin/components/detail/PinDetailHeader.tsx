@@ -58,10 +58,11 @@ export const PinDetailHeader: React.FC<PinDetailHeaderProps> = ({
           <PinMenuButton pin={pin} size="md" />
         </Flex>
 
-        {/* Right side - Board picker & Save button */}
+        {/* Right side - Save section with Profile support */}
         <PinSaveSection
           pinId={pin.id}
           isSaved={pin.isSaved}
+          isSavedToProfile={pin.isSavedToProfile}
           size="md"
         />
       </Flex>

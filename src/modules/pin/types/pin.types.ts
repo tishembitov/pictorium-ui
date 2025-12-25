@@ -52,11 +52,14 @@ export interface PinResponse {
   isLiked: boolean;
   likeCount: number;
   
-  // Save status - UPDATED
-  isSaved: boolean;
-  savedToBoardName: string | null;   // NEW: название первой доски
-  savedToBoardCount: number;          // NEW: количество досок, в которые сохранён
+  // Save to boards status
+  isSaved: boolean;                   // сохранён в любую доску
+  savedToBoardName: string | null;    // название первой доски
+  savedToBoardCount: number;          // количество досок, в которые сохранён
   saveCount: number;                  // общее количество сохранений (всеми пользователями)
+  
+  // Save to profile status - NEW
+  isSavedToProfile: boolean;          // сохранён в профиль (без доски)
   
   // Other stats
   commentCount: number;

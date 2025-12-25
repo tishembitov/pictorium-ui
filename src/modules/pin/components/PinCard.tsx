@@ -101,6 +101,7 @@ export const PinCard: React.FC<PinCardProps> = ({
                 <PinSaveSection
                   pinId={pin.id}
                   isSaved={pin.isSaved}
+                  isSavedToProfile={pin.isSavedToProfile}
                   variant="compact"
                 />
               )}

@@ -22,6 +22,7 @@ const createFilterParams = (filter: PinFilter): Record<string, unknown> => {
   if (filter.tags?.length) params.tags = filter.tags;
   if (filter.authorId) params.authorId = filter.authorId;
   if (filter.savedBy) params.savedBy = filter.savedBy;
+  if (filter.savedToProfileBy) params.savedToProfileBy = filter.savedToProfileBy;
   if (filter.likedBy) params.likedBy = filter.likedBy;
   if (filter.relatedTo) params.relatedTo = filter.relatedTo;
   if (filter.createdFrom) params.createdFrom = filter.createdFrom;
@@ -35,6 +36,8 @@ const createFilterParams = (filter: PinFilter): Record<string, unknown> => {
  * Pin API client
  */
 export const pinApi = {
+  // ==================== Pin CRUD ====================
+  
   /**
    * Get pins with filter and pagination
    */
@@ -73,6 +76,40 @@ export const pinApi = {
    */
   delete: (pinId: string) => {
     return del<void>(PIN_ENDPOINTS.delete(pinId));
+  },
+
+  // ==================== Save to Profile ====================
+
+  /**
+   * Save pin to profile (without board)
+   */
+  saveToProfile: (pinId: string) => {
+    return post<PinResponse>(PIN_ENDPOINTS.save(pinId));
+  },
+
+  /**
+   * Unsave pin from profile
+   */
+  unsaveFromProfile: (pinId: string) => {
+    return del<void>(PIN_ENDPOINTS.unsave(pinId));
+  },
+
+  /**
+   * Get pins saved to profile by user ID
+   */
+  getSavedToProfilePins: (userId: string, pageable: Pageable = {}) => {
+    return get<PagePinResponse>(PIN_ENDPOINTS.savedByUser(userId), {
+      params: createPaginationParams(pageable),
+    });
+  },
+
+  /**
+   * Get my pins saved to profile
+   */
+  getMySavedToProfilePins: (pageable: Pageable = {}) => {
+    return get<PagePinResponse>(PIN_ENDPOINTS.mySaved(), {
+      params: createPaginationParams(pageable),
+    });
   },
 };
 

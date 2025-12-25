@@ -1,7 +1,6 @@
-// ================================================
-// FILE: src/pages/ExplorePage.tsx
-// ================================================
-import React, { useState, useCallback } from 'react';
+// src/pages/ExplorePage.tsx
+
+import React, { useState, useCallback, useMemo } from 'react';
 import { Box, Heading, Tabs, Divider, Flex, Button, Text } from 'gestalt';
 import { 
   CategoryGrid, 
@@ -33,7 +32,7 @@ const ExplorePage: React.FC = () => {
   
   const debouncedQuery = useDebounce(tagSearchQuery, 300);
 
-  // Store
+  // Store - использовать стабильный action getter
   const setTags = usePinFiltersStore((state) => state.setTags);
 
   // Categories
@@ -45,6 +44,11 @@ const ExplorePage: React.FC = () => {
     enabled: activeTab === 2 && debouncedQuery.length > 0,
   });
 
+  // Memoize filter for pins query
+  const pinsFilter = useMemo(() => ({
+    tags: selectedTags.length > 0 ? selectedTags : undefined,
+  }), [selectedTags]);
+
   // Pins with selected tags
   const {
     pins,
@@ -53,10 +57,7 @@ const ExplorePage: React.FC = () => {
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useInfinitePins(
-    { tags: selectedTags.length > 0 ? selectedTags : undefined },
-    { enabled: activeTab === 1 }
-  );
+  } = useInfinitePins(pinsFilter, { enabled: activeTab === 1 });
 
   const handleCategoryClick = useCallback((category: CategoryResponse) => {
     setSelectedTags([category.tagName]);
@@ -65,30 +66,34 @@ const ExplorePage: React.FC = () => {
   }, [setTags]);
 
   const handleTagSelect = useCallback((tag: TagResponse) => {
-    const newTags = [...selectedTags, tag.name];
-    setSelectedTags(newTags);
-    setTags(newTags);
+    setSelectedTags((prev) => {
+      const newTags = [...prev, tag.name];
+      setTags(newTags);
+      return newTags;
+    });
     setActiveTab(1);
-  }, [selectedTags, setTags]);
+  }, [setTags]);
 
   const handleTagRemove = useCallback((tagName: string) => {
-    const newTags = selectedTags.filter((t) => t !== tagName);
-    setSelectedTags(newTags);
-    setTags(newTags);
-  }, [selectedTags, setTags]);
+    setSelectedTags((prev) => {
+      const newTags = prev.filter((t) => t !== tagName);
+      setTags(newTags);
+      return newTags;
+    });
+  }, [setTags]);
 
   const handleClearTags = useCallback(() => {
     setSelectedTags([]);
     setTags([]);
   }, [setTags]);
 
-  const handleTabChange = ({ activeTabIndex }: { activeTabIndex: number }) => {
+  const handleTabChange = useCallback(({ activeTabIndex }: { activeTabIndex: number }) => {
     setActiveTab(activeTabIndex as TabIndex);
-  };
+  }, []);
 
-  const handleFetchNextPage = () => {
+  const handleFetchNextPage = useCallback(() => {
     void fetchNextPage();
-  };
+  }, [fetchNextPage]);
 
   return (
     <Box paddingY={4}>
@@ -177,7 +182,7 @@ const ExplorePage: React.FC = () => {
           <Box>
             {/* Filters */}
             <Box marginBottom={4}>
-              <PinFilters showSort showClear />
+              <PinFilters showSort showClear showScope={false} />
             </Box>
 
             {/* Tag Filter */}

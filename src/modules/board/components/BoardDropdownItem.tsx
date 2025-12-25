@@ -13,6 +13,99 @@ interface BoardDropdownItemProps {
   disabled?: boolean;
 }
 
+/**
+ * Profile option item for board dropdown
+ */
+interface ProfileDropdownItemProps {
+  isSelected: boolean;
+  isSavedToProfile: boolean;
+  onSelect: () => void;
+  isProcessing?: boolean;
+}
+
+export const ProfileDropdownItem: React.FC<ProfileDropdownItemProps> = ({
+  isSelected,
+  isSavedToProfile,
+  onSelect,
+  isProcessing = false,
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  const isDisabled = isProcessing || isSavedToProfile;
+
+  return (
+    <TapArea 
+      onTap={() => !isDisabled && onSelect()} 
+      rounding={3} 
+      disabled={isDisabled}
+    >
+      <Box
+        padding={2}
+        rounding={3}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        dangerouslySetInlineStyle={{
+          __style: {
+            backgroundColor: isSelected 
+              ? 'rgba(230, 0, 35, 0.08)' 
+              : isHovered && !isDisabled 
+                ? '#e9e9e9' 
+                : 'transparent',
+            opacity: isDisabled ? 0.6 : 1,
+            cursor: isDisabled ? 'default' : 'pointer',
+            border: isSelected ? '2px solid #e60023' : '2px solid transparent',
+          },
+        }}
+      >
+        <Flex alignItems="center" gap={3}>
+          {/* Profile Icon */}
+          <Box
+            width={48}
+            height={48}
+            rounding={2}
+            color="secondary"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Icon accessibilityLabel="" icon="person" size={24} color="default" />
+          </Box>
+
+          {/* Profile Info */}
+          <Box flex="grow">
+            <Text weight="bold" size="200">
+              Profile
+            </Text>
+            <Text color="subtle" size="100">
+              Save without board
+            </Text>
+          </Box>
+
+          {/* Status */}
+          {isProcessing && (
+            <Spinner accessibilityLabel="Saving" show size="sm" />
+          )}
+          {isSavedToProfile && !isProcessing && (
+            <Icon accessibilityLabel="Already saved" icon="check" size={16} color="subtle" />
+          )}
+          {isSelected && !isSavedToProfile && !isProcessing && (
+            <Box
+              color="primary"
+              rounding="pill"
+              paddingX={2}
+              paddingY={1}
+            >
+              <Text size="100" color="inverse" weight="bold">
+                Default
+              </Text>
+            </Box>
+          )}
+        </Flex>
+      </Box>
+    </TapArea>
+  );
+};
+
 export const BoardDropdownItem: React.FC<BoardDropdownItemProps> = ({
   board,
   onSelect,

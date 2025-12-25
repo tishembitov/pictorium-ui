@@ -1,6 +1,6 @@
 // src/pages/HomePage.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
@@ -17,7 +17,9 @@ import {
   PinSearchBar,
   useInfinitePins, 
   usePinFiltersStore,
+  selectFilter,
 } from '@/modules/pin';
+import { hasActiveFilters as checkActiveFilters } from '@/modules/pin/utils/pinFilterUtils';
 import { useAuth } from '@/modules/auth';
 import { CategoryGrid } from '@/modules/tag';
 import { EmptyState } from '@/shared/components';
@@ -31,9 +33,12 @@ const HomePage: React.FC = () => {
   
   const [showFilters, setShowFilters] = useState(false);
   
-  const filter = usePinFiltersStore((state) => state.filter);
-  const hasActiveFilters = usePinFiltersStore((state) => state.hasActiveFilters);
+  // Use stable selectors
+  const filter = usePinFiltersStore(selectFilter);
   const clearFilter = usePinFiltersStore((state) => state.clearFilter);
+  
+  // Memoize computed values
+  const hasFilters = useMemo(() => checkActiveFilters(filter), [filter]);
 
   const {
     pins,
@@ -46,25 +51,29 @@ const HomePage: React.FC = () => {
     refetch,
   } = useInfinitePins(filter);
 
-  const handleCreatePin = () => {
+  const handleCreatePin = useCallback(() => {
     navigate(ROUTES.PIN_CREATE);
-  };
+  }, [navigate]);
 
-  const handleExplore = () => {
+  const handleExplore = useCallback(() => {
     navigate(ROUTES.EXPLORE);
-  };
+  }, [navigate]);
 
-  const toggleFilters = () => {
+  const toggleFilters = useCallback(() => {
     setShowFilters((prev) => !prev);
-  };
+  }, []);
 
-  const handleFetchNextPage = () => {
+  const handleFetchNextPage = useCallback(() => {
     void fetchNextPage();
-  };
+  }, [fetchNextPage]);
 
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
     void refetch();
-  };
+  }, [refetch]);
+
+  const handleClearFilter = useCallback(() => {
+    clearFilter();
+  }, [clearFilter]);
 
   return (
     <Box paddingY={4}>
@@ -105,8 +114,8 @@ const HomePage: React.FC = () => {
               icon="filter"
               onClick={toggleFilters}
               size="md"
-              bgColor={hasActiveFilters() ? 'red' : 'gray'}
-              iconColor={hasActiveFilters() ? 'white' : 'darkGray'}
+              bgColor={hasFilters ? 'red' : 'gray'}
+              iconColor={hasFilters ? 'white' : 'darkGray'}
             />
           </Tooltip>
 
@@ -131,7 +140,7 @@ const HomePage: React.FC = () => {
             color="secondary" 
             rounding={4}
           >
-            <PinFilters showSort showTags showClear />
+            <PinFilters showSort showTags showClear showScope={false} />
           </Box>
         </Box>
       )}
@@ -172,13 +181,13 @@ const HomePage: React.FC = () => {
           hasNextPage={hasNextPage}
           fetchNextPage={handleFetchNextPage}
           emptyMessage={
-            hasActiveFilters() 
+            hasFilters 
               ? 'No pins match your filters' 
               : 'No pins to show yet'
           }
           emptyAction={
-            hasActiveFilters()
-              ? { text: 'Clear filters', onClick: clearFilter }
+            hasFilters
+              ? { text: 'Clear filters', onClick: handleClearFilter }
               : { text: 'Explore', onClick: handleExplore }
           }
         />

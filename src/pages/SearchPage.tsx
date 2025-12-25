@@ -1,7 +1,6 @@
-// ================================================
-// FILE: src/pages/SearchPage.tsx
-// ================================================
-import React, { useEffect, useState, useCallback } from 'react';
+// src/pages/SearchPage.tsx
+
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Box, Heading, Text, Tabs, Divider, Flex, Button } from 'gestalt';
 import { 
@@ -35,7 +34,7 @@ import { formatCompactNumber } from '@/shared/utils/formatters';
 type SearchTab = 'pins' | 'users' | 'tags';
 
 // ============================================
-// Sub-components для уменьшения сложности
+// Sub-components
 // ============================================
 
 interface PinsTabContentProps {
@@ -72,7 +71,7 @@ const PinsTabContent: React.FC<PinsTabContentProps> = ({
   return (
     <Box>
       <Box marginBottom={4}>
-        <PinFilters showSort showTags showClear />
+        <PinFilters showSort showTags showClear showScope={false} />
       </Box>
       <PinGrid
         pins={pins}
@@ -199,7 +198,7 @@ const SearchPage: React.FC = () => {
   
   const debouncedQuery = useDebounce(localQuery, 300);
 
-  // Stores
+  // Store - use stable action getters
   const setQuery = usePinFiltersStore((state) => state.setQuery);
   const addSearch = useSearchHistoryStore((state) => state.addSearch);
   const history = useSearchHistoryStore((state) => state.history);
@@ -220,6 +219,9 @@ const SearchPage: React.FC = () => {
     setQuery(query);
   }, [query, setQuery]);
 
+  // Memoize filter for pins
+  const pinsFilter = useMemo(() => ({ q: query }), [query]);
+
   // Pins search
   const {
     pins,
@@ -230,7 +232,7 @@ const SearchPage: React.FC = () => {
     fetchNextPage,
     isError: isPinsError,
     refetch: refetchPins,
-  } = useInfinitePins({ q: query }, { enabled: !!query && activeTab === 'pins' });
+  } = useInfinitePins(pinsFilter, { enabled: !!query && activeTab === 'pins' });
 
   // Tags search
   const { 
@@ -251,15 +253,15 @@ const SearchPage: React.FC = () => {
     enabled: !!query && activeTab === 'users',
   });
 
-  const handleTabChange = ({ activeTabIndex }: { activeTabIndex: number }) => {
+  const handleTabChange = useCallback(({ activeTabIndex }: { activeTabIndex: number }) => {
     const tabs: SearchTab[] = ['pins', 'users', 'tags'];
     setActiveTab(tabs[activeTabIndex] || 'pins');
-  };
+  }, []);
 
-  const getTabIndex = (): number => {
+  const getTabIndex = useCallback((): number => {
     const tabs: SearchTab[] = ['pins', 'users', 'tags'];
     return tabs.indexOf(activeTab);
-  };
+  }, [activeTab]);
 
   const handleSearchChange = useCallback((value: string) => {
     setLocalQuery(value);
@@ -274,6 +276,14 @@ const SearchPage: React.FC = () => {
     setLocalQuery(tagName);
     setSearchParams({ q: tagName });
   }, [setSearchParams]);
+
+  const handleFetchNextPage = useCallback(() => {
+    void fetchNextPage();
+  }, [fetchNextPage]);
+
+  const handleRefetchPins = useCallback(() => {
+    void refetchPins();
+  }, [refetchPins]);
 
   // Build tab labels
   const pinsTabLabel = pinsCount > 0 
@@ -389,8 +399,8 @@ const SearchPage: React.FC = () => {
             isPinsError={isPinsError}
             isFetchingNextPage={isFetchingNextPage}
             hasNextPage={hasNextPage}
-            fetchNextPage={fetchNextPage}
-            refetchPins={refetchPins}
+            fetchNextPage={handleFetchNextPage}
+            refetchPins={handleRefetchPins}
           />
         )}
 

@@ -33,6 +33,9 @@ export const SUBSCRIPTION_ENDPOINTS = {
 } as const;
 
 // Content Service - Pin Endpoints
+// src/shared/api/apiEndpoints.ts (обновить секцию PIN_ENDPOINTS)
+
+// Content Service - Pin Endpoints
 export const PIN_ENDPOINTS = {
   // Pins CRUD
   list: () => API_PREFIXES.pins,
@@ -50,9 +53,11 @@ export const PIN_ENDPOINTS = {
   comments: (pinId: string) => `${API_PREFIXES.pins}/${pinId}/comments`,
   createComment: (pinId: string) => `${API_PREFIXES.pins}/${pinId}/comments`,
   
-  // Saved Pins
-  save: (pinId: string) => `${API_PREFIXES.pins}/${pinId}/saves`,
-  unsave: (pinId: string) => `${API_PREFIXES.pins}/${pinId}/saves`,
+  // Save to Profile - NEW
+  save: (pinId: string) => `${API_PREFIXES.pins}/${pinId}/save`,
+  unsave: (pinId: string) => `${API_PREFIXES.pins}/${pinId}/save`,
+  savedByUser: (userId: string) => `${API_PREFIXES.pins}/saved/${userId}`,
+  mySaved: () => `${API_PREFIXES.pins}/saved/me`,
 } as const;
 
 // Board Endpoints

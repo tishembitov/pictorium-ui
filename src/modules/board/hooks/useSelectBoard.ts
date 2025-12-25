@@ -53,7 +53,7 @@ export const useSelectBoard = (options: UseSelectBoardOptions = {}) => {
     },
   });
 
-  // Deselect board mutation
+  // Deselect board mutation (switch to Profile mode)
   const deselectMutation = useMutation({
     mutationFn: () => selectedBoardApi.deselect(),
     onSuccess: () => {
@@ -61,7 +61,7 @@ export const useSelectBoard = (options: UseSelectBoardOptions = {}) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.boards.selected() });
 
       if (showToast) {
-        toast.success('Board deselected');
+        toast.success('Switched to Profile');
       }
 
       onSuccess?.();
@@ -75,11 +75,17 @@ export const useSelectBoard = (options: UseSelectBoardOptions = {}) => {
     },
   });
 
+  // Switch to profile mode (same as deselect)
+  const switchToProfile = () => {
+    deselectMutation.mutate();
+  };
+
   return {
     selectBoard: selectMutation.mutate,
     selectBoardAsync: selectMutation.mutateAsync,
     deselectBoard: deselectMutation.mutate,
     deselectBoardAsync: deselectMutation.mutateAsync,
+    switchToProfile,
     isSelecting: selectMutation.isPending,
     isDeselecting: deselectMutation.isPending,
     isLoading: selectMutation.isPending || deselectMutation.isPending,

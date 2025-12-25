@@ -2,7 +2,12 @@
 
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import type { PinFilter, PinScope, PinSortField, PinSortDirection } from '../types/pinFilter.types';
+import type { 
+  PinFilter, 
+  PinScope, 
+  PinSortField, 
+  PinSortDirection 
+} from '../types/pinFilter.types';
 
 interface PinFiltersState {
   // Filter state
@@ -14,6 +19,9 @@ interface PinFiltersState {
   
   // UI state
   isFilterPanelOpen: boolean;
+  
+  // Context for user-specific filtering
+  contextUserId: string | null;
 }
 
 interface PinFiltersActions {
@@ -25,8 +33,17 @@ interface PinFiltersActions {
   removeTag: (tag: string) => void;
   setScope: (scope: PinScope) => void;
   setAuthorId: (authorId: string | undefined) => void;
+  setSavedBy: (userId: string | undefined) => void;
+  setSavedToProfileBy: (userId: string | undefined) => void;
+  setLikedBy: (userId: string | undefined) => void;
+  setRelatedTo: (pinId: string | undefined) => void;
   setDateRange: (from?: string, to?: string) => void;
   clearFilter: () => void;
+  resetToScope: (scope: PinScope) => void;
+  
+  // Context actions
+  setContextUserId: (userId: string | null) => void;
+  setUserScope: (userId: string, scope: PinScope) => void;
   
   // Sort actions
   setSort: (field: PinSortField, direction: PinSortDirection) => void;
@@ -35,30 +52,30 @@ interface PinFiltersActions {
   // UI actions
   toggleFilterPanel: () => void;
   setFilterPanelOpen: (open: boolean) => void;
-  
-  // Computed
-  hasActiveFilters: () => boolean;
-  getActiveFilterCount: () => number;
 }
 
 type PinFiltersStore = PinFiltersState & PinFiltersActions;
 
-const initialFilter: PinFilter = {};
+const initialFilter: PinFilter = {
+  scope: 'ALL',
+};
 
 const initialState: PinFiltersState = {
   filter: initialFilter,
   sortField: 'createdAt',
   sortDirection: 'desc',
   isFilterPanelOpen: false,
+  contextUserId: null,
 };
 
 export const usePinFiltersStore = create<PinFiltersStore>()(
   devtools(
     persist(
-      (set, get) => ({
+      (set) => ({
         ...initialState,
 
-        // Filter actions
+        // ==================== Filter Actions ====================
+        
         setFilter: (newFilter) =>
           set(
             (state) => ({ filter: { ...state.filter, ...newFilter } }),
@@ -75,7 +92,9 @@ export const usePinFiltersStore = create<PinFiltersStore>()(
 
         setTags: (tags) =>
           set(
-            (state) => ({ filter: { ...state.filter, tags: tags.length ? tags : undefined } }),
+            (state) => ({ 
+              filter: { ...state.filter, tags: tags.length ? tags : undefined } 
+            }),
             false,
             'setTags'
           ),
@@ -96,7 +115,9 @@ export const usePinFiltersStore = create<PinFiltersStore>()(
             (state) => {
               const currentTags = state.filter.tags || [];
               const newTags = currentTags.filter((t) => t !== tag);
-              return { filter: { ...state.filter, tags: newTags.length ? newTags : undefined } };
+              return { 
+                filter: { ...state.filter, tags: newTags.length ? newTags : undefined } 
+              };
             },
             false,
             'removeTag'
@@ -104,7 +125,40 @@ export const usePinFiltersStore = create<PinFiltersStore>()(
 
         setScope: (scope) =>
           set(
-            (state) => ({ filter: { ...state.filter, scope } }),
+            (state) => {
+              const newFilter: PinFilter = { 
+                ...state.filter, 
+                scope,
+                savedBy: undefined,
+                savedToProfileBy: undefined,
+                likedBy: undefined,
+                authorId: undefined,
+                relatedTo: undefined,
+              };
+              
+              const userId = state.contextUserId;
+              if (userId) {
+                switch (scope) {
+                  case 'CREATED':
+                    newFilter.authorId = userId;
+                    break;
+                  case 'SAVED':
+                    newFilter.savedBy = userId;
+                    break;
+                  case 'SAVED_TO_PROFILE':
+                    newFilter.savedToProfileBy = userId;
+                    break;
+                  case 'SAVED_ALL':
+                    newFilter.savedBy = userId;
+                    break;
+                  case 'LIKED':
+                    newFilter.likedBy = userId;
+                    break;
+                }
+              }
+              
+              return { filter: newFilter };
+            },
             false,
             'setScope'
           ),
@@ -116,6 +170,36 @@ export const usePinFiltersStore = create<PinFiltersStore>()(
             'setAuthorId'
           ),
 
+        setSavedBy: (savedBy) =>
+          set(
+            (state) => ({ filter: { ...state.filter, savedBy } }),
+            false,
+            'setSavedBy'
+          ),
+
+        setSavedToProfileBy: (savedToProfileBy) =>
+          set(
+            (state) => ({ filter: { ...state.filter, savedToProfileBy } }),
+            false,
+            'setSavedToProfileBy'
+          ),
+
+        setLikedBy: (likedBy) =>
+          set(
+            (state) => ({ filter: { ...state.filter, likedBy } }),
+            false,
+            'setLikedBy'
+          ),
+
+        setRelatedTo: (relatedTo) =>
+          set(
+            (state) => ({ 
+              filter: { ...state.filter, relatedTo, scope: relatedTo ? 'RELATED' : undefined } 
+            }),
+            false,
+            'setRelatedTo'
+          ),
+
         setDateRange: (createdFrom, createdTo) =>
           set(
             (state) => ({ filter: { ...state.filter, createdFrom, createdTo } }),
@@ -124,9 +208,54 @@ export const usePinFiltersStore = create<PinFiltersStore>()(
           ),
 
         clearFilter: () =>
-          set({ filter: initialFilter }, false, 'clearFilter'),
+          set({ filter: initialFilter, contextUserId: null }, false, 'clearFilter'),
 
-        // Sort actions
+        resetToScope: (scope) =>
+          set(
+            { 
+              filter: { scope },
+              contextUserId: null,
+            }, 
+            false, 
+            'resetToScope'
+          ),
+
+        // ==================== Context Actions ====================
+
+        setContextUserId: (userId) =>
+          set({ contextUserId: userId }, false, 'setContextUserId'),
+
+        setUserScope: (userId, scope) =>
+          set(
+            () => {
+              const newFilter: PinFilter = { scope };
+              
+              switch (scope) {
+                case 'CREATED':
+                  newFilter.authorId = userId;
+                  break;
+                case 'SAVED':
+                  newFilter.savedBy = userId;
+                  break;
+                case 'SAVED_TO_PROFILE':
+                  newFilter.savedToProfileBy = userId;
+                  break;
+                case 'SAVED_ALL':
+                  newFilter.savedBy = userId;
+                  break;
+                case 'LIKED':
+                  newFilter.likedBy = userId;
+                  break;
+              }
+              
+              return { filter: newFilter, contextUserId: userId };
+            },
+            false,
+            'setUserScope'
+          ),
+
+        // ==================== Sort Actions ====================
+
         setSort: (field, direction) =>
           set({ sortField: field, sortDirection: direction }, false, 'setSort'),
 
@@ -139,7 +268,8 @@ export const usePinFiltersStore = create<PinFiltersStore>()(
             'toggleSortDirection'
           ),
 
-        // UI actions
+        // ==================== UI Actions ====================
+
         toggleFilterPanel: () =>
           set(
             (state) => ({ isFilterPanelOpen: !state.isFilterPanelOpen }),
@@ -149,32 +279,6 @@ export const usePinFiltersStore = create<PinFiltersStore>()(
 
         setFilterPanelOpen: (open) =>
           set({ isFilterPanelOpen: open }, false, 'setFilterPanelOpen'),
-
-        // Computed
-        hasActiveFilters: () => {
-          const { filter } = get();
-          return !!(
-            filter.q ||
-            filter.tags?.length ||
-            filter.authorId ||
-            filter.savedBy ||
-            filter.likedBy ||
-            filter.createdFrom ||
-            filter.createdTo
-          );
-        },
-
-        getActiveFilterCount: () => {
-          const { filter } = get();
-          let count = 0;
-          if (filter.q) count++;
-          if (filter.tags?.length) count++;
-          if (filter.authorId) count++;
-          if (filter.savedBy) count++;
-          if (filter.likedBy) count++;
-          if (filter.createdFrom || filter.createdTo) count++;
-          return count;
-        },
       }),
       {
         name: 'pin-filters',
@@ -188,13 +292,12 @@ export const usePinFiltersStore = create<PinFiltersStore>()(
   )
 );
 
-// Selectors
+// ==================== Selectors (стабильные) ====================
+
 export const selectFilter = (state: PinFiltersStore) => state.filter;
-export const selectSort = (state: PinFiltersStore) => ({
-  field: state.sortField,
-  direction: state.sortDirection,
-});
+export const selectSortField = (state: PinFiltersStore) => state.sortField;
+export const selectSortDirection = (state: PinFiltersStore) => state.sortDirection;
 export const selectIsFilterPanelOpen = (state: PinFiltersStore) => state.isFilterPanelOpen;
-export const selectHasActiveFilters = (state: PinFiltersStore) => state.hasActiveFilters();
+export const selectContextUserId = (state: PinFiltersStore) => state.contextUserId;
 
 export default usePinFiltersStore;

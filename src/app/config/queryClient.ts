@@ -56,6 +56,9 @@ export const queryKeys = {
     saved: (userId: string) => [...queryKeys.pins.all, 'saved', userId] as const,
     byAuthor: (userId: string) => [...queryKeys.pins.all, 'byAuthor', userId] as const,
     related: (pinId: string) => [...queryKeys.pins.all, 'related', pinId] as const,
+    // Save to Profile - NEW
+    savedToProfile: (userId: string) => [...queryKeys.pins.all, 'savedToProfile', userId] as const,
+    mySavedToProfile: () => [...queryKeys.pins.all, 'savedToProfile', 'me'] as const,
   },
   
   // Boards

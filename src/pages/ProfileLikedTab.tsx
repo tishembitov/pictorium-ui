@@ -1,8 +1,15 @@
 // src/pages/ProfileLikedTab.tsx
 
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Box, Flex, Text } from 'gestalt';
-import { PinGrid, PinFilters, useInfinitePins, usePinFiltersStore } from '@/modules/pin';
+import { 
+  PinGrid, 
+  PinFilters, 
+  useInfinitePins, 
+  usePinFiltersStore,
+  selectFilter,
+} from '@/modules/pin';
+import { hasActiveFilters as checkActiveFilters } from '@/modules/pin/utils/pinFilterUtils';
 
 interface ProfileLikedTabProps {
   userId: string;
@@ -10,8 +17,17 @@ interface ProfileLikedTabProps {
 }
 
 const ProfileLikedTab: React.FC<ProfileLikedTabProps> = ({ userId, isOwner = false }) => {
-  const filter = usePinFiltersStore((state) => state.filter);
-  const hasActiveFilters = usePinFiltersStore((state) => state.hasActiveFilters);
+  // Use stable selector
+  const filter = usePinFiltersStore(selectFilter);
+  
+  // Memoize computed values
+  const hasFilters = useMemo(() => checkActiveFilters(filter), [filter]);
+  
+  // Memoize the combined filter
+  const combinedFilter = useMemo(() => ({
+    ...filter,
+    likedBy: userId,
+  }), [filter, userId]);
 
   const {
     pins,
@@ -20,9 +36,13 @@ const ProfileLikedTab: React.FC<ProfileLikedTabProps> = ({ userId, isOwner = fal
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useInfinitePins({ ...filter, likedBy: userId });
+  } = useInfinitePins(combinedFilter);
 
-  // ✅ Используем длину pins для точного отображения после оптимистичных удалений
+  const handleFetchNextPage = useCallback(() => {
+    void fetchNextPage();
+  }, [fetchNextPage]);
+
+  // Используем длину pins для точного отображения после оптимистичных удалений
   const displayCount = pins.length > 0 ? totalElements : 0;
 
   return (
@@ -38,7 +58,7 @@ const ProfileLikedTab: React.FC<ProfileLikedTabProps> = ({ userId, isOwner = fal
 
       {/* Filters */}
       <Box marginBottom={4}>
-        <PinFilters showSort showTags={false} showClear={hasActiveFilters()} />
+        <PinFilters showSort showTags={false} showClear={hasFilters} showScope={false} />
       </Box>
 
       {/* Pins Grid */}
@@ -47,7 +67,7 @@ const ProfileLikedTab: React.FC<ProfileLikedTabProps> = ({ userId, isOwner = fal
         isLoading={isLoading}
         isFetchingNextPage={isFetchingNextPage}
         hasNextPage={hasNextPage}
-        fetchNextPage={fetchNextPage}
+        fetchNextPage={handleFetchNextPage}
         emptyMessage={isOwner ? "You haven't liked any pins yet" : "No liked pins yet"}
       />
     </Box>

@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { boardApi } from '../api/boardApi';
 import { useToast } from '@/shared/hooks/useToast';
+import { useAuthStore } from '@/modules/auth';
 import type { BatchBoardPinAction } from '../types/board.types';
 
 interface UseSavePinToBoardsOptions {
@@ -13,12 +14,24 @@ interface UseSavePinToBoardsOptions {
 }
 
 /**
+ * Check if query is for user's saved pins
+ */
+const isSavedPinsQuery = (queryKey: unknown[], userId: string): boolean => {
+  if (queryKey[0] !== 'pins' || queryKey[1] !== 'list') return false;
+  const filter = queryKey[2] as Record<string, unknown> | undefined;
+  return filter?.savedAnywhere === userId || 
+         filter?.savedBy === userId || 
+         filter?.savedToProfileBy === userId;
+};
+
+/**
  * Hook to save a pin to multiple boards at once
  */
 export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const userId = useAuthStore((state) => state.user?.id);
 
   const mutation = useMutation({
     mutationFn: ({ pinId, boardIds }: BatchBoardPinAction) =>
@@ -34,6 +47,17 @@ export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
       boardIds.forEach(boardId => {
         queryClient.invalidateQueries({ queryKey: queryKeys.boards.pins(boardId) });
       });
+
+      // Invalidate user's saved pins queries
+      if (userId) {
+        queryClient.invalidateQueries({
+          predicate: (query) => {
+            const key = query.queryKey;
+            if (!Array.isArray(key)) return false;
+            return isSavedPinsQuery(key, userId);
+          },
+        });
+      }
 
       if (showToast) {
         const count = boardIds.length;

@@ -39,7 +39,7 @@ const buildUserFilter = (userId: string, scope: PinScope): PinFilter => {
     case 'SAVED_TO_PROFILE':
       return { ...base, savedToProfileBy: userId };
     case 'SAVED_ALL':
-      return { ...base, savedBy: userId };
+      return { ...base, savedAnywhere: userId };  // ✅ Исправлено: используем savedAnywhere
     case 'LIKED':
       return { ...base, likedBy: userId };
     default:

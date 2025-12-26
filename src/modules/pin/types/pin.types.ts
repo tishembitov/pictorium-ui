@@ -100,7 +100,7 @@ export type PinScope =
   | 'RELATED';
 
 /**
- * Фильтр пинов — 1:1 с API, без дублирования
+ * Фильтр пинов — 1:1 с API
  */
 export interface PinFilter {
   q?: string;
@@ -108,6 +108,7 @@ export interface PinFilter {
   authorId?: string;
   savedBy?: string;
   savedToProfileBy?: string;
+  savedAnywhere?: string;  
   likedBy?: string;
   relatedTo?: string;
   createdFrom?: string;

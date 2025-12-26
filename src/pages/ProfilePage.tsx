@@ -11,27 +11,25 @@ import { useUserPins } from '@/modules/pin';
 import { useIsOwner } from '@/modules/auth';
 import { ErrorMessage } from '@/shared/components';
 import { ROUTES } from '@/app/router/routeConfig';
-import ProfileCreatedTab from './ProfileCreatedTab';
-import ProfileLikedTab from './ProfileLikedTab';
+import ProfilePinsTab from './ProfilePinsTab';
 import ProfileBoardsTab from './ProfileBoardsTab';
 
-type ProfileTab = 'created' | 'liked' | 'boards';
+type ProfileTab = 'pins' | 'boards';
 
 const TABS: { id: ProfileTab; text: string }[] = [
-  { id: 'created', text: 'Created' },
-  { id: 'liked', text: 'Liked' },
+  { id: 'pins', text: 'Pins' },
   { id: 'boards', text: 'Boards' },
 ];
 
 const ProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<ProfileTab>('created');
+  const [activeTab, setActiveTab] = useState<ProfileTab>('pins');
 
   const { user, isLoading, isError, error, refetch } = useUserByUsername(username);
   const isOwner = useIsOwner(user?.id);
 
-  // Get pins count for header (using simplified hook)
+  // Get pins count for header
   const { totalElements: pinsCount } = useUserPins(user?.id, 'CREATED', { 
     enabled: !!user?.id, 
     pageSize: 1,
@@ -61,10 +59,8 @@ const ProfilePage: React.FC = () => {
     if (!user) return null;
     
     switch (activeTab) {
-      case 'created':
-        return <ProfileCreatedTab userId={user.id} isOwner={isOwner} />;
-      case 'liked':
-        return <ProfileLikedTab userId={user.id} isOwner={isOwner} />;
+      case 'pins':
+        return <ProfilePinsTab userId={user.id} isOwner={isOwner} />;
       case 'boards':
         return <ProfileBoardsTab userId={user.id} isOwner={isOwner} />;
       default:

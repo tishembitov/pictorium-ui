@@ -4,6 +4,7 @@ import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-
 import { queryKeys } from '@/app/config/queryClient';
 import { pinApi } from '../api/pinApi';
 import { useToast } from '@/shared/hooks/useToast';
+import { useAuthStore } from '@/modules/auth';
 import type { PinResponse, PagePinResponse } from '../types/pin.types';
 
 interface UseSaveToProfileOptions {
@@ -18,6 +19,7 @@ interface UseSaveToProfileOptions {
 const createSavedToProfilePin = (pin: PinResponse): PinResponse => ({
   ...pin,
   isSavedToProfile: true,
+  isSaved: true,
 });
 
 /**
@@ -48,6 +50,7 @@ export const useSaveToProfile = (options: UseSaveToProfileOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const userId = useAuthStore((state) => state.user?.id);
 
   const mutation = useMutation({
     mutationFn: (pinId: string) => pinApi.saveToProfile(pinId),
@@ -83,10 +86,21 @@ export const useSaveToProfile = (options: UseSaveToProfileOptions = {}) => {
       // Update cache with server response
       queryClient.setQueryData(queryKeys.pins.byId(pinId), data);
       
-      // Invalidate saved to profile queries
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.pins.mySavedToProfile() 
-      });
+      // Invalidate user's saved pins queries to refresh counts
+      if (userId) {
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.pins.mySavedToProfile() 
+        });
+        // Invalidate savedAnywhere queries for the user
+        queryClient.invalidateQueries({
+          predicate: (query) => {
+            const key = query.queryKey;
+            if (!Array.isArray(key) || key[0] !== 'pins' || key[1] !== 'list') return false;
+            const filter = key[2] as Record<string, unknown> | undefined;
+            return filter?.savedAnywhere === userId || filter?.savedToProfileBy === userId;
+          },
+        });
+      }
 
       if (showToast) {
         toast.success('Saved to your profile!');

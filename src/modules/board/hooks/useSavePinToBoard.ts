@@ -4,6 +4,7 @@ import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-
 import { queryKeys } from '@/app/config/queryClient';
 import { boardApi } from '../api/boardApi';
 import { useToast } from '@/shared/hooks/useToast';
+import { useAuthStore } from '@/modules/auth';
 import type { BoardPinAction } from '../types/board.types';
 import type { PinResponse, PagePinResponse } from '@/modules/pin';
 
@@ -12,8 +13,6 @@ interface UseSavePinToBoardOptions {
   onError?: (error: Error) => void;
   showToast?: boolean;
 }
-
-// ✅ Вынесены хелперы для уменьшения вложенности
 
 /**
  * Creates updated pin with saved status
@@ -50,18 +49,30 @@ const updatePagesWithSavedPin = (
 };
 
 /**
+ * Check if query is for user's saved pins
+ */
+const isSavedPinsQuery = (queryKey: unknown[], userId: string): boolean => {
+  if (queryKey[0] !== 'pins' || queryKey[1] !== 'list') return false;
+  const filter = queryKey[2] as Record<string, unknown> | undefined;
+  return filter?.savedAnywhere === userId || 
+         filter?.savedBy === userId || 
+         filter?.savedToProfileBy === userId;
+};
+
+/**
  * Hook to save a pin to a single board
  */
 export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const userId = useAuthStore((state) => state.user?.id);
 
   const mutation = useMutation({
     mutationFn: ({ boardId, pinId }: BoardPinAction) =>
       boardApi.savePinToBoard(boardId, pinId),
     
-    onMutate: async ({ boardId, pinId }) => {
+    onMutate: async ({ pinId }) => {
       // Cancel related queries
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.byId(pinId) });
       await queryClient.cancelQueries({ queryKey: queryKeys.boards.forPin(pinId) });
@@ -85,13 +96,24 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
         (oldData) => updatePagesWithSavedPin(oldData, pinId)
       );
 
-      return { previousPin, boardId, pinId };
+      return { previousPin, pinId };
     },
 
     onSuccess: (_, { boardId, pinId }) => {
       // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.boards.pins(boardId) });
+
+      // Invalidate user's saved pins queries to refresh counts on profile
+      if (userId) {
+        queryClient.invalidateQueries({
+          predicate: (query) => {
+            const key = query.queryKey;
+            if (!Array.isArray(key)) return false;
+            return isSavedPinsQuery(key, userId);
+          },
+        });
+      }
 
       if (showToast) {
         toast.success('Pin saved to board!');

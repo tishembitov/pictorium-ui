@@ -1,7 +1,7 @@
 // src/modules/user/components/UserProfileForm.tsx
 
 import React, { useState, useRef } from 'react';
-import { Box, Flex, Button, Text, TapArea, Spinner, Icon } from 'gestalt';
+import { Box, Flex, Button, Text, TapArea, Spinner, Icon, Divider } from 'gestalt';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FormField, FormTextArea } from '@/shared/components';
@@ -16,7 +16,7 @@ interface UserProfileFormProps {
   onSuccess?: () => void;
 }
 
-// Вынесен в отдельный компонент для правильного использования хука
+// Banner Image Component
 interface BannerImageProps {
   imageId: string | null;
   previewUrl: string | null;
@@ -44,6 +44,7 @@ const BannerImage: React.FC<BannerImageProps> = ({ imageId, previewUrl }) => {
   );
 };
 
+// Social Input Component
 interface SocialInputProps {
   id: string;
   label: string;
@@ -156,7 +157,6 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Preview
     const previewUrl = URL.createObjectURL(file);
     setAvatarPreview(previewUrl);
 
@@ -168,7 +168,6 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
       setAvatarPreview(null);
     }
     
-    // Сбрасываем value инпута, чтобы можно было загрузить тот же файл повторно
     if (avatarInputRef.current) {
       avatarInputRef.current.value = '';
     }
@@ -189,14 +188,14 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
       setBannerPreview(null);
     }
     
-    // Сбрасываем value инпута, чтобы можно было загрузить тот же файл повторно
     if (bannerInputRef.current) {
       bannerInputRef.current.value = '';
     }
   };
 
-  const handleReset = () => {
-    globalThis.location.reload();
+  const handleRemoveBanner = () => {
+    setBannerImageId(null);
+    setBannerPreview(null);
   };
 
   const onSubmit = (data: UserProfileFormData) => {
@@ -212,110 +211,131 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
     bannerImageId !== user.bannerImageId;
 
   const isLoading = isSaving || isUploadingAvatar || isUploadingBanner;
-  
   const hasBanner = !!(bannerPreview || bannerImageId);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <Box maxWidth={600} marginStart="auto" marginEnd="auto">
-        {/* Banner Section */}
-        <Box marginBottom={8}>
-          <Text weight="bold" size="400">
-            Profile banner
-          </Text>
-          <Text color="subtle" size="200">
-            Recommended size: 1500 x 500 pixels
-          </Text>
-          
-          <Box marginTop={3}>
-            {/* Banner Preview */}
-            <Box
-              position="relative"
-              width="100%"
-              height={200}
-              rounding={4}
-              overflow="hidden"
-              dangerouslySetInlineStyle={{
-                __style: {
-                  backgroundColor: 'var(--bg-secondary)',
-                  border: hasBanner 
-                    ? 'none' 
-                    : '2px dashed var(--border-default)',
-                },
-              }}
-            >
-              {hasBanner ? (
+      {/* Hidden file inputs */}
+      <input
+        ref={bannerInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleBannerSelect}
+        style={{ display: 'none' }}
+      />
+      <input
+        ref={avatarInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleAvatarSelect}
+        style={{ display: 'none' }}
+      />
+
+      {/* Main Layout: Banner Left, Content Right */}
+      <Flex gap={6} wrap>
+        {/* Left Column - Banner */}
+        <Box width={240}>
+          <Box marginBottom={2}>
+            <Text weight="bold" size="200">
+              Profile banner
+            </Text>
+            <Text color="subtle" size="100">
+              Recommended: 1500×500
+            </Text>
+          </Box>
+
+          {/* Banner Preview Container */}
+          <Box
+            position="relative"
+            width="100%"
+            rounding={3}
+            overflow="hidden"
+            dangerouslySetInlineStyle={{
+              __style: {
+                aspectRatio: '3 / 4',
+                backgroundColor: 'var(--bg-secondary)',
+                border: hasBanner 
+                  ? 'none' 
+                  : '2px dashed var(--border-default)',
+              },
+            }}
+          >
+            {hasBanner ? (
+              <>
                 <BannerImage
                   imageId={bannerImageId}
                   previewUrl={bannerPreview}
                 />
-              ) : (
-                <TapArea
-                  onTap={() => bannerInputRef.current?.click()}
-                  rounding={4}
-                  disabled={isUploadingBanner}
-                  fullWidth
-                  fullHeight
-                >
+                
+                {/* Loading overlay */}
+                {isUploadingBanner && (
                   <Box
-                    width="100%"
-                    height="100%"
+                    position="absolute"
+                    top
+                    left
+                    right
+                    bottom
                     display="flex"
-                    direction="column"
                     alignItems="center"
                     justifyContent="center"
+                    dangerouslySetInlineStyle={{
+                      __style: {
+                        backgroundColor: 'rgba(255,255,255,0.8)',
+                      },
+                    }}
                   >
-                    {isUploadingBanner ? (
-                      <Spinner accessibilityLabel="Uploading" show />
-                    ) : (
-                      <>
-                        <Box marginBottom={2}>
-                          <Icon
-                            accessibilityLabel="No banner"
-                            icon="camera"
-                            size={40}
-                            color="subtle"
-                          />
-                        </Box>
-                        <Text weight="bold" color="subtle" size="300">
-                          No banner
-                        </Text>
-                        <Box marginTop={1}>
-                          <Text color="subtle" size="200">
-                            Click to upload a banner image
-                          </Text>
-                        </Box>
-                      </>
-                    )}
+                    <Spinner accessibilityLabel="Uploading" show />
                   </Box>
-                </TapArea>
-              )}
-              
-              {/* Loading overlay for existing banner */}
-              {isUploadingBanner && hasBanner && (
+                )}
+              </>
+            ) : (
+              <TapArea
+                onTap={() => bannerInputRef.current?.click()}
+                rounding={3}
+                disabled={isUploadingBanner}
+                fullWidth
+                fullHeight
+              >
                 <Box
-                  position="absolute"
-                  top
-                  left
-                  right
-                  bottom
+                  width="100%"
+                  height="100%"
                   display="flex"
+                  direction="column"
                   alignItems="center"
                   justifyContent="center"
-                  dangerouslySetInlineStyle={{
-                    __style: {
-                      backgroundColor: 'rgba(255,255,255,0.8)',
-                    },
-                  }}
+                  padding={4}
                 >
-                  <Spinner accessibilityLabel="Uploading" show />
+                  {isUploadingBanner ? (
+                    <Spinner accessibilityLabel="Uploading" show />
+                  ) : (
+                    <>
+                      <Box 
+                        marginBottom={2} 
+                        color="secondary" 
+                        rounding="circle" 
+                        padding={3}
+                      >
+                        <Icon
+                          accessibilityLabel="Upload banner"
+                          icon="camera"
+                          size={24}
+                          color="subtle"
+                        />
+                      </Box>
+                      <Text weight="bold" align="center" size="200">
+                        Add banner
+                      </Text>
+                    </>
+                  )}
                 </Box>
-              )}
-            </Box>
-            
-            {/* Banner Change Button */}
-            {hasBanner && (
-              <Box marginTop={2}>
+              </TapArea>
+            )}
+          </Box>
+
+          {/* Banner buttons - under the banner */}
+          {hasBanner && (
+            <Box marginTop={2}>
+              <Flex gap={2}>
                 <Button
                   text="Change"
                   onClick={() => bannerInputRef.current?.click()}
@@ -323,36 +343,35 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
                   color="gray"
                   disabled={isUploadingBanner}
                 />
-              </Box>
-            )}
-          </Box>
-          
-          <input
-            ref={bannerInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleBannerSelect}
-            style={{ display: 'none' }}
-          />
+                <Button
+                  text="Remove"
+                  onClick={handleRemoveBanner}
+                  size="sm"
+                  color="transparent"
+                  disabled={isUploadingBanner}
+                />
+              </Flex>
+            </Box>
+          )}
         </Box>
 
-        {/* Avatar Section */}
-        <Box marginBottom={8}>
-          <Text weight="bold" size="400">
-            Profile photo
-          </Text>
-          <Text color="subtle" size="200">
-            Square image works best
-          </Text>
-          
-          <Box marginTop={3}>
-            <Flex alignItems="center" gap={4}>
+        {/* Right Column - Avatar & Form Fields */}
+        <Box flex="grow" minWidth={280}>
+          {/* Avatar Section */}
+          <Box marginBottom={5}>
+            <Box marginBottom={2}>
+              <Text weight="bold" size="200">
+                Profile photo
+              </Text>
+            </Box>
+            
+            <Flex alignItems="center" gap={3}>
               <Box position="relative">
                 <UserAvatar
                   imageId={avatarPreview ? null : avatarImageId}
                   src={avatarPreview}
                   name={user.username}
-                  size="xxl"
+                  size="xl"
                 />
                 {isUploadingAvatar && (
                   <Box
@@ -371,86 +390,94 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
                       },
                     }}
                   >
-                    <Spinner accessibilityLabel="Uploading" show />
+                    <Spinner accessibilityLabel="Uploading" show size="sm" />
                   </Box>
                 )}
               </Box>
               
-              <Button
-                text="Change"
-                onClick={() => avatarInputRef.current?.click()}
-                size="sm"
-                color="gray"
-                disabled={isUploadingAvatar}
+              <Flex direction="column" gap={1}>
+                <Button
+                  text="Change"
+                  onClick={() => avatarInputRef.current?.click()}
+                  size="sm"
+                  color="gray"
+                  disabled={isUploadingAvatar}
+                />
+                {avatarImageId && (
+                  <Button
+                    text="Remove"
+                    onClick={() => {
+                      setAvatarImageId(null);
+                      setAvatarPreview(null);
+                    }}
+                    size="sm"
+                    color="transparent"
+                    disabled={isUploadingAvatar}
+                  />
+                )}
+              </Flex>
+            </Flex>
+          </Box>
+
+          <Divider />
+
+          {/* Basic Info */}
+          <Box marginTop={5} marginBottom={5}>
+            <Box marginBottom={3}>
+              <Text weight="bold" size="200">
+                Basic info
+              </Text>
+            </Box>
+            
+            <Flex direction="column" gap={3}>
+              <Controller
+                name="username"
+                control={control}
+                render={({ field }) => (
+                  <FormField
+                    id="username"
+                    label="Username"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    errorMessage={errors.username?.message}
+                    placeholder="Your username"
+                    size="md"
+                  />
+                )}
+              />
+              
+              <Controller
+                name="description"
+                control={control}
+                render={({ field }) => (
+                  <FormTextArea
+                    id="description"
+                    label="About"
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    errorMessage={errors.description?.message}
+                    placeholder="Tell everyone about yourself"
+                    maxLength={200}
+                    rows={2}
+                  />
+                )}
               />
             </Flex>
           </Box>
-          
-          <input
-            ref={avatarInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleAvatarSelect}
-            style={{ display: 'none' }}
-          />
-        </Box>
 
-        {/* Basic Info */}
-        <Box marginBottom={6}>
-          <Text weight="bold" size="400">
-            Basic info
-          </Text>
-          
-          <Box marginTop={4}>
-            <Controller
-              name="username"
-              control={control}
-              render={({ field }) => (
-                <FormField
-                  id="username"
-                  label="Username"
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                  errorMessage={errors.username?.message}
-                  placeholder="Your username"
-                />
-              )}
-            />
-          </Box>
-          
-          <Box marginTop={4}>
-            <Controller
-              name="description"
-              control={control}
-              render={({ field }) => (
-                <FormTextArea
-                  id="description"
-                  label="About"
-                  value={field.value ?? ''}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                  errorMessage={errors.description?.message}
-                  placeholder="Tell everyone about yourself"
-                  maxLength={200}
-                  rows={3}
-                />
-              )}
-            />
-          </Box>
-        </Box>
+          <Divider />
 
-        {/* Social Links */}
-        <Box marginBottom={6}>
-          <Text weight="bold" size="400">
-            Social profiles
-          </Text>
-          <Text color="subtle" size="200">
-            Add your social media handles
-          </Text>
-          
-          <Box marginTop={4}>
-            <Flex direction="column" gap={4}>
+          {/* Social Links */}
+          <Box marginTop={5}>
+            <Box marginBottom={3}>
+              <Text weight="bold" size="200">
+                Social profiles
+              </Text>
+            </Box>
+            
+            <Flex direction="column" gap={3}>
               <Controller
                 name="instagram"
                 control={control}
@@ -513,22 +540,18 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
             </Flex>
           </Box>
         </Box>
+      </Flex>
 
-        {/* Submit */}
+      {/* Submit Buttons */}
+      <Box marginTop={6} padding={4}>
+        <Divider />
         <Box paddingY={4}>
-          <Flex justifyContent="end" gap={3}>
-            <Button
-              text="Reset"
-              onClick={handleReset}
-              size="lg"
-              color="gray"
-              disabled={!hasChanges || isLoading}
-            />
+          <Flex justifyContent="end" gap={2}>
             <Button
               text={isLoading ? 'Saving...' : 'Save'}
               type="submit"
               color="red"
-              size="lg"
+              size="md"
               disabled={!hasChanges || isLoading}
             />
           </Flex>

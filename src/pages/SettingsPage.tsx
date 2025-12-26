@@ -1,6 +1,5 @@
-// ================================================
-// FILE: src/pages/SettingsPage.tsx
-// ================================================
+// src/pages/SettingsPage.tsx
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -103,10 +102,15 @@ const SettingsPage: React.FC = () => {
   }
 
   return (
-    <Box paddingY={4} maxWidth={700} marginStart="auto" marginEnd="auto">
+    <Box 
+      paddingY={4} 
+      maxWidth={700} 
+      marginStart="auto" 
+      marginEnd="auto"
+    >
       {/* Header */}
       <Box marginBottom={4}>
-        <Flex alignItems="center" gap={3}>
+        <Flex alignItems="center" gap={2}>
           <Tooltip text="Go back">
             <IconButton
               accessibilityLabel="Go back"
@@ -122,28 +126,28 @@ const SettingsPage: React.FC = () => {
         </Flex>
       </Box>
 
-      {/* User Preview */}
-      <Box marginBottom={4} padding={4} color="secondary" rounding={3}>
+      {/* User Preview Card */}
+      <Box marginBottom={4} padding={3} color="secondary" rounding={3}>
         <Flex alignItems="center" gap={3}>
           <UserAvatar
             imageId={user.imageId}
             name={user.username}
-            size="lg"
+            size="md"
           />
           <Box>
-            <Text weight="bold" size="300">{user.username}</Text>
-            <Text color="subtle" size="200">{user.email}</Text>
+            <Text weight="bold" size="200">{user.username}</Text>
+            <Text color="subtle" size="100">{user.email}</Text>
           </Box>
         </Flex>
       </Box>
 
       {/* Tabs */}
-      <Box marginBottom={4}>
+      <Box marginBottom={3}>
         <Tabs
           activeTabIndex={getTabIndex()}
           onChange={handleTabChange}
           tabs={[
-            { href: '#profile', text: 'Profile' },
+            { href: '#profile', text: 'Edit Profile' },
             { href: '#account', text: 'Account' },
             { href: '#appearance', text: 'Appearance' },
           ]}
@@ -153,32 +157,15 @@ const SettingsPage: React.FC = () => {
       <Divider />
 
       {/* Tab Content */}
-      <Box marginTop={6}>
+      <Box marginTop={5}>
         {/* Profile Tab */}
         {activeTab === 'profile' && (
-          <Box>
-            <Box marginBottom={4}>
-              <Heading size="400" accessibilityLevel={2}>
-                Edit Profile
-              </Heading>
-              <Text color="subtle" size="200">
-                Update your profile information
-              </Text>
-            </Box>
-
-            <UserProfileForm user={user} onSuccess={handleProfileUpdateSuccess} />
-          </Box>
+          <UserProfileForm user={user} onSuccess={handleProfileUpdateSuccess} />
         )}
 
         {/* Account Tab */}
         {activeTab === 'account' && (
           <Box>
-            <Box marginBottom={6}>
-              <Heading size="400" accessibilityLevel={2}>
-                Account Information
-              </Heading>
-            </Box>
-
             <Flex direction="column" gap={4}>
               <Box>
                 <Text weight="bold" size="200">Email</Text>
@@ -199,7 +186,7 @@ const SettingsPage: React.FC = () => {
                     text="Log out"
                     onClick={handleLogout}
                     color="gray"
-                    size="lg"
+                    size="md"
                   />
                 </Box>
               </Box>
@@ -208,28 +195,27 @@ const SettingsPage: React.FC = () => {
 
               {/* Danger Zone */}
               <Box
-                marginTop={4}
                 padding={4}
                 rounding={2}
                 dangerouslySetInlineStyle={{
-                  __style: { border: '2px solid var(--color-error)' },
+                  __style: { border: '1px solid var(--color-error)' },
                 }}
               >
-                <Box marginBottom={3}>
-                  <Heading size="300" color="error" accessibilityLevel={3}>
+                <Box marginBottom={2}>
+                  <Text weight="bold" color="error" size="200">
                     Danger Zone
-                  </Heading>
+                  </Text>
                 </Box>
                 
-                <Flex justifyContent="between" alignItems="center">
+                <Flex justifyContent="between" alignItems="center" gap={4} wrap>
                   <Box>
-                    <Text weight="bold">Delete Account</Text>
-                    <Text color="subtle" size="200">
-                      Permanently delete your account and all data
+                    <Text weight="bold" size="200">Delete Account</Text>
+                    <Text color="subtle" size="100">
+                      Permanently delete your account
                     </Text>
                   </Box>
                   <Button
-                    text="Delete Account"
+                    text="Delete"
                     color="red"
                     size="sm"
                     onClick={handleDeleteAccount}
@@ -243,43 +229,34 @@ const SettingsPage: React.FC = () => {
         {/* Appearance Tab */}
         {activeTab === 'appearance' && (
           <Box>
-            <Box marginBottom={6}>
-              <Heading size="400" accessibilityLevel={2}>
-                Appearance
-              </Heading>
-              <Text color="subtle" size="200">
-                Customize how Pictorium looks
-              </Text>
-            </Box>
-
             <Flex direction="column" gap={4}>
               <Box>
                 <Text weight="bold" size="200">Theme</Text>
-                <Text color="subtle" size="100">
-                  Current: {colorScheme}
-                </Text>
-                <Box marginTop={2}>
-                  <Flex gap={2}>
-                    <Button
-                      text="Light"
-                      onClick={() => setColorScheme('light')}
-                      color={colorScheme === 'light' ? 'red' : 'gray'}
-                      size="md"
-                    />
-                    <Button
-                      text="Dark"
-                      onClick={() => setColorScheme('dark')}
-                      color={colorScheme === 'dark' ? 'red' : 'gray'}
-                      size="md"
-                    />
-                    <Button
-                      text="System"
-                      onClick={() => setColorScheme('userPreference')}
-                      color={colorScheme === 'userPreference' ? 'red' : 'gray'}
-                      size="md"
-                    />
-                  </Flex>
+                <Box marginTop={1} marginBottom={2}>
+                  <Text color="subtle" size="100">
+                    Current: {colorScheme === 'userPreference' ? 'System' : colorScheme}
+                  </Text>
                 </Box>
+                <Flex gap={2}>
+                  <Button
+                    text="Light"
+                    onClick={() => setColorScheme('light')}
+                    color={colorScheme === 'light' ? 'red' : 'gray'}
+                    size="sm"
+                  />
+                  <Button
+                    text="Dark"
+                    onClick={() => setColorScheme('dark')}
+                    color={colorScheme === 'dark' ? 'red' : 'gray'}
+                    size="sm"
+                  />
+                  <Button
+                    text="System"
+                    onClick={() => setColorScheme('userPreference')}
+                    color={colorScheme === 'userPreference' ? 'red' : 'gray'}
+                    size="sm"
+                  />
+                </Flex>
               </Box>
             </Flex>
           </Box>

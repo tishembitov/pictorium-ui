@@ -21,16 +21,16 @@ export { selectedBoardApi } from './api/selectedBoardApi';
 // Hooks
 export { useBoard } from './hooks/useBoard';
 export { useMyBoards } from './hooks/useMyBoards';
-export { useMyBoardsForPin } from './hooks/useMyBoardsForPin';  // NEW
+export { useMyBoardsForPin } from './hooks/useMyBoardsForPin';
 export { useUserBoards } from './hooks/useUserBoards';
 export { useBoardPins, useInfiniteBoardPins } from './hooks/useBoardPins';
 export { useCreateBoard } from './hooks/useCreateBoard';
 export { useUpdateBoard } from './hooks/useUpdateBoard';
 export { useDeleteBoard } from './hooks/useDeleteBoard';
-export { useSavePinToBoard } from './hooks/useSavePinToBoard';           // RENAMED
-export { useRemovePinFromBoard } from './hooks/useRemovePinFromBoard';   // RENAMED
-export { useSavePinToBoards } from './hooks/useSavePinToBoards';         // NEW
-export { useRemovePinFromAllBoards } from './hooks/useRemovePinFromAllBoards'; // NEW
+export { useSavePinToBoard } from './hooks/useSavePinToBoard';
+export { useRemovePinFromBoard } from './hooks/useRemovePinFromBoard';
+export { useSavePinToBoards } from './hooks/useSavePinToBoards';
+export { useRemovePinFromAllBoards } from './hooks/useRemovePinFromAllBoards';
 export { useSelectedBoard } from './hooks/useSelectedBoard';
 export { useSelectBoard } from './hooks/useSelectBoard';
 
@@ -39,8 +39,8 @@ export {
   useSelectedBoardStore,
   selectSelectedBoard,
   selectHasSelectedBoard,
-  selectIsProfileMode,  // NEW
-  type SaveTarget,      // NEW
+  selectIsProfileMode,
+  type SaveTarget,
 } from './stores/selectedBoardStore';
 
 // Components

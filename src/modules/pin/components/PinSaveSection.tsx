@@ -1,24 +1,26 @@
 // src/modules/pin/components/PinSaveSection.tsx
 
-import React, { useCallback, useState, useMemo } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { 
   Box, 
   Flex, 
   Text, 
   TapArea, 
   Icon, 
-  Popover, 
-  Layer, 
-  Spinner, 
-  SearchField, 
-  Divider 
+  Spinner,
+  Popover,
+  Layer,
+  SearchField,
+  Divider,
+  Button,
 } from 'gestalt';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/modules/auth';
+import { useAuth, useCurrentUser } from '@/modules/auth';
 import { 
   useMyBoardsForPin, 
   useSavePinToBoard,
   useRemovePinFromBoard,
+  BoardPicker,
   BoardCreateModal,
   ProfileDropdownItem,
   BoardDropdownItem,
@@ -39,33 +41,105 @@ interface PinSaveSectionProps {
   variant?: 'default' | 'compact';
 }
 
+// ==================== Profile Icon Styles ====================
+
+const PROFILE_BADGE_STYLE = {
+  background: 'linear-gradient(135deg, #e60023 0%, #c7001e 100%)',
+  boxShadow: '0 1px 4px rgba(230, 0, 35, 0.25)',
+};
+
+// ==================== Sub-components ====================
+
 /**
- * Ссылка на сохранённую доску/профиль для compact варианта
+ * Badge showing where pin is saved - with link to profile or board
  */
-const SavedLocationLink: React.FC<{
+const SavedLocationBadge: React.FC<{
   board: BoardWithPinStatusResponse | null;
   isProfile: boolean;
-}> = ({ board, isProfile }) => {
+  username?: string;
+}> = ({ board, isProfile, username }) => {
   const [isHovered, setIsHovered] = useState(false);
 
+  // Profile link badge
+  if (isProfile && username) {
+    return (
+      <Link 
+        to={buildPath.profile(username)} 
+        style={{ textDecoration: 'none' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Box
+          paddingX={3}
+          paddingY={2}
+          rounding={2}
+          display="flex"
+          alignItems="center"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          dangerouslySetInlineStyle={{
+            __style: {
+              backgroundColor: isHovered 
+                ? 'rgba(230, 0, 35, 0.12)' 
+                : 'rgba(230, 0, 35, 0.08)',
+              transition: 'background-color 0.15s ease',
+            },
+          }}
+        >
+          <Flex alignItems="center" gap={2}>
+            {/* Profile icon with red gradient */}
+            <Box
+              width={24}
+              height={24}
+              rounding="circle"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              dangerouslySetInlineStyle={{
+                __style: PROFILE_BADGE_STYLE,
+              }}
+            >
+              <Icon accessibilityLabel="" icon="person" size={12} color="inverse" />
+            </Box>
+            <Text size="200" weight="bold" color="default">
+              Profile
+            </Text>
+            <Icon accessibilityLabel="" icon="visit" size={12} color="subtle" />
+          </Flex>
+        </Box>
+      </Link>
+    );
+  }
+
+  // Non-linked profile badge (fallback)
   if (isProfile) {
     return (
       <Box
-        paddingX={2}
-        paddingY={1}
-        rounding="pill"
+        paddingX={3}
+        paddingY={2}
+        rounding={2}
         display="flex"
         alignItems="center"
         dangerouslySetInlineStyle={{
           __style: {
-            backgroundColor: 'rgba(255,255,255,0.8)',
-            maxWidth: 120,
+            backgroundColor: 'rgba(230, 0, 35, 0.08)',
           },
         }}
       >
-        <Flex alignItems="center" gap={1}>
-          <Icon accessibilityLabel="" icon="person" size={12} color="dark" />
-          <Text size="100" weight="bold" color="dark">
+        <Flex alignItems="center" gap={2}>
+          <Box
+            width={24}
+            height={24}
+            rounding="circle"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            dangerouslySetInlineStyle={{
+              __style: PROFILE_BADGE_STYLE,
+            }}
+          >
+            <Icon accessibilityLabel="" icon="person" size={12} color="inverse" />
+          </Box>
+          <Text size="200" weight="bold" color="default">
             Profile
           </Text>
         </Flex>
@@ -73,6 +147,105 @@ const SavedLocationLink: React.FC<{
     );
   }
 
+  // Board link badge
+  if (!board) return null;
+
+  return (
+    <Link 
+      to={buildPath.board(board.id)} 
+      style={{ textDecoration: 'none' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Box
+        paddingX={3}
+        paddingY={2}
+        rounding={2}
+        display="flex"
+        alignItems="center"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        dangerouslySetInlineStyle={{
+          __style: {
+            backgroundColor: isHovered ? '#e9e9e9' : '#f0f0f0',
+            transition: 'background-color 0.15s ease',
+          },
+        }}
+      >
+        <Flex alignItems="center" gap={2}>
+          <Icon accessibilityLabel="" icon="board" size={16} color="default" />
+          <Text size="200" weight="bold" lineClamp={1}>
+            {board.title}
+          </Text>
+          <Icon accessibilityLabel="" icon="visit" size={12} color="subtle" />
+        </Flex>
+      </Box>
+    </Link>
+  );
+};
+
+/**
+ * Compact saved location link for PinCard overlay
+ */
+const CompactSavedLocationLink: React.FC<{
+  board: BoardWithPinStatusResponse | null;
+  isProfile: boolean;
+  username?: string;
+}> = ({ board, isProfile, username }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Profile link
+  if (isProfile && username) {
+    return (
+      <Link 
+        to={buildPath.profile(username)} 
+        style={{ textDecoration: 'none' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Box
+          paddingX={2}
+          paddingY={1}
+          rounding="pill"
+          display="flex"
+          alignItems="center"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          dangerouslySetInlineStyle={{
+            __style: {
+              backgroundColor: isHovered 
+                ? 'rgba(255,255,255,0.95)' 
+                : 'rgba(255,255,255,0.85)',
+              transition: 'background-color 0.15s ease',
+              maxWidth: 120,
+            },
+          }}
+        >
+          <Flex alignItems="center" gap={1}>
+            {/* Mini profile icon */}
+            <Box
+              width={16}
+              height={16}
+              rounding="circle"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              dangerouslySetInlineStyle={{
+                __style: {
+                  background: 'linear-gradient(135deg, #e60023 0%, #c7001e 100%)',
+                },
+              }}
+            >
+              <Icon accessibilityLabel="" icon="person" size={8} color="inverse" />
+            </Box>
+            <Text size="100" weight="bold" color="dark">
+              Profile
+            </Text>
+          </Flex>
+        </Box>
+      </Link>
+    );
+  }
+
+  // Board link
   if (!board) return null;
 
   return (
@@ -91,7 +264,9 @@ const SavedLocationLink: React.FC<{
         onMouseLeave={() => setIsHovered(false)}
         dangerouslySetInlineStyle={{
           __style: {
-            backgroundColor: isHovered ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.8)',
+            backgroundColor: isHovered 
+              ? 'rgba(255,255,255,0.95)' 
+              : 'rgba(255,255,255,0.85)',
             transition: 'background-color 0.15s ease',
             maxWidth: 120,
           },
@@ -106,15 +281,16 @@ const SavedLocationLink: React.FC<{
 };
 
 /**
- * Compact variant component для PinCard
+ * Compact Save Section with Dropdown for PinCard overlay
  */
 const CompactSaveSection: React.FC<{
   pinId: string;
   boards: BoardWithPinStatusResponse[];
-  savedBoard: BoardWithPinStatusResponse | undefined;
-  isSavedToProfile: boolean;
+  localSavedToProfile: boolean;
+  localSavedBoard: BoardWithPinStatusResponse | null;
   isBoardsLoading: boolean;
   isSaving: boolean;
+  username?: string;
   onSaveToBoard: (board: BoardWithPinStatusResponse) => void;
   onSaveToProfile: () => void;
   onUnsave: () => void;
@@ -122,10 +298,11 @@ const CompactSaveSection: React.FC<{
 }> = ({
   pinId,
   boards,
-  savedBoard,
-  isSavedToProfile,
+  localSavedToProfile,
+  localSavedBoard,
   isBoardsLoading,
   isSaving,
+  username,
   onSaveToBoard,
   onSaveToProfile,
   onUnsave,
@@ -139,6 +316,9 @@ const CompactSaveSection: React.FC<{
   const selectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
   const isProfileMode = selectedBoard === null;
 
+  const isSavedAnywhere = localSavedToProfile || !!localSavedBoard;
+
+  // Filter boards
   const filteredBoards = useMemo(() => {
     if (!searchQuery.trim()) return boards;
     const query = searchQuery.toLowerCase();
@@ -156,16 +336,14 @@ const CompactSaveSection: React.FC<{
 
   const showSearch = boards.length > 5;
 
-  // Определяем текущее состояние сохранения
-  const isSavedAnywhere = isSavedToProfile || !!savedBoard;
-
-  // Если пин сохранён - показываем ссылку на место сохранения + кнопку Saved
+  // Already saved - show location link + Saved button
   if (isSavedAnywhere) {
     return (
       <Flex alignItems="center" gap={2}>
-        <SavedLocationLink 
-          board={savedBoard || null} 
-          isProfile={isSavedToProfile && !savedBoard} 
+        <CompactSavedLocationLink 
+          board={localSavedBoard} 
+          isProfile={localSavedToProfile && !localSavedBoard}
+          username={username}
         />
         
         <TapArea
@@ -203,7 +381,7 @@ const CompactSaveSection: React.FC<{
     );
   }
 
-  // Если не сохранён - показываем кнопку Save с popup
+  // Not saved - show Save button with dropdown
   return (
     <>
       <Box ref={setAnchorRef}>
@@ -251,12 +429,14 @@ const CompactSaveSection: React.FC<{
             color="white"
           >
             <Box padding={4} width={320}>
+              {/* Header */}
               <Box marginBottom={3}>
                 <Text weight="bold" size="300" align="center">
                   Save to
                 </Text>
               </Box>
 
+              {/* Search */}
               {showSearch && (
                 <Box marginBottom={3}>
                   <SearchField
@@ -271,6 +451,7 @@ const CompactSaveSection: React.FC<{
                 </Box>
               )}
 
+              {/* Options */}
               <Box maxHeight={280} overflow="scrollY">
                 {isBoardsLoading ? (
                   <Box display="flex" justifyContent="center" padding={6}>
@@ -278,15 +459,16 @@ const CompactSaveSection: React.FC<{
                   </Box>
                 ) : (
                   <Flex direction="column" gap={1}>
-                    {/* Profile Option - First */}
+                    {/* Profile Option - First, using ProfileDropdownItem */}
                     <ProfileDropdownItem
                       isSelected={isProfileMode}
-                      isSavedToProfile={isSavedToProfile}
+                      isSavedToProfile={localSavedToProfile}
                       onSelect={() => {
                         onSaveToProfile();
                         setIsOpen(false);
                       }}
                       isProcessing={isSaving}
+                      size="md"
                     />
 
                     {/* Divider */}
@@ -296,7 +478,7 @@ const CompactSaveSection: React.FC<{
                       </Box>
                     )}
 
-                    {/* Boards */}
+                    {/* Boards using BoardDropdownItem */}
                     {filteredBoards.map((board) => (
                       <BoardDropdownItem
                         key={board.id}
@@ -322,30 +504,19 @@ const CompactSaveSection: React.FC<{
 
               <Divider />
 
+              {/* Create Board */}
               <Box marginTop={3}>
-                <TapArea 
-                  onTap={() => { setIsOpen(false); setShowCreateModal(true); }}
-                  rounding={3}
-                >
-                  <Box padding={2} rounding={3}>
-                    <Flex alignItems="center" gap={3}>
-                      <Box
-                        width={40}
-                        height={40}
-                        rounding="circle"
-                        color="secondary"
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="center"
-                      >
-                        <Icon accessibilityLabel="" icon="add" size={16} />
-                      </Box>
-                      <Text weight="bold" size="200">
-                        Create board
-                      </Text>
-                    </Flex>
-                  </Box>
-                </TapArea>
+                <Button
+                  text="Create board"
+                  onClick={() => { 
+                    setIsOpen(false); 
+                    setShowCreateModal(true); 
+                  }}
+                  size="lg"
+                  color="gray"
+                  fullWidth
+                  iconEnd="add"
+                />
               </Box>
             </Box>
           </Popover>
@@ -364,31 +535,58 @@ const CompactSaveSection: React.FC<{
   );
 };
 
+// ==================== Main Component ====================
+
 export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
   pinId,
   isSaved,
-  isSavedToProfile,
+  isSavedToProfile: propSavedToProfile,
   size = 'md',
   variant = 'default',
 }) => {
   const { isAuthenticated, login } = useAuth();
+  const { username } = useCurrentUser();
   const { toast } = useToast();
 
   const selectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
   const isProfileMode = selectedBoard === null;
 
+  // ==================== Local Optimistic State ====================
+  const [localSavedToProfile, setLocalSavedToProfile] = useState(propSavedToProfile);
+  const [localSavedBoardId, setLocalSavedBoardId] = useState<string | null>(null);
+
+  // Sync with props
+  useEffect(() => {
+    setLocalSavedToProfile(propSavedToProfile);
+  }, [propSavedToProfile]);
+
+  // ==================== Data Fetching ====================
   const { 
     boards,
     isLoading: isBoardsLoading,
     refetch: refetchBoards,
   } = useMyBoardsForPin(pinId, { enabled: isAuthenticated });
 
-  const savedBoard = useMemo(() => 
-    boards.find(b => b.hasPin), 
-    [boards]
-  );
+  // Find saved board from API or local state
+  const savedBoard = useMemo(() => {
+    if (localSavedBoardId) {
+      const board = boards.find(b => b.id === localSavedBoardId);
+      if (board) return board;
+    }
+    return boards.find(b => b.hasPin) || null;
+  }, [boards, localSavedBoardId]);
 
-  // Board operations
+  // Sync local board state with API
+  useEffect(() => {
+    const apiSavedBoard = boards.find(b => b.hasPin);
+    if (apiSavedBoard) {
+      setLocalSavedBoardId(apiSavedBoard.id);
+    } else if (!isSaved) {
+      setLocalSavedBoardId(null);
+    }
+  }, [boards, isSaved]);
+
+  // ==================== Mutations ====================
   const { savePinToBoard, isLoading: isSavingToBoard } = useSavePinToBoard({
     onSuccess: () => {
       void refetchBoards();
@@ -399,47 +597,62 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
   const { removePinFromBoard, isLoading: isRemovingFromBoard } = useRemovePinFromBoard({
     showToast: false,
     onSuccess: () => {
+      setLocalSavedBoardId(null);
       void refetchBoards();
     },
   });
 
-  // Profile operations
   const { saveToProfile, isLoading: isSavingToProfile } = useSaveToProfile({
     showToast: false,
   });
 
   const { unsaveFromProfile, isLoading: isUnsavingFromProfile } = useUnsaveFromProfile({
     showToast: false,
+    onSuccess: () => {
+      setLocalSavedToProfile(false);
+    },
   });
 
   const isLoading = isSavingToBoard || isRemovingFromBoard || isSavingToProfile || isUnsavingFromProfile;
 
-  // Handlers
+  // ==================== Handlers ====================
   const handleSaveToProfile = useCallback(() => {
     if (!isAuthenticated) {
       login();
       return;
     }
+    setLocalSavedToProfile(true);
+    setLocalSavedBoardId(null);
+    
     saveToProfile(pinId);
     toast.success('Saved to Profile!');
   }, [isAuthenticated, login, pinId, saveToProfile, toast]);
 
   const handleSaveToBoard = useCallback((board: BoardWithPinStatusResponse) => {
+    if (!isAuthenticated) {
+      login();
+      return;
+    }
     if (board.hasPin) return;
+    
+    setLocalSavedBoardId(board.id);
+    setLocalSavedToProfile(false);
+    
     savePinToBoard({ boardId: board.id, pinId });
     toast.success(`Saved to "${board.title}"`);
-  }, [savePinToBoard, pinId, toast]);
+  }, [isAuthenticated, login, savePinToBoard, pinId, toast]);
 
   const handleUnsave = useCallback(() => {
-    // Unsave from where it's saved
-    if (isSavedToProfile) {
+    if (localSavedToProfile) {
+      setLocalSavedToProfile(false);
       unsaveFromProfile(pinId);
       toast.success('Removed from Profile');
     } else if (savedBoard) {
+      setLocalSavedBoardId(null);
       removePinFromBoard({ boardId: savedBoard.id, pinId });
       toast.success('Removed from board');
     }
-  }, [isSavedToProfile, savedBoard, pinId, unsaveFromProfile, removePinFromBoard, toast]);
+  }, [localSavedToProfile, savedBoard, pinId, unsaveFromProfile, removePinFromBoard, toast]);
 
   const handleQuickSave = useCallback(() => {
     if (!isAuthenticated) {
@@ -447,34 +660,36 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
       return;
     }
 
-    // Quick save based on selected target
     if (isProfileMode) {
+      setLocalSavedToProfile(true);
       saveToProfile(pinId);
       toast.success('Saved to Profile!');
     } else if (selectedBoard) {
+      setLocalSavedBoardId(selectedBoard.id);
       savePinToBoard({ boardId: selectedBoard.id, pinId });
       toast.success(`Saved to "${selectedBoard.title}"`);
     }
   }, [isAuthenticated, login, isProfileMode, selectedBoard, pinId, saveToProfile, savePinToBoard, toast]);
 
   const handleCreateSuccess = useCallback((boardId: string) => {
+    setLocalSavedBoardId(boardId);
     savePinToBoard({ boardId, pinId });
     toast.success('Saved to new board!');
   }, [savePinToBoard, pinId, toast]);
 
-  // Определяем сохранён ли пин где-либо
-  const isSavedAnywhere = isSavedToProfile || isSaved;
+  const isSavedAnywhere = localSavedToProfile || !!savedBoard;
 
-  // Compact variant для PinCard
+  // ==================== Render: Compact Variant ====================
   if (variant === 'compact') {
     return (
       <CompactSaveSection
         pinId={pinId}
         boards={boards}
-        savedBoard={savedBoard}
-        isSavedToProfile={isSavedToProfile}
+        localSavedToProfile={localSavedToProfile}
+        localSavedBoard={savedBoard}
         isBoardsLoading={isBoardsLoading}
         isSaving={isLoading}
+        username={username}
         onSaveToBoard={handleSaveToBoard}
         onSaveToProfile={handleSaveToProfile}
         onUnsave={handleUnsave}
@@ -483,52 +698,17 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
     );
   }
 
-  // Default variant - для PinDetailHeader
+  // ==================== Render: Default Variant ====================
+  
+  // Already saved
   if (isSavedAnywhere) {
     return (
       <Flex alignItems="center" gap={3}>
-        {isSavedToProfile ? (
-          <Box
-            paddingX={3}
-            paddingY={2}
-            rounding={2}
-            color="secondary"
-            display="flex"
-            alignItems="center"
-          >
-            <Flex alignItems="center" gap={2}>
-              <Icon accessibilityLabel="" icon="person" size={16} color="default" />
-              <Text weight="bold" size="200">
-                Profile
-              </Text>
-            </Flex>
-          </Box>
-        ) : savedBoard && (
-          <Link 
-            to={buildPath.board(savedBoard.id)} 
-            style={{ textDecoration: 'none' }}
-          >
-            <TapArea rounding={2}>
-              <Box
-                paddingX={3}
-                paddingY={2}
-                rounding={2}
-                color="secondary"
-                display="flex"
-                alignItems="center"
-              >
-                <Flex alignItems="center" gap={2}>
-                  <Icon accessibilityLabel="" icon="board" size={16} color="default" />
-                  <Text weight="bold" size="200">
-                    {savedBoard.title}
-                  </Text>
-                  <Icon accessibilityLabel="" icon="visit" size={12} color="subtle" />
-                </Flex>
-              </Box>
-            </TapArea>
-          </Link>
-        )}
-
+        <SavedLocationBadge 
+          board={savedBoard} 
+          isProfile={localSavedToProfile && !savedBoard}
+          username={username}
+        />
         <PinSaveButton
           isSaved={true}
           onUnsave={handleUnsave}
@@ -539,31 +719,18 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
     );
   }
 
-  // Not saved - show picker + save button
+  // Not saved
   return (
     <Flex alignItems="center" gap={3}>
-      {/* Show current target */}
-      <Box
-        paddingX={3}
-        paddingY={2}
-        rounding={2}
-        color="secondary"
-        display="flex"
-        alignItems="center"
-      >
-        <Flex alignItems="center" gap={2}>
-          <Icon 
-            accessibilityLabel="" 
-            icon={isProfileMode ? 'person' : 'board'} 
-            size={16} 
-            color="default" 
-          />
-          <Text weight="bold" size="200">
-            {isProfileMode ? 'Profile' : selectedBoard?.title}
-          </Text>
-        </Flex>
-      </Box>
-
+      <BoardPicker
+        pinId={pinId}
+        onSaveToBoard={handleSaveToBoard}
+        onSaveToProfile={handleSaveToProfile}
+        isSavedToProfile={localSavedToProfile}
+        isSaving={isLoading}
+        size={size}
+        showLabel
+      />
       <PinSaveButton
         isSaved={false}
         onSave={handleQuickSave}

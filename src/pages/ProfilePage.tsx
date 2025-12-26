@@ -7,7 +7,7 @@ import {
   UserProfileHeader, 
   useUserByUsername,
 } from '@/modules/user';
-import { useInfinitePins } from '@/modules/pin';
+import { useUserPins } from '@/modules/pin';
 import { useIsOwner } from '@/modules/auth';
 import { ErrorMessage } from '@/shared/components';
 import { ROUTES } from '@/app/router/routeConfig';
@@ -31,11 +31,11 @@ const ProfilePage: React.FC = () => {
   const { user, isLoading, isError, error, refetch } = useUserByUsername(username);
   const isOwner = useIsOwner(user?.id);
 
-  // Get pins count for header
-  const { totalElements: pinsCount } = useInfinitePins(
-    { authorId: user?.id },
-    { enabled: !!user?.id, pageSize: 1 }
-  );
+  // Get pins count for header (using simplified hook)
+  const { totalElements: pinsCount } = useUserPins(user?.id, 'CREATED', { 
+    enabled: !!user?.id, 
+    pageSize: 1,
+  });
 
   const handleTabChange = useCallback(({ activeTabIndex }: { activeTabIndex: number }) => {
     const tab = TABS[activeTabIndex];
@@ -51,6 +51,10 @@ const ProfilePage: React.FC = () => {
   const handleSettings = useCallback(() => {
     navigate(ROUTES.SETTINGS);
   }, [navigate]);
+
+  const handleRetry = useCallback(() => {
+    void refetch();
+  }, [refetch]);
 
   // Memoized tab content
   const tabContent = useMemo(() => {
@@ -86,7 +90,7 @@ const ProfilePage: React.FC = () => {
         <ErrorMessage
           title="User not found"
           message={error?.message || `User @${username} doesn't exist`}
-          onRetry={() => refetch()}
+          onRetry={handleRetry}
         />
       </Box>
     );

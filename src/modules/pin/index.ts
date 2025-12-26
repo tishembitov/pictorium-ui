@@ -9,25 +9,15 @@ export type {
   PinWithState,
   PinFormValues,
   PinPreview,
-} from './types/pin.types';
-
-export type {
   PinFilter,
-  PinFilterState,
   PinScope,
+  PinSort,
   PinSortField,
   PinSortDirection,
-  PinSortOption,
-  PinScopeOption,
-} from './types/pinFilter.types';
+  ScopeOption
+} from './types/pin.types';
 
-export { 
-  PIN_SORT_OPTIONS,
-  PIN_SCOPE_OPTIONS,
-  getScopeOptionsForContext,
-  buildUserPinFilter,
-  filterRequiresAuth,
-} from './types/pinFilter.types';
+export { SCOPE_OPTIONS, SORT_OPTIONS } from './types/pin.types';
 
 export type {
   LikeResponse,
@@ -40,8 +30,8 @@ export { pinApi } from './api/pinApi';
 export { pinLikeApi } from './api/pinLikeApi';
 export { pinCommentApi } from './api/pinCommentApi';
 
-
 // Hooks
+export { usePins, useUserPins, useRelatedPins } from './hooks/usePins';
 export { usePin } from './hooks/usePin';
 export { useCreatePin } from './hooks/useCreatePin';
 export { useUpdatePin } from './hooks/useUpdatePin';
@@ -51,34 +41,12 @@ export { useUnlikePin } from './hooks/useUnlikePin';
 export { usePinLikes, useInfinitePinLikes } from './hooks/usePinLikes';
 export { usePinComments, useInfinitePinComments } from './hooks/usePinComments';
 export { useCreateComment } from './hooks/useCreateComment';
-export { useRelatedPins } from './hooks/useRelatedPins';
 export { useScrollToComments } from './hooks/useScrollToComments';
 export { useSaveToProfile } from './hooks/useSaveToProfile';
 export { useUnsaveFromProfile } from './hooks/useUnsaveFromProfile';
-export { 
-  useSavedToProfilePins, 
-  useMySavedToProfilePins,
-  useInfiniteSavedToProfilePins,
-} from './hooks/useSavedToProfilePins';
-export { usePins, useInfinitePins, useStorePins } from './hooks/usePins';
-export { 
-  useUserPins,
-  useUserCreatedPins,
-  useUserSavedPins,
-  useUserSavedToProfilePins,
-  useUserAllSavedPins,
-  useUserLikedPins,
-} from './hooks/useUserPins';
 
 // Store
-export {
-  usePinFiltersStore,
-  selectFilter,
-  selectSortField,
-  selectSortDirection,
-  selectIsFilterPanelOpen,
-  selectContextUserId,
-} from './stores/pinFiltersStore';
+export { usePinPreferencesStore, selectSort } from './stores/pinPreferencesStore';
 
 // Components
 export { PinCard } from './components/PinCard';
@@ -92,11 +60,12 @@ export { PinLikeButton } from './components/PinLikeButton';
 export { PinSaveButton } from './components/PinSaveButton';
 export { PinShareButton } from './components/PinShareButton';
 export { PinMenuButton } from './components/PinMenuButton';
-export { PinFilters } from './components/PinFilters';
 export { PinSearchBar } from './components/PinSearchBar';
-export { PinTagFilter } from './components/PinTagFilter';
+export { PinTagFilter } from './components/filters/PinTagFilter';
+export { PinScopeSelect } from './components/filters/PinScopeSelect';
+export { PinSortSelect } from './components/filters/PinSortSelect';
+export { PinSearchInput } from './components/filters/PinSearchInput';
 export { PinSaveSection } from './components/PinSaveSection';
-export { PinScopeFilter } from './components/PinScopeFilter';
 
 export { PinDetail } from './components/detail/PinDetail';
 export { PinDetailCard } from './components/detail/PinDetailCard';
@@ -108,13 +77,4 @@ export { PinDetailAuthor } from './components/detail/PinDetailAuthor';
 export { PinDetailStats } from './components/detail/PinDetailStats';
 export { PinDetailComments } from './components/detail/PinDetailComments';
 
-// Utils - добавить
-export {
-  cleanFilterForApi,
-  buildSortForApi,
-  hasActiveFilters,
-  countActiveFilters,
-  getCurrentScope,
-  createFilterKey,
-} from './utils/pinFilterUtils';
 

@@ -2,39 +2,32 @@
 
 import type { PageResponse } from '@/shared/types/pageable.types';
 
-/**
- * Pin create request
- */
+// ==================== API Types (из OpenAPI) ====================
+
 export interface PinCreateRequest {
-  imageId: string;           // required, minLength: 1
-  thumbnailId?: string;      // maxLength: 64
-  videoPreviewId?: string;   // maxLength: 64
-  title?: string;            // maxLength: 200
-  description?: string;      // maxLength: 400
-  href?: string;             // maxLength: 200
-  tags?: string[];           // unique items, each maxLength: 100
-  originalWidth: number;     // required, min: 1
-  originalHeight: number;    // required, min: 1
-  thumbnailWidth: number;    // required, min: 1
-  thumbnailHeight: number;   // required, min: 1
+  imageId: string;
+  thumbnailId?: string;
+  videoPreviewId?: string;
+  title?: string;
+  description?: string;
+  href?: string;
+  tags?: string[];
+  originalWidth: number;
+  originalHeight: number;
+  thumbnailWidth: number;
+  thumbnailHeight: number;
 }
 
-/**
- * Pin update request
- */
 export interface PinUpdateRequest {
-  imageId?: string;          // maxLength: 64
-  thumbnailId?: string;      // maxLength: 64
-  videoPreviewId?: string;   // maxLength: 64
-  title?: string;            // maxLength: 200
-  description?: string;      // maxLength: 400
-  href?: string;             // maxLength: 200
-  tags?: string[];           // unique items, each maxLength: 100
+  imageId?: string;
+  thumbnailId?: string;
+  videoPreviewId?: string;
+  title?: string;
+  description?: string;
+  href?: string;
+  tags?: string[];
 }
 
-/**
- * Pin response from API - UPDATED согласно OpenAPI
- */
 export interface PinResponse {
   id: string;
   userId: string;
@@ -47,34 +40,21 @@ export interface PinResponse {
   createdAt: string;
   updatedAt: string;
   tags: string[];
-  
-  // Like status
   isLiked: boolean;
   likeCount: number;
-  
-  // Save to boards status
-  isSaved: boolean;                   // сохранён в любую доску
-  savedToBoardName: string | null;    // название первой доски
-  savedToBoardCount: number;          // количество досок, в которые сохранён
-  saveCount: number;                  // общее количество сохранений (всеми пользователями)
-  
-  // Save to profile status - NEW
-  isSavedToProfile: boolean;          // сохранён в профиль (без доски)
-  
-  // Other stats
+  isSaved: boolean;
+  isSavedToProfile: boolean;
+  savedToBoardName: string | null;
+  savedToBoardCount: number;
+  saveCount: number;
   commentCount: number;
   viewCount: number;
-
-  // Dimensions
   originalWidth: number;
   originalHeight: number;
   thumbnailWidth: number;
   thumbnailHeight: number;
 }
 
-/**
- * Paginated pins response
- */
 export type PagePinResponse = PageResponse<PinResponse>;
 
 /**
@@ -107,3 +87,62 @@ export interface PinPreview {
   thumbnailId: string | null;
   videoPreviewId: string | null;
 }
+
+// ==================== Filter (точно как в API) ====================
+
+export type PinScope = 
+  | 'ALL' 
+  | 'CREATED' 
+  | 'SAVED'
+  | 'SAVED_TO_PROFILE'
+  | 'SAVED_ALL'
+  | 'LIKED' 
+  | 'RELATED';
+
+/**
+ * Фильтр пинов — 1:1 с API, без дублирования
+ */
+export interface PinFilter {
+  q?: string;
+  tags?: string[];
+  authorId?: string;
+  savedBy?: string;
+  savedToProfileBy?: string;
+  likedBy?: string;
+  relatedTo?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  scope?: PinScope;
+}
+
+// ==================== Sort ====================
+
+export type PinSortField = 'createdAt' | 'likeCount' | 'saveCount' | 'viewCount';
+export type PinSortDirection = 'asc' | 'desc';
+
+export interface PinSort {
+  field: PinSortField;
+  direction: PinSortDirection;
+}
+
+// ==================== UI Options ====================
+
+export interface ScopeOption {
+  value: PinScope;
+  label: string;
+  icon?: 'pin' | 'board' | 'person' | 'heart' | 'sparkle';
+}
+
+export const SCOPE_OPTIONS: ScopeOption[] = [
+  { value: 'ALL', label: 'All Pins', icon: 'sparkle' },
+  { value: 'CREATED', label: 'Created', icon: 'pin' },
+  { value: 'SAVED_ALL', label: 'Saved', icon: 'board' },
+  { value: 'LIKED', label: 'Liked', icon: 'heart' },
+];
+
+export const SORT_OPTIONS: { value: string; label: string; field: PinSortField; direction: PinSortDirection }[] = [
+  { value: 'newest', label: 'Newest', field: 'createdAt', direction: 'desc' },
+  { value: 'oldest', label: 'Oldest', field: 'createdAt', direction: 'asc' },
+  { value: 'popular', label: 'Most Liked', field: 'likeCount', direction: 'desc' },
+  { value: 'saved', label: 'Most Saved', field: 'saveCount', direction: 'desc' },
+];

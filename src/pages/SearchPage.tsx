@@ -1,27 +1,26 @@
 // src/pages/SearchPage.tsx
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Box, Heading, Text, Tabs, Divider, Flex, Button } from 'gestalt';
+import { Box, Heading, Text, Tabs, Divider, Flex, Button, SearchField } from 'gestalt';
 import { 
   PinGrid, 
-  PinFilters,
-  PinSearchBar,
-  useInfinitePins, 
-  usePinFiltersStore,
+  PinSortSelect,
+  usePins,
 } from '@/modules/pin';
-import type { PinResponse } from '@/modules/pin';
+import { usePinPreferencesStore } from '@/modules/pin/stores/pinPreferencesStore';
+import type { PinFilter } from '@/modules/pin';
 import { 
-  UserCard, 
-  useUserByUsername,
-} from '@/modules/user';
-import type { UserResponse } from '@/modules/user';
-import { 
+  TagInput, 
   TagList, 
   TagChip,
   useSearchTags,
 } from '@/modules/tag';
-import type { TagResponse } from '@/modules/tag';
+import { 
+  UserCard, 
+  useUserByUsername,
+} from '@/modules/user';
+
 import { 
   EmptyState, 
   LoadingSpinner, 
@@ -29,7 +28,6 @@ import {
 } from '@/shared/components';
 import { useSearchHistoryStore } from '@/shared/stores/searchHistoryStore';
 import { useDebounce } from '@/shared/hooks/useDebounce';
-import { formatCompactNumber } from '@/shared/utils/formatters';
 
 type SearchTab = 'pins' | 'users' | 'tags';
 
@@ -39,46 +37,76 @@ type SearchTab = 'pins' | 'users' | 'tags';
 
 interface PinsTabContentProps {
   query: string;
-  pins: PinResponse[];
-  isPinsLoading: boolean;
-  isPinsError: boolean;
-  isFetchingNextPage: boolean;
-  hasNextPage: boolean;
-  fetchNextPage: () => void;
-  refetchPins: () => void;
+  selectedTags: string[];
+  onTagsChange: (tags: string[]) => void;
 }
 
 const PinsTabContent: React.FC<PinsTabContentProps> = ({
   query,
-  pins,
-  isPinsLoading,
-  isPinsError,
-  isFetchingNextPage,
-  hasNextPage,
-  fetchNextPage,
-  refetchPins,
+  selectedTags,
+  onTagsChange,
 }) => {
-  if (isPinsError) {
+  const sort = usePinPreferencesStore((s) => s.sort);
+
+  // Build filter
+  const filter = useMemo((): PinFilter => ({
+    q: query || undefined,
+    tags: selectedTags.length > 0 ? selectedTags : undefined,
+  }), [query, selectedTags]);
+
+  const {
+    pins,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    isError,
+    refetch,
+  } = usePins(filter, { sort, enabled: !!query });
+
+  const handleFetchNextPage = useCallback(() => {
+    fetchNextPage();
+  }, [fetchNextPage]);
+
+  const handleRetry = useCallback(() => {
+    refetch();
+  }, [refetch]);
+
+  if (isError) {
     return (
       <ErrorMessage
         title="Failed to search pins"
         message="Please try again"
-        onRetry={refetchPins}
+        onRetry={handleRetry}
       />
     );
   }
 
   return (
     <Box>
+      {/* Filters */}
       <Box marginBottom={4}>
-        <PinFilters showSort showTags showClear showScope={false} />
+        <Flex gap={4} alignItems="end" wrap>
+          <PinSortSelect />
+          <Box flex="grow" maxWidth={300}>
+            <TagInput
+              id="search-tags"
+              label="Filter by tags"
+              selectedTags={selectedTags}
+              onChange={onTagsChange}
+              placeholder="Add tags..."
+              maxTags={5}
+            />
+          </Box>
+        </Flex>
       </Box>
+
       <PinGrid
         pins={pins}
-        isLoading={isPinsLoading}
+        isLoading={isLoading}
         isFetchingNextPage={isFetchingNextPage}
         hasNextPage={hasNextPage}
-        fetchNextPage={fetchNextPage}
+        fetchNextPage={handleFetchNextPage}
         emptyMessage={`No pins found for "${query}"`}
       />
     </Box>
@@ -87,22 +115,18 @@ const PinsTabContent: React.FC<PinsTabContentProps> = ({
 
 interface UsersTabContentProps {
   query: string;
-  user: UserResponse | undefined;
-  isUserLoading: boolean;
-  isUserError: boolean;
 }
 
-const UsersTabContent: React.FC<UsersTabContentProps> = ({
-  query,
-  user,
-  isUserLoading,
-  isUserError,
-}) => {
-  if (isUserLoading) {
+const UsersTabContent: React.FC<UsersTabContentProps> = ({ query }) => {
+  const { user, isLoading, isError } = useUserByUsername(query, {
+    enabled: !!query,
+  });
+
+  if (isLoading) {
     return <LoadingSpinner size="lg" />;
   }
 
-  if (isUserError) {
+  if (isError) {
     return (
       <ErrorMessage
         title="Failed to search users"
@@ -114,12 +138,12 @@ const UsersTabContent: React.FC<UsersTabContentProps> = ({
   if (user) {
     return (
       <Box maxWidth={500}>
+        {/* Исправлено: убран несуществующий проп size */}
         <UserCard 
           user={user} 
           showFollowButton 
-          showDescription 
-          showFormattedUsername
-          size="lg"
+          showDescription
+          showStats
         />
       </Box>
     );
@@ -136,24 +160,20 @@ const UsersTabContent: React.FC<UsersTabContentProps> = ({
 
 interface TagsTabContentProps {
   query: string;
-  tags: TagResponse[] | undefined;
-  isTagsLoading: boolean;
-  isTagsError: boolean;
   onTagClick: (tagName: string) => void;
 }
 
-const TagsTabContent: React.FC<TagsTabContentProps> = ({
-  query,
-  tags,
-  isTagsLoading,
-  isTagsError,
-  onTagClick,
-}) => {
-  if (isTagsLoading) {
+const TagsTabContent: React.FC<TagsTabContentProps> = ({ query, onTagClick }) => {
+  const { data: tags, isLoading, isError } = useSearchTags(query, {
+    limit: 30,
+    enabled: !!query,
+  });
+
+  if (isLoading) {
     return <LoadingSpinner size="lg" />;
   }
 
-  if (isTagsError) {
+  if (isError) {
     return (
       <ErrorMessage
         title="Failed to search tags"
@@ -193,66 +213,43 @@ const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
   
+  // Local state - инициализируем из URL
   const [activeTab, setActiveTab] = useState<SearchTab>('pins');
   const [localQuery, setLocalQuery] = useState(query);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   
   const debouncedQuery = useDebounce(localQuery, 300);
 
-  // Store - use stable action getters
-  const setQuery = usePinFiltersStore((state) => state.setQuery);
+  // Search history
   const addSearch = useSearchHistoryStore((state) => state.addSearch);
   const history = useSearchHistoryStore((state) => state.history);
   const clearHistory = useSearchHistoryStore((state) => state.clearHistory);
 
-  // Update URL when local query changes
+  // Синхронизация URL -> localQuery (когда пользователь переходит по ссылке или нажимает назад)
   useEffect(() => {
+    // Обновляем локальный стейт только если URL изменился извне
+    if (query !== localQuery && query !== debouncedQuery) {
+      setLocalQuery(query);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+  // Намеренно исключаем localQuery и debouncedQuery, чтобы избежать циклических обновлений
+
+  // Синхронизация localQuery -> URL (когда пользователь печатает)
+  useEffect(() => {
+    // Обновляем URL только после debounce и если значение изменилось
     if (debouncedQuery !== query) {
-      setSearchParams({ q: debouncedQuery });
       if (debouncedQuery) {
+        setSearchParams({ q: debouncedQuery }, { replace: true });
         addSearch(debouncedQuery);
+      } else if (query) {
+        // Очищаем URL если запрос пустой
+        setSearchParams({}, { replace: true });
       }
     }
   }, [debouncedQuery, query, setSearchParams, addSearch]);
 
-  // Update filter store
-  useEffect(() => {
-    setQuery(query);
-  }, [query, setQuery]);
-
-  // Memoize filter for pins
-  const pinsFilter = useMemo(() => ({ q: query }), [query]);
-
-  // Pins search
-  const {
-    pins,
-    totalElements: pinsCount,
-    isLoading: isPinsLoading,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-    isError: isPinsError,
-    refetch: refetchPins,
-  } = useInfinitePins(pinsFilter, { enabled: !!query && activeTab === 'pins' });
-
-  // Tags search
-  const { 
-    data: tags, 
-    isLoading: isTagsLoading,
-    isError: isTagsError,
-  } = useSearchTags(query, {
-    limit: 30,
-    enabled: !!query && activeTab === 'tags',
-  });
-
-  // User search
-  const { 
-    user, 
-    isLoading: isUserLoading,
-    isError: isUserError,
-  } = useUserByUsername(query, {
-    enabled: !!query && activeTab === 'users',
-  });
-
+  // Handlers
   const handleTabChange = useCallback(({ activeTabIndex }: { activeTabIndex: number }) => {
     const tabs: SearchTab[] = ['pins', 'users', 'tags'];
     setActiveTab(tabs[activeTabIndex] || 'pins');
@@ -263,7 +260,7 @@ const SearchPage: React.FC = () => {
     return tabs.indexOf(activeTab);
   }, [activeTab]);
 
-  const handleSearchChange = useCallback((value: string) => {
+  const handleSearchChange = useCallback(({ value }: { value: string }) => {
     setLocalQuery(value);
   }, []);
 
@@ -277,23 +274,6 @@ const SearchPage: React.FC = () => {
     setSearchParams({ q: tagName });
   }, [setSearchParams]);
 
-  const handleFetchNextPage = useCallback(() => {
-    void fetchNextPage();
-  }, [fetchNextPage]);
-
-  const handleRefetchPins = useCallback(() => {
-    void refetchPins();
-  }, [refetchPins]);
-
-  // Build tab labels
-  const pinsTabLabel = pinsCount > 0 
-    ? `Pins (${formatCompactNumber(pinsCount)})` 
-    : 'Pins';
-  
-  const tagsTabLabel = tags?.length 
-    ? `Tags (${tags.length})` 
-    : 'Tags';
-
   // Empty state - no query
   if (!query) {
     return (
@@ -306,10 +286,13 @@ const SearchPage: React.FC = () => {
 
         {/* Search Bar */}
         <Box maxWidth={600} marginBottom={6}>
-          <PinSearchBar
+          <SearchField
+            id="search-main"
+            accessibilityLabel="Search"
+            accessibilityClearButtonLabel="Clear"
             placeholder="Search for pins, users, or tags..."
-            onSearch={handleSearchChange}
-            navigateOnSearch={false}
+            value={localQuery}
+            onChange={handleSearchChange}
           />
         </Box>
 
@@ -358,19 +341,17 @@ const SearchPage: React.FC = () => {
         <Heading size="400" accessibilityLevel={1}>
           Search results for &quot;{query}&quot;
         </Heading>
-        {activeTab === 'pins' && pinsCount > 0 && (
-          <Text color="subtle" size="200">
-            {formatCompactNumber(pinsCount)} pins found
-          </Text>
-        )}
       </Box>
 
       {/* Search Bar */}
       <Box maxWidth={600} marginBottom={4}>
-        <PinSearchBar
+        <SearchField
+          id="search-results"
+          accessibilityLabel="Search"
+          accessibilityClearButtonLabel="Clear"
           placeholder="Search..."
-          onSearch={handleSearchChange}
-          navigateOnSearch={false}
+          value={localQuery}
+          onChange={handleSearchChange}
         />
       </Box>
 
@@ -380,9 +361,9 @@ const SearchPage: React.FC = () => {
           activeTabIndex={getTabIndex()}
           onChange={handleTabChange}
           tabs={[
-            { href: '#pins', text: pinsTabLabel },
+            { href: '#pins', text: 'Pins' },
             { href: '#users', text: 'Users' },
-            { href: '#tags', text: tagsTabLabel },
+            { href: '#tags', text: 'Tags' },
           ]}
         />
       </Box>
@@ -394,33 +375,17 @@ const SearchPage: React.FC = () => {
         {activeTab === 'pins' && (
           <PinsTabContent
             query={query}
-            pins={pins}
-            isPinsLoading={isPinsLoading}
-            isPinsError={isPinsError}
-            isFetchingNextPage={isFetchingNextPage}
-            hasNextPage={hasNextPage}
-            fetchNextPage={handleFetchNextPage}
-            refetchPins={handleRefetchPins}
+            selectedTags={selectedTags}
+            onTagsChange={setSelectedTags}
           />
         )}
 
         {activeTab === 'users' && (
-          <UsersTabContent
-            query={query}
-            user={user}
-            isUserLoading={isUserLoading}
-            isUserError={isUserError}
-          />
+          <UsersTabContent query={query} />
         )}
 
         {activeTab === 'tags' && (
-          <TagsTabContent
-            query={query}
-            tags={tags}
-            isTagsLoading={isTagsLoading}
-            isTagsError={isTagsError}
-            onTagClick={handleTagClick}
-          />
+          <TagsTabContent query={query} onTagClick={handleTagClick} />
         )}
       </Box>
     </Box>

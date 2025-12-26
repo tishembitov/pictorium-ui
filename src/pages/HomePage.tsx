@@ -1,5 +1,3 @@
-// src/pages/HomePage.tsx
-
 import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -9,21 +7,21 @@ import {
   IconButton, 
   Tooltip, 
   Text, 
-  Button, 
+  Button,
+  SearchField,
 } from 'gestalt';
 import { 
   PinGrid, 
-  PinFilters, 
-  PinSearchBar,
-  useInfinitePins, 
-  usePinFiltersStore,
-  selectFilter,
+  usePins,
+  PinSortSelect,
 } from '@/modules/pin';
-import { hasActiveFilters as checkActiveFilters } from '@/modules/pin/utils/pinFilterUtils';
+import { usePinPreferencesStore } from '@/modules/pin/stores/pinPreferencesStore';
+import type { PinFilter } from '@/modules/pin';
+import { TagInput , CategoryGrid } from '@/modules/tag';
 import { useAuth } from '@/modules/auth';
-import { CategoryGrid } from '@/modules/tag';
 import { EmptyState } from '@/shared/components';
 import { useIsMobile } from '@/shared/hooks/useMediaQuery';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import { ROUTES } from '@/app/router/routeConfig';
 
 const HomePage: React.FC = () => {
@@ -31,15 +29,27 @@ const HomePage: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const isMobile = useIsMobile();
   
+  // Local filter state
   const [showFilters, setShowFilters] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   
-  // Use stable selectors
-  const filter = usePinFiltersStore(selectFilter);
-  const clearFilter = usePinFiltersStore((state) => state.clearFilter);
+  // Debounced search
+  const debouncedSearch = useDebounce(searchInput, 300);
   
-  // Memoize computed values
-  const hasFilters = useMemo(() => checkActiveFilters(filter), [filter]);
+  // Global sort preference
+  const sort = usePinPreferencesStore((s) => s.sort);
 
+  // Build filter from local state
+  const filter = useMemo((): PinFilter => ({
+    q: debouncedSearch || undefined,
+    tags: selectedTags.length > 0 ? selectedTags : undefined,
+  }), [debouncedSearch, selectedTags]);
+
+  // Check if any filters are active
+  const hasFilters = !!(debouncedSearch || selectedTags.length > 0);
+
+  // Fetch pins
   const {
     pins,
     totalElements,
@@ -49,8 +59,9 @@ const HomePage: React.FC = () => {
     fetchNextPage,
     isError,
     refetch,
-  } = useInfinitePins(filter);
+  } = usePins(filter, { sort });
 
+  // Handlers
   const handleCreatePin = useCallback(() => {
     navigate(ROUTES.PIN_CREATE);
   }, [navigate]);
@@ -64,16 +75,27 @@ const HomePage: React.FC = () => {
   }, []);
 
   const handleFetchNextPage = useCallback(() => {
-    void fetchNextPage();
+    fetchNextPage();
   }, [fetchNextPage]);
 
   const handleRetry = useCallback(() => {
-    void refetch();
+    refetch();
   }, [refetch]);
 
-  const handleClearFilter = useCallback(() => {
-    clearFilter();
-  }, [clearFilter]);
+  const handleClearFilters = useCallback(() => {
+    setSearchInput('');
+    setSelectedTags([]);
+  }, []);
+
+  const handleSearchChange = useCallback(({ value }: { value: string }) => {
+    setSearchInput(value);
+  }, []);
+
+  const handleSearchKeyDown = useCallback(({ event }: { event: React.KeyboardEvent<HTMLInputElement> }) => {
+    if (event.key === 'Enter' && searchInput.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchInput.trim())}`);
+    }
+  }, [searchInput, navigate]);
 
   return (
     <Box paddingY={4}>
@@ -101,9 +123,14 @@ const HomePage: React.FC = () => {
         <Flex gap={3} alignItems="center" wrap>
           {/* Search Bar */}
           <Box width={isMobile ? '100%' : 280}>
-            <PinSearchBar 
-              placeholder="Search pins..." 
-              navigateOnSearch 
+            <SearchField
+              id="home-search"
+              accessibilityLabel="Search pins"
+              accessibilityClearButtonLabel="Clear"
+              placeholder="Search pins..."
+              value={searchInput}
+              onChange={handleSearchChange}
+              onKeyDown={handleSearchKeyDown}
             />
           </Box>
 
@@ -135,18 +162,39 @@ const HomePage: React.FC = () => {
       {/* Filters Section */}
       {showFilters && (
         <Box marginTop={4} marginBottom={4}>
-          <Box 
-            padding={4} 
-            color="secondary" 
-            rounding={4}
-          >
-            <PinFilters showSort showTags showClear showScope={false} />
+          <Box padding={4} color="secondary" rounding={4}>
+            <Flex gap={4} alignItems="end" wrap>
+              {/* Sort */}
+              <PinSortSelect />
+              
+              {/* Tags */}
+              <Box flex="grow" maxWidth={400}>
+                <TagInput
+                  id="home-tags"
+                  label="Filter by tags"
+                  selectedTags={selectedTags}
+                  onChange={setSelectedTags}
+                  placeholder="Add tags..."
+                  maxTags={5}
+                />
+              </Box>
+
+              {/* Clear */}
+              {hasFilters && (
+                <Button
+                  text="Clear filters"
+                  onClick={handleClearFilters}
+                  size="lg"
+                  color="gray"
+                />
+              )}
+            </Flex>
           </Box>
         </Box>
       )}
 
       {/* Categories for Non-Authenticated Users */}
-      {!isAuthenticated && pins.length === 0 && !isLoading && (
+      {!isAuthenticated && pins.length === 0 && !isLoading && !hasFilters && (
         <Box marginTop={6} marginBottom={6}>
           <CategoryGrid 
             limit={8} 
@@ -187,7 +235,7 @@ const HomePage: React.FC = () => {
           }
           emptyAction={
             hasFilters
-              ? { text: 'Clear filters', onClick: handleClearFilter }
+              ? { text: 'Clear filters', onClick: handleClearFilters }
               : { text: 'Explore', onClick: handleExplore }
           }
         />

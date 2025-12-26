@@ -1,7 +1,6 @@
 // src/modules/pin/utils/pinUtils.ts
 
 import type { PinResponse, PinPreview } from '../types/pin.types';
-import type { PinFilter } from '../types/pinFilter.types';
 
 /**
  * Check if current user is the owner of a pin
@@ -72,23 +71,6 @@ export const ensurePinLinkProtocol = (href: string): string => {
     return href;
   }
   return `https://${href}`;
-};
-
-/**
- * Check if filter is empty
- */
-export const isFilterEmpty = (filter: PinFilter): boolean => {
-  return !(
-    filter.q ||
-    filter.tags?.length ||
-    filter.authorId ||
-    filter.savedBy ||
-    filter.likedBy ||
-    filter.relatedTo ||
-    filter.createdFrom ||
-    filter.createdTo ||
-    filter.scope
-  );
 };
 
 /**

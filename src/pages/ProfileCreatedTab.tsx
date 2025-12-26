@@ -1,16 +1,14 @@
 // src/pages/ProfileCreatedTab.tsx
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Flex, Button, Text } from 'gestalt';
 import { 
   PinGrid, 
-  PinFilters, 
-  useInfinitePins, 
-  usePinFiltersStore,
-  selectFilter,
+  PinSortSelect,
+  useUserPins,
 } from '@/modules/pin';
-import { hasActiveFilters as checkActiveFilters } from '@/modules/pin/utils/pinFilterUtils';
+import { usePinPreferencesStore } from '@/modules/pin/stores/pinPreferencesStore';
 import { useIsOwner } from '@/modules/auth';
 import { ROUTES } from '@/app/router/routeConfig';
 
@@ -27,18 +25,10 @@ const ProfileCreatedTab: React.FC<ProfileCreatedTabProps> = ({
   const isCurrentUserOwner = useIsOwner(userId);
   const effectiveIsOwner = isOwner || isCurrentUserOwner;
   
-  // Use stable selector
-  const filter = usePinFiltersStore(selectFilter);
-  
-  // Memoize computed values
-  const hasFilters = useMemo(() => checkActiveFilters(filter), [filter]);
-  
-  // Memoize the combined filter
-  const combinedFilter = useMemo(() => ({
-    ...filter,
-    authorId: userId,
-  }), [filter, userId]);
+  // Global sort preference
+  const sort = usePinPreferencesStore((s) => s.sort);
 
+  // Fetch user's created pins
   const {
     pins,
     totalElements,
@@ -46,14 +36,14 @@ const ProfileCreatedTab: React.FC<ProfileCreatedTabProps> = ({
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useInfinitePins(combinedFilter);
+  } = useUserPins(userId, 'CREATED', { sort });
 
   const handleCreatePin = useCallback(() => {
     navigate(ROUTES.PIN_CREATE);
   }, [navigate]);
 
   const handleFetchNextPage = useCallback(() => {
-    void fetchNextPage();
+    fetchNextPage();
   }, [fetchNextPage]);
 
   return (
@@ -61,9 +51,12 @@ const ProfileCreatedTab: React.FC<ProfileCreatedTabProps> = ({
       {/* Header */}
       <Box marginBottom={4}>
         <Flex justifyContent="between" alignItems="center">
-          <Text size="300" weight="bold">
-            {totalElements} {totalElements === 1 ? 'Pin' : 'Pins'}
-          </Text>
+          <Flex alignItems="center" gap={3}>
+            <Text size="300" weight="bold">
+              {totalElements} {totalElements === 1 ? 'Pin' : 'Pins'}
+            </Text>
+            <PinSortSelect size="md" />
+          </Flex>
           
           {effectiveIsOwner && (
             <Button
@@ -74,11 +67,6 @@ const ProfileCreatedTab: React.FC<ProfileCreatedTabProps> = ({
             />
           )}
         </Flex>
-      </Box>
-
-      {/* Filters */}
-      <Box marginBottom={4}>
-        <PinFilters showSort showTags={false} showClear={hasFilters} showScope={false} />
       </Box>
 
       {/* Pins Grid */}

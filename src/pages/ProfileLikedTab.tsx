@@ -1,15 +1,13 @@
 // src/pages/ProfileLikedTab.tsx
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { Box, Flex, Text } from 'gestalt';
 import { 
   PinGrid, 
-  PinFilters, 
-  useInfinitePins, 
-  usePinFiltersStore,
-  selectFilter,
+  PinSortSelect,
+  useUserPins,
 } from '@/modules/pin';
-import { hasActiveFilters as checkActiveFilters } from '@/modules/pin/utils/pinFilterUtils';
+import { usePinPreferencesStore } from '@/modules/pin/stores/pinPreferencesStore';
 
 interface ProfileLikedTabProps {
   userId: string;
@@ -17,18 +15,10 @@ interface ProfileLikedTabProps {
 }
 
 const ProfileLikedTab: React.FC<ProfileLikedTabProps> = ({ userId, isOwner = false }) => {
-  // Use stable selector
-  const filter = usePinFiltersStore(selectFilter);
-  
-  // Memoize computed values
-  const hasFilters = useMemo(() => checkActiveFilters(filter), [filter]);
-  
-  // Memoize the combined filter
-  const combinedFilter = useMemo(() => ({
-    ...filter,
-    likedBy: userId,
-  }), [filter, userId]);
+  // Global sort preference
+  const sort = usePinPreferencesStore((s) => s.sort);
 
+  // Fetch user's liked pins
   const {
     pins,
     totalElements,
@@ -36,13 +26,13 @@ const ProfileLikedTab: React.FC<ProfileLikedTabProps> = ({ userId, isOwner = fal
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useInfinitePins(combinedFilter);
+  } = useUserPins(userId, 'LIKED', { sort });
 
   const handleFetchNextPage = useCallback(() => {
-    void fetchNextPage();
+    fetchNextPage();
   }, [fetchNextPage]);
 
-  // Используем длину pins для точного отображения после оптимистичных удалений
+  // Use pins.length for accurate count after optimistic updates
   const displayCount = pins.length > 0 ? totalElements : 0;
 
   return (
@@ -50,15 +40,13 @@ const ProfileLikedTab: React.FC<ProfileLikedTabProps> = ({ userId, isOwner = fal
       {/* Header */}
       <Box marginBottom={4}>
         <Flex justifyContent="between" alignItems="center">
-          <Text size="300" weight="bold">
-            {displayCount} Liked {displayCount === 1 ? 'Pin' : 'Pins'}
-          </Text>
+          <Flex alignItems="center" gap={3}>
+            <Text size="300" weight="bold">
+              {displayCount} Liked {displayCount === 1 ? 'Pin' : 'Pins'}
+            </Text>
+            <PinSortSelect size="md" />
+          </Flex>
         </Flex>
-      </Box>
-
-      {/* Filters */}
-      <Box marginBottom={4}>
-        <PinFilters showSort showTags={false} showClear={hasFilters} showScope={false} />
       </Box>
 
       {/* Pins Grid */}

@@ -1,32 +1,29 @@
-// src/modules/pin/components/PinSearchBar.tsx
+// src/modules/pin/components/filters/PinSearchInput.tsx
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Box, SearchField } from 'gestalt';
+import { SearchField } from 'gestalt';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 
-interface PinSearchBarProps {
+interface PinSearchInputProps {
   /** Controlled value (optional) */
   value?: string;
   /** Callback when value changes (debounced) */
-  onChange?: (query: string) => void;
+  onChange?: (value: string) => void;
   /** Placeholder text */
   placeholder?: string;
-  /** Navigate to search page on Enter */
-  navigateOnSearch?: boolean;
   /** Debounce delay in ms */
   debounceMs?: number;
+  /** ID for the input */
+  id?: string;
 }
 
-export const PinSearchBar: React.FC<PinSearchBarProps> = ({
+export const PinSearchInput: React.FC<PinSearchInputProps> = ({
   value: controlledValue,
   onChange,
   placeholder = 'Search pins...',
-  navigateOnSearch = true,
   debounceMs = 300,
+  id = 'pin-search-input',
 }) => {
-  const navigate = useNavigate();
-  
   // Determine if component is controlled
   const isControlled = controlledValue !== undefined;
   
@@ -42,7 +39,7 @@ export const PinSearchBar: React.FC<PinSearchBarProps> = ({
   // Track if this is the first render to avoid calling onChange on mount
   const isFirstRender = useRef(true);
 
-  // Notify parent when debounced value changes
+  // Notify parent when debounced value changes (in useEffect, not during render)
   useEffect(() => {
     // Skip the first render to avoid unnecessary callback on mount
     if (isFirstRender.current) {
@@ -57,32 +54,19 @@ export const PinSearchBar: React.FC<PinSearchBarProps> = ({
     if (!isControlled) {
       setInternalValue(value);
     }
-    // For controlled mode, parent handles state
+    // For controlled mode, parent should update via onChange callback
   }, [isControlled]);
 
-  const handleKeyDown = useCallback(
-    ({ event }: { event: React.KeyboardEvent<HTMLInputElement> }) => {
-      if (event.key === 'Enter' && currentValue.trim() && navigateOnSearch) {
-        navigate(`/search?q=${encodeURIComponent(currentValue.trim())}`);
-      }
-    },
-    [currentValue, navigate, navigateOnSearch]
-  );
-
   return (
-    <Box width="100%">
-      <SearchField
-        id="pin-search"
-        accessibilityLabel="Search pins"
-        accessibilityClearButtonLabel="Clear search"
-        placeholder={placeholder}
-        value={currentValue}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        autoComplete="off"
-      />
-    </Box>
+    <SearchField
+      id={id}
+      accessibilityLabel="Search pins"
+      accessibilityClearButtonLabel="Clear"
+      placeholder={placeholder}
+      value={currentValue}
+      onChange={handleChange}
+    />
   );
 };
 
-export default PinSearchBar;
+export default PinSearchInput;

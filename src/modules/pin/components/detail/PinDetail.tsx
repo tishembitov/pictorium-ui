@@ -6,7 +6,7 @@ import { Box, Spinner, Heading, IconButton } from 'gestalt';
 import { PinDetailCard } from './PinDetailCard';
 import { PinGrid } from '../PinGrid';
 import { usePin } from '../../hooks/usePin';
-import { useRelatedPins } from '../../hooks/useRelatedPins';
+import { useRelatedPins } from '../../hooks/usePins';
 import { ErrorMessage } from '@/shared/components';
 import { ROUTES } from '@/app/router/routeConfig';
 
@@ -14,17 +14,11 @@ interface PinDetailProps {
   pinId: string;
 }
 
-/**
- * Главный контейнер детального просмотра пина.
- * Ответственность: загрузка данных, обработка ошибок, компоновка страницы.
- */
 export const PinDetail: React.FC<PinDetailProps> = ({ pinId }) => {
   const navigate = useNavigate();
 
-  // Load pin data
   const { pin, isLoading, isError, error, refetch } = usePin(pinId);
 
-  // Load related pins
   const {
     pins: relatedPins,
     isLoading: isLoadingRelated,
@@ -43,11 +37,11 @@ export const PinDetail: React.FC<PinDetailProps> = ({ pinId }) => {
   }, [navigate]);
 
   const handleRetry = useCallback(() => {
-    void refetch();
+    refetch();
   }, [refetch]);
 
   const handleFetchMoreRelated = useCallback(() => {
-    void fetchMoreRelated();
+    fetchMoreRelated();
   }, [fetchMoreRelated]);
 
   const handleGoHome = useCallback(() => {

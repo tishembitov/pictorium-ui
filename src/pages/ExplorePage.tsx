@@ -6,50 +6,52 @@ import {
   CategoryGrid, 
   TagSearch, 
   TagList, 
+  TagInput,
   useSearchTags,
   useCategories,
 } from '@/modules/tag';
+import type { CategoryResponse, TagResponse } from '@/modules/tag';
 import { 
   PinGrid, 
-  PinFilters, 
-  PinTagFilter,
-  useInfinitePins, 
-  usePinFiltersStore,
+  PinSortSelect,
+  usePins,
 } from '@/modules/pin';
+import { usePinPreferencesStore } from '@/modules/pin/stores/pinPreferencesStore';
+import type { PinFilter } from '@/modules/pin';
 import { EmptyState, LoadingSpinner } from '@/shared/components';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useIsMobile } from '@/shared/hooks/useMediaQuery';
-import type { CategoryResponse, TagResponse } from '@/modules/tag';
 
 type TabIndex = 0 | 1 | 2;
 
 const ExplorePage: React.FC = () => {
   const isMobile = useIsMobile();
   
+  // Local state
   const [activeTab, setActiveTab] = useState<TabIndex>(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagSearchQuery] = useState('');
   
   const debouncedQuery = useDebounce(tagSearchQuery, 300);
 
-  // Store - использовать стабильный action getter
-  const setTags = usePinFiltersStore((state) => state.setTags);
+  // Global sort preference
+  const sort = usePinPreferencesStore((s) => s.sort);
 
   // Categories
   const { isLoading: isCategoriesLoading } = useCategories({ limit: 12 });
 
-  // Tag search
+  // Tag search (only for Tags tab)
   const { data: searchedTags, isLoading: isTagsLoading } = useSearchTags(debouncedQuery, {
     limit: 20,
     enabled: activeTab === 2 && debouncedQuery.length > 0,
   });
 
-  // Memoize filter for pins query
-  const pinsFilter = useMemo(() => ({
+  // Build filter for pins
+  const pinsFilter = useMemo((): PinFilter => ({
     tags: selectedTags.length > 0 ? selectedTags : undefined,
   }), [selectedTags]);
 
-  // Pins with selected tags
+  // Fetch pins (only when Pins tab is active)
   const {
     pins,
     totalElements,
@@ -57,43 +59,49 @@ const ExplorePage: React.FC = () => {
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useInfinitePins(pinsFilter, { enabled: activeTab === 1 });
+  } = usePins(pinsFilter, { 
+    sort,
+    enabled: activeTab === 1,
+  });
 
+  // Handlers
   const handleCategoryClick = useCallback((category: CategoryResponse) => {
     setSelectedTags([category.tagName]);
-    setTags([category.tagName]);
-    setActiveTab(1);
-  }, [setTags]);
+    setActiveTab(1); // Switch to Pins tab
+  }, []);
 
   const handleTagSelect = useCallback((tag: TagResponse) => {
     setSelectedTags((prev) => {
-      const newTags = [...prev, tag.name];
-      setTags(newTags);
-      return newTags;
+      if (prev.includes(tag.name)) return prev;
+      return [...prev, tag.name];
     });
-    setActiveTab(1);
-  }, [setTags]);
+    setActiveTab(1); // Switch to Pins tab
+  }, []);
 
   const handleTagRemove = useCallback((tagName: string) => {
-    setSelectedTags((prev) => {
-      const newTags = prev.filter((t) => t !== tagName);
-      setTags(newTags);
-      return newTags;
-    });
-  }, [setTags]);
+    setSelectedTags((prev) => prev.filter((t) => t !== tagName));
+  }, []);
 
   const handleClearTags = useCallback(() => {
     setSelectedTags([]);
-    setTags([]);
-  }, [setTags]);
+  }, []);
 
   const handleTabChange = useCallback(({ activeTabIndex }: { activeTabIndex: number }) => {
     setActiveTab(activeTabIndex as TabIndex);
   }, []);
 
   const handleFetchNextPage = useCallback(() => {
-    void fetchNextPage();
+    fetchNextPage();
   }, [fetchNextPage]);
+
+  const handleTagFromSearchClick = useCallback((tagName: string) => {
+    handleTagSelect({ id: tagName, name: tagName });
+  }, [handleTagSelect]);
+
+  // Tab labels
+  const pinsTabLabel = selectedTags.length > 0 
+    ? `Pins (${totalElements})` 
+    : 'All Pins';
 
   return (
     <Box paddingY={4}>
@@ -146,12 +154,7 @@ const ExplorePage: React.FC = () => {
           onChange={handleTabChange}
           tabs={[
             { href: '#categories', text: 'Categories' },
-            { 
-              href: '#pins', 
-              text: selectedTags.length > 0 
-                ? `Pins (${totalElements})` 
-                : 'All Pins' 
-            },
+            { href: '#pins', text: pinsTabLabel },
             { href: '#tags', text: 'Browse Tags' },
           ]}
         />
@@ -180,19 +183,34 @@ const ExplorePage: React.FC = () => {
         {/* Pins Tab */}
         {activeTab === 1 && (
           <Box>
-            {/* Filters */}
+            {/* Filters Row */}
             <Box marginBottom={4}>
-              <PinFilters showSort showClear showScope={false} />
-            </Box>
+              <Flex gap={4} alignItems="end" wrap>
+                {/* Sort */}
+                <PinSortSelect />
+                
+                {/* Tag Input */}
+                <Box flex="grow" maxWidth={400}>
+                  <TagInput
+                    id="explore-tags"
+                    label="Filter by tags"
+                    selectedTags={selectedTags}
+                    onChange={setSelectedTags}
+                    placeholder="Add more tags..."
+                    maxTags={5}
+                  />
+                </Box>
 
-            {/* Tag Filter */}
-            <Box marginBottom={4}>
-              <PinTagFilter
-                selectedTags={selectedTags}
-                onChange={setSelectedTags}
-                maxTags={5}
-                showSelectedAbove
-              />
+                {/* Clear */}
+                {selectedTags.length > 0 && (
+                  <Button
+                    text="Clear tags"
+                    onClick={handleClearTags}
+                    size="lg"
+                    color="gray"
+                  />
+                )}
+              </Flex>
             </Box>
 
             {/* Pins Grid */}
@@ -204,7 +222,7 @@ const ExplorePage: React.FC = () => {
               fetchNextPage={handleFetchNextPage}
               emptyMessage={
                 selectedTags.length > 0
-                  ? `No pins found for selected tags`
+                  ? 'No pins found for selected tags'
                   : 'No pins to explore yet'
               }
               emptyAction={
@@ -228,18 +246,30 @@ const ExplorePage: React.FC = () => {
               />
             </Box>
 
+            {/* Manual search input for tracking query */}
+            <Box marginBottom={4}>
+              <TagInput
+                id="tag-search-input"
+                label="Search tags"
+                selectedTags={[]}
+                onChange={() => {}}
+                placeholder="Type to search..."
+                maxTags={0}
+              />
+            </Box>
+
             {isTagsLoading && <LoadingSpinner />}
 
             {searchedTags && searchedTags.length > 0 && (
               <Box>
                 <Text weight="bold" size="300">
-                  Results for "{debouncedQuery}"
+                  Results for &quot;{debouncedQuery}&quot;
                 </Text>
                 <Box marginTop={3}>
                   <TagList
                     tags={searchedTags}
                     size="lg"
-                    onClick={(tag) => handleTagSelect({ id: tag, name: tag })}
+                    onClick={handleTagFromSearchClick}
                   />
                 </Box>
               </Box>

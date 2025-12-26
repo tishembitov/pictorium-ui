@@ -56,8 +56,6 @@ export const PIN_ENDPOINTS = {
   // Save to Profile - NEW
   save: (pinId: string) => `${API_PREFIXES.pins}/${pinId}/save`,
   unsave: (pinId: string) => `${API_PREFIXES.pins}/${pinId}/save`,
-  savedByUser: (userId: string) => `${API_PREFIXES.pins}/saved/${userId}`,
-  mySaved: () => `${API_PREFIXES.pins}/saved/me`,
 } as const;
 
 // Board Endpoints

@@ -1,6 +1,6 @@
 // src/pages/ProfileSavedTab.tsx
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
@@ -11,10 +11,10 @@ import {
 } from 'gestalt';
 import { 
   PinGrid, 
-  useInfinitePins, 
-  usePinFiltersStore,
-  selectFilter,
+  PinSortSelect,
+  useUserPins,
 } from '@/modules/pin';
+import { usePinPreferencesStore } from '@/modules/pin/stores/pinPreferencesStore';
 import { BoardPicker, useSelectedBoard } from '@/modules/board';
 import { ROUTES } from '@/app/router/routeConfig';
 import { useToast } from '@/shared/hooks/useToast';
@@ -31,16 +31,11 @@ const ProfileSavedTab: React.FC<ProfileSavedTabProps> = ({
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Use stable selector
-  const filter = usePinFiltersStore(selectFilter);
+  // Global sort preference
+  const sort = usePinPreferencesStore((s) => s.sort);
   const { selectedBoard } = useSelectedBoard();
 
-  // Memoize the combined filter
-  const combinedFilter = useMemo(() => ({
-    ...filter,
-    savedBy: userId,
-  }), [filter, userId]);
-
+  // Fetch user's saved pins (SAVED_ALL = boards + profile)
   const {
     pins,
     totalElements,
@@ -48,14 +43,14 @@ const ProfileSavedTab: React.FC<ProfileSavedTabProps> = ({
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useInfinitePins(combinedFilter);
+  } = useUserPins(userId, 'SAVED_ALL', { sort });
 
   const handleExplore = useCallback(() => {
     navigate(ROUTES.EXPLORE);
   }, [navigate]);
 
   const handleFetchNextPage = useCallback(() => {
-    void fetchNextPage();
+    fetchNextPage();
   }, [fetchNextPage]);
 
   const handleBoardChange = useCallback((board: { title: string } | null) => {
@@ -64,7 +59,7 @@ const ProfileSavedTab: React.FC<ProfileSavedTabProps> = ({
     }
   }, [toast]);
 
-  // Используем длину pins для точного отображения после оптимистичных удалений
+  // Use pins.length for accurate count after optimistic updates
   const displayCount = pins.length > 0 ? totalElements : 0;
 
   return (
@@ -86,9 +81,10 @@ const ProfileSavedTab: React.FC<ProfileSavedTabProps> = ({
                 {displayCount}
               </Text>
             </Box>
+            <PinSortSelect size="md" />
           </Flex>
           
-          {/* Board Picker для владельца */}
+          {/* Board Picker for owner */}
           {isOwner && (
             <BoardPicker 
               size="md" 

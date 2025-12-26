@@ -1,3 +1,5 @@
+// src/app/providers/index.tsx
+
 import React, { type ReactNode } from 'react';
 import { AuthProvider } from './AuthProvider';
 import { QueryProvider } from './QueryProvider';
@@ -31,5 +33,6 @@ export { AuthProvider } from './AuthProvider';
 export { QueryProvider } from './QueryProvider';
 export { GestaltProvider } from './GestaltProvider';
 export { RouterProvider } from './RouterProvider';
+export { ThemeProvider } from './ThemeProvider';
 
 export default AppProviders;

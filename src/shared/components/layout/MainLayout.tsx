@@ -1,6 +1,4 @@
-// ================================================
-// FILE: src/shared/components/layout/MainLayout.tsx
-// ================================================
+// src/shared/components/layout/MainLayout.tsx
 
 import React, { useEffect, useRef } from 'react';
 import { Outlet } from 'react-router-dom';
@@ -42,14 +40,14 @@ export const MainLayout: React.FC = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
+      const currentScrollY = globalThis.scrollY;
       setScrollPosition(currentScrollY);
       setIsScrollingUp(currentScrollY < lastScrollY.current);
       lastScrollY.current = currentScrollY;
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    globalThis.addEventListener('scroll', handleScroll, { passive: true });
+    return () => globalThis.removeEventListener('scroll', handleScroll);
   }, [setScrollPosition, setIsScrollingUp]);
 
   const getContentMarginLeft = (): number => {
@@ -60,7 +58,7 @@ export const MainLayout: React.FC = () => {
   };
 
   return (
-    <Box minHeight="100vh" display="flex" direction="column" color="default">
+    <>
       <Header />
       
       {!isMobile && <Sidebar />}
@@ -69,7 +67,6 @@ export const MainLayout: React.FC = () => {
       <Box 
         as="main" 
         flex="grow"
-        // === Минимальные отступы ===
         paddingX={1}
         dangerouslySetInlineStyle={{
           __style: { 
@@ -84,7 +81,6 @@ export const MainLayout: React.FC = () => {
           marginStart="auto" 
           marginEnd="auto" 
           width="100%"
-          // === Минимальный padding ===
           padding={1}
         >
           <Outlet />
@@ -108,13 +104,13 @@ export const MainLayout: React.FC = () => {
             },
           }}
         >
-          <FullPageLoader accessibilityLabel={globalLoadingMessage || 'Loading...'} />
+          <FullPageLoader accessibilityLabel={globalLoadingMessage ?? 'Loading...'} />
         </Box>
       )}
       
       <GlobalModals />
       <ToastContainer />
-    </Box>
+    </>
   );
 };
 

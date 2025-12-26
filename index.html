@@ -13,8 +13,9 @@
     <meta name="author" content="Pictorium" />
     
     <!-- Theme Color -->
-    <meta name="theme-color" content="#e60023" />
+    <meta name="theme-color" content="#ffffff" id="meta-theme-color" />
     <meta name="msapplication-TileColor" content="#e60023" />
+    <meta name="color-scheme" content="light dark" />
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -39,7 +40,7 @@
     <meta property="twitter:description" content="Discover and save creative ideas. Pictorium is a visual discovery platform where you can find inspiration for all your interests." />
     <meta property="twitter:image" content="/og-image.png" />
     
-    <!-- Security - ИСПРАВЛЕННЫЙ CSP -->
+    <!-- Security - CSP -->
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self'; 
                    script-src 'self' 'unsafe-inline' 'unsafe-eval'; 
@@ -49,14 +50,49 @@
                    frame-src 'self' http://localhost:9090; 
                    connect-src 'self' http://localhost:* ws://localhost:* https://*.keycloak.com https://*.amazonaws.com;" />
     
-    <!-- Preconnect to important origins -->
+    <!-- Preconnect -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     
     <!-- DNS Prefetch -->
     <link rel="dns-prefetch" href="//fonts.googleapis.com" />
     
-    <!-- No-script fallback styles -->
+    <!-- Theme Initialization - MUST be before any styles to prevent FOUC -->
+    <script>
+      (function() {
+        var STORAGE_KEY = 'pinthis-color-scheme';
+        var theme = 'light';
+        
+        try {
+          var saved = localStorage.getItem(STORAGE_KEY);
+          
+          if (saved === 'dark') {
+            theme = 'dark';
+          } else if (saved === 'light') {
+            theme = 'light';
+          } else {
+            // userPreference or not set - check system
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+              theme = 'dark';
+            }
+          }
+        } catch (e) {
+          // localStorage not available
+        }
+        
+        // Apply theme immediately to prevent flash
+        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.classList.add(theme);
+        
+        // Update meta theme-color
+        var metaTheme = document.getElementById('meta-theme-color');
+        if (metaTheme) {
+          metaTheme.setAttribute('content', theme === 'dark' ? '#121212' : '#ffffff');
+        }
+      })();
+    </script>
+    
+    <!-- No-script fallback -->
     <noscript>
       <style>
         .js-only { display: none !important; }
@@ -70,19 +106,42 @@
           text-align: center;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
-        .no-js-message h1 {
-          color: #e60023;
-          margin-bottom: 16px;
-        }
-        .no-js-message p {
-          color: #333;
-          max-width: 400px;
-        }
+        .no-js-message h1 { color: #e60023; margin-bottom: 16px; }
+        .no-js-message p { color: #333; max-width: 400px; }
       </style>
     </noscript>
     
-    <!-- Initial loading styles -->
+    <!-- Initial loader styles with theme support -->
     <style>
+      :root {
+        --loader-bg: #ffffff;
+        --loader-text: #111111;
+        --loader-spinner-track: #e0e0e0;
+        --loader-spinner-color: #e60023;
+      }
+      
+      html[data-theme="dark"],
+      html.dark {
+        --loader-bg: #121212;
+        --loader-text: #e8e8e8;
+        --loader-spinner-track: #303030;
+        --loader-spinner-color: #ff3b50;
+      }
+      
+      html, body {
+        margin: 0;
+        padding: 0;
+      }
+      
+      html {
+        background-color: var(--loader-bg);
+      }
+      
+      body {
+        background-color: var(--loader-bg);
+        color: var(--loader-text);
+      }
+      
       #initial-loader {
         position: fixed;
         top: 0;
@@ -93,8 +152,8 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background-color: #ffffff;
-        z-index: 9999;
+        background-color: var(--loader-bg);
+        z-index: 99999;
         transition: opacity 0.3s ease;
       }
       
@@ -106,31 +165,20 @@
       .loader-logo {
         width: 60px;
         height: 60px;
-        margin-bottom: 20px;
+        margin-bottom: 24px;
       }
       
       .loader-spinner {
         width: 40px;
         height: 40px;
-        border: 3px solid #f3f3f3;
-        border-top: 3px solid #e60023;
+        border: 3px solid var(--loader-spinner-track);
+        border-top-color: var(--loader-spinner-color);
         border-radius: 50%;
-        animation: spin 1s linear infinite;
+        animation: loader-spin 0.8s linear infinite;
       }
       
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-      
-      @media (prefers-color-scheme: dark) {
-        #initial-loader {
-          background-color: #111111;
-        }
-        .loader-spinner {
-          border-color: #333333;
-          border-top-color: #e60023;
-        }
+      @keyframes loader-spin {
+        to { transform: rotate(360deg); }
       }
     </style>
   </head>
@@ -164,19 +212,56 @@
     <!-- Main Script -->
     <script type="module" src="/src/main.tsx"></script>
     
-    <!-- Hide loader when app is ready -->
+    <!-- Hide loader & Listen for system theme changes -->
     <script>
+      // Hide loader when app is ready
       window.addEventListener('DOMContentLoaded', function() {
         setTimeout(function() {
           var loader = document.getElementById('initial-loader');
           if (loader) {
             loader.classList.add('hidden');
             setTimeout(function() {
-              loader.remove();
+              if (loader && loader.parentNode) {
+                loader.parentNode.removeChild(loader);
+              }
             }, 300);
           }
         }, 100);
       });
+      
+      // Listen for system theme changes
+      (function() {
+        if (!window.matchMedia) return;
+        
+        var mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        
+        mediaQuery.addEventListener('change', function(e) {
+          var STORAGE_KEY = 'pinthis-color-scheme';
+          var saved = null;
+          
+          try {
+            saved = localStorage.getItem(STORAGE_KEY);
+          } catch (err) {}
+          
+          // Only update if user preference is 'userPreference' or not set
+          if (saved === 'userPreference' || saved === null) {
+            var theme = e.matches ? 'dark' : 'light';
+            
+            document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.classList.remove('light', 'dark');
+            document.documentElement.classList.add(theme);
+            
+            document.body.setAttribute('data-theme', theme);
+            document.body.classList.remove('light', 'dark');
+            document.body.classList.add(theme);
+            
+            var metaTheme = document.getElementById('meta-theme-color');
+            if (metaTheme) {
+              metaTheme.setAttribute('content', theme === 'dark' ? '#121212' : '#ffffff');
+            }
+          }
+        });
+      })();
     </script>
   </body>
 </html>

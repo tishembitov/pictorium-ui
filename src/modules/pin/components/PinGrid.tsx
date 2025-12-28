@@ -85,7 +85,7 @@ export const PinGrid: React.FC<PinGridProps> = ({
         minCols={MIN_COLUMNS}
         loadItems={handleLoadMore}
         scrollContainer={getScrollContainer}
-        virtualize
+        virtualize={false}
         // === Layout вычисляется мгновенно благодаря известным размерам ===
       />
       

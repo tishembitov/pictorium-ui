@@ -35,7 +35,7 @@ interface UserProfileHeaderProps {
 }
 
 // Layout constants
-const BANNER_HEIGHT = 360; // Уменьшено с 420
+const BANNER_HEIGHT = 300; // Уменьшено с 420
 const BANNER_WIDTH_PERCENT = 50; // Уменьшено с 55
 
 // Helper components

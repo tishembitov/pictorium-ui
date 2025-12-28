@@ -1,11 +1,12 @@
 // src/modules/user/components/UserProfileForm.tsx
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Box, Flex, Button, Text, TapArea, Spinner, Icon, Divider } from 'gestalt';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FormField, FormTextArea } from '@/shared/components';
 import { useImageUpload, useImageUrl } from '@/modules/storage';
+import { useToast } from '@/shared/hooks/useToast';
 import { userProfileSchema, type UserProfileFormData } from './userProfileSchema';
 import { useUpdateUser } from '../hooks/useUpdateUser';
 import { UserAvatar } from './UserAvatar';
@@ -118,14 +119,19 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
   user,
   onSuccess,
 }) => {
+  // ✅ Используем специальные состояния для отслеживания удаления
   const [avatarImageId, setAvatarImageId] = useState<string | null>(user.imageId);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarRemoved, setAvatarRemoved] = useState(false);
+  
   const [bannerImageId, setBannerImageId] = useState<string | null>(user.bannerImageId);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [bannerRemoved, setBannerRemoved] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
+  const { toast } = useToast();
   const { upload: uploadAvatar, isUploading: isUploadingAvatar } = useImageUpload();
   const { upload: uploadBanner, isUploading: isUploadingBanner } = useImageUpload();
 
@@ -153,12 +159,26 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
     },
   });
 
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (bannerPreview) URL.revokeObjectURL(bannerPreview);
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    };
+  }, [bannerPreview, avatarPreview]);
+
   const handleAvatarSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Cleanup previous preview
+    if (avatarPreview) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+
     const previewUrl = URL.createObjectURL(file);
     setAvatarPreview(previewUrl);
+    setAvatarRemoved(false); // ✅ Сбрасываем флаг удаления
 
     try {
       const result = await uploadAvatar(file, { category: 'avatars' });
@@ -166,6 +186,8 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
     } catch (error) {
       console.error('Avatar upload failed:', error);
       setAvatarPreview(null);
+      URL.revokeObjectURL(previewUrl);
+      toast.error('Failed to upload avatar');
     }
     
     if (avatarInputRef.current) {
@@ -177,8 +199,14 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Cleanup previous preview
+    if (bannerPreview) {
+      URL.revokeObjectURL(bannerPreview);
+    }
+
     const previewUrl = URL.createObjectURL(file);
     setBannerPreview(previewUrl);
+    setBannerRemoved(false); // ✅ Сбрасываем флаг удаления
 
     try {
       const result = await uploadBanner(file, { category: 'banners' });
@@ -186,6 +214,8 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
     } catch (error) {
       console.error('Banner upload failed:', error);
       setBannerPreview(null);
+      URL.revokeObjectURL(previewUrl);
+      toast.error('Failed to upload banner');
     }
     
     if (bannerInputRef.current) {
@@ -193,25 +223,78 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
     }
   };
 
+  // ✅ Обработчики удаления с флагами
+  const handleRemoveAvatar = () => {
+    if (avatarPreview) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+    setAvatarImageId(null);
+    setAvatarPreview(null);
+    setAvatarRemoved(true); // ✅ Устанавливаем флаг удаления
+  };
+
   const handleRemoveBanner = () => {
+    if (bannerPreview) {
+      URL.revokeObjectURL(bannerPreview);
+    }
     setBannerImageId(null);
     setBannerPreview(null);
+    setBannerRemoved(true); // ✅ Устанавливаем флаг удаления
   };
 
   const onSubmit = (data: UserProfileFormData) => {
-    updateUser({
-      ...data,
-      imageId: avatarImageId ?? undefined,
-      bannerImageId: bannerImageId ?? undefined,
-    });
+    // ✅ Формируем данные с учётом удаления
+    const submitData: Record<string, unknown> = {
+      username: data.username,
+      description: data.description || undefined,
+      instagram: data.instagram || undefined,
+      tiktok: data.tiktok || undefined,
+      telegram: data.telegram || undefined,
+      pinterest: data.pinterest || undefined,
+    };
+
+    // ✅ Обрабатываем imageId
+    if (avatarRemoved) {
+      // Явное удаление - отправляем пустую строку или null (зависит от API)
+      submitData.imageId = '';
+    } else if (avatarImageId && avatarImageId !== user.imageId) {
+      // Новое изображение
+      submitData.imageId = avatarImageId;
+    }
+    // Если не изменилось - не отправляем поле
+
+    // ✅ Обрабатываем bannerImageId
+    if (bannerRemoved) {
+      // Явное удаление
+      submitData.bannerImageId = '';
+    } else if (bannerImageId && bannerImageId !== user.bannerImageId) {
+      // Новое изображение
+      submitData.bannerImageId = bannerImageId;
+    }
+    // Если не изменилось - не отправляем поле
+
+    console.log('[UserProfileForm] Submitting:', submitData);
+
+    updateUser(submitData);
   };
 
   const hasChanges = isDirty || 
     avatarImageId !== user.imageId || 
-    bannerImageId !== user.bannerImageId;
+    bannerImageId !== user.bannerImageId ||
+    avatarRemoved ||
+    bannerRemoved;
 
   const isLoading = isSaving || isUploadingAvatar || isUploadingBanner;
-  const hasBanner = !!(bannerPreview || bannerImageId);
+
+  const hasBanner = !bannerRemoved && !!(bannerPreview || bannerImageId);
+  const hasAvatar = !avatarRemoved && !!(avatarPreview || avatarImageId);
+
+  
+  const avatarImageIdToShow = useMemo(() => {
+    if (!hasAvatar) return null;
+    if (avatarPreview) return null;
+    return avatarImageId;
+  }, [hasAvatar, avatarPreview, avatarImageId]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -367,8 +450,8 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
             
             <Flex alignItems="center" gap={3}>
               <Box position="relative">
-                <UserAvatar
-                  imageId={avatarPreview ? null : avatarImageId}
+              <UserAvatar
+                  imageId={avatarImageIdToShow}
                   src={avatarPreview}
                   name={user.username}
                   size="xl"
@@ -403,13 +486,10 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
                   color="gray"
                   disabled={isUploadingAvatar}
                 />
-                {avatarImageId && (
+                {hasAvatar && (
                   <Button
                     text="Remove"
-                    onClick={() => {
-                      setAvatarImageId(null);
-                      setAvatarPreview(null);
-                    }}
+                    onClick={handleRemoveAvatar}
                     size="sm"
                     color="transparent"
                     disabled={isUploadingAvatar}

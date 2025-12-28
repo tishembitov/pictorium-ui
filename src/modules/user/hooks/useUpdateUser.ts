@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { userApi } from '../api/userApi';
+import { useAuthStore } from '@/modules/auth';
 import { useToast } from '@/shared/hooks/useToast';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/shared/utils/constants';
 import type { UserResponse, UserUpdateRequest } from '../types/user.types';
@@ -24,11 +25,27 @@ export const useUpdateUser = (options: UseUpdateUserOptions = {}) => {
   const mutation = useMutation({
     mutationFn: (data: UserUpdateRequest) => userApi.updateMe(data),
     onSuccess: (data) => {
-      // Invalidate user queries
-      queryClient.invalidateQueries({ queryKey: queryKeys.users.me() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.users.byId(data.id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.users.byUsername(data.username) });
+      queryClient.setQueryData(queryKeys.users.me(), data);
+      queryClient.setQueryData(queryKeys.users.byId(data.id), data);
+      queryClient.setQueryData(queryKeys.users.byUsername(data.username), data);
       
+
+      const authStore = useAuthStore.getState();
+      if (authStore.user) {
+        authStore.setUser({
+          ...authStore.user,
+          username: data.username,
+        });
+      }
+      
+      const currentUser = authStore.user;
+      if (currentUser && currentUser.username !== data.username) {
+        queryClient.setQueryData(
+          queryKeys.users.byUsername(currentUser.username), 
+          data
+        );
+      }
+
       if (showToast) {
         toast.success(SUCCESS_MESSAGES.PROFILE_UPDATED);
       }

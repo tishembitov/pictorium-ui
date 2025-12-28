@@ -19,17 +19,17 @@ import { useAuth } from '@/modules/auth';
 import { ErrorMessage } from '@/shared/components';
 import { useToast } from '@/shared/hooks/useToast';
 import { useConfirmModal } from '@/shared/hooks/useConfirmModal';
-import { useTheme } from '@/shared/hooks/useTheme';
+// import { useTheme } from '@/shared/hooks/useTheme';
 import { buildPath } from '@/app/router/routeConfig';
 
-type SettingsTab = 'profile' | 'account' | 'appearance';
+type SettingsTab = 'profile' | 'account' ;
 
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user: authUser, logout } = useAuth();
   const { toast } = useToast();
   const { confirm } = useConfirmModal();
-  const { colorScheme, setColorScheme } = useTheme();
+  // const { colorScheme, setColorScheme } = useTheme();
   
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
@@ -72,12 +72,12 @@ const SettingsPage: React.FC = () => {
   };
 
   const handleTabChange = ({ activeTabIndex }: { activeTabIndex: number }) => {
-    const tabs: SettingsTab[] = ['profile', 'account', 'appearance'];
+    const tabs: SettingsTab[] = ['profile', 'account'];
     setActiveTab(tabs[activeTabIndex] || 'profile');
   };
 
   const getTabIndex = (): number => {
-    const tabs: SettingsTab[] = ['profile', 'account', 'appearance'];
+    const tabs: SettingsTab[] = ['profile', 'account'];
     return tabs.indexOf(activeTab);
   };
 
@@ -148,8 +148,8 @@ const SettingsPage: React.FC = () => {
           onChange={handleTabChange}
           tabs={[
             { href: '#profile', text: 'Edit Profile' },
-            { href: '#account', text: 'Account' },
-            { href: '#appearance', text: 'Appearance' },
+            { href: '#account', text: 'Account' }
+            // { href: '#appearance', text: 'Appearance' },
           ]}
         />
       </Box>
@@ -227,7 +227,7 @@ const SettingsPage: React.FC = () => {
         )}
 
         {/* Appearance Tab */}
-        {activeTab === 'appearance' && (
+        {/* {activeTab === 'appearance' && (
           <Box>
             <Flex direction="column" gap={4}>
               <Box>
@@ -260,7 +260,7 @@ const SettingsPage: React.FC = () => {
               </Box>
             </Flex>
           </Box>
-        )}
+        )} */}
       </Box>
     </Box>
   );

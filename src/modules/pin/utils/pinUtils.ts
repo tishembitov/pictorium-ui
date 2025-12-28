@@ -3,14 +3,6 @@
 import type { PinResponse, PinPreview } from '../types/pin.types';
 
 /**
- * Check if current user is the owner of a pin
- */
-export const isPinOwner = (pin: PinResponse, userId: string | undefined): boolean => {
-  if (!userId) return false;
-  return pin.userId === userId;
-};
-
-/**
  * Get pin image ID (prefer thumbnail for grid display)
  */
 export const getPinImageId = (pin: PinResponse | PinPreview): string => {
@@ -138,6 +130,67 @@ export const filterPinsByTags = (
   return pins.filter((pin) =>
     pin.tags.some((tag) => lowerTagsSet.has(tag.toLowerCase()))
   );
+};
+
+/**
+ * Check if current user is the owner of the pin
+ */
+export const isPinOwner = (
+  pin: PinResponse | undefined | null, 
+  userId: string | undefined | null
+): boolean => {
+  if (!pin || !userId) return false;
+  return pin.userId === userId;
+};
+
+/**
+ * Check if pin will have no saves after removing from profile
+ * (used in useUnsaveFromProfile)
+ */
+export const isLastSaveAfterProfileRemoval = (
+  pin: PinResponse | undefined | null,
+  userId: string | undefined | null
+): boolean => {
+  if (!isPinOwner(pin, userId)) return false;
+  return pin!.savedToBoardCount === 0;
+};
+
+/**
+ * Check if pin will have no saves after removing from one board
+ * (used in useRemovePinFromBoard)
+ */
+export const isLastSaveAfterBoardRemoval = (
+  pin: PinResponse | undefined | null,
+  userId: string | undefined | null
+): boolean => {
+  if (!isPinOwner(pin, userId)) return false;
+  return !pin!.isSavedToProfile && pin!.savedToBoardCount <= 1;
+};
+
+/**
+ * Check if pin will have no saves after removing from all boards
+ * (used in useRemovePinFromAllBoards)
+ */
+export const isLastSaveAfterAllBoardsRemoval = (
+  pin: PinResponse | undefined | null,
+  userId: string | undefined | null
+): boolean => {
+  if (!isPinOwner(pin, userId)) return false;
+  return !pin!.isSavedToProfile;
+};
+
+/**
+ * Get appropriate confirmation message based on removal type
+ */
+export type RemovalType = 'profile' | 'board' | 'allBoards';
+
+export const getDeleteConfirmationMessage = (type: RemovalType): string => {
+  const messages: Record<RemovalType, string> = {
+    profile: 'This is your pin and it\'s not saved to any boards. Removing it from your profile will delete it permanently.',
+    board: 'This is your pin and it\'s not saved anywhere else. Removing it will delete it permanently.',
+    allBoards: 'This is your pin and it\'s not saved to your profile. Removing it from all boards will delete it permanently.',
+  };
+  return messages[type];
 };
 
 /**

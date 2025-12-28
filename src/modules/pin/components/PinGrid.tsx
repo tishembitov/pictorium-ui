@@ -1,8 +1,6 @@
-// ================================================
-// FILE: src/modules/pin/components/PinGrid.tsx
-// ================================================
+// src/modules/pin/components/PinGrid.tsx
 
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback } from 'react';
 import { Box, Masonry, Spinner } from 'gestalt';
 import { EmptyState } from '@/shared/components';
 import { PinCard } from './PinCard';
@@ -21,12 +19,10 @@ interface PinGridProps {
   };
 }
 
-// === Константы Masonry ===
 const COLUMN_WIDTH = 236;
-const GUTTER_WIDTH = 8; // Минимальные отступы
+const GUTTER_WIDTH = 8;
 const MIN_COLUMNS = 2;
 
-// Masonry item component
 const GridItem = ({ data }: { data: PinResponse }) => {
   return <PinCard pin={data} />;
 };
@@ -40,22 +36,16 @@ export const PinGrid: React.FC<PinGridProps> = ({
   emptyMessage = 'No pins found',
   emptyAction,
 }) => {
-  const scrollContainerRef = useRef<HTMLElement | null>(null);
-
-  // Memoize scroll container getter
-  const getScrollContainer = useCallback(() => {
-    scrollContainerRef.current ??= document.documentElement;
-    return scrollContainerRef.current;
+  const getScrollContainer = useCallback((): HTMLElement | Window => {
+    return window;
   }, []);
 
-  // Handle load more
   const handleLoadMore = useCallback(() => {
     if (!isFetchingNextPage && hasNextPage && fetchNextPage) {
       fetchNextPage();
     }
   }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
-  // Initial loading
   if (isLoading && pins.length === 0) {
     return (
       <Box display="flex" justifyContent="center" padding={6}>
@@ -64,7 +54,6 @@ export const PinGrid: React.FC<PinGridProps> = ({
     );
   }
 
-  // Empty state
   if (!isLoading && pins.length === 0) {
     return (
       <EmptyState
@@ -85,8 +74,7 @@ export const PinGrid: React.FC<PinGridProps> = ({
         minCols={MIN_COLUMNS}
         loadItems={handleLoadMore}
         scrollContainer={getScrollContainer}
-        virtualize={false}
-        // === Layout вычисляется мгновенно благодаря известным размерам ===
+        virtualize
       />
       
       {isFetchingNextPage && (

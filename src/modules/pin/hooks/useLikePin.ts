@@ -33,6 +33,8 @@ const isLikedByUserQuery = (queryKey: QueryKey, userId: string): boolean => {
   );
 };
 
+// src/modules/pin/hooks/useLikePin.ts
+
 export const useLikePin = (options: UseLikePinOptions = {}) => {
   const { onSuccess, onError } = options;
   const queryClient = useQueryClient();
@@ -48,6 +50,20 @@ export const useLikePin = (options: UseLikePinOptions = {}) => {
         queryKeys.pins.byId(pinId)
       );
 
+      // ✅ Сохраняем ВСЕ затронутые списки для rollback
+      const previousLists: Array<{
+        key: QueryKey;
+        data: InfiniteData<PagePinResponse> | undefined;
+      }> = [];
+
+      queryClient.getQueriesData<InfiniteData<PagePinResponse>>({
+        queryKey: queryKeys.pins.all,
+      }).forEach(([key, data]) => {
+        if (data) {
+          previousLists.push({ key, data });
+        }
+      });
+
       const currentLikeCount = previousPin?.likeCount ?? 0;
       const updates = {
         isLiked: true,
@@ -55,7 +71,6 @@ export const useLikePin = (options: UseLikePinOptions = {}) => {
       };
       const updatePin = createPinUpdater(pinId, updates);
 
-      // 1. Update single pin cache
       if (previousPin) {
         queryClient.setQueryData<PinResponse>(
           queryKeys.pins.byId(pinId),
@@ -63,7 +78,6 @@ export const useLikePin = (options: UseLikePinOptions = {}) => {
         );
       }
 
-      // 2. Update isLiked flag in ALL pin lists
       queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
         { queryKey: queryKeys.pins.all },
         (oldData) => {
@@ -78,16 +92,14 @@ export const useLikePin = (options: UseLikePinOptions = {}) => {
         }
       );
 
-      return { previousPin, pinId };
+      return { previousPin, previousLists, pinId };
     },
     onSuccess: (data, pinId) => {
-      // Invalidate likes list for the pin
       queryClient.invalidateQueries({ 
         queryKey: queryKeys.pins.likes(pinId),
         exact: true,
       });
       
-      // Invalidate likedBy queries to ensure fresh data on tab switch
       if (userId) {
         queryClient.invalidateQueries({
           predicate: (query) => isLikedByUserQuery(query.queryKey, userId),
@@ -97,13 +109,20 @@ export const useLikePin = (options: UseLikePinOptions = {}) => {
       onSuccess?.(data);
     },
     onError: (error: Error, pinId, context) => {
+      // ✅ Откатываем single pin
       if (context?.previousPin) {
         queryClient.setQueryData(
           queryKeys.pins.byId(pinId), 
           context.previousPin
         );
       }
-      queryClient.invalidateQueries({ queryKey: queryKeys.pins.all });
+      
+      // ✅ Откатываем ВСЕ списки
+      if (context?.previousLists) {
+        for (const { key, data } of context.previousLists) {
+          queryClient.setQueryData(key, data);
+        }
+      }
       
       onError?.(error);
     },
@@ -117,5 +136,3 @@ export const useLikePin = (options: UseLikePinOptions = {}) => {
     error: mutation.error,
   };
 };
-
-export default useLikePin;

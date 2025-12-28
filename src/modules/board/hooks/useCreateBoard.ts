@@ -23,9 +23,18 @@ export const useCreateBoard = (options: UseCreateBoardOptions = {}) => {
 
   const mutation = useMutation({
     mutationFn: (data: BoardCreateRequest) => boardApi.create(data),
+    
     onSuccess: (data) => {
-      // Invalidate boards lists
-      queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
+      // Add to my boards cache immediately
+      queryClient.setQueryData<BoardResponse[]>(
+        queryKeys.boards.my(),
+        (oldData) => oldData ? [data, ...oldData] : [data]
+      );
+      
+      // Set individual board cache
+      queryClient.setQueryData(queryKeys.boards.byId(data.id), data);
+      
+      // Invalidate to sync with server
       queryClient.invalidateQueries({ queryKey: queryKeys.boards.all });
 
       if (showToast) {
@@ -34,6 +43,7 @@ export const useCreateBoard = (options: UseCreateBoardOptions = {}) => {
 
       onSuccess?.(data);
     },
+    
     onError: (error: Error) => {
       if (showToast) {
         toast.error(error.message || 'Failed to create board');

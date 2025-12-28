@@ -8,6 +8,7 @@ import { useToast } from '@/shared/hooks/useToast';
 import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
 import { ROUTES } from '@/app/router/routeConfig';
 import { useSelectedBoardStore } from '../stores/selectedBoardStore';
+import type { BoardResponse } from '../types/board.types';
 
 interface UseDeleteBoardOptions {
   onSuccess?: () => void;
@@ -34,11 +35,30 @@ export const useDeleteBoard = (options: UseDeleteBoardOptions = {}) => {
 
   const mutation = useMutation({
     mutationFn: (boardId: string) => boardApi.delete(boardId),
+    
+    onMutate: async (boardId) => {
+      // Cancel related queries
+      await queryClient.cancelQueries({ queryKey: queryKeys.boards.my() });
+
+      // Snapshot previous data
+      const previousBoards = queryClient.getQueryData<BoardResponse[]>(
+        queryKeys.boards.my()
+      );
+
+      // Optimistic removal
+      queryClient.setQueryData<BoardResponse[]>(
+        queryKeys.boards.my(),
+        (oldData) => oldData?.filter((b) => b.id !== boardId) ?? []
+      );
+
+      return { previousBoards, boardId };
+    },
+
     onSuccess: (_, boardId) => {
-      // Remove board from cache
+      // Remove from cache
       queryClient.removeQueries({ queryKey: queryKeys.boards.byId(boardId) });
-      // Invalidate boards lists
-      queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
+      
+      // Invalidate to sync
       queryClient.invalidateQueries({ queryKey: queryKeys.boards.all });
 
       // Clear selected board if it was deleted
@@ -56,7 +76,16 @@ export const useDeleteBoard = (options: UseDeleteBoardOptions = {}) => {
 
       onSuccess?.();
     },
-    onError: (error: Error) => {
+
+    onError: (error: Error, _, context) => {
+      // Rollback
+      if (context?.previousBoards) {
+        queryClient.setQueryData(
+          queryKeys.boards.my(),
+          context.previousBoards
+        );
+      }
+
       if (showToast) {
         toast.error(error.message || 'Failed to delete board');
       }

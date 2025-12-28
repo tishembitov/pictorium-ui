@@ -1,6 +1,6 @@
 // src/modules/pin/hooks/useSaveToProfile.ts
 
-import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type InfiniteData, type QueryKey } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { pinApi } from '../api/pinApi';
 import { useToast } from '@/shared/hooks/useToast';
@@ -31,16 +31,25 @@ const updatePinInPages = (
   updater: (pin: PinResponse) => PinResponse
 ): InfiniteData<PagePinResponse> | undefined => {
   if (!data?.pages) return data;
-  
+
   return {
     ...data,
     pages: data.pages.map((page) => ({
       ...page,
-      content: page.content.map((pin) => 
+      content: page.content.map((pin) =>
         pin.id === pinId ? updater(pin) : pin
       ),
     })),
   };
+};
+
+/**
+ * Check if query is for user's saved pins
+ */
+const isSavedPinsQuery = (queryKey: QueryKey, userId: string): boolean => {
+  if (!Array.isArray(queryKey) || queryKey[0] !== 'pins' || queryKey[1] !== 'list') return false;
+  const filter = queryKey[2] as Record<string, unknown> | undefined;
+  return filter?.savedAnywhere === userId || filter?.savedToProfileBy === userId;
 };
 
 /**
@@ -54,16 +63,28 @@ export const useSaveToProfile = (options: UseSaveToProfileOptions = {}) => {
 
   const mutation = useMutation({
     mutationFn: (pinId: string) => pinApi.saveToProfile(pinId),
-    
+
     onMutate: async (pinId) => {
       // Cancel related queries
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.byId(pinId) });
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.all });
 
-      // Snapshot previous data
+      // Snapshot previous single pin
       const previousPin = queryClient.getQueryData<PinResponse>(
         queryKeys.pins.byId(pinId)
       );
+
+      // Snapshot ALL pin lists for proper rollback
+      const previousLists: Array<{
+        key: QueryKey;
+        data: InfiniteData<PagePinResponse> | undefined;
+      }> = [];
+
+      queryClient.getQueriesData<InfiniteData<PagePinResponse>>({
+        queryKey: queryKeys.pins.all,
+      }).forEach(([key, data]) => {
+        previousLists.push({ key, data });
+      });
 
       // Optimistic update for single pin
       if (previousPin) {
@@ -79,26 +100,17 @@ export const useSaveToProfile = (options: UseSaveToProfileOptions = {}) => {
         (oldData) => updatePinInPages(oldData, pinId, createSavedToProfilePin)
       );
 
-      return { previousPin, pinId };
+      return { previousPin, previousLists, pinId };
     },
 
     onSuccess: (data, pinId) => {
       // Update cache with server response
       queryClient.setQueryData(queryKeys.pins.byId(pinId), data);
-      
+
       // Invalidate user's saved pins queries to refresh counts
       if (userId) {
-        queryClient.invalidateQueries({ 
-          queryKey: queryKeys.pins.mySavedToProfile() 
-        });
-        // Invalidate savedAnywhere queries for the user
         queryClient.invalidateQueries({
-          predicate: (query) => {
-            const key = query.queryKey;
-            if (!Array.isArray(key) || key[0] !== 'pins' || key[1] !== 'list') return false;
-            const filter = key[2] as Record<string, unknown> | undefined;
-            return filter?.savedAnywhere === userId || filter?.savedToProfileBy === userId;
-          },
+          predicate: (query) => isSavedPinsQuery(query.queryKey, userId),
         });
       }
 
@@ -110,14 +122,20 @@ export const useSaveToProfile = (options: UseSaveToProfileOptions = {}) => {
     },
 
     onError: (error: Error, pinId, context) => {
-      // Rollback
+      // Rollback single pin
       if (context?.previousPin) {
         queryClient.setQueryData(
           queryKeys.pins.byId(pinId),
           context.previousPin
         );
       }
-      queryClient.invalidateQueries({ queryKey: queryKeys.pins.all });
+
+      // Rollback all pin lists
+      if (context?.previousLists) {
+        for (const { key, data } of context.previousLists) {
+          queryClient.setQueryData(key, data);
+        }
+      }
 
       if (showToast) {
         toast.error(error.message || 'Failed to save pin');

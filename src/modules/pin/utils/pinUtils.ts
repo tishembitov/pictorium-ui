@@ -144,10 +144,11 @@ export const isPinOwner = (
 };
 
 /**
- * Check if pin will have no saves after removing from profile
- * (used in useUnsaveFromProfile)
+ * Check if own pin should be deleted after removing from profile
+ * 
+ * DELETE if: owner AND not saved to any boards
  */
-export const isLastSaveAfterProfileRemoval = (
+export const shouldDeleteAfterProfileRemoval = (
   pin: PinResponse | undefined | null,
   userId: string | undefined | null
 ): boolean => {
@@ -156,10 +157,11 @@ export const isLastSaveAfterProfileRemoval = (
 };
 
 /**
- * Check if pin will have no saves after removing from one board
- * (used in useRemovePinFromBoard)
+ * Check if own pin should be deleted after removing from one board
+ * 
+ * DELETE if: owner AND not in profile AND this is the only board
  */
-export const isLastSaveAfterBoardRemoval = (
+export const shouldDeleteAfterBoardRemoval = (
   pin: PinResponse | undefined | null,
   userId: string | undefined | null
 ): boolean => {
@@ -168,29 +170,16 @@ export const isLastSaveAfterBoardRemoval = (
 };
 
 /**
- * Check if pin will have no saves after removing from all boards
- * (used in useRemovePinFromAllBoards)
+ * Check if own pin should be deleted after removing from all boards
+ * 
+ * DELETE if: owner AND not in profile
  */
-export const isLastSaveAfterAllBoardsRemoval = (
+export const shouldDeleteAfterAllBoardsRemoval = (
   pin: PinResponse | undefined | null,
   userId: string | undefined | null
 ): boolean => {
   if (!isPinOwner(pin, userId)) return false;
   return !pin!.isSavedToProfile;
-};
-
-/**
- * Get appropriate confirmation message based on removal type
- */
-export type RemovalType = 'profile' | 'board' | 'allBoards';
-
-export const getDeleteConfirmationMessage = (type: RemovalType): string => {
-  const messages: Record<RemovalType, string> = {
-    profile: 'This is your pin and it\'s not saved to any boards. Removing it from your profile will delete it permanently.',
-    board: 'This is your pin and it\'s not saved anywhere else. Removing it will delete it permanently.',
-    allBoards: 'This is your pin and it\'s not saved to your profile. Removing it from all boards will delete it permanently.',
-  };
-  return messages[type];
 };
 
 /**

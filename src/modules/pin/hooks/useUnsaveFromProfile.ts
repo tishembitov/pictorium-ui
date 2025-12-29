@@ -5,16 +5,13 @@ import { queryKeys } from '@/app/config/queryClient';
 import { pinApi } from '../api/pinApi';
 import { useToast } from '@/shared/hooks/useToast';
 import { useAuthStore } from '@/modules/auth';
-import { useConfirmModal } from '@/shared/hooks/useConfirmModal';
+import { shouldDeleteAfterProfileRemoval } from '../utils/pinUtils';
 import type { PinResponse, PagePinResponse } from '../types/pin.types';
-import { getDeleteConfirmationMessage, isLastSaveAfterProfileRemoval } from '../utils/pinUtils';
 
 interface UseUnsaveFromProfileOptions {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
   showToast?: boolean;
-  deleteIfOwnerLastSave?: boolean;
-  confirmBeforeDelete?: boolean;
 }
 
 const createUnsavedFromProfilePin = (pin: PinResponse): PinResponse => ({
@@ -68,23 +65,16 @@ const isSavedPinsQuery = (queryKey: QueryKey, userId: string): boolean => {
 };
 
 export const useUnsaveFromProfile = (options: UseUnsaveFromProfileOptions = {}) => {
-  const { 
-    onSuccess, 
-    onError, 
-    showToast = true,
-    deleteIfOwnerLastSave = true,
-    confirmBeforeDelete = true,
-  } = options;
+  const { onSuccess, onError, showToast = true } = options;
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { confirm } = useConfirmModal();
   const userId = useAuthStore((state) => state.user?.id);
 
   const mutation = useMutation({
     mutationFn: async (pinId: string) => {
       const pin = queryClient.getQueryData<PinResponse>(queryKeys.pins.byId(pinId));
-      const shouldDelete = deleteIfOwnerLastSave && isLastSaveAfterProfileRemoval(pin, userId);
+      const shouldDelete = shouldDeleteAfterProfileRemoval(pin, userId);
       
       if (shouldDelete) {
         await pinApi.delete(pinId);
@@ -100,18 +90,20 @@ export const useUnsaveFromProfile = (options: UseUnsaveFromProfileOptions = {}) 
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.all });
 
       const previousPin = queryClient.getQueryData<PinResponse>(queryKeys.pins.byId(pinId));
-      const shouldDelete = deleteIfOwnerLastSave && isLastSaveAfterProfileRemoval(previousPin, userId);
+      const shouldDelete = shouldDeleteAfterProfileRemoval(previousPin, userId);
 
       const previousLists: Array<{ key: QueryKey; data: InfiniteData<PagePinResponse> | undefined }> = [];
       queryClient.getQueriesData<InfiniteData<PagePinResponse>>({ queryKey: queryKeys.pins.all })
         .forEach(([key, data]) => { if (data) previousLists.push({ key, data }); });
 
       if (shouldDelete) {
+        // Полное удаление из всех списков
         queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
           { queryKey: queryKeys.pins.all },
           (oldData) => removePinFromPages(oldData, pinId)
         );
       } else {
+        // Обновление статуса
         if (previousPin) {
           queryClient.setQueryData<PinResponse>(
             queryKeys.pins.byId(pinId),
@@ -123,6 +115,7 @@ export const useUnsaveFromProfile = (options: UseUnsaveFromProfileOptions = {}) 
           (oldData) => updatePinInPages(oldData, pinId, createUnsavedFromProfilePin)
         );
 
+        // Удаление из saved queries если больше нигде не сохранён
         if (previousPin?.savedToBoardCount === 0 && userId) {
           queryClient.getQueriesData<InfiniteData<PagePinResponse>>({ queryKey: queryKeys.pins.all })
             .forEach(([key]) => {
@@ -167,26 +160,8 @@ export const useUnsaveFromProfile = (options: UseUnsaveFromProfileOptions = {}) 
     },
   });
 
-  const unsaveFromProfile = (pinId: string) => {
-    const pin = queryClient.getQueryData<PinResponse>(queryKeys.pins.byId(pinId));
-    const willDelete = deleteIfOwnerLastSave && isLastSaveAfterProfileRemoval(pin, userId);
-    
-    if (willDelete && confirmBeforeDelete) {
-      confirm({
-        title: 'Delete Pin?',
-        message: getDeleteConfirmationMessage('profile'),
-        confirmText: 'Delete',
-        cancelText: 'Keep',
-        destructive: true,
-        onConfirm: () => mutation.mutate(pinId),
-      });
-    } else {
-      mutation.mutate(pinId);
-    }
-  };
-
   return {
-    unsaveFromProfile,
+    unsaveFromProfile: mutation.mutate,
     unsaveFromProfileAsync: mutation.mutateAsync,
     isLoading: mutation.isPending,
     isError: mutation.isError,

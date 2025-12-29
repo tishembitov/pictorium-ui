@@ -6,16 +6,13 @@ import { boardApi } from '../api/boardApi';
 import { pinApi } from '@/modules/pin/api/pinApi';
 import { useToast } from '@/shared/hooks/useToast';
 import { useAuthStore } from '@/modules/auth';
-import { useConfirmModal } from '@/shared/hooks/useConfirmModal';
-import { isLastSaveAfterAllBoardsRemoval, getDeleteConfirmationMessage } from '@/modules/pin/utils/pinUtils';
+import { shouldDeleteAfterAllBoardsRemoval } from '@/modules/pin/utils/pinUtils';
 import type { PinResponse, PagePinResponse } from '@/modules/pin';
 
 interface UseRemovePinFromAllBoardsOptions {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
   showToast?: boolean;
-  deleteIfOwnerLastSave?: boolean;
-  confirmBeforeDelete?: boolean;
 }
 
 const createClearedPin = (pin: PinResponse): PinResponse => ({
@@ -70,23 +67,16 @@ const isSavedPinsQuery = (queryKey: QueryKey, userId: string): boolean => {
 };
 
 export const useRemovePinFromAllBoards = (options: UseRemovePinFromAllBoardsOptions = {}) => {
-  const { 
-    onSuccess, 
-    onError, 
-    showToast = true,
-    deleteIfOwnerLastSave = true,
-    confirmBeforeDelete = true,
-  } = options;
+  const { onSuccess, onError, showToast = true } = options;
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { confirm } = useConfirmModal();
   const userId = useAuthStore((state) => state.user?.id);
 
   const mutation = useMutation({
     mutationFn: async (pinId: string) => {
       const pin = queryClient.getQueryData<PinResponse>(queryKeys.pins.byId(pinId));
-      const shouldDelete = deleteIfOwnerLastSave && isLastSaveAfterAllBoardsRemoval(pin, userId);
+      const shouldDelete = shouldDeleteAfterAllBoardsRemoval(pin, userId);
       
       if (shouldDelete) {
         await pinApi.delete(pinId);
@@ -102,18 +92,20 @@ export const useRemovePinFromAllBoards = (options: UseRemovePinFromAllBoardsOpti
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.all });
 
       const previousPin = queryClient.getQueryData<PinResponse>(queryKeys.pins.byId(pinId));
-      const shouldDelete = deleteIfOwnerLastSave && isLastSaveAfterAllBoardsRemoval(previousPin, userId);
+      const shouldDelete = shouldDeleteAfterAllBoardsRemoval(previousPin, userId);
 
       const previousLists: Array<{ key: QueryKey; data: InfiniteData<PagePinResponse> | undefined }> = [];
       queryClient.getQueriesData<InfiniteData<PagePinResponse>>({ queryKey: queryKeys.pins.all })
         .forEach(([key, data]) => { if (data) previousLists.push({ key, data }); });
 
       if (shouldDelete) {
+        // Полное удаление из всех списков
         queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
           { queryKey: queryKeys.pins.all },
           (oldData) => removePinFromPages(oldData, pinId)
         );
       } else {
+        // Обновление статуса
         if (previousPin) {
           queryClient.setQueryData<PinResponse>(queryKeys.pins.byId(pinId), createClearedPin(previousPin));
         }
@@ -122,6 +114,7 @@ export const useRemovePinFromAllBoards = (options: UseRemovePinFromAllBoardsOpti
           (oldData) => updatePinInPages(oldData, pinId, createClearedPin)
         );
 
+        // Удаление из saved queries если не в профиле
         if (previousPin && !previousPin.isSavedToProfile && userId) {
           queryClient.getQueriesData<InfiniteData<PagePinResponse>>({ queryKey: queryKeys.pins.all })
             .forEach(([key]) => {
@@ -170,26 +163,8 @@ export const useRemovePinFromAllBoards = (options: UseRemovePinFromAllBoardsOpti
     },
   });
 
-  const removePinFromAllBoards = (pinId: string) => {
-    const pin = queryClient.getQueryData<PinResponse>(queryKeys.pins.byId(pinId));
-    const willDelete = deleteIfOwnerLastSave && isLastSaveAfterAllBoardsRemoval(pin, userId);
-    
-    if (willDelete && confirmBeforeDelete) {
-      confirm({
-        title: 'Delete Pin?',
-        message: getDeleteConfirmationMessage('allBoards'),
-        confirmText: 'Delete',
-        cancelText: 'Keep',
-        destructive: true,
-        onConfirm: () => mutation.mutate(pinId),
-      });
-    } else {
-      mutation.mutate(pinId);
-    }
-  };
-
   return {
-    removePinFromAllBoards,
+    removePinFromAllBoards: mutation.mutate,
     removePinFromAllBoardsAsync: mutation.mutateAsync,
     isLoading: mutation.isPending,
     isError: mutation.isError,

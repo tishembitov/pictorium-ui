@@ -19,6 +19,7 @@ import { FollowButton } from './FollowButton';
 import { ProfileShareButton } from './ProfileShareButton';
 import { useAuth } from '@/modules/auth';
 import { useImageUrl } from '@/modules/storage';
+import { useUserPins } from '@/modules/pin'; // ✅ Добавлен импорт
 import { useFollowers } from '../hooks/useFollowers';
 import { useFollowing } from '../hooks/useFollowing';
 import { formatCompactNumber } from '@/shared/utils/formatters';
@@ -31,12 +32,11 @@ import type { UserResponse } from '../types/user.types';
 
 interface UserProfileHeaderProps {
   user: UserResponse;
-  pinsCount?: number;
 }
 
 // Layout constants
-const BANNER_HEIGHT = 300; // Уменьшено с 420
-const BANNER_WIDTH_PERCENT = 50; // Уменьшено с 55
+const BANNER_HEIGHT = 300;
+const BANNER_WIDTH_PERCENT = 50;
 
 // Helper components
 interface StatItemProps {
@@ -149,7 +149,6 @@ const FullscreenImage: React.FC<FullscreenImageProps> = ({
 
 export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
   user,
-  pinsCount = 0,
 }) => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
@@ -172,6 +171,12 @@ export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
   const { data: avatarData } = useImageUrl(user.imageId, {
     enabled: !!user.imageId,
   });
+
+  const { totalElements: pinsCount } = useUserPins(
+    user.id, 
+    isCurrentUser ? 'SAVED_ALL' : 'CREATED', 
+    { pageSize: 1 }
+  );
 
   // Get follower/following counts
   const { totalElements: followersCount } = useFollowers(user.id, {

@@ -15,6 +15,7 @@ import {
 import { useDeleteBoard } from '../hooks/useDeleteBoard';
 import { useSelectBoard } from '../hooks/useSelectBoard';
 import { useSelectedBoard } from '../hooks/useSelectedBoard';
+import { useIsOwner } from '@/modules/auth';
 import { useConfirmModal } from '@/shared/hooks/useConfirmModal';
 import { useToast } from '@/shared/hooks/useToast';
 import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard';
@@ -42,6 +43,9 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   const { selectedBoard } = useSelectedBoard();
   const { selectBoard, deselectBoard, isLoading: isSelecting } = useSelectBoard();
   const { deleteBoard } = useDeleteBoard();
+  
+  // ✅ Проверяем, является ли текущий пользователь владельцем доски
+  const isOwner = useIsOwner(board.userId);
 
   const isSelected = selectedBoard?.id === board.id;
   const shareUrl = `${globalThis.location.origin}/board/${board.id}`;
@@ -91,8 +95,8 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   return (
     <Box paddingY={6}>
       <Flex direction="column" alignItems="center" gap={4}>
-        {/* Selected Badge */}
-        {isSelected && (
+        {/* Selected Badge - только для своих досок */}
+        {isOwner && isSelected && (
           <Box 
             color="successBase" 
             paddingX={3} 
@@ -108,7 +112,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
           </Box>
         )}
 
-        {/* Board Title - исправлено: size="400" вместо "500" */}
+        {/* Board Title */}
         <Heading size="400" align="center" accessibilityLevel={1}>
           {board.title}
         </Heading>
@@ -120,15 +124,19 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
 
         {/* Actions */}
         <Flex gap={3} alignItems="center">
-          <Button
-            text={isSelected ? 'Deselect' : 'Set as default'}
-            onClick={handleSelectBoard}
-            size="lg"
-            color={isSelected ? 'gray' : 'red'}
-            disabled={isSelecting}
-          />
+          {/* Set as default - только для своих досок */}
+          {isOwner && (
+            <Button
+              text={isSelected ? 'Deselect' : 'Set as default'}
+              onClick={handleSelectBoard}
+              size="lg"
+              color={isSelected ? 'gray' : 'red'}
+              disabled={isSelecting}
+            />
+          )}
 
-          {onEdit && (
+          {/* Edit - только для своих досок */}
+          {isOwner && onEdit && (
             <Tooltip text="Edit board">
               <IconButton
                 accessibilityLabel="Edit board"
@@ -175,7 +183,8 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
                   />
                 </Dropdown.Section>
 
-                {onEdit && (
+                {/* Board actions - только для владельца */}
+                {isOwner && onEdit && (
                   <Dropdown.Section label="Board">
                     <Dropdown.Item
                       onSelect={() => { setShowMenu(false); onEdit(); }}

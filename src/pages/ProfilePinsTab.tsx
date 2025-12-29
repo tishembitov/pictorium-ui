@@ -1,15 +1,14 @@
 // src/pages/ProfilePinsTab.tsx
 
-import React, { useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Box, Flex, Text, Button, TapArea, Icon } from 'gestalt';
+import React, { useCallback, useState, useMemo } from 'react';
+import { Box, Flex, Text, TapArea, Icon } from 'gestalt';
 import { 
   PinGrid, 
   PinSortSelect,
   useUserPins,
 } from '@/modules/pin';
 import { usePinPreferencesStore } from '@/modules/pin/stores/pinPreferencesStore';
-import { ROUTES } from '@/app/router/routeConfig';
+import type { PinScope } from '@/modules/pin';
 
 interface ProfilePinsTabProps {
   userId: string;
@@ -20,14 +19,19 @@ const ProfilePinsTab: React.FC<ProfilePinsTabProps> = ({
   userId, 
   isOwner = false,
 }) => {
-  const navigate = useNavigate();
   const [showOnlyCreated, setShowOnlyCreated] = useState(false);
   
   // Global sort preference
   const sort = usePinPreferencesStore((s) => s.sort);
 
-  // Fetch pins based on filter
-  const scope = showOnlyCreated ? 'CREATED' : 'SAVED_ALL';
+  // Для своего профиля: можем переключать между SAVED_ALL и CREATED
+  // Для чужого профиля: только CREATED (сохранённые - приватные данные)
+  const scope: PinScope = useMemo(() => {
+    if (!isOwner) {
+      return 'CREATED';
+    }
+    return showOnlyCreated ? 'CREATED' : 'SAVED_ALL';
+  }, [isOwner, showOnlyCreated]);
   
   const {
     pins,
@@ -42,22 +46,21 @@ const ProfilePinsTab: React.FC<ProfilePinsTabProps> = ({
     setShowOnlyCreated(prev => !prev);
   }, []);
 
-  const handleCreatePin = useCallback(() => {
-    navigate(ROUTES.PIN_CREATE);
-  }, [navigate]);
-
   const handleFetchNextPage = useCallback(() => {
     fetchNextPage();
   }, [fetchNextPage]);
 
   const displayCount = pins.length > 0 ? totalElements : 0;
 
-  const getEmptyMessage = () => {
-    if (showOnlyCreated) {
-      return isOwner ? "You haven't created any pins yet" : "No pins created yet";
+  const emptyMessage = useMemo(() => {
+    if (!isOwner) {
+      return "No pins created yet";
     }
-    return isOwner ? "You haven't saved any pins yet" : "No saved pins yet";
-  };
+    if (showOnlyCreated) {
+      return "You haven't created any pins yet";
+    }
+    return "You haven't saved any pins yet";
+  }, [isOwner, showOnlyCreated]);
 
   return (
     <Box>
@@ -70,55 +73,47 @@ const ProfilePinsTab: React.FC<ProfilePinsTabProps> = ({
               {displayCount} {displayCount === 1 ? 'Pin' : 'Pins'}
             </Text>
             
-            {/* Created by me filter button */}
-            <TapArea onTap={handleToggleCreated} rounding="pill">
-              <Box
-                paddingX={3}
-                paddingY={2}
-                rounding="pill"
-                display="flex"
-                alignItems="center"
-                dangerouslySetInlineStyle={{
-                  __style: {
-                    backgroundColor: showOnlyCreated 
-                      ? 'var(--color-primary)' 
-                      : 'var(--bg-secondary)',
-                    transition: 'all 0.15s ease',
-                  },
-                }}
-              >
-                <Flex alignItems="center" gap={2}>
-                  {showOnlyCreated && (
-                    <Icon 
-                      accessibilityLabel="" 
-                      icon="check" 
-                      size={12} 
-                      color="inverse" 
-                    />
-                  )}
-                  <Text 
-                    size="200" 
-                    weight="bold"
-                    color={showOnlyCreated ? 'inverse' : 'default'}
-                  >
-                    Created by {isOwner ? 'me' : 'user'}
-                  </Text>
-                </Flex>
-              </Box>
-            </TapArea>
+            {/* Created by me filter - только для своего профиля */}
+            {isOwner && (
+              <TapArea onTap={handleToggleCreated} rounding="pill">
+                <Box
+                  paddingX={3}
+                  paddingY={2}
+                  rounding="pill"
+                  display="flex"
+                  alignItems="center"
+                  dangerouslySetInlineStyle={{
+                    __style: {
+                      backgroundColor: showOnlyCreated 
+                        ? 'var(--color-primary)' 
+                        : 'var(--bg-secondary)',
+                      transition: 'all 0.15s ease',
+                    },
+                  }}
+                >
+                  <Flex alignItems="center" gap={2}>
+                    {showOnlyCreated && (
+                      <Icon 
+                        accessibilityLabel="" 
+                        icon="check" 
+                        size={12} 
+                        color="inverse" 
+                      />
+                    )}
+                    <Text 
+                      size="200" 
+                      weight="bold"
+                      color={showOnlyCreated ? 'inverse' : 'default'}
+                    >
+                      Created by me
+                    </Text>
+                  </Flex>
+                </Box>
+              </TapArea>
+            )}
             
             <PinSortSelect size="md" />
           </Flex>
-          
-          {/* Right side - Create button */}
-          {isOwner && (
-            <Button
-              text="Create Pin"
-              onClick={handleCreatePin}
-              color="red"
-              size="md"
-            />
-          )}
         </Flex>
       </Box>
 
@@ -129,12 +124,7 @@ const ProfilePinsTab: React.FC<ProfilePinsTabProps> = ({
         isFetchingNextPage={isFetchingNextPage}
         hasNextPage={hasNextPage}
         fetchNextPage={handleFetchNextPage}
-        emptyMessage={getEmptyMessage()}
-        emptyAction={
-          isOwner && showOnlyCreated
-            ? { text: 'Create your first pin', onClick: handleCreatePin }
-            : undefined
-        }
+        emptyMessage={emptyMessage}
       />
     </Box>
   );

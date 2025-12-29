@@ -159,7 +159,9 @@ export const BoardCard: React.FC<BoardCardProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const isOwner = useIsOwner(board.userId);
   const selectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
-  const isSelected = selectedBoard?.id === board.id;
+  
+  // ✅ Показываем индикатор "Active" только для своих досок
+  const isSelected = isOwner && selectedBoard?.id === board.id;
 
   // Получаем первые 3 пина для коллажа
   const { pins, totalElements: pinCount } = useBoardPins(board.id, {
@@ -228,7 +230,7 @@ export const BoardCard: React.FC<BoardCardProps> = ({
         </Box>
       </Mask>
 
-      {/* Selected Badge */}
+      {/* Selected Badge - только для своих досок */}
       {showSelectIndicator && isSelected && (
         <Box
           position="absolute"
@@ -254,8 +256,8 @@ export const BoardCard: React.FC<BoardCardProps> = ({
         </Box>
       )}
 
-      {/* Hover Overlay with Edit Button */}
-      {isHovered && (
+      {/* Hover Overlay with Edit Button - только для владельца */}
+      {isHovered && isOwner && onEdit && (
         <Box
           position="absolute"
           top
@@ -272,15 +274,13 @@ export const BoardCard: React.FC<BoardCardProps> = ({
             },
           }}
         >
-          {isOwner && onEdit && (
-            <IconButton
-              accessibilityLabel="Edit board"
-              icon="edit"
-              size="sm"
-              bgColor="white"
-              onClick={handleEditClick}
-            />
-          )}
+          <IconButton
+            accessibilityLabel="Edit board"
+            icon="edit"
+            size="sm"
+            bgColor="white"
+            onClick={handleEditClick}
+          />
         </Box>
       )}
 

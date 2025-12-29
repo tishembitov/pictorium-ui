@@ -14,27 +14,6 @@ interface UseSavePinToBoardOptions {
   showToast?: boolean;
 }
 
-// ==================== Logging ====================
-
-const LOG_PREFIX = '[SavePinToBoard]';
-
-const logPinState = (label: string, pin: PinResponse | undefined) => {
-  if (!pin) {
-    console.log(`${LOG_PREFIX} ${label}: pin is undefined`);
-    return;
-  }
-  console.log(`${LOG_PREFIX} ${label}:`, {
-    id: pin.id,
-    isSaved: pin.isSaved,
-    isSavedToProfile: pin.isSavedToProfile,
-    savedToBoardCount: pin.savedToBoardCount,
-  });
-};
-
-const logCacheUpdate = (action: string, details?: Record<string, unknown>) => {
-  console.log(`${LOG_PREFIX} Cache Update - ${action}`, details || '');
-};
-
 // ==================== Helper: Find Pin in Cache ====================
 
 const findPinInCache = (
@@ -74,25 +53,13 @@ const updatePinInPages = (
 ): InfiniteData<PagePinResponse> | undefined => {
   if (!data?.pages) return data;
 
-  let updateCount = 0;
-  const result = {
+  return {
     ...data,
     pages: data.pages.map((page) => ({
       ...page,
-      content: page.content.map((pin) => {
-        if (pin.id === pinId) {
-          updateCount++;
-          return updater(pin);
-        }
-        return pin;
-      }),
+      content: page.content.map((pin) => (pin.id === pinId ? updater(pin) : pin)),
     })),
   };
-
-  if (updateCount > 0) {
-    logCacheUpdate('updatePinInPages', { pinId, updateCount });
-  }
-  return result;
 };
 
 const isSavedPinsQuery = (queryKey: unknown[], userId: string): boolean => {
@@ -112,16 +79,10 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
   const userId = useAuthStore((state) => state.user?.id);
 
   const mutation = useMutation({
-    mutationFn: ({ boardId, pinId }: BoardPinAction) => {
-      console.log(`${LOG_PREFIX} ========================================`);
-      console.log(`${LOG_PREFIX} Executing API call`);
-      console.log(`${LOG_PREFIX} Pin: ${pinId}, Board: ${boardId}`);
-      return boardApi.savePinToBoard(boardId, pinId);
-    },
+    mutationFn: ({ boardId, pinId }: BoardPinAction) =>
+      boardApi.savePinToBoard(boardId, pinId),
 
     onMutate: async ({ pinId, boardId }) => {
-      console.log(`${LOG_PREFIX} onMutate - Starting`);
-      
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.byId(pinId) });
       await queryClient.cancelQueries({ queryKey: queryKeys.boards.forPin(pinId) });
       await queryClient.cancelQueries({ queryKey: queryKeys.boards.pins(boardId) });
@@ -129,7 +90,6 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.all });
 
       const previousPin = findPinInCache(queryClient, pinId);
-      logPinState('Previous state', previousPin);
 
       const previousLists: Array<{
         key: QueryKey;
@@ -143,9 +103,7 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
       });
 
       if (previousPin) {
-        const updatedPin = createSavedPin(previousPin);
-        logPinState('Optimistic update', updatedPin);
-        queryClient.setQueryData<PinResponse>(queryKeys.pins.byId(pinId), updatedPin);
+        queryClient.setQueryData<PinResponse>(queryKeys.pins.byId(pinId), createSavedPin(previousPin));
       }
 
       queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
@@ -153,20 +111,15 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
         (oldData) => updatePinInPages(oldData, pinId, createSavedPin)
       );
 
-      console.log(`${LOG_PREFIX} onMutate - Complete`);
       return { previousPin, previousLists, pinId, boardId };
     },
 
     onSuccess: (_, { boardId, pinId }) => {
-      console.log(`${LOG_PREFIX} onSuccess`);
-      
-      // ✅ Инвалидируем ВСЕ связанные с досками запросы
       queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.boards.pins(boardId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() }); // ✅ Обновит pinCount
+      queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
 
-      // ✅ Инвалидируем пины ВСЕХ досок для обновления превью
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey;
           return Array.isArray(key) && key[0] === 'boards' && key[1] === 'pins';
@@ -187,13 +140,10 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
         toast.success('Pin saved to board!');
       }
 
-      console.log(`${LOG_PREFIX} ========================================`);
       onSuccess?.();
     },
 
     onError: (error: Error, { pinId }, context) => {
-      console.error(`${LOG_PREFIX} onError - Rolling back`, error.message);
-
       if (context?.previousPin) {
         queryClient.setQueryData(queryKeys.pins.byId(pinId), context.previousPin);
       }
@@ -208,7 +158,6 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
         toast.error(error.message || 'Failed to save pin');
       }
 
-      console.log(`${LOG_PREFIX} ========================================`);
       onError?.(error);
     },
   });

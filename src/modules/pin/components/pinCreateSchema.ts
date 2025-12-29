@@ -20,8 +20,8 @@ export const pinCreateSchema = z.object({
   
   title: z
     .string()
-    .max(TEXT_LIMITS.PIN_TITLE, `Title must be less than ${TEXT_LIMITS.PIN_TITLE} characters`)
-    .optional(),
+    .min(1, 'Title is required')
+    .max(TEXT_LIMITS.PIN_TITLE, `Title must be less than ${TEXT_LIMITS.PIN_TITLE} characters`),
   
   description: z
     .string()

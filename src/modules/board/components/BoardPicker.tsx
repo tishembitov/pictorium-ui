@@ -27,7 +27,13 @@ import type { BoardResponse, BoardWithPinStatusResponse } from '../types/board.t
 // ==================== Types ====================
 
 interface BoardPickerProps {
+  /** Pin ID - если передан, показывает статус сохранения для этого пина */
   pinId?: string;
+  /** Контролируемое значение - если передано, работает в локальном режиме */
+  value?: BoardResponse | null;
+  /** Callback при изменении в контролируемом режиме */
+  onChange?: (board: BoardResponse | null) => void;
+  /** Callback при изменении в неконтролируемом режиме (для обратной совместимости) */
   onBoardChange?: (board: BoardResponse | null) => void;
   onSaveToBoard?: (board: BoardWithPinStatusResponse) => void;
   onSaveToProfile?: () => void;
@@ -70,10 +76,6 @@ const getProfileIconStyle = (isSaved: boolean, isHovered: boolean): IconStyle =>
 
 // ==================== Shared Helpers ====================
 
-/**
- * Returns background color for picker items based on state.
- * Used by both ProfilePickerItem and BoardPickerItem.
- */
 const getPickerItemBackgroundColor = (
   isSelected: boolean,
   isHovered: boolean,
@@ -90,7 +92,6 @@ const getPickerItemBackgroundColor = (
 
 // ==================== Sub-components ====================
 
-// Profile picker item with red theme
 const ProfilePickerItem: React.FC<{
   isSelected: boolean;
   isSavedToProfile: boolean;
@@ -121,7 +122,6 @@ const ProfilePickerItem: React.FC<{
         }}
       >
         <Flex alignItems="center" gap={3}>
-          {/* Profile Icon with Red Gradient */}
           <Box
             width={40}
             height={40}
@@ -139,7 +139,6 @@ const ProfilePickerItem: React.FC<{
             <Icon accessibilityLabel="" icon="person" size={18} color="inverse" />
           </Box>
 
-          {/* Title */}
           <Box flex="grow">
             <Text weight={isSelected ? 'bold' : 'normal'} size="200">
               Profile
@@ -149,7 +148,6 @@ const ProfilePickerItem: React.FC<{
             </Text>
           </Box>
 
-          {/* Status */}
           {isProcessing && (
             <Spinner accessibilityLabel="Saving" show size="sm" />
           )}
@@ -165,11 +163,7 @@ const ProfilePickerItem: React.FC<{
             </Box>
           )}
           {isSelected && !isSavedToProfile && !isProcessing && (
-            <Box color="primary" rounding="pill" paddingX={2} paddingY={1}>
-              <Text size="100" color="inverse" weight="bold">
-                Default
-              </Text>
-            </Box>
+            <Icon accessibilityLabel="Selected" icon="check" size={16} color="success" />
           )}
         </Flex>
       </Box>
@@ -177,7 +171,6 @@ const ProfilePickerItem: React.FC<{
   );
 };
 
-// Board item for picker
 const BoardPickerItem: React.FC<{
   board: BoardWithPinStatusResponse | BoardResponse;
   isSelected: boolean;
@@ -190,7 +183,6 @@ const BoardPickerItem: React.FC<{
   const coverImageId = pins[0]?.thumbnailId || pins[0]?.imageId;
   const { data: coverData } = useImageUrl(coverImageId, { enabled: !!coverImageId });
 
-  // Check if this is a BoardWithPinStatusResponse
   const hasPin = 'hasPin' in board ? board.hasPin : false;
   const pinCount = 'pinCount' in board ? board.pinCount : pins.length;
   
@@ -215,7 +207,6 @@ const BoardPickerItem: React.FC<{
         }}
       >
         <Flex alignItems="center" gap={3}>
-          {/* Mini Cover */}
           <Box
             width={40}
             height={40}
@@ -240,7 +231,6 @@ const BoardPickerItem: React.FC<{
             )}
           </Box>
 
-          {/* Title */}
           <Box flex="grow">
             <Text weight={isSelected ? 'bold' : 'normal'} size="200" lineClamp={1}>
               {board.title}
@@ -250,7 +240,6 @@ const BoardPickerItem: React.FC<{
             </Text>
           </Box>
 
-          {/* Status */}
           {isProcessing && (
             <Spinner accessibilityLabel="Saving" show size="sm" />
           )}
@@ -295,6 +284,8 @@ const getSizeValues = (size: PickerSize): SizeValues => {
 
 export const BoardPicker: React.FC<BoardPickerProps> = ({
   pinId,
+  value,
+  onChange,
   onBoardChange,
   onSaveToBoard,
   onSaveToProfile,
@@ -308,7 +299,10 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [anchorElement, setAnchorElement] = useState<HTMLDivElement | null>(null);
 
-  // Use different hooks based on whether we have a pinId
+  // Определяем режим работы: контролируемый или глобальный
+  const isControlled = value !== undefined;
+
+  // Boards data
   const { boards: simpleBoards, isLoading: isLoadingSimple } = useMyBoards({ 
     enabled: !pinId 
   });
@@ -319,10 +313,13 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
   const boards = pinId ? boardsWithStatus : simpleBoards;
   const isBoardsLoading = pinId ? isLoadingWithStatus : isLoadingSimple;
 
-  const { selectedBoard } = useSelectedBoard();
-  const { selectBoard, switchToProfile } = useSelectBoard();
+  // Global state (используется только в неконтролируемом режиме)
+  const { selectedBoard: globalSelectedBoard } = useSelectedBoard();
+  const { selectBoard: globalSelectBoard, switchToProfile: globalSwitchToProfile } = useSelectBoard();
 
-  const isProfileMode = selectedBoard === null;
+  // Определяем текущее выбранное значение
+  const currentSelectedBoard = isControlled ? value : globalSelectedBoard;
+  const isProfileMode = currentSelectedBoard === null;
 
   // Filter boards
   const filteredBoards = useMemo(() => {
@@ -344,22 +341,30 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
   const handleProfileSelect = useCallback(() => {
     if (onSaveToProfile) {
       onSaveToProfile();
+    } else if (isControlled) {
+      // Контролируемый режим - просто вызываем onChange
+      onChange?.(null);
     } else {
-      switchToProfile();
+      // Глобальный режим - меняем store
+      globalSwitchToProfile();
       onBoardChange?.(null);
     }
     setIsOpen(false);
-  }, [switchToProfile, onBoardChange, onSaveToProfile]);
+  }, [isControlled, onChange, globalSwitchToProfile, onBoardChange, onSaveToProfile]);
 
   const handleBoardSelect = useCallback((board: BoardResponse | BoardWithPinStatusResponse) => {
     if (onSaveToBoard && 'hasPin' in board) {
       onSaveToBoard(board);
+    } else if (isControlled) {
+      // Контролируемый режим - просто вызываем onChange
+      onChange?.(board);
     } else {
-      selectBoard(board.id);
+      // Глобальный режим - меняем store
+      globalSelectBoard(board.id);
       onBoardChange?.(board);
     }
     setIsOpen(false);
-  }, [selectBoard, onBoardChange, onSaveToBoard]);
+  }, [isControlled, onChange, globalSelectBoard, onBoardChange, onSaveToBoard]);
 
   const handleCreateNew = useCallback(() => {
     setIsOpen(false);
@@ -367,9 +372,18 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
   }, []);
 
   const handleCreateSuccess = useCallback((boardId: string) => {
-    selectBoard(boardId);
+    // Найти созданную доску в списке после инвалидации
+    const newBoard = boards.find(b => b.id === boardId);
+    if (newBoard) {
+      if (isControlled) {
+        onChange?.(newBoard);
+      } else {
+        globalSelectBoard(boardId);
+        onBoardChange?.(newBoard);
+      }
+    }
     setShowCreateModal(false);
-  }, [selectBoard]);
+  }, [boards, isControlled, onChange, globalSelectBoard, onBoardChange]);
 
   const setAnchorRef = useCallback((node: HTMLDivElement | null) => {
     setAnchorElement(node);
@@ -379,7 +393,7 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
   const { paddingX, paddingY, iconSize } = getSizeValues(size);
 
   // Display info
-  const displayText = isProfileMode ? 'Profile' : selectedBoard?.title;
+  const displayText = isProfileMode ? 'Profile' : currentSelectedBoard?.title;
 
   // Trigger icon size for profile
   const triggerIconContainerSize = iconSize + 6;
@@ -387,7 +401,7 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
 
   return (
     <>
-      <Tooltip text={isProfileMode ? 'Saving to Profile' : `Saving to: ${selectedBoard?.title}`}>
+      <Tooltip text={isProfileMode ? 'Saving to Profile' : `Saving to: ${currentSelectedBoard?.title}`}>
         <Box ref={setAnchorRef}>
           <TapArea onTap={handleToggle} rounding="pill">
             <Box
@@ -399,7 +413,6 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
               alignItems="center"
             >
               <Flex alignItems="center" gap={1}>
-                {/* Icon with Red Gradient for Profile */}
                 {isProfileMode ? (
                   <Box
                     width={triggerIconContainerSize}
@@ -431,7 +444,7 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
                   />
                 )}
                 
-                {(showLabel || selectedBoard || isProfileMode) && (
+                {(showLabel || currentSelectedBoard || isProfileMode) && (
                   <Text 
                     size="200"
                     weight="bold" 
@@ -464,14 +477,12 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
             color="white"
           >
             <Box padding={3} width={300}>
-              {/* Header */}
               <Box marginBottom={3}>
                 <Text weight="bold" size="300" align="center">
                   {pinId ? 'Save to' : 'Choose save location'}
                 </Text>
               </Box>
 
-              {/* Search - only if many boards */}
               {boards.length > 5 && (
                 <Box marginBottom={3}>
                   <SearchField
@@ -486,7 +497,6 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
                 </Box>
               )}
 
-              {/* Create New Button */}
               <Box marginBottom={2}>
                 <Button
                   text="Create board"
@@ -500,7 +510,6 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
 
               <Divider />
 
-              {/* Options List */}
               <Box marginTop={2}>
                 {isBoardsLoading ? (
                   <Box display="flex" justifyContent="center" padding={4}>
@@ -509,7 +518,6 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
                 ) : (
                   <Box maxHeight={280} overflow="scrollY">
                     <Flex direction="column" gap={1}>
-                      {/* Profile Option - Always First */}
                       <ProfilePickerItem
                         isSelected={isProfileMode}
                         isSavedToProfile={isSavedToProfile}
@@ -517,25 +525,22 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
                         isProcessing={isSaving}
                       />
 
-                      {/* Divider between Profile and Boards */}
                       {filteredBoards.length > 0 && (
                         <Box paddingY={1}>
                           <Divider />
                         </Box>
                       )}
 
-                      {/* Boards */}
                       {filteredBoards.map((board) => (
                         <BoardPickerItem
                           key={board.id}
                           board={board}
-                          isSelected={selectedBoard?.id === board.id}
+                          isSelected={currentSelectedBoard?.id === board.id}
                           onSelect={() => handleBoardSelect(board)}
                           isProcessing={isSaving}
                         />
                       ))}
 
-                      {/* No results */}
                       {filteredBoards.length === 0 && searchQuery && (
                         <Box padding={4}>
                           <Text align="center" color="subtle" size="200">
@@ -544,7 +549,6 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
                         </Box>
                       )}
 
-                      {/* Empty state */}
                       {filteredBoards.length === 0 && !searchQuery && (
                         <Box padding={4}>
                           <Text align="center" color="subtle" size="200">
@@ -561,7 +565,6 @@ export const BoardPicker: React.FC<BoardPickerProps> = ({
         </Layer>
       )}
 
-      {/* Create Modal */}
       <BoardCreateModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}

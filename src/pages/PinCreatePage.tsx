@@ -1,6 +1,6 @@
 // src/pages/PinCreatePage.tsx
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
@@ -10,74 +10,46 @@ import {
   Text, 
   IconButton, 
   Tooltip,
-  Icon,
 } from 'gestalt';
 import { PinCreateForm } from '@/modules/pin';
-import { BoardPicker, useSelectedBoard } from '@/modules/board';
 
 const PinCreatePage: React.FC = () => {
   const navigate = useNavigate();
-  const { selectedBoard } = useSelectedBoard();
 
-  const handleSuccess = () => {
+  const handleSuccess = useCallback(() => {
     navigate(-1);
-  };
+  }, [navigate]);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     navigate(-1);
-  };
+  }, [navigate]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     navigate(-1);
-  };
+  }, [navigate]);
 
   return (
-    <Box paddingY={6} maxWidth={900} marginStart="auto" marginEnd="auto">
+    <Box paddingY={4}>
       {/* Header */}
-      <Box marginBottom={6}>
-        <Flex justifyContent="between" alignItems="center">
-          {/* Left: Back button and title */}
-          <Flex alignItems="center" gap={4}>
-            <Tooltip text="Go back">
-              <IconButton
-                accessibilityLabel="Go back"
-                icon="arrow-back"
-                onClick={handleBack}
-                size="lg"
-                bgColor="transparent"
-              />
-            </Tooltip>
-            <Flex direction="column">
-              <Heading size="400" accessibilityLevel={1}>
-                Create Pin
-              </Heading>
-              <Text color="subtle" size="200">
-                Share something inspiring
-              </Text>
-            </Flex>
-          </Flex>
-
-          {/* Right: Board selection */}
-          <Flex alignItems="center" gap={3}>
-            <Flex direction="column" alignItems="end">
-              <Text size="100" color="subtle">
-                Saving to
-              </Text>
-              {selectedBoard ? (
-                <Flex alignItems="center" gap={2}>
-                  <Icon accessibilityLabel="" icon="board" size={14} color="default" />
-                  <Text weight="bold" size="200">
-                    {selectedBoard.title}
-                  </Text>
-                </Flex>
-              ) : (
-                <Text color="subtle" size="200">
-                  No board selected
-                </Text>
-              )}
-            </Flex>
-            <BoardPicker size="md" />
-          </Flex>
+      <Box marginBottom={4}>
+        <Flex alignItems="center" gap={3}>
+          <Tooltip text="Go back">
+            <IconButton
+              accessibilityLabel="Go back"
+              icon="arrow-back"
+              onClick={handleBack}
+              size="lg"
+              bgColor="transparent"
+            />
+          </Tooltip>
+          <Box>
+            <Heading size="400" accessibilityLevel={1}>
+              Create Pin
+            </Heading>
+            <Text color="subtle" size="200">
+              Share something inspiring
+            </Text>
+          </Box>
         </Flex>
       </Box>
 

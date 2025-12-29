@@ -12,15 +12,13 @@ import {
   Dropdown,
   Icon,
 } from 'gestalt';
+import { ShareButton } from '@/shared/components';
 import { useDeleteBoard } from '../hooks/useDeleteBoard';
 import { useSelectBoard } from '../hooks/useSelectBoard';
 import { useSelectedBoard } from '../hooks/useSelectedBoard';
 import { useIsOwner } from '@/modules/auth';
 import { useConfirmModal } from '@/shared/hooks/useConfirmModal';
-import { useToast } from '@/shared/hooks/useToast';
-import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard';
 import { formatCompactNumber } from '@/shared/utils/formatters';
-import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
 import type { BoardResponse } from '../types/board.types';
 
 interface BoardHeaderProps {
@@ -35,53 +33,26 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
   onEdit,
 }) => {
   const { confirm } = useConfirmModal();
-  const { toast } = useToast();
-  const { copy } = useCopyToClipboard();
   const [showMenu, setShowMenu] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [menuAnchor] = useState<HTMLElement | null>(null);
 
   const { selectedBoard } = useSelectedBoard();
   const { selectBoard, deselectBoard, isLoading: isSelecting } = useSelectBoard();
   const { deleteBoard } = useDeleteBoard();
   
-  // ✅ Проверяем, является ли текущий пользователь владельцем доски
   const isOwner = useIsOwner(board.userId);
-
   const isSelected = selectedBoard?.id === board.id;
   const shareUrl = `${globalThis.location.origin}/board/${board.id}`;
 
-  const handleSelectBoard = () => {
+  const handleSelectBoard = useCallback(() => {
     if (isSelected) {
       deselectBoard();
-      toast.success('Board deselected');
     } else {
       selectBoard(board.id);
-      toast.success(`New pins will be saved to "${board.title}"`);
     }
-  };
+  }, [isSelected, deselectBoard, selectBoard, board.id]);
 
-  const handleCopyLink = useCallback(async () => {
-    const success = await copy(shareUrl);
-    if (success) {
-      toast.success(SUCCESS_MESSAGES.COPIED_TO_CLIPBOARD);
-    }
-    setShowMenu(false);
-  }, [copy, shareUrl, toast]);
-
-  const handleShareTwitter = useCallback(() => {
-    const text = `Check out my board: ${board.title}`;
-    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
-    globalThis.open(url, '_blank', 'noopener,noreferrer');
-    setShowMenu(false);
-  }, [board.title, shareUrl]);
-
-  const handleShareFacebook = useCallback(() => {
-    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-    globalThis.open(url, '_blank', 'noopener,noreferrer');
-    setShowMenu(false);
-  }, [shareUrl]);
-
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     setShowMenu(false);
     confirm({
       title: 'Delete this board?',
@@ -90,7 +61,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
       destructive: true,
       onConfirm: () => deleteBoard(board.id),
     });
-  };
+  }, [confirm, board.title, board.id, deleteBoard]);
 
   return (
     <Box paddingY={6}>
@@ -143,63 +114,41 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
                 icon="edit"
                 onClick={onEdit}
                 size="lg"
-                bgColor="gray"
+                bgColor="lightGray"
               />
             </Tooltip>
           )}
 
-          <Box>
-            <Tooltip text="More options">
-              <IconButton
-                ref={(node) => setMenuAnchor(node)}
-                accessibilityLabel="More options"
-                accessibilityExpanded={showMenu}
-                accessibilityHaspopup
-                icon="ellipsis"
-                onClick={() => setShowMenu(!showMenu)}
-                size="lg"
-                bgColor="gray"
-              />
-            </Tooltip>
+          {/* Share Button */}
+          <ShareButton
+            url={shareUrl}
+            title={board.title}
+            size="lg"
+            tooltipText="Share board"
+          />
 
-            {showMenu && menuAnchor && (
-              <Dropdown
-                anchor={menuAnchor}
-                id="board-header-menu"
-                onDismiss={() => setShowMenu(false)}
-              >
-                <Dropdown.Section label="Share">
+          {/* More options - только для владельца */}
+          {isOwner && (
+            <Box>
+              {showMenu && menuAnchor && (
+                <Dropdown
+                  anchor={menuAnchor}
+                  id="board-header-menu"
+                  onDismiss={() => setShowMenu(false)}
+                >
                   <Dropdown.Item
-                    onSelect={handleCopyLink}
-                    option={{ value: 'copy', label: 'Copy link' }}
+                    onSelect={() => { setShowMenu(false); onEdit?.(); }}
+                    option={{ value: 'edit', label: 'Edit board' }}
                   />
                   <Dropdown.Item
-                    onSelect={handleShareTwitter}
-                    option={{ value: 'twitter', label: 'Share on Twitter' }}
+                    onSelect={handleDelete}
+                    option={{ value: 'delete', label: 'Delete board' }}
+                    badge={{ text: 'Danger' }}
                   />
-                  <Dropdown.Item
-                    onSelect={handleShareFacebook}
-                    option={{ value: 'facebook', label: 'Share on Facebook' }}
-                  />
-                </Dropdown.Section>
-
-                {/* Board actions - только для владельца */}
-                {isOwner && onEdit && (
-                  <Dropdown.Section label="Board">
-                    <Dropdown.Item
-                      onSelect={() => { setShowMenu(false); onEdit(); }}
-                      option={{ value: 'edit', label: 'Edit board' }}
-                    />
-                    <Dropdown.Item
-                      onSelect={handleDelete}
-                      option={{ value: 'delete', label: 'Delete board' }}
-                      badge={{ text: 'Danger' }}
-                    />
-                  </Dropdown.Section>
-                )}
-              </Dropdown>
-            )}
-          </Box>
+                </Dropdown>
+              )}
+            </Box>
+          )}
         </Flex>
       </Flex>
     </Box>

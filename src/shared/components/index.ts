@@ -28,8 +28,10 @@ export { Image } from './data-display/Image';
 export { MasonryGrid } from './data-display/MasonryGrid';
 export { InfiniteScroll } from './data-display/InfiniteScroll';
 export { Pagination } from './data-display/Pagination';
+export { ShareButton } from './data-display/ShareButton';
 
 // Modals
 export { BaseModal } from './modals/BaseModal';
 export { ConfirmModal } from './modals/ConfirmModal';
 export { GlobalModals } from './modals/GlobalModals';
+

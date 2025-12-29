@@ -51,17 +51,17 @@ const SettingsPage: React.FC = () => {
     });
   };
 
-  const handleDeleteAccount = () => {
-    confirm({
-      title: 'Delete Account?',
-      message: 'This action cannot be undone. All your pins, boards, and data will be permanently deleted.',
-      confirmText: 'Delete my account',
-      destructive: true,
-      onConfirm: () => {
-        toast.warning('Account deletion is not yet implemented');
-      },
-    });
-  };
+  // const handleDeleteAccount = () => {
+  //   confirm({
+  //     title: 'Delete Account?',
+  //     message: 'This action cannot be undone. All your pins, boards, and data will be permanently deleted.',
+  //     confirmText: 'Delete my account',
+  //     destructive: true,
+  //     onConfirm: () => {
+  //       toast.warning('Account deletion is not yet implemented');
+  //     },
+  //   });
+  // };
 
   const handleBack = () => {
     if (user) {
@@ -193,8 +193,8 @@ const SettingsPage: React.FC = () => {
 
               <Divider />
 
-              {/* Danger Zone */}
-              <Box
+              {/* /Danger Zone */}
+              {/* <Box
                 padding={4}
                 rounding={2}
                 dangerouslySetInlineStyle={{
@@ -221,7 +221,7 @@ const SettingsPage: React.FC = () => {
                     onClick={handleDeleteAccount}
                   />
                 </Flex>
-              </Box>
+              </Box> */}
             </Flex>
           </Box>
         )}

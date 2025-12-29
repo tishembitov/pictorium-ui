@@ -100,11 +100,6 @@ export const BoardEditModal: React.FC<BoardEditModalProps> = ({
         footer={
           <Box padding={4}>
             <Flex justifyContent="between" alignItems="center">
-              <Button
-                text="Delete board"
-                color="transparent"
-                onClick={() => {}}
-              />
               <Flex gap={2}>
                 <Button
                   text="Cancel"

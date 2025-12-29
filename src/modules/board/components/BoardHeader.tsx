@@ -34,7 +34,7 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
 }) => {
   const { confirm } = useConfirmModal();
   const [showMenu, setShowMenu] = useState(false);
-  const [menuAnchor] = useState<HTMLElement | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
 
   const { selectedBoard } = useSelectedBoard();
   const { selectBoard, deselectBoard, isLoading: isSelecting } = useSelectBoard();
@@ -130,6 +130,19 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
           {/* More options - только для владельца */}
           {isOwner && (
             <Box>
+              <Tooltip text="More options">
+                <IconButton
+                  ref={(node) => setMenuAnchor(node)}
+                  accessibilityLabel="More options"
+                  accessibilityExpanded={showMenu}
+                  accessibilityHaspopup
+                  icon="ellipsis"
+                  onClick={() => setShowMenu(!showMenu)}
+                  size="lg"
+                  bgColor="lightGray"
+                />
+              </Tooltip>
+
               {showMenu && menuAnchor && (
                 <Dropdown
                   anchor={menuAnchor}

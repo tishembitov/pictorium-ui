@@ -99,6 +99,7 @@ export const PinCard: React.FC<PinCardProps> = ({
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
               {isAuthenticated && (
                 <PinSaveSection
+                  key={pin.id}  
                   pinId={pin.id}
                   isSaved={pin.isSaved}
                   isSavedToProfile={pin.isSavedToProfile}

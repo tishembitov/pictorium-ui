@@ -9,9 +9,6 @@ interface UseMyBoardsOptions {
   enabled?: boolean;
 }
 
-/**
- * Hook to get current user's boards
- */
 export const useMyBoards = (options: UseMyBoardsOptions = {}) => {
   const { enabled = true } = options;
   const { isAuthenticated } = useAuth();
@@ -20,12 +17,13 @@ export const useMyBoards = (options: UseMyBoardsOptions = {}) => {
     queryKey: queryKeys.boards.my(),
     queryFn: () => boardApi.getMyBoards(),
     enabled: enabled && isAuthenticated,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 30, // ✅ 30 секунд - для актуальности pinCount
   });
 
   return {
     boards: query.data ?? [],
     isLoading: query.isLoading,
+    isFetching: query.isFetching, // ✅ Добавлено
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,

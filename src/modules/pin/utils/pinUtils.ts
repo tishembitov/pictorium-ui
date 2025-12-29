@@ -2,6 +2,8 @@
 
 import type { PinResponse, PinPreview } from '../types/pin.types';
 
+const LOG_PREFIX = '[PinUtils]';
+
 /**
  * Get pin image ID (prefer thumbnail for grid display)
  */
@@ -133,56 +135,6 @@ export const filterPinsByTags = (
 };
 
 /**
- * Check if current user is the owner of the pin
- */
-export const isPinOwner = (
-  pin: PinResponse | undefined | null, 
-  userId: string | undefined | null
-): boolean => {
-  if (!pin || !userId) return false;
-  return pin.userId === userId;
-};
-
-/**
- * Check if own pin should be deleted after removing from profile
- * 
- * DELETE if: owner AND not saved to any boards
- */
-export const shouldDeleteAfterProfileRemoval = (
-  pin: PinResponse | undefined | null,
-  userId: string | undefined | null
-): boolean => {
-  if (!isPinOwner(pin, userId)) return false;
-  return pin!.savedToBoardCount === 0;
-};
-
-/**
- * Check if own pin should be deleted after removing from one board
- * 
- * DELETE if: owner AND not in profile AND this is the only board
- */
-export const shouldDeleteAfterBoardRemoval = (
-  pin: PinResponse | undefined | null,
-  userId: string | undefined | null
-): boolean => {
-  if (!isPinOwner(pin, userId)) return false;
-  return !pin!.isSavedToProfile && pin!.savedToBoardCount <= 1;
-};
-
-/**
- * Check if own pin should be deleted after removing from all boards
- * 
- * DELETE if: owner AND not in profile
- */
-export const shouldDeleteAfterAllBoardsRemoval = (
-  pin: PinResponse | undefined | null,
-  userId: string | undefined | null
-): boolean => {
-  if (!isPinOwner(pin, userId)) return false;
-  return !pin!.isSavedToProfile;
-};
-
-/**
  * Search pins by query (client-side)
  */
 export const searchPins = (pins: PinResponse[], query: string): PinResponse[] => {
@@ -195,4 +147,101 @@ export const searchPins = (pins: PinResponse[], query: string): PinResponse[] =>
       pin.description?.toLowerCase().includes(lowerQuery) ||
       pin.tags.some((tag) => tag.toLowerCase().includes(lowerQuery))
   );
+};
+
+
+/**
+ * Check if current user is the owner of the pin
+ */
+export const isPinOwner = (
+  pin: PinResponse | undefined | null, 
+  userId: string | undefined | null
+): boolean => {
+  if (!pin || !userId) {
+    console.log(`${LOG_PREFIX} isPinOwner: false (missing data)`, { pin: !!pin, userId: !!userId });
+    return false;
+  }
+  const result = pin.userId === userId;
+  console.log(`${LOG_PREFIX} isPinOwner: ${result}`, { pinUserId: pin.userId, currentUserId: userId });
+  return result;
+};
+
+/**
+ * Check if own pin should be deleted after removing from profile
+ * 
+ * DELETE if: owner AND not saved to any boards
+ */
+export const shouldDeleteAfterProfileRemoval = (
+  pin: PinResponse | undefined | null,
+  userId: string | undefined | null
+): boolean => {
+  console.log(`${LOG_PREFIX} shouldDeleteAfterProfileRemoval check...`);
+  
+  if (!isPinOwner(pin, userId)) {
+    console.log(`${LOG_PREFIX} Result: NO DELETE - not owner`);
+    return false;
+  }
+  
+  const shouldDelete = pin!.savedToBoardCount === 0;
+  console.log(`${LOG_PREFIX} Result: ${shouldDelete ? 'DELETE' : 'NO DELETE'}`, {
+    savedToBoardCount: pin!.savedToBoardCount,
+    reason: shouldDelete ? 'No board saves' : 'Has board saves',
+  });
+  
+  return shouldDelete;
+};
+
+/**
+ * Check if own pin should be deleted after removing from one board
+ * 
+ * DELETE if: owner AND not in profile AND this is the only board
+ */
+export const shouldDeleteAfterBoardRemoval = (
+  pin: PinResponse | undefined | null,
+  userId: string | undefined | null
+): boolean => {
+  console.log(`${LOG_PREFIX} shouldDeleteAfterBoardRemoval check...`);
+  
+  if (!isPinOwner(pin, userId)) {
+    console.log(`${LOG_PREFIX} Result: NO DELETE - not owner`);
+    return false;
+  }
+  
+  const shouldDelete = !pin!.isSavedToProfile && pin!.savedToBoardCount <= 1;
+  console.log(`${LOG_PREFIX} Result: ${shouldDelete ? 'DELETE' : 'NO DELETE'}`, {
+    isSavedToProfile: pin!.isSavedToProfile,
+    savedToBoardCount: pin!.savedToBoardCount,
+    reason: shouldDelete 
+      ? 'Not in profile and only one board' 
+      : pin!.isSavedToProfile 
+        ? 'Saved to profile' 
+        : 'Has other boards',
+  });
+  
+  return shouldDelete;
+};
+
+/**
+ * Check if own pin should be deleted after removing from all boards
+ * 
+ * DELETE if: owner AND not in profile
+ */
+export const shouldDeleteAfterAllBoardsRemoval = (
+  pin: PinResponse | undefined | null,
+  userId: string | undefined | null
+): boolean => {
+  console.log(`${LOG_PREFIX} shouldDeleteAfterAllBoardsRemoval check...`);
+  
+  if (!isPinOwner(pin, userId)) {
+    console.log(`${LOG_PREFIX} Result: NO DELETE - not owner`);
+    return false;
+  }
+  
+  const shouldDelete = !pin!.isSavedToProfile;
+  console.log(`${LOG_PREFIX} Result: ${shouldDelete ? 'DELETE' : 'NO DELETE'}`, {
+    isSavedToProfile: pin!.isSavedToProfile,
+    reason: shouldDelete ? 'Not saved to profile' : 'Saved to profile',
+  });
+  
+  return shouldDelete;
 };

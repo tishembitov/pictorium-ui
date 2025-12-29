@@ -9,10 +9,6 @@ interface UseMyBoardsForPinOptions {
   enabled?: boolean;
 }
 
-/**
- * Hook to get current user's boards with pin save status
- * Используется в PinSaveButton для отображения в каких досках уже есть пин
- */
 export const useMyBoardsForPin = (
   pinId: string | null | undefined,
   options: UseMyBoardsForPinOptions = {}
@@ -24,10 +20,10 @@ export const useMyBoardsForPin = (
     queryKey: queryKeys.boards.forPin(pinId || ''),
     queryFn: () => boardApi.getMyBoardsForPin(pinId!),
     enabled: enabled && isAuthenticated && !!pinId,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 0, // ✅ Всегда считать устаревшим - важно для актуальности
+    gcTime: 1000 * 60 * 2, // 2 minutes garbage collection
   });
 
-  // Вычисляем полезные производные данные
   const boardsWithPin = query.data?.filter(b => b.hasPin) ?? [];
   const boardsWithoutPin = query.data?.filter(b => !b.hasPin) ?? [];
 
@@ -37,6 +33,7 @@ export const useMyBoardsForPin = (
     boardsWithoutPin,
     savedCount: boardsWithPin.length,
     isLoading: query.isLoading,
+    isFetching: query.isFetching, // ✅ Добавлено для отслеживания фонового обновления
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,

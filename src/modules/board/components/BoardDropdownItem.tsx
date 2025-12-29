@@ -1,6 +1,6 @@
 // src/modules/board/components/BoardDropdownItem.tsx
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Flex, Text, Icon, Spinner, TapArea } from 'gestalt';
 import { useBoardPins } from '../hooks/useBoardPins';
 import { useImageUrl } from '@/modules/storage';
@@ -216,11 +216,17 @@ export const BoardDropdownItem: React.FC<BoardDropdownItemProps> = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   
-  // Get selected board from store to determine if this board is selected
   const selectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
   const isSelected = selectedBoard?.id === board.id;
   
-  const { pins } = useBoardPins(board.id, { pageable: { page: 0, size: 1 } });
+  // ✅ Используем refetch для обновления данных
+  const { pins, refetch } = useBoardPins(board.id, { pageable: { page: 0, size: 1 } });
+  
+  // ✅ Refetch при монтировании для актуальных данных
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
+
   const coverImageId = pins[0]?.thumbnailId || pins[0]?.imageId;
   const { data: coverData } = useImageUrl(coverImageId, { enabled: !!coverImageId });
 
@@ -276,7 +282,7 @@ export const BoardDropdownItem: React.FC<BoardDropdownItemProps> = ({
             )}
           </Box>
 
-          {/* Board Info */}
+          {/* Board Info - ✅ используем board.pinCount из props */}
           <Box flex="grow">
             <Text weight={isSelected ? 'bold' : 'normal'} size="200" lineClamp={1}>
               {board.title}

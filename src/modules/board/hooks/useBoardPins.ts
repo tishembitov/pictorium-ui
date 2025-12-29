@@ -24,7 +24,7 @@ export const useBoardPins = (
     queryKey: [...queryKeys.boards.pins(boardId || ''), pageable],
     queryFn: () => boardApi.getPins(boardId!, pageable),
     enabled: enabled && !!boardId,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 30, // ✅ 30 секунд - быстрее устаревает для актуальности превью
   });
 
   return {
@@ -33,6 +33,7 @@ export const useBoardPins = (
     totalElements: query.data?.totalElements ?? 0,
     totalPages: query.data?.totalPages ?? 0,
     isLoading: query.isLoading,
+    isFetching: query.isFetching, // ✅ Добавлено
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,

@@ -78,3 +78,23 @@ export { PinDetailStats } from './components/detail/PinDetailStats';
 export { PinDetailComments } from './components/detail/PinDetailComments';
 
 
+// Utils
+export {
+  getPinImageId,
+  hasVideoPreview,
+  getPinTitle,
+  getPinDescriptionPreview,
+  hasPinLink,
+  formatPinLink,
+  ensurePinLinkProtocol,
+  buildPinShareUrl,
+  isPinOwner,
+  shouldDeleteAfterProfileRemoval,
+  shouldDeleteAfterBoardRemoval,
+  shouldDeleteAfterAllBoardsRemoval,
+  calculateEngagementScore,
+  sortPinsByEngagement,
+  groupPinsByDate,
+  filterPinsByTags,
+  searchPins,
+} from './utils/pinUtils';

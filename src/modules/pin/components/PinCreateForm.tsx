@@ -232,9 +232,10 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
         style={{ display: 'none' }}
       />
 
-      <Flex gap={8}>
-        {/* Left Column - Image */}
-        <Box flex="grow" maxWidth={480}>
+      {/* Main Layout - более компактный */}
+      <Flex gap={6} wrap>
+        {/* Left Column - Image (фиксированная ширина как в UserProfileForm) */}
+        <Box width={280}>
           <Box marginBottom={2}>
             <Text weight="bold" size="200">
               Pin image
@@ -248,29 +249,31 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
           <Box
             position="relative"
             width="100%"
-            rounding={4}
+            rounding={3}
             overflow="hidden"
             dangerouslySetInlineStyle={{
               __style: {
                 aspectRatio: '2 / 3',
-                backgroundColor: '#efefef',
-                minHeight: 400,
+                backgroundColor: 'var(--bg-secondary)',
+                border: previewUrl 
+                  ? 'none' 
+                  : '2px dashed var(--border-default)',
               },
             }}
           >
             {previewUrl ? (
-              <Box
-                width="100%"
-                height="100%"
-                dangerouslySetInlineStyle={{
-                  __style: {
-                    backgroundImage: `url(${previewUrl})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                  },
-                }}
-              >
+              <>
+                <img
+                  src={previewUrl}
+                  alt="Pin preview"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                  }}
+                />
+                
+                {/* Loading overlay */}
                 {isUploading && (
                   <Box
                     position="absolute"
@@ -283,7 +286,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                     justifyContent="center"
                     dangerouslySetInlineStyle={{
                       __style: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                        backgroundColor: 'rgba(255,255,255,0.8)',
                       },
                     }}
                   >
@@ -293,9 +296,15 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                     </Flex>
                   </Box>
                 )}
-              </Box>
+              </>
             ) : (
-              <TapArea onTap={handleUploadClick} fullWidth fullHeight>
+              <TapArea
+                onTap={handleUploadClick}
+                rounding={3}
+                disabled={isUploading}
+                fullWidth
+                fullHeight
+              >
                 <Box
                   width="100%"
                   height="100%"
@@ -303,37 +312,43 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                   direction="column"
                   alignItems="center"
                   justifyContent="center"
-                  padding={6}
+                  padding={4}
                 >
-                  <Box 
-                    marginBottom={3} 
-                    rounding="circle" 
-                    padding={4}
-                    color="secondary"
-                  >
-                    <Icon
-                      accessibilityLabel="Upload"
-                      icon="arrow-up"
-                      size={32}
-                      color="default"
-                    />
-                  </Box>
-                  <Text weight="bold" align="center" size="300">
-                    Choose a file
-                  </Text>
-                  <Box marginTop={2}>
-                    <Text color="subtle" align="center" size="200">
-                      or drag and drop
-                    </Text>
-                  </Box>
+                  {isUploading ? (
+                    <Spinner accessibilityLabel="Uploading" show />
+                  ) : (
+                    <>
+                      <Box 
+                        marginBottom={2} 
+                        color="secondary" 
+                        rounding="circle" 
+                        padding={3}
+                      >
+                        <Icon
+                          accessibilityLabel="Upload image"
+                          icon="camera"
+                          size={24}
+                          color="subtle"
+                        />
+                      </Box>
+                      <Text weight="bold" align="center" size="200">
+                        Click to upload
+                      </Text>
+                      <Box marginTop={1}>
+                        <Text color="subtle" align="center" size="100">
+                          or drag and drop
+                        </Text>
+                      </Box>
+                    </>
+                  )}
                 </Box>
               </TapArea>
             )}
           </Box>
 
-          {/* Image actions */}
+          {/* Image actions - под изображением */}
           {hasImage && !isUploading && (
-            <Box marginTop={3}>
+            <Box marginTop={2}>
               <Flex gap={2}>
                 <Button
                   text="Change"
@@ -368,126 +383,126 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
           )}
         </Box>
 
-        {/* Right Column - Form */}
-        <Box flex="grow" minWidth={320}>
-          <Flex direction="column" gap={5}>
-            {/* Save destination picker - использует локальное состояние */}
-            <Box>
-              <Box marginBottom={2}>
-                <Text weight="bold" size="200">Save to</Text>
-              </Box>
-              <BoardPicker
-                value={saveTarget}
-                onChange={handleSaveTargetChange}
-                size="lg"
-                showLabel
-              />
+        {/* Right Column - Form Fields */}
+        <Box flex="grow" minWidth={280} maxWidth={400}>
+          {/* Save destination picker */}
+          <Box marginBottom={4}>
+            <Box marginBottom={2}>
+              <Text weight="bold" size="200">Save to</Text>
             </Box>
+            <BoardPicker
+              value={saveTarget}
+              onChange={handleSaveTargetChange}
+              size="lg"
+              showLabel
+            />
+          </Box>
 
-            <Divider />
+          <Divider />
 
-            {/* Title */}
-            <Box>
-              <Box marginBottom={1}>
-                <Flex alignItems="center" gap={1}>
-                  <Text weight="bold" size="200">Title</Text>
-                  <Text color="error" size="200">*</Text>
-                </Flex>
-              </Box>
-              <Controller
-                name="title"
-                control={control}
-                render={({ field }) => (
-                  <FormField
-                    id="pin-title"
-                    label=""
-                    value={field.value}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    placeholder="Add a title"
-                    errorMessage={errors.title?.message}
-                    maxLength={200}
-                  />
-                )}
-              />
+          {/* Title */}
+          <Box marginTop={4} marginBottom={4}>
+            <Box marginBottom={1}>
+              <Flex alignItems="center" gap={1}>
+                <Text weight="bold" size="200">Title</Text>
+                <Text color="error" size="200">*</Text>
+              </Flex>
             </Box>
+            <Controller
+              name="title"
+              control={control}
+              render={({ field }) => (
+                <FormField
+                  id="pin-title"
+                  label=""
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  placeholder="Add a title"
+                  errorMessage={errors.title?.message}
+                  maxLength={200}
+                  size="md"
+                />
+              )}
+            />
+          </Box>
 
-            {/* Description */}
-            <Box>
-              <Box marginBottom={1}>
-                <Text weight="bold" size="200">Description</Text>
-              </Box>
-              <Controller
-                name="description"
-                control={control}
-                render={({ field }) => (
-                  <FormTextArea
-                    id="pin-description"
-                    label=""
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    placeholder="Tell everyone what your Pin is about"
-                    errorMessage={errors.description?.message}
-                    maxLength={400}
-                    rows={4}
-                  />
-                )}
-              />
+          {/* Description */}
+          <Box marginBottom={4}>
+            <Box marginBottom={1}>
+              <Text weight="bold" size="200">Description</Text>
             </Box>
+            <Controller
+              name="description"
+              control={control}
+              render={({ field }) => (
+                <FormTextArea
+                  id="pin-description"
+                  label=""
+                  value={field.value || ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  placeholder="Tell everyone what your Pin is about"
+                  errorMessage={errors.description?.message}
+                  maxLength={400}
+                  rows={3}
+                />
+              )}
+            />
+          </Box>
 
-            {/* Link */}
-            <Box>
-              <Box marginBottom={1}>
-                <Text weight="bold" size="200">Destination link</Text>
-              </Box>
-              <Controller
-                name="href"
-                control={control}
-                render={({ field }) => (
-                  <FormField
-                    id="pin-href"
-                    label=""
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    placeholder="Add a link"
-                    errorMessage={errors.href?.message}
-                    type="url"
-                  />
-                )}
-              />
+          {/* Link */}
+          <Box marginBottom={4}>
+            <Box marginBottom={1}>
+              <Text weight="bold" size="200">Destination link</Text>
             </Box>
+            <Controller
+              name="href"
+              control={control}
+              render={({ field }) => (
+                <FormField
+                  id="pin-href"
+                  label=""
+                  value={field.value || ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  placeholder="Add a link"
+                  errorMessage={errors.href?.message}
+                  type="url"
+                  size="md"
+                />
+              )}
+            />
+          </Box>
 
-            <Divider />
+          <Divider />
 
-            {/* Tags */}
-            <Box>
-              <Box marginBottom={1}>
-                <Text weight="bold" size="200">Tags</Text>
-              </Box>
-              <Controller
-                name="tags"
-                control={control}
-                render={({ field }) => (
-                  <TagInput
-                    id="pin-tags"
-                    label=""
-                    selectedTags={field.value || []}
-                    onChange={field.onChange}
-                    placeholder="Search or create tags"
-                    maxTags={10}
-                    errorMessage={errors.tags?.message}
-                  />
-                )}
-              />
+          {/* Tags */}
+          <Box marginTop={4}>
+            <Box marginBottom={1}>
+              <Text weight="bold" size="200">Tags</Text>
             </Box>
-          </Flex>
+            <Controller
+              name="tags"
+              control={control}
+              render={({ field }) => (
+                <TagInput
+                  id="pin-tags"
+                  label=""
+                  selectedTags={field.value || []}
+                  onChange={field.onChange}
+                  placeholder="Search or create tags"
+                  maxTags={10}
+                  errorMessage={errors.tags?.message}
+                />
+              )}
+            />
+          </Box>
         </Box>
       </Flex>
 
       {/* Footer */}
-      <Box marginTop={8} padding={4}>
+      <Box marginTop={6} padding={4}>
         <Divider />
         <Box paddingY={4}>
           <Flex justifyContent="between" alignItems="center">
@@ -508,7 +523,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                 <Button
                   text="Cancel"
                   onClick={onCancel}
-                  size="lg"
+                  size="md"
                   color="gray"
                   disabled={isLoading}
                 />
@@ -516,7 +531,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
               <Button
                 text={isCreating ? 'Creating...' : 'Create Pin'}
                 type="submit"
-                size="lg"
+                size="md"
                 color="red"
                 disabled={isLoading || !canSubmit}
               />

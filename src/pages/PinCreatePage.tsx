@@ -29,7 +29,7 @@ const PinCreatePage: React.FC = () => {
   }, [navigate]);
 
   return (
-    <Box paddingY={4}>
+    <Box paddingY={4} maxWidth={720} marginStart="auto" marginEnd="auto">
       {/* Header */}
       <Box marginBottom={4}>
         <Flex alignItems="center" gap={3}>
@@ -38,7 +38,7 @@ const PinCreatePage: React.FC = () => {
               accessibilityLabel="Go back"
               icon="arrow-back"
               onClick={handleBack}
-              size="lg"
+              size="md"
               bgColor="transparent"
             />
           </Tooltip>
@@ -56,7 +56,7 @@ const PinCreatePage: React.FC = () => {
       <Divider />
 
       {/* Form */}
-      <Box marginTop={6}>
+      <Box marginTop={4}>
         <PinCreateForm onSuccess={handleSuccess} onCancel={handleCancel} />
       </Box>
     </Box>

@@ -2,7 +2,7 @@
 
 import type { PageResponse } from '@/shared/types/pageable.types';
 
-// ==================== API Types (из OpenAPI) ====================
+// ==================== API Types (соответствует Java PinResponse) ====================
 
 export interface PinCreateRequest {
   imageId: string;
@@ -28,27 +28,35 @@ export interface PinUpdateRequest {
   tags?: string[];
 }
 
+/**
+ * Pin response from API
+ * ✅ Соответствует Java PinResponse record
+ */
 export interface PinResponse {
   id: string;
   userId: string;
   title: string | null;
   description: string | null;
   href: string | null;
+  
   imageId: string;
   thumbnailId: string | null;
   videoPreviewId: string | null;
+  
   createdAt: string;
   updatedAt: string;
   tags: string[];
+  
   isLiked: boolean;
-  likeCount: number;
-  // ✅ Обновлено согласно API
-  isSaved: boolean;
+  lastSavedBoardId: string | null;  // UUID -> string
   lastSavedBoardName: string | null;
   savedToBoardsCount: number;
+  
   saveCount: number;
   commentCount: number;
+  likeCount: number;
   viewCount: number;
+  
   originalWidth: number;
   originalHeight: number;
   thumbnailWidth: number;
@@ -88,9 +96,8 @@ export interface PinPreview {
   videoPreviewId: string | null;
 }
 
-// ==================== Filter (точно как в API) ====================
+// ==================== Filter ====================
 
-// ✅ Убраны SAVED_TO_PROFILE, SAVED_ALL - теперь только SAVED
 export type PinScope = 
   | 'ALL' 
   | 'CREATED' 
@@ -98,9 +105,6 @@ export type PinScope =
   | 'LIKED' 
   | 'RELATED';
 
-/**
- * Фильтр пинов — 1:1 с API
- */
 export interface PinFilter {
   q?: string;
   tags?: string[];
@@ -132,7 +136,6 @@ export interface ScopeOption {
   icon?: 'pin' | 'board' | 'heart' | 'sparkle';
 }
 
-// ✅ Упрощено - убран SAVED_ALL
 export const SCOPE_OPTIONS: ScopeOption[] = [
   { value: 'ALL', label: 'All Pins', icon: 'sparkle' },
   { value: 'CREATED', label: 'Created', icon: 'pin' },

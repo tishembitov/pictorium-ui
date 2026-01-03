@@ -100,8 +100,9 @@ export const PinCard: React.FC<PinCardProps> = ({
               {isAuthenticated && (
                 <CompactSaveSection
                   pinId={pin.id}
-                  isSaved={pin.isSaved}
+                  lastSavedBoardId={pin.lastSavedBoardId}
                   lastSavedBoardName={pin.lastSavedBoardName}
+                  savedToBoardsCount={pin.savedToBoardsCount}
                 />
               )}
             </Box>

@@ -157,3 +157,7 @@ export const isPinOwner = (
   return pin.userId === userId;
 };
 
+export const isPinSaved = (pin: PinResponse): boolean => {
+  return pin.savedToBoardsCount > 0;
+};
+

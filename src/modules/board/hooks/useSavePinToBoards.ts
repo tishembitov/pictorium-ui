@@ -5,16 +5,16 @@ import { queryKeys } from '@/app/config/queryClient';
 import { boardApi } from '../api/boardApi';
 import { useToast } from '@/shared/hooks/useToast';
 import { useAuthStore } from '@/modules/auth';
-import type { BatchBoardPinAction } from '../types/board.types';
+import type { BatchBoardPinAction, BoardResponse } from '../types/board.types';
 import type { PinResponse, PagePinResponse } from '@/modules/pin';
 
 interface UseSavePinToBoardsOptions {
-  onSuccess?: () => void;
+  onSuccess?: (boardIds: string[]) => void;
   onError?: (error: Error) => void;
   showToast?: boolean;
 }
 
-// ==================== Helper: Find Pin in Cache ====================
+// ==================== Helpers ====================
 
 const findPinInCache = (
   queryClient: ReturnType<typeof useQueryClient>,
@@ -38,12 +38,20 @@ const findPinInCache = (
   return undefined;
 };
 
-// ==================== Helpers ====================
-
-const createBatchSavedPin = (pin: PinResponse, addedCount: number): PinResponse => ({
+/**
+ * ✅ Создаёт обновлённый пин после сохранения в несколько досок
+ */
+const createBatchSavedPin = (
+  pin: PinResponse, 
+  addedCount: number,
+  lastBoardId: string,
+  lastBoardName: string
+): PinResponse => ({
   ...pin,
-  isSaved: true,
-  savedToBoardsCount: pin.savedToBoardsCount + addedCount, // ✅ Исправлено
+  // ✅ Убрано isSaved - вычисляется из savedToBoardsCount
+  savedToBoardsCount: pin.savedToBoardsCount + addedCount,
+  lastSavedBoardId: lastBoardId,
+  lastSavedBoardName: lastBoardName,
 });
 
 const updatePinInPages = (
@@ -88,6 +96,12 @@ export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
       const previousPin = findPinInCache(queryClient, pinId);
       const addedCount = boardIds.length;
 
+      // Получаем название последней доски для отображения
+      const lastBoardId = boardIds[boardIds.length - 1] || '';
+      const boards = queryClient.getQueryData<BoardResponse[]>(queryKeys.boards.my());
+      const lastBoard = boards?.find(b => b.id === lastBoardId);
+      const lastBoardName = lastBoard?.title || '';
+
       const previousLists: Array<{
         key: QueryKey;
         data: InfiniteData<PagePinResponse> | undefined;
@@ -99,33 +113,37 @@ export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
         if (data) previousLists.push({ key, data });
       });
 
+      // ✅ Optimistic update с новыми полями
       if (previousPin) {
         queryClient.setQueryData<PinResponse>(
           queryKeys.pins.byId(pinId),
-          createBatchSavedPin(previousPin, addedCount)
+          createBatchSavedPin(previousPin, addedCount, lastBoardId, lastBoardName)
         );
       }
 
       queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
         { queryKey: queryKeys.pins.all },
         (oldData) => updatePinInPages(oldData, pinId, (pin) =>
-          createBatchSavedPin(pin, addedCount)
+          createBatchSavedPin(pin, addedCount, lastBoardId, lastBoardName)
         )
       );
 
-      return { previousPin, previousLists, pinId, boardIds };
+      return { previousPin, previousLists, pinId, boardIds, lastBoardName };
     },
 
     onSuccess: (_, { pinId, boardIds }) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.pins.byId(pinId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
+      // Инвалидируем пин для получения актуальных данных
+      void queryClient.invalidateQueries({ queryKey: queryKeys.pins.byId(pinId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
 
+      // Инвалидируем пины для каждой доски
       boardIds.forEach(boardId => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.boards.pins(boardId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.boards.pins(boardId) });
       });
 
       if (userId) {
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           predicate: (query) => {
             const key = query.queryKey;
             if (!Array.isArray(key)) return false;
@@ -136,13 +154,15 @@ export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
 
       if (showToast) {
         const count = boardIds.length;
-        toast.success(`Pin saved to ${count} ${count === 1 ? 'board' : 'boards'}!`);
+        const boardWord = count === 1 ? 'board' : 'boards';
+        toast.success(`Saved to ${count} ${boardWord}!`);
       }
 
-      onSuccess?.();
+      onSuccess?.(boardIds);
     },
 
     onError: (error: Error, { pinId }, context) => {
+      // Rollback
       if (context?.previousPin) {
         queryClient.setQueryData(
           queryKeys.pins.byId(pinId),

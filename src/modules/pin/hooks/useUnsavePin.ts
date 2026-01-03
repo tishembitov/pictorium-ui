@@ -41,8 +41,9 @@ const createUnsavedPin = (pin: PinResponse): PinResponse => {
   const newCount = Math.max(0, pin.savedToBoardsCount - 1);
   return {
     ...pin,
-    isSaved: newCount > 0,
     savedToBoardsCount: newCount,
+    // ✅ Очищаем информацию о последней доске если больше не сохранен
+    lastSavedBoardId: newCount === 0 ? null : pin.lastSavedBoardId,
     lastSavedBoardName: newCount === 0 ? null : pin.lastSavedBoardName,
   };
 };
@@ -92,10 +93,6 @@ const isSavedPinsQuery = (queryKey: QueryKey, userId: string): boolean => {
 
 // ==================== Hook ====================
 
-/**
- * Убрать пин из последней сохранённой доски
- * Пин НЕ удаляется, только убирается из сохранённых
- */
 export const useUnsavePin = (options: UseUnsavePinOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
   const queryClient = useQueryClient();
@@ -108,6 +105,7 @@ export const useUnsavePin = (options: UseUnsavePinOptions = {}) => {
     onMutate: async (pinId) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.byId(pinId) });
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.all });
+      await queryClient.cancelQueries({ queryKey: queryKeys.boards.all });
 
       const previousPin = findPinInCache(queryClient, pinId);
 
@@ -115,7 +113,7 @@ export const useUnsavePin = (options: UseUnsavePinOptions = {}) => {
       queryClient.getQueriesData<InfiniteData<PagePinResponse>>({ queryKey: queryKeys.pins.all })
         .forEach(([key, data]) => { if (data) previousLists.push({ key, data }); });
 
-      // Optimistic update - decrease count
+      // Optimistic update
       if (previousPin) {
         queryClient.setQueryData<PinResponse>(
           queryKeys.pins.byId(pinId),
@@ -144,12 +142,13 @@ export const useUnsavePin = (options: UseUnsavePinOptions = {}) => {
     },
 
     onSuccess: (_, pinId) => {
-      // Invalidate board-related queries
-      queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
+      // ✅ Рефетчим пин чтобы получить актуальные данные с сервера
+      void queryClient.invalidateQueries({ queryKey: queryKeys.pins.byId(pinId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
       
-      // Invalidate all board pins queries
-      queryClient.invalidateQueries({
+      // Инвалидируем все board pins queries
+      void queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey;
           return Array.isArray(key) && key[0] === 'boards' && key[1] === 'pins';
@@ -157,7 +156,7 @@ export const useUnsavePin = (options: UseUnsavePinOptions = {}) => {
       });
 
       if (userId) {
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           predicate: (query) => isSavedPinsQuery(query.queryKey, userId),
         });
       }
@@ -170,7 +169,6 @@ export const useUnsavePin = (options: UseUnsavePinOptions = {}) => {
     },
 
     onError: (error: Error, pinId, context) => {
-      // Rollback
       if (context?.previousPin) {
         queryClient.setQueryData(queryKeys.pins.byId(pinId), context.previousPin);
       }

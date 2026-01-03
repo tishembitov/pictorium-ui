@@ -12,7 +12,9 @@ import {
   SearchField,
   Divider,
   Button,
+  Icon,
 } from 'gestalt';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/modules/auth';
 import { 
   useMyBoardsForPin, 
@@ -23,27 +25,36 @@ import {
   useSelectBoard,
 } from '@/modules/board';
 import { useUnsavePin } from '../hooks/useUnsavePin';
-import { useToast } from '@/shared/hooks/useToast';
+import { buildPath } from '@/app/router/routeConfig';
+import { isPinSaved } from '../utils/pinUtils';
 import type { BoardWithPinStatusResponse } from '@/modules/board';
+import type { PinResponse } from '../types/pin.types';
 
 interface CompactSaveSectionProps {
   pinId: string;
-  isSaved: boolean;
-  lastSavedBoardName?: string | null;
+  lastSavedBoardId: string | null;
+  lastSavedBoardName: string | null;
+  savedToBoardsCount: number;
 }
 
 export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
   pinId,
-  isSaved,
+  lastSavedBoardId,
   lastSavedBoardName,
+  savedToBoardsCount,
 }) => {
   const { isAuthenticated, login } = useAuth();
-  const { toast } = useToast();
   
   const [isOpen, setIsOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [anchorElement, setAnchorElement] = useState<HTMLDivElement | null>(null);
+  
+  // Локальное состояние для немедленного отображения после сохранения
+  const [localSaveInfo, setLocalSaveInfo] = useState<{
+    boardId: string;
+    boardName: string;
+  } | null>(null);
 
   // Store
   const selectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
@@ -59,14 +70,44 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
   // Mutations
   const { savePinToBoard, isLoading: isSavingToBoard } = useSavePinToBoard({
     showToast: false,
-    onSuccess: () => void refetchBoards(),
+    onSuccess: (boardId, boardName) => {
+      setLocalSaveInfo({ boardId, boardName });
+      void refetchBoards();
+      setIsOpen(false);
+    },
   });
 
   const { unsavePin, isLoading: isUnsaving } = useUnsavePin({
     showToast: false,
+    onSuccess: () => {
+      setLocalSaveInfo(null);
+    },
   });
 
   const isLoading = isSavingToBoard || isUnsaving;
+
+  // ✅ Используем isPinSaved из утилит + локальное состояние
+  const isSaved = useMemo(() => {
+    if (localSaveInfo !== null) return true;
+    // Создаем минимальный объект для проверки
+    return isPinSaved({ savedToBoardsCount } as PinResponse);
+  }, [localSaveInfo, savedToBoardsCount]);
+
+  // Определяем актуальную информацию о сохранении
+  const currentSaveInfo = useMemo(() => {
+    if (localSaveInfo) {
+      return localSaveInfo;
+    }
+    if (lastSavedBoardId && lastSavedBoardName) {
+      return { boardId: lastSavedBoardId, boardName: lastSavedBoardName };
+    }
+    return null;
+  }, [localSaveInfo, lastSavedBoardId, lastSavedBoardName]);
+
+  // Актуальное количество сохранений
+  const currentSavedCount = localSaveInfo 
+    ? savedToBoardsCount + 1 
+    : savedToBoardsCount;
 
   // Filter boards
   const filteredBoards = useMemo(() => {
@@ -83,24 +124,19 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
       return;
     }
 
-    // If no selected board, open dropdown to choose
     if (!selectedBoard) {
       setIsOpen(true);
       return;
     }
 
-    // Check if already saved to this board
     const alreadySaved = boards.find(b => b.id === selectedBoard.id)?.hasPin;
     if (alreadySaved) {
-      // Open dropdown to choose another board
       setIsOpen(true);
       return;
     }
 
-    // Quick save to selected board
     savePinToBoard({ boardId: selectedBoard.id, pinId });
-    toast.success(`Saved to "${selectedBoard.title}"`);
-  }, [isAuthenticated, login, selectedBoard, boards, savePinToBoard, pinId, toast]);
+  }, [isAuthenticated, login, selectedBoard, boards, savePinToBoard, pinId]);
 
   const handleUnsaveClick = useCallback(() => {
     unsavePin(pinId);
@@ -110,10 +146,8 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
     if (board.hasPin) return;
     
     savePinToBoard({ boardId: board.id, pinId });
-    selectBoard(board.id); // Make this the new default
-    toast.success(`Saved to "${board.title}"`);
-    setIsOpen(false);
-  }, [savePinToBoard, pinId, selectBoard, toast]);
+    selectBoard(board.id);
+  }, [savePinToBoard, pinId, selectBoard]);
 
   const handleCreateNew = useCallback(() => {
     setIsOpen(false);
@@ -123,16 +157,14 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
   const handleCreateSuccess = useCallback((boardId: string) => {
     savePinToBoard({ boardId, pinId });
     selectBoard(boardId);
-    toast.success('Saved to new board!');
     setShowCreateModal(false);
-  }, [savePinToBoard, pinId, selectBoard, toast]);
+  }, [savePinToBoard, pinId, selectBoard]);
 
   const handleDismiss = useCallback(() => {
     setIsOpen(false);
     setSearchQuery('');
   }, []);
 
-  // Callback ref для anchor
   const setAnchorRef = useCallback((node: HTMLDivElement | null) => {
     setAnchorElement(node);
   }, []);
@@ -140,30 +172,49 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
   // ==================== Render ====================
 
   // Already saved - show location + Saved button
-  if (isSaved) {
+  if (isSaved && currentSaveInfo) {
     return (
       <Flex alignItems="center" gap={2}>
-        {/* Saved board name badge */}
-        {lastSavedBoardName && (
+        {/* Saved board name badge with link */}
+        <Link 
+          to={buildPath.board(currentSaveInfo.boardId)} 
+          style={{ textDecoration: 'none' }}
+          onClick={(e) => e.stopPropagation()}
+        >
           <Box
             paddingX={2}
             paddingY={1}
             rounding="pill"
             dangerouslySetInlineStyle={{
               __style: {
-                backgroundColor: 'rgba(255,255,255,0.9)',
-                maxWidth: 100,
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                maxWidth: 120,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
               },
             }}
           >
-            <Text size="100" weight="bold" lineClamp={1} color="dark">
-              {lastSavedBoardName}
-            </Text>
+            <Flex alignItems="center" gap={1}>
+              <Icon accessibilityLabel="" icon="board" size={12} color="dark" />
+              <Text size="100" weight="bold" lineClamp={1} color="dark">
+                {currentSaveInfo.boardName}
+              </Text>
+              {currentSavedCount > 1 && (
+                <Text size="100" color="subtle">
+                  +{currentSavedCount - 1}
+                </Text>
+              )}
+            </Flex>
           </Box>
-        )}
+        </Link>
         
         {/* Saved button */}
-        <TapArea onTap={handleUnsaveClick} rounding="pill" disabled={isLoading}>
+        <TapArea 
+          onTap={handleUnsaveClick} 
+          rounding="pill" 
+          disabled={isLoading}
+          tapStyle="compress"
+        >
           <Box
             paddingX={3}
             paddingY={2}
@@ -173,6 +224,7 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
                 backgroundColor: '#111',
                 opacity: isLoading ? 0.7 : 1,
                 cursor: isLoading ? 'wait' : 'pointer',
+                transition: 'all 0.15s ease',
               },
             }}
           >
@@ -189,11 +241,16 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
     );
   }
 
-  // Not saved - Save button (with dropdown on click if no selected board)
+  // Not saved - Save button
   return (
     <>
       <Box ref={setAnchorRef}>
-        <TapArea onTap={handleSaveClick} rounding="pill" disabled={isLoading}>
+        <TapArea 
+          onTap={handleSaveClick} 
+          rounding="pill" 
+          disabled={isLoading}
+          tapStyle="compress"
+        >
           <Box
             paddingX={4}
             paddingY={2}
@@ -203,6 +260,7 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
                 backgroundColor: '#e60023',
                 opacity: isLoading ? 0.7 : 1,
                 cursor: isLoading ? 'wait' : 'pointer',
+                transition: 'all 0.15s ease',
               },
             }}
           >
@@ -236,7 +294,7 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
                 </Text>
               </Box>
 
-              {/* Search (if many boards) */}
+              {/* Search */}
               {boards.length > 5 && (
                 <Box marginBottom={2}>
                   <SearchField

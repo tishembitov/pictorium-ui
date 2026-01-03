@@ -14,10 +14,6 @@ interface PinDetailHeaderProps {
   onBack?: () => void;
 }
 
-/**
- * Заголовок детальной страницы пина.
- * Содержит все действия: навигация, лайк, сохранение, шаринг, меню.
- */
 export const PinDetailHeader: React.FC<PinDetailHeaderProps> = ({
   pin,
   onBack,
@@ -35,7 +31,7 @@ export const PinDetailHeader: React.FC<PinDetailHeaderProps> = ({
   return (
     <Box paddingY={2}>
       <Flex justifyContent="between" alignItems="center">
-        {/* Left side - Back & secondary actions */}
+        {/* Left side */}
         <Flex gap={1} alignItems="center">
           <Tooltip text="Go back">
             <IconButton
@@ -58,10 +54,10 @@ export const PinDetailHeader: React.FC<PinDetailHeaderProps> = ({
           <PinMenuButton pin={pin} size="md" />
         </Flex>
 
-        {/* Right side - Save section */}
+        {/* Right side - ✅ Обновленные пропсы */}
         <PinSaveSection
           pinId={pin.id}
-          isSaved={pin.isSaved}
+          lastSavedBoardId={pin.lastSavedBoardId}
           lastSavedBoardName={pin.lastSavedBoardName}
           savedToBoardsCount={pin.savedToBoardsCount}
           size="md"

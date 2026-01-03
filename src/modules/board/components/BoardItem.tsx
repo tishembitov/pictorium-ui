@@ -13,6 +13,7 @@ interface BoardItemProps {
   disabled?: boolean;
   isProcessing?: boolean;
   size?: 'sm' | 'md';
+  showSaveButton?: boolean;
 }
 
 export const BoardItem: React.FC<BoardItemProps> = ({ 
@@ -22,6 +23,7 @@ export const BoardItem: React.FC<BoardItemProps> = ({
   disabled = false,
   isProcessing = false,
   size = 'md',
+  showSaveButton = true,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   
@@ -34,15 +36,17 @@ export const BoardItem: React.FC<BoardItemProps> = ({
   const hasPin = 'hasPin' in board ? board.hasPin : false;
   const pinCount = 'pinCount' in board ? board.pinCount : 0;
   
-  const isDisabled = disabled || isProcessing || hasPin;
+  const isDisabled = disabled || isProcessing;
+  // ✅ hasPin означает что пин уже сохранен - показываем как недоступный для повторного сохранения
+  const isAlreadySaved = hasPin && !isProcessing;
 
   const coverSize = size === 'sm' ? 40 : 48;
 
   return (
     <TapArea 
-      onTap={() => !isDisabled && onSelect()} 
+      onTap={() => !isDisabled && !isAlreadySaved && onSelect()} 
       rounding={3} 
-      disabled={isDisabled}
+      disabled={isDisabled || isAlreadySaved}
     >
       <Box
         padding={2}
@@ -51,14 +55,20 @@ export const BoardItem: React.FC<BoardItemProps> = ({
         onMouseLeave={() => setIsHovered(false)}
         dangerouslySetInlineStyle={{
           __style: {
-            backgroundColor: isSelected 
-              ? 'rgba(230, 0, 35, 0.08)' 
-              : isHovered && !isDisabled 
-                ? '#f5f5f5' 
-                : 'transparent',
+            backgroundColor: isAlreadySaved
+              ? 'rgba(0, 128, 0, 0.08)'  // ✅ Зеленоватый фон для сохраненных
+              : isSelected 
+                ? 'rgba(230, 0, 35, 0.08)' 
+                : isHovered && !isDisabled 
+                  ? '#f5f5f5' 
+                  : 'transparent',
             opacity: isDisabled ? 0.6 : 1,
-            cursor: isDisabled ? 'default' : 'pointer',
-            border: isSelected ? '2px solid #e60023' : '2px solid transparent',
+            cursor: isDisabled || isAlreadySaved ? 'default' : 'pointer',
+            border: isSelected && !isAlreadySaved 
+              ? '2px solid #e60023' 
+              : isAlreadySaved 
+                ? '2px solid #00a650'
+                : '2px solid transparent',
             transition: 'all 0.15s ease',
           },
         }}
@@ -91,7 +101,7 @@ export const BoardItem: React.FC<BoardItemProps> = ({
 
           {/* Board Info */}
           <Box flex="grow">
-            <Text weight={isSelected ? 'bold' : 'normal'} size="200" lineClamp={1}>
+            <Text weight={isSelected || isAlreadySaved ? 'bold' : 'normal'} size="200" lineClamp={1}>
               {board.title}
             </Text>
             <Text color="subtle" size="100">
@@ -100,14 +110,19 @@ export const BoardItem: React.FC<BoardItemProps> = ({
           </Box>
 
           {/* Status */}
-          <Box minWidth={50} display="flex" justifyContent="end">
+          <Box minWidth={60} display="flex" justifyContent="end">
             {isProcessing && (
               <Spinner accessibilityLabel="Saving" show size="sm" />
             )}
-            {hasPin && !isProcessing && (
-              <Icon accessibilityLabel="Saved" icon="check-circle" size={20} color="success" />
+            {isAlreadySaved && !isProcessing && (
+              <Flex alignItems="center" gap={1}>
+                <Icon accessibilityLabel="Saved" icon="check-circle" size={16} color="success" />
+                <Text size="100" color="success" weight="bold">
+                  Saved
+                </Text>
+              </Flex>
             )}
-            {isSelected && !hasPin && !isProcessing && (
+            {showSaveButton && isSelected && !isAlreadySaved && !isProcessing && (
               <Box
                 color="primary"
                 rounding="pill"

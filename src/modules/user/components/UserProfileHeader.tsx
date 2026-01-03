@@ -174,7 +174,7 @@ export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
 
   const { totalElements: pinsCount } = useUserPins(
     user.id, 
-    isCurrentUser ? 'SAVED_ALL' : 'CREATED', 
+    isCurrentUser ? 'SAVED' : 'CREATED', 
     { pageSize: 1 }
   );
 

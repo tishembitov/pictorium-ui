@@ -43,7 +43,7 @@ const findPinInCache = (
 const createSavedPin = (pin: PinResponse): PinResponse => ({
   ...pin,
   isSaved: true,
-  savedToBoardCount: pin.savedToBoardCount + 1,
+  savedToBoardsCount: pin.savedToBoardsCount + 1, // ✅ Исправлено
 });
 
 const updatePinInPages = (
@@ -65,9 +65,7 @@ const updatePinInPages = (
 const isSavedPinsQuery = (queryKey: unknown[], userId: string): boolean => {
   if (queryKey[0] !== 'pins' || queryKey[1] !== 'list') return false;
   const filter = queryKey[2] as Record<string, unknown> | undefined;
-  return filter?.savedAnywhere === userId ||
-    filter?.savedBy === userId ||
-    filter?.savedToProfileBy === userId;
+  return filter?.savedBy === userId;
 };
 
 // ==================== Hook ====================

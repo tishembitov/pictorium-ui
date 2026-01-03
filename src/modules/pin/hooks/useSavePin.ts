@@ -1,19 +1,20 @@
-// src/modules/pin/hooks/useSaveToProfile.ts
+// src/modules/pin/hooks/useSavePin.ts
 
 import { useMutation, useQueryClient, type InfiniteData, type QueryKey } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { pinApi } from '../api/pinApi';
 import { useToast } from '@/shared/hooks/useToast';
 import { useAuthStore } from '@/modules/auth';
+import { useSelectedBoardStore } from '@/modules/board/stores/selectedBoardStore';
 import type { PinResponse, PagePinResponse } from '../types/pin.types';
 
-interface UseSaveToProfileOptions {
+interface UseSavePinOptions {
   onSuccess?: (data: PinResponse) => void;
   onError?: (error: Error) => void;
   showToast?: boolean;
 }
 
-// ==================== Helper: Find Pin in Cache ====================
+// ==================== Helpers ====================
 
 const findPinInCache = (
   queryClient: ReturnType<typeof useQueryClient>,
@@ -37,12 +38,11 @@ const findPinInCache = (
   return undefined;
 };
 
-// ==================== Helpers ====================
-
-const createSavedToProfilePin = (pin: PinResponse): PinResponse => ({
+const createSavedPin = (pin: PinResponse, boardName?: string): PinResponse => ({
   ...pin,
-  isSavedToProfile: true,
   isSaved: true,
+  savedToBoardsCount: pin.savedToBoardsCount + 1,
+  lastSavedBoardName: boardName || pin.lastSavedBoardName,
 });
 
 const updatePinInPages = (
@@ -64,19 +64,29 @@ const updatePinInPages = (
 const isSavedPinsQuery = (queryKey: QueryKey, userId: string): boolean => {
   if (!Array.isArray(queryKey) || queryKey[0] !== 'pins' || queryKey[1] !== 'list') return false;
   const filter = queryKey[2] as Record<string, unknown> | undefined;
-  return filter?.savedAnywhere === userId || filter?.savedToProfileBy === userId;
+  return filter?.savedBy === userId;
 };
 
 // ==================== Hook ====================
 
-export const useSaveToProfile = (options: UseSaveToProfileOptions = {}) => {
+/**
+ * Сохранить пин в выбранную доску
+ * Требует, чтобы доска была выбрана в selectedBoardStore
+ */
+export const useSavePin = (options: UseSavePinOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const userId = useAuthStore((state) => state.user?.id);
+  const selectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
 
   const mutation = useMutation({
-    mutationFn: (pinId: string) => pinApi.saveToProfile(pinId),
+    mutationFn: (pinId: string) => {
+      if (!selectedBoard) {
+        throw new Error('No board selected. Please select a board first.');
+      }
+      return pinApi.save(pinId);
+    },
 
     onMutate: async (pinId) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.byId(pinId) });
@@ -95,28 +105,34 @@ export const useSaveToProfile = (options: UseSaveToProfileOptions = {}) => {
         if (data) previousLists.push({ key, data });
       });
 
+      // Optimistic update
       if (previousPin) {
         queryClient.setQueryData<PinResponse>(
           queryKeys.pins.byId(pinId),
-          createSavedToProfilePin(previousPin)
+          createSavedPin(previousPin, selectedBoard?.title)
         );
       }
 
       queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
         { queryKey: queryKeys.pins.all },
-        (oldData) => updatePinInPages(oldData, pinId, createSavedToProfilePin)
+        (oldData) => updatePinInPages(oldData, pinId, (pin) => 
+          createSavedPin(pin, selectedBoard?.title)
+        )
       );
 
       return { previousPin, previousLists, pinId };
     },
 
     onSuccess: (data, pinId) => {
+      // Update with real data from server
       queryClient.setQueryData(queryKeys.pins.byId(pinId), data);
-
-      queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
-        { queryKey: queryKeys.pins.all },
-        (oldData) => updatePinInPages(oldData, pinId, () => data)
-      );
+      
+      // Invalidate related queries
+      if (selectedBoard) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.boards.pins(selectedBoard.id) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
+      }
 
       if (userId) {
         queryClient.invalidateQueries({
@@ -124,18 +140,18 @@ export const useSaveToProfile = (options: UseSaveToProfileOptions = {}) => {
         });
       }
 
-      if (showToast) {
-        toast.success('Saved to your profile!');
+      if (showToast && selectedBoard) {
+        toast.success(`Saved to "${selectedBoard.title}"`);
       }
 
       onSuccess?.(data);
     },
 
     onError: (error: Error, pinId, context) => {
+      // Rollback
       if (context?.previousPin) {
         queryClient.setQueryData(queryKeys.pins.byId(pinId), context.previousPin);
       }
-
       if (context?.previousLists) {
         for (const { key, data } of context.previousLists) {
           queryClient.setQueryData(key, data);
@@ -151,12 +167,14 @@ export const useSaveToProfile = (options: UseSaveToProfileOptions = {}) => {
   });
 
   return {
-    saveToProfile: mutation.mutate,
-    saveToProfileAsync: mutation.mutateAsync,
+    savePin: mutation.mutate,
+    savePinAsync: mutation.mutateAsync,
     isLoading: mutation.isPending,
     isError: mutation.isError,
     error: mutation.error,
+    hasSelectedBoard: !!selectedBoard,
+    selectedBoardName: selectedBoard?.title,
   };
 };
 
-export default useSaveToProfile;
+export default useSavePin;

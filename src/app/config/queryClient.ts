@@ -1,3 +1,5 @@
+// src/app/config/queryClient.ts
+
 import { QueryClient, type DefaultOptions } from '@tanstack/react-query';
 
 const defaultOptions: DefaultOptions = {
@@ -5,7 +7,6 @@ const defaultOptions: DefaultOptions = {
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 30, // 30 minutes
     retry: (failureCount, error: unknown) => {
-      // Don't retry on 4xx errors
       const err = error as { response?: { status?: number } };
       if (err?.response?.status && err.response.status >= 400 && err.response.status < 500) {
         return false;
@@ -28,7 +29,7 @@ export const createQueryClient = () => {
 
 export const queryClient = createQueryClient();
 
-// Query Keys Factory - полный список согласно API
+// Query Keys Factory
 export const queryKeys = {
   // User
   users: {
@@ -53,12 +54,11 @@ export const queryKeys = {
     byId: (id: string) => [...queryKeys.pins.all, 'byId', id] as const,
     likes: (pinId: string) => [...queryKeys.pins.all, 'likes', pinId] as const,
     comments: (pinId: string) => [...queryKeys.pins.all, 'comments', pinId] as const,
-    saved: (userId: string) => [...queryKeys.pins.all, 'saved', userId] as const,
     byAuthor: (userId: string) => [...queryKeys.pins.all, 'byAuthor', userId] as const,
+    savedBy: (userId: string) => [...queryKeys.pins.all, 'savedBy', userId] as const,
+    likedBy: (userId: string) => [...queryKeys.pins.all, 'likedBy', userId] as const,
     related: (pinId: string) => [...queryKeys.pins.all, 'related', pinId] as const,
-    // Save to Profile - NEW
-    savedToProfile: (userId: string) => [...queryKeys.pins.all, 'savedToProfile', userId] as const,
-    mySavedToProfile: () => [...queryKeys.pins.all, 'savedToProfile', 'me'] as const,
+    // ✅ Убраны: savedToProfile, mySavedToProfile
   },
   
   // Boards
@@ -67,10 +67,11 @@ export const queryKeys = {
     byId: (boardId: string) => ['boards', 'byId', boardId] as const,
     byUser: (userId: string) => ['boards', 'byUser', userId] as const,
     my: () => ['boards', 'my'] as const,
-    forPin: (pinId: string) => ['boards', 'forPin', pinId] as const, // NEW
+    forPin: (pinId: string) => ['boards', 'forPin', pinId] as const,
     pins: (boardId: string) => ['boards', 'pins', boardId] as const,
     selected: () => ['boards', 'selected'] as const,
   },
+  
   // Comments
   comments: {
     all: ['comments'] as const,

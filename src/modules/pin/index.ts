@@ -42,8 +42,9 @@ export { usePinLikes, useInfinitePinLikes } from './hooks/usePinLikes';
 export { usePinComments, useInfinitePinComments } from './hooks/usePinComments';
 export { useCreateComment } from './hooks/useCreateComment';
 export { useScrollToComments } from './hooks/useScrollToComments';
-export { useSaveToProfile } from './hooks/useSaveToProfile';
-export { useUnsaveFromProfile } from './hooks/useUnsaveFromProfile';
+// ✅ Новые хуки для save/unsave
+export { useSavePin } from './hooks/useSavePin';
+export { useUnsavePin } from './hooks/useUnsavePin';
 
 // Store
 export { usePinPreferencesStore, selectSort } from './stores/pinPreferencesStore';
@@ -65,6 +66,7 @@ export { PinTagFilter } from './components/filters/PinTagFilter';
 export { PinScopeSelect } from './components/filters/PinScopeSelect';
 export { PinSortSelect } from './components/filters/PinSortSelect';
 export { PinSearchInput } from './components/filters/PinSearchInput';
+export { CompactSaveSection } from './components/CompactSaveSection';
 export { PinSaveSection } from './components/PinSaveSection';
 
 export { PinDetail } from './components/detail/PinDetail';
@@ -77,7 +79,6 @@ export { PinDetailAuthor } from './components/detail/PinDetailAuthor';
 export { PinDetailStats } from './components/detail/PinDetailStats';
 export { PinDetailComments } from './components/detail/PinDetailComments';
 
-
 // Utils
 export {
   getPinImageId,
@@ -89,9 +90,6 @@ export {
   ensurePinLinkProtocol,
   buildPinShareUrl,
   isPinOwner,
-  shouldDeleteAfterProfileRemoval,
-  shouldDeleteAfterBoardRemoval,
-  shouldDeleteAfterAllBoardsRemoval,
   calculateEngagementScore,
   sortPinsByEngagement,
   groupPinsByDate,

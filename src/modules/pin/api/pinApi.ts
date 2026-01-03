@@ -17,7 +17,7 @@ import type {
  */
 const cleanParams = (obj: Record<string, unknown>): Record<string, unknown> => {
   return Object.fromEntries(
-    Object.entries(obj).filter(([v]) => 
+    Object.entries(obj).filter(([, v]) => 
       v !== undefined && 
       v !== null && 
       v !== '' && 
@@ -52,9 +52,6 @@ const buildParams = (
 export const pinApi = {
   // ==================== Query ====================
   
-  /**
-   * Получить пины с фильтром — просто передаём в API
-   */
   getAll: (
     filter: PinFilter = {}, 
     pageable: Pageable = {},
@@ -83,13 +80,21 @@ export const pinApi = {
     return del<void>(PIN_ENDPOINTS.delete(pinId));
   },
 
-  // ==================== Save to Profile ====================
+  // ==================== Save/Unsave (в выбранную доску) ====================
   
-  saveToProfile: (pinId: string) => {
+  /**
+   * Сохранить пин в выбранную доску
+   * POST /api/v1/pins/{pinId}/saves
+   */
+  save: (pinId: string) => {
     return post<PinResponse>(PIN_ENDPOINTS.save(pinId));
   },
 
-  unsaveFromProfile: (pinId: string) => {
+  /**
+   * Убрать пин из последней сохранённой доски
+   * DELETE /api/v1/pins/{pinId}/saves
+   */
+  unsave: (pinId: string) => {
     return del<void>(PIN_ENDPOINTS.unsave(pinId));
   },
 };

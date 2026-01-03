@@ -42,10 +42,10 @@ export interface PinResponse {
   tags: string[];
   isLiked: boolean;
   likeCount: number;
+  // ✅ Обновлено согласно API
   isSaved: boolean;
-  isSavedToProfile: boolean;
-  savedToBoardName: string | null;
-  savedToBoardCount: number;
+  lastSavedBoardName: string | null;
+  savedToBoardsCount: number;
   saveCount: number;
   commentCount: number;
   viewCount: number;
@@ -90,12 +90,11 @@ export interface PinPreview {
 
 // ==================== Filter (точно как в API) ====================
 
+// ✅ Убраны SAVED_TO_PROFILE, SAVED_ALL - теперь только SAVED
 export type PinScope = 
   | 'ALL' 
   | 'CREATED' 
   | 'SAVED'
-  | 'SAVED_TO_PROFILE'
-  | 'SAVED_ALL'
   | 'LIKED' 
   | 'RELATED';
 
@@ -107,10 +106,9 @@ export interface PinFilter {
   tags?: string[];
   authorId?: string;
   savedBy?: string;
-  savedToProfileBy?: string;
-  savedAnywhere?: string;  
   likedBy?: string;
   relatedTo?: string;
+  boardId?: string;
   createdFrom?: string;
   createdTo?: string;
   scope?: PinScope;
@@ -131,13 +129,14 @@ export interface PinSort {
 export interface ScopeOption {
   value: PinScope;
   label: string;
-  icon?: 'pin' | 'board' | 'person' | 'heart' | 'sparkle';
+  icon?: 'pin' | 'board' | 'heart' | 'sparkle';
 }
 
+// ✅ Упрощено - убран SAVED_ALL
 export const SCOPE_OPTIONS: ScopeOption[] = [
   { value: 'ALL', label: 'All Pins', icon: 'sparkle' },
   { value: 'CREATED', label: 'Created', icon: 'pin' },
-  { value: 'SAVED_ALL', label: 'Saved', icon: 'board' },
+  { value: 'SAVED', label: 'Saved', icon: 'board' },
   { value: 'LIKED', label: 'Liked', icon: 'heart' },
 ];
 

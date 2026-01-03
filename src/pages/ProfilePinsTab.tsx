@@ -1,7 +1,7 @@
 // src/pages/ProfilePinsTab.tsx
 
 import React, { useCallback, useState, useMemo } from 'react';
-import { Box, Flex, Text, TapArea, Icon } from 'gestalt';
+import { Box, Flex, Text, TapArea } from 'gestalt';
 import { 
   PinGrid, 
   PinSortSelect,
@@ -19,19 +19,21 @@ const ProfilePinsTab: React.FC<ProfilePinsTabProps> = ({
   userId, 
   isOwner = false,
 }) => {
-  const [showOnlyCreated, setShowOnlyCreated] = useState(false);
+  // Tabs: "Saved" (default) and "Created"
+  const [activeTab, setActiveTab] = useState<'saved' | 'created'>('saved');
   
   // Global sort preference
   const sort = usePinPreferencesStore((s) => s.sort);
 
-  // Для своего профиля: можем переключать между SAVED_ALL и CREATED
-  // Для чужого профиля: только CREATED (сохранённые - приватные данные)
+  // Determine scope based on tab
+  // For owner: can see both saved and created
+  // For others: only created (saved is private)
   const scope: PinScope = useMemo(() => {
     if (!isOwner) {
       return 'CREATED';
     }
-    return showOnlyCreated ? 'CREATED' : 'SAVED_ALL';
-  }, [isOwner, showOnlyCreated]);
+    return activeTab === 'created' ? 'CREATED' : 'SAVED';
+  }, [isOwner, activeTab]);
   
   const {
     pins,
@@ -41,10 +43,6 @@ const ProfilePinsTab: React.FC<ProfilePinsTabProps> = ({
     hasNextPage,
     fetchNextPage,
   } = useUserPins(userId, scope, { sort });
-
-  const handleToggleCreated = useCallback(() => {
-    setShowOnlyCreated(prev => !prev);
-  }, []);
 
   const handleFetchNextPage = useCallback(() => {
     fetchNextPage();
@@ -56,64 +54,87 @@ const ProfilePinsTab: React.FC<ProfilePinsTabProps> = ({
     if (!isOwner) {
       return "No pins created yet";
     }
-    if (showOnlyCreated) {
+    if (activeTab === 'created') {
       return "You haven't created any pins yet";
     }
     return "You haven't saved any pins yet";
-  }, [isOwner, showOnlyCreated]);
+  }, [isOwner, activeTab]);
 
   return (
     <Box>
       {/* Header */}
       <Box marginBottom={4}>
         <Flex justifyContent="between" alignItems="center" wrap gap={3}>
-          {/* Left side - Count and Filter */}
+          {/* Left side - Tabs (only for owner) */}
           <Flex alignItems="center" gap={3}>
-            <Text size="300" weight="bold">
+            {isOwner && (
+              <Flex gap={1}>
+                {/* Saved Tab */}
+                <TapArea 
+                  onTap={() => setActiveTab('saved')} 
+                  rounding="pill"
+                >
+                  <Box
+                    paddingX={4}
+                    paddingY={2}
+                    rounding="pill"
+                    dangerouslySetInlineStyle={{
+                      __style: {
+                        backgroundColor: activeTab === 'saved' 
+                          ? '#111' 
+                          : 'transparent',
+                        transition: 'all 0.15s ease',
+                      },
+                    }}
+                  >
+                    <Text 
+                      weight="bold" 
+                      size="200"
+                      color={activeTab === 'saved' ? 'inverse' : 'default'}
+                    >
+                      Saved
+                    </Text>
+                  </Box>
+                </TapArea>
+
+                {/* Created Tab */}
+                <TapArea 
+                  onTap={() => setActiveTab('created')} 
+                  rounding="pill"
+                >
+                  <Box
+                    paddingX={4}
+                    paddingY={2}
+                    rounding="pill"
+                    dangerouslySetInlineStyle={{
+                      __style: {
+                        backgroundColor: activeTab === 'created' 
+                          ? '#111' 
+                          : 'transparent',
+                        transition: 'all 0.15s ease',
+                      },
+                    }}
+                  >
+                    <Text 
+                      weight="bold" 
+                      size="200"
+                      color={activeTab === 'created' ? 'inverse' : 'default'}
+                    >
+                      Created
+                    </Text>
+                  </Box>
+                </TapArea>
+              </Flex>
+            )}
+
+            {/* Count */}
+            <Text size="300" color="subtle">
               {displayCount} {displayCount === 1 ? 'Pin' : 'Pins'}
             </Text>
-            
-            {/* Created by me filter - только для своего профиля */}
-            {isOwner && (
-              <TapArea onTap={handleToggleCreated} rounding="pill">
-                <Box
-                  paddingX={3}
-                  paddingY={2}
-                  rounding="pill"
-                  display="flex"
-                  alignItems="center"
-                  dangerouslySetInlineStyle={{
-                    __style: {
-                      backgroundColor: showOnlyCreated 
-                        ? 'var(--color-primary)' 
-                        : 'var(--bg-secondary)',
-                      transition: 'all 0.15s ease',
-                    },
-                  }}
-                >
-                  <Flex alignItems="center" gap={2}>
-                    {showOnlyCreated && (
-                      <Icon 
-                        accessibilityLabel="" 
-                        icon="check" 
-                        size={12} 
-                        color="inverse" 
-                      />
-                    )}
-                    <Text 
-                      size="200" 
-                      weight="bold"
-                      color={showOnlyCreated ? 'inverse' : 'default'}
-                    >
-                      Created by me
-                    </Text>
-                  </Flex>
-                </Box>
-              </TapArea>
-            )}
-            
-            <PinSortSelect size="md" />
           </Flex>
+
+          {/* Right side - Sort */}
+          <PinSortSelect size="md" />
         </Flex>
       </Box>
 

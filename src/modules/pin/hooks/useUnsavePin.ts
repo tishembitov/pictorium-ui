@@ -1,20 +1,19 @@
-// src/modules/pin/hooks/useUnsaveFromProfile.ts
+// src/modules/pin/hooks/useUnsavePin.ts
 
 import { useMutation, useQueryClient, type InfiniteData, type QueryKey } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { pinApi } from '../api/pinApi';
 import { useToast } from '@/shared/hooks/useToast';
 import { useAuthStore } from '@/modules/auth';
-import { shouldDeleteAfterProfileRemoval } from '../utils/pinUtils';
 import type { PinResponse, PagePinResponse } from '../types/pin.types';
 
-interface UseUnsaveFromProfileOptions {
+interface UseUnsavePinOptions {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
   showToast?: boolean;
 }
 
-// ==================== Helper: Find Pin in Cache ====================
+// ==================== Helpers ====================
 
 const findPinInCache = (
   queryClient: ReturnType<typeof useQueryClient>,
@@ -38,13 +37,15 @@ const findPinInCache = (
   return undefined;
 };
 
-// ==================== Helpers ====================
-
-const createUnsavedFromProfilePin = (pin: PinResponse): PinResponse => ({
-  ...pin,
-  isSavedToProfile: false,
-  isSaved: pin.savedToBoardCount > 0,
-});
+const createUnsavedPin = (pin: PinResponse): PinResponse => {
+  const newCount = Math.max(0, pin.savedToBoardsCount - 1);
+  return {
+    ...pin,
+    isSaved: newCount > 0,
+    savedToBoardsCount: newCount,
+    lastSavedBoardName: newCount === 0 ? null : pin.lastSavedBoardName,
+  };
+};
 
 const updatePinInPages = (
   data: InfiniteData<PagePinResponse> | undefined,
@@ -86,30 +87,25 @@ const removePinFromPages = (
 const isSavedPinsQuery = (queryKey: QueryKey, userId: string): boolean => {
   if (!Array.isArray(queryKey) || queryKey[0] !== 'pins' || queryKey[1] !== 'list') return false;
   const filter = queryKey[2] as Record<string, unknown> | undefined;
-  return filter?.savedAnywhere === userId || filter?.savedToProfileBy === userId;
+  return filter?.savedBy === userId;
 };
 
 // ==================== Hook ====================
 
-export const useUnsaveFromProfile = (options: UseUnsaveFromProfileOptions = {}) => {
+/**
+ * Убрать пин из последней сохранённой доски
+ * Пин НЕ удаляется, только убирается из сохранённых
+ */
+export const useUnsavePin = (options: UseUnsavePinOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
-
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const userId = useAuthStore((state) => state.user?.id);
 
   const mutation = useMutation({
-    mutationFn: async ({ pinId, shouldDelete }: { pinId: string; shouldDelete: boolean }) => {
-      if (shouldDelete) {
-        await pinApi.delete(pinId);
-        return { deleted: true, pinId };
-      } else {
-        await pinApi.unsaveFromProfile(pinId);
-        return { deleted: false, pinId };
-      }
-    },
+    mutationFn: (pinId: string) => pinApi.unsave(pinId),
 
-    onMutate: async ({ pinId, shouldDelete }) => {
+    onMutate: async (pinId) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.byId(pinId) });
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.all });
 
@@ -119,58 +115,62 @@ export const useUnsaveFromProfile = (options: UseUnsaveFromProfileOptions = {}) 
       queryClient.getQueriesData<InfiniteData<PagePinResponse>>({ queryKey: queryKeys.pins.all })
         .forEach(([key, data]) => { if (data) previousLists.push({ key, data }); });
 
-      if (shouldDelete) {
-        queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
-          { queryKey: queryKeys.pins.all },
-          (oldData) => removePinFromPages(oldData, pinId)
+      // Optimistic update - decrease count
+      if (previousPin) {
+        queryClient.setQueryData<PinResponse>(
+          queryKeys.pins.byId(pinId),
+          createUnsavedPin(previousPin)
         );
-      } else {
-        if (previousPin) {
-          queryClient.setQueryData<PinResponse>(
-            queryKeys.pins.byId(pinId),
-            createUnsavedFromProfilePin(previousPin)
-          );
-        }
-
-        queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
-          { queryKey: queryKeys.pins.all },
-          (oldData) => updatePinInPages(oldData, pinId, createUnsavedFromProfilePin)
-        );
-
-        if (previousPin?.savedToBoardCount === 0 && userId) {
-          queryClient.getQueriesData<InfiniteData<PagePinResponse>>({ queryKey: queryKeys.pins.all })
-            .forEach(([key]) => {
-              if (isSavedPinsQuery(key, userId)) {
-                queryClient.setQueryData<InfiniteData<PagePinResponse>>(
-                  key, (oldData) => removePinFromPages(oldData, pinId)
-                );
-              }
-            });
-        }
       }
 
-      return { previousPin, previousLists, pinId, shouldDelete };
+      queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
+        { queryKey: queryKeys.pins.all },
+        (oldData) => updatePinInPages(oldData, pinId, createUnsavedPin)
+      );
+
+      // Remove from saved lists if no longer saved
+      if (previousPin && previousPin.savedToBoardsCount <= 1 && userId) {
+        queryClient.getQueriesData<InfiniteData<PagePinResponse>>({ queryKey: queryKeys.pins.all })
+          .forEach(([key]) => {
+            if (isSavedPinsQuery(key, userId)) {
+              queryClient.setQueryData<InfiniteData<PagePinResponse>>(
+                key, (oldData) => removePinFromPages(oldData, pinId)
+              );
+            }
+          });
+      }
+
+      return { previousPin, previousLists, pinId };
     },
 
-    onSuccess: (result) => {
-      const { deleted, pinId } = result;
-
-      if (deleted) {
-        queryClient.removeQueries({ queryKey: queryKeys.pins.byId(pinId) });
-        if (showToast) toast.success('Pin deleted');
-      } else {
-        if (userId) {
-          queryClient.invalidateQueries({
-            predicate: (query) => isSavedPinsQuery(query.queryKey, userId),
-          });
+    onSuccess: (_, pinId) => {
+      // Invalidate board-related queries
+      queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
+      
+      // Invalidate all board pins queries
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key[0] === 'boards' && key[1] === 'pins';
         }
-        if (showToast) toast.success('Removed from profile');
+      });
+
+      if (userId) {
+        queryClient.invalidateQueries({
+          predicate: (query) => isSavedPinsQuery(query.queryKey, userId),
+        });
+      }
+
+      if (showToast) {
+        toast.success('Removed from board');
       }
 
       onSuccess?.();
     },
 
-    onError: (error: Error, { pinId }, context) => {
+    onError: (error: Error, pinId, context) => {
+      // Rollback
       if (context?.previousPin) {
         queryClient.setQueryData(queryKeys.pins.byId(pinId), context.previousPin);
       }
@@ -180,30 +180,21 @@ export const useUnsaveFromProfile = (options: UseUnsaveFromProfileOptions = {}) 
         }
       }
 
-      if (showToast) toast.error(error.message || 'Failed to remove pin');
+      if (showToast) {
+        toast.error(error.message || 'Failed to remove pin');
+      }
+
       onError?.(error);
     },
   });
 
-  const unsaveFromProfile = (pinId: string) => {
-    const pin = findPinInCache(queryClient, pinId);
-    const shouldDelete = shouldDeleteAfterProfileRemoval(pin, userId);
-    mutation.mutate({ pinId, shouldDelete });
-  };
-
-  const unsaveFromProfileAsync = async (pinId: string) => {
-    const pin = findPinInCache(queryClient, pinId);
-    const shouldDelete = shouldDeleteAfterProfileRemoval(pin, userId);
-    return mutation.mutateAsync({ pinId, shouldDelete });
-  };
-
   return {
-    unsaveFromProfile,
-    unsaveFromProfileAsync,
+    unsavePin: mutation.mutate,
+    unsavePinAsync: mutation.mutateAsync,
     isLoading: mutation.isPending,
     isError: mutation.isError,
     error: mutation.error,
   };
 };
 
-export default useUnsaveFromProfile;
+export default useUnsavePin;

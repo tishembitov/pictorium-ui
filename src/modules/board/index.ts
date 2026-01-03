@@ -30,7 +30,6 @@ export { useDeleteBoard } from './hooks/useDeleteBoard';
 export { useSavePinToBoard } from './hooks/useSavePinToBoard';
 export { useRemovePinFromBoard } from './hooks/useRemovePinFromBoard';
 export { useSavePinToBoards } from './hooks/useSavePinToBoards';
-export { useRemovePinFromAllBoards } from './hooks/useRemovePinFromAllBoards';
 export { useSelectedBoard } from './hooks/useSelectedBoard';
 export { useSelectBoard } from './hooks/useSelectBoard';
 
@@ -39,8 +38,6 @@ export {
   useSelectedBoardStore,
   selectSelectedBoard,
   selectHasSelectedBoard,
-  selectIsProfileMode,
-  type SaveTarget,
 } from './stores/selectedBoardStore';
 
 // Components
@@ -52,5 +49,5 @@ export { BoardCreateModal } from './components/BoardCreateModal';
 export { BoardEditModal } from './components/BoardEditModal';
 export { boardCreateSchema, type BoardCreateFormData } from './components/boardCreateSchema';
 export { BoardSelector } from './components/BoardSelector';
-export { BoardPicker } from './components/BoardPicker';
-export { BoardDropdownItem, ProfileDropdownItem } from './components/BoardDropdownItem';
+export { BoardDropdown } from './components/BoardDropdown'; 
+export { BoardItem } from './components/BoardItem'; 

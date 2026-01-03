@@ -9,13 +9,12 @@ import { queryKeys } from '@/app/config/queryClient';
 import { FormField, FormTextArea } from '@/shared/components';
 import { useImageUpload } from '@/modules/storage';
 import { TagInput } from '@/modules/tag';
+import { BoardDropdown, useSavePinToBoard, useSelectedBoardStore } from '@/modules/board';
 import { useCreatePin } from '../hooks/useCreatePin';
-import { useSaveToProfile } from '../hooks/useSaveToProfile';
-import { useSavePinToBoard, BoardPicker } from '@/modules/board';
-import type { BoardResponse } from '@/modules/board';
-import { useAuthStore } from '@/modules/auth';
+import { useToast } from '@/shared/hooks/useToast';
 import { pinCreateSchema, type PinCreateFormData } from './pinCreateSchema';
 import { ensurePinLinkProtocol } from '../utils/pinUtils';
+import type { BoardResponse } from '@/modules/board';
 
 interface PinCreateFormProps {
   onSuccess?: () => void;
@@ -35,18 +34,27 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
-  // Локальное состояние для выбора места сохранения (не меняет глобальный store)
-  const [saveTarget, setSaveTarget] = useState<BoardResponse | null>(null);
+  // Get global selected board as initial value
+  const globalSelectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
   
+  // Initialize local board with global (using initializer function to avoid effect)
+  const [localSelectedBoard, setLocalSelectedBoard] = useState<BoardResponse | null>(
+    () => globalSelectedBoard
+  );
   const [uploadedImage, setUploadedImage] = useState<UploadedImage | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const userId = useAuthStore((state) => state.user?.id);
+  const { toast } = useToast();
 
   // Upload hook
   const { upload, isUploading } = useImageUpload();
+
+  // Save to board after creation
+  const { savePinToBoard } = useSavePinToBoard({
+    showToast: false,
+  });
 
   // Cleanup preview URL on unmount
   useEffect(() => {
@@ -57,58 +65,24 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     };
   }, [previewUrl]);
 
-  // Invalidate caches
-  const invalidateCaches = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.pins.all });
-    
-    if (userId) {
-      queryClient.invalidateQueries({
-        predicate: (query) => {
-          const key = query.queryKey;
-          if (!Array.isArray(key) || key[0] !== 'pins' || key[1] !== 'list') return false;
-          const filter = key[2] as Record<string, unknown> | undefined;
-          return (
-            filter?.authorId === userId ||
-            filter?.savedAnywhere === userId ||
-            filter?.savedToProfileBy === userId ||
-            filter?.savedBy === userId
-          );
-        },
-      });
-    }
-
-    if (saveTarget) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.boards.pins(saveTarget.id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
-    }
-  }, [queryClient, userId, saveTarget]);
-
-  // Save to profile mutation
-  const { saveToProfile } = useSaveToProfile({ 
-    showToast: false,
-    onSuccess: () => {
-      invalidateCaches();
-      onSuccess?.();
-    },
-  });
-
-  // Save to board mutation
-  const { savePinToBoard } = useSavePinToBoard({ 
-    showToast: false,
-    onSuccess: () => {
-      invalidateCaches();
-      onSuccess?.();
-    },
-  });
-
   // Create pin mutation
   const { createPin, isLoading: isCreating } = useCreatePin({
     onSuccess: (createdPin) => {
-      if (saveTarget) {
-        savePinToBoard({ boardId: saveTarget.id, pinId: createdPin.id });
+      // Save to selected board
+      if (localSelectedBoard) {
+        savePinToBoard({ boardId: localSelectedBoard.id, pinId: createdPin.id });
+        toast.success(`Pin created and saved to "${localSelectedBoard.title}"`);
       } else {
-        saveToProfile(createdPin.id);
+        toast.success('Pin created!');
       }
+      
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: queryKeys.pins.all });
+      if (localSelectedBoard) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.boards.pins(localSelectedBoard.id) });
+      }
+      
+      onSuccess?.();
     },
     navigateToPin: false,
     showToast: false,
@@ -173,12 +147,13 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
       URL.revokeObjectURL(newPreviewUrl);
       setPreviewUrl(null);
       setUploadedImage(null);
+      toast.error('Failed to upload image');
     }
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, [upload, setValue, previewUrl]);
+  }, [upload, setValue, previewUrl, toast]);
 
   const handleRemoveImage = useCallback(() => {
     if (previewUrl) {
@@ -194,9 +169,9 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     fileInputRef.current?.click();
   }, []);
 
-  // Save target change - локальное изменение без влияния на глобальный store
-  const handleSaveTargetChange = useCallback((board: BoardResponse | null) => {
-    setSaveTarget(board);
+  // Board selection (local only - doesn't change global store during creation)
+  const handleBoardSelect = useCallback((board: BoardResponse) => {
+    setLocalSelectedBoard(board);
   }, []);
 
   // Submit
@@ -218,7 +193,8 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   };
 
   const hasImage = !!uploadedImage;
-  const canSubmit = hasImage && isValid && !!titleValue?.trim() && !isUploading;
+  const hasBoard = !!localSelectedBoard;
+  const canSubmit = hasImage && isValid && !!titleValue?.trim() && !isUploading && hasBoard;
   const isLoading = isCreating || isUploading;
 
   return (
@@ -232,9 +208,9 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
         style={{ display: 'none' }}
       />
 
-      {/* Main Layout - более компактный */}
+      {/* Main Layout */}
       <Flex gap={6} wrap>
-        {/* Left Column - Image (фиксированная ширина как в UserProfileForm) */}
+        {/* Left Column - Image */}
         <Box width={280}>
           <Box marginBottom={2}>
             <Text weight="bold" size="200">
@@ -273,7 +249,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                   }}
                 />
                 
-                {/* Loading overlay */}
                 {isUploading && (
                   <Box
                     position="absolute"
@@ -346,7 +321,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
             )}
           </Box>
 
-          {/* Image actions - под изображением */}
+          {/* Image actions */}
           {hasImage && !isUploading && (
             <Box marginTop={2}>
               <Flex gap={2}>
@@ -385,17 +360,27 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
 
         {/* Right Column - Form Fields */}
         <Box flex="grow" minWidth={280} maxWidth={400}>
-          {/* Save destination picker */}
+          {/* Board Selection */}
           <Box marginBottom={4}>
             <Box marginBottom={2}>
-              <Text weight="bold" size="200">Save to</Text>
+              <Flex alignItems="center" gap={1}>
+                <Text weight="bold" size="200">Save to board</Text>
+                <Text color="error" size="200">*</Text>
+              </Flex>
             </Box>
-            <BoardPicker
-              value={saveTarget}
-              onChange={handleSaveTargetChange}
+            <BoardDropdown
+              onBoardSelect={handleBoardSelect}
+              localOnly
+              value={localSelectedBoard}
               size="lg"
-              showLabel
             />
+            {!hasBoard && (
+              <Box marginTop={1}>
+                <Text color="subtle" size="100">
+                  Select a board to save your pin
+                </Text>
+              </Box>
+            )}
           </Box>
 
           <Divider />
@@ -511,8 +496,9 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                 <Flex gap={2} alignItems="center">
                   <Icon accessibilityLabel="" icon="workflow-status-warning" size={14} color="subtle" />
                   <Text size="200" color="subtle">
-                    {!hasImage && 'Upload an image to continue'}
-                    {hasImage && !titleValue?.trim() && 'Add a title to continue'}
+                    {!hasImage && 'Upload an image'}
+                    {hasImage && !titleValue?.trim() && 'Add a title'}
+                    {hasImage && titleValue?.trim() && !hasBoard && 'Select a board'}
                   </Text>
                 </Flex>
               )}

@@ -12,9 +12,11 @@ import {
   Tooltip,
 } from 'gestalt';
 import { PinCreateForm } from '@/modules/pin';
+import { useSelectedBoardStore } from '@/modules/board';
 
 const PinCreatePage: React.FC = () => {
   const navigate = useNavigate();
+  const selectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
 
   const handleSuccess = useCallback(() => {
     navigate(-1);
@@ -42,7 +44,7 @@ const PinCreatePage: React.FC = () => {
               bgColor="transparent"
             />
           </Tooltip>
-          <Box>
+          <Box flex="grow">
             <Heading size="400" accessibilityLevel={1}>
               Create Pin
             </Heading>
@@ -50,6 +52,21 @@ const PinCreatePage: React.FC = () => {
               Share something inspiring
             </Text>
           </Box>
+          
+          {/* Show current default board */}
+          {selectedBoard && (
+            <Box 
+              paddingX={3} 
+              paddingY={2} 
+              rounding="pill" 
+              color="secondary"
+            >
+              <Flex alignItems="center" gap={2}>
+                <Text size="100" color="subtle">Default board:</Text>
+                <Text size="200" weight="bold">{selectedBoard.title}</Text>
+              </Flex>
+            </Box>
+          )}
         </Flex>
       </Box>
 

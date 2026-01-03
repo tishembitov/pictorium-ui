@@ -6,7 +6,7 @@ import { Box, Mask, TapArea, Text, Image as GestaltImage, Flex } from 'gestalt';
 import { buildPath } from '@/app/router/routeConfig';
 import { useImageUrl } from '@/modules/storage';
 import { useAuth } from '@/modules/auth';
-import { PinSaveSection } from './PinSaveSection';
+import { CompactSaveSection } from './CompactSaveSection';
 import { PinShareButton } from './PinShareButton';
 import { PinMenuButton } from './PinMenuButton';
 import type { PinResponse } from '../types/pin.types';
@@ -94,16 +94,14 @@ export const PinCard: React.FC<PinCardProps> = ({
             },
           }}
         >
-          {/* Top Actions - Save Button */}
+          {/* Top Actions - Save */}
           <Box padding={2} display="flex" justifyContent="end">
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
               {isAuthenticated && (
-                <PinSaveSection
-                  key={pin.id}  
+                <CompactSaveSection
                   pinId={pin.id}
                   isSaved={pin.isSaved}
-                  isSavedToProfile={pin.isSavedToProfile}
-                  variant="compact"
+                  lastSavedBoardName={pin.lastSavedBoardName}
                 />
               )}
             </Box>

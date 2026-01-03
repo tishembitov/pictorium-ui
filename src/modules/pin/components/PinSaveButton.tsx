@@ -14,6 +14,7 @@ interface PinSaveButtonProps {
   onSave?: () => void;
   onUnsave?: () => void;
   isLoading?: boolean;
+  disabled?: boolean;
   size?: 'sm' | 'md' | 'lg';
 }
 
@@ -40,6 +41,7 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
   onSave,
   onUnsave,
   isLoading = false,
+  disabled = false,
   size = 'md',
 }) => {
   const { isAuthenticated, login } = useAuth();
@@ -61,11 +63,12 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
 
   const buttonHeight = getButtonHeight(size);
   const paddingX = getPaddingX(size);
+  const isDisabled = disabled || isLoading;
 
   return (
     <TapArea 
       onTap={handleClick} 
-      disabled={isLoading}
+      disabled={isDisabled}
       rounding={2}
     >
       <Box
@@ -79,8 +82,8 @@ export const PinSaveButton: React.FC<PinSaveButtonProps> = ({
             paddingLeft: paddingX,
             paddingRight: paddingX,
             backgroundColor: isSaved ? '#111' : '#e60023',
-            cursor: isLoading ? 'wait' : 'pointer',
-            opacity: isLoading ? 0.7 : 1,
+            cursor: isDisabled ? 'not-allowed' : 'pointer',
+            opacity: isDisabled ? 0.6 : 1,
             transition: 'all 0.15s ease',
           },
         }}

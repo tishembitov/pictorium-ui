@@ -36,10 +36,6 @@ const buildUserFilter = (userId: string, scope: PinScope): PinFilter => {
       return { ...base, authorId: userId };
     case 'SAVED':
       return { ...base, savedBy: userId };
-    case 'SAVED_TO_PROFILE':
-      return { ...base, savedToProfileBy: userId };
-    case 'SAVED_ALL':
-      return { ...base, savedAnywhere: userId };  // ✅ Исправлено: используем savedAnywhere
     case 'LIKED':
       return { ...base, likedBy: userId };
     default:
@@ -81,7 +77,6 @@ export const usePins = (
 
   const totalElements = query.data?.pages[0]?.totalElements ?? 0;
 
-  // Wrap async functions to return void
   const handleFetchNextPage = useCallback(() => {
     query.fetchNextPage();
   }, [query]);

@@ -1,3 +1,5 @@
+// src/shared/api/apiEndpoints.ts
+
 import { env } from '@/app/config/env';
 
 // Base API URL (through gateway)
@@ -16,14 +18,13 @@ export const API_PREFIXES = {
 
 // User Service Endpoints
 export const USER_ENDPOINTS = {
-  // Users - согласно OpenAPI
   me: () => `${API_PREFIXES.users}/me`,
-  update: () => `${API_PREFIXES.users}/me`, // PATCH /api/v1/users/me
+  update: () => `${API_PREFIXES.users}/me`,
   byId: (userId: string) => `${API_PREFIXES.users}/user/id/${userId}`,
   byUsername: (username: string) => `${API_PREFIXES.users}/user/username/${username}`,
 } as const;
 
-// Subscription Endpoints - отдельно для ясности
+// Subscription Endpoints
 export const SUBSCRIPTION_ENDPOINTS = {
   follow: (userId: string) => `${API_PREFIXES.subscriptions}/users/${userId}`,
   unfollow: (userId: string) => `${API_PREFIXES.subscriptions}/users/${userId}`,
@@ -50,9 +51,8 @@ export const PIN_ENDPOINTS = {
   comments: (pinId: string) => `${API_PREFIXES.pins}/${pinId}/comments`,
   createComment: (pinId: string) => `${API_PREFIXES.pins}/${pinId}/comments`,
   
-  // ✅ Save/Unsave - в выбранную доску
-  save: (pinId: string) => `${API_PREFIXES.pins}/${pinId}/saves`,
-  unsave: (pinId: string) => `${API_PREFIXES.pins}/${pinId}/saves`,
+  // ❌ УДАЛЕНО: save/unsave - таких эндпоинтов нет в API
+  // Сохранение происходит через Board API
 } as const;
 
 // Board Endpoints
@@ -67,19 +67,21 @@ export const BOARD_ENDPOINTS = {
   addPin: (boardId: string, pinId: string) => `${API_PREFIXES.boards}/${boardId}/pins/${pinId}`,
   removePin: (boardId: string, pinId: string) => `${API_PREFIXES.boards}/${boardId}/pins/${pinId}`,
   
-  // Batch Pin Operations - NEW
+  // ✅ Batch Pin Operations
   savePinToBoards: (pinId: string) => `${API_PREFIXES.boards}/pins/${pinId}`,
-  removePinFromAllBoards: (pinId: string) => `${API_PREFIXES.boards}/pins/${pinId}`,
+  
+  // ✅ NEW: Create board and save pin in one request
+  createWithPin: (pinId: string) => `${API_PREFIXES.boards}/with-pin/${pinId}`,
   
   // User Boards
   byUser: (userId: string) => `${API_PREFIXES.boards}/user/${userId}`,
   my: () => `${API_PREFIXES.boards}/me`,
-  myForPin: (pinId: string) => `${API_PREFIXES.boards}/me/for-pin/${pinId}`, // NEW
+  myForPin: (pinId: string) => `${API_PREFIXES.boards}/me/for-pin/${pinId}`,
   
   // Selected Board
   selected: () => `${API_PREFIXES.boards}/selected`,
   select: (boardId: string) => `${API_PREFIXES.boards}/${boardId}/select`,
-  deselect: () => `${API_PREFIXES.boards}/selected`, // DELETE
+  deselect: () => `${API_PREFIXES.boards}/selected`,
 } as const;
 
 // Comment Endpoints

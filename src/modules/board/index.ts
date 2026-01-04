@@ -24,6 +24,7 @@ export { useMyBoards } from './hooks/useMyBoards';
 export { useMyBoardsForPin } from './hooks/useMyBoardsForPin';
 export { useUserBoards } from './hooks/useUserBoards';
 export { useBoardPins, useInfiniteBoardPins } from './hooks/useBoardPins';
+export { useCreateBoardWithPin } from './hooks/useCreateBoardWithPin'; 
 export { useCreateBoard } from './hooks/useCreateBoard';
 export { useUpdateBoard } from './hooks/useUpdateBoard';
 export { useDeleteBoard } from './hooks/useDeleteBoard';

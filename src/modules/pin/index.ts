@@ -42,9 +42,6 @@ export { usePinLikes, useInfinitePinLikes } from './hooks/usePinLikes';
 export { usePinComments, useInfinitePinComments } from './hooks/usePinComments';
 export { useCreateComment } from './hooks/useCreateComment';
 export { useScrollToComments } from './hooks/useScrollToComments';
-// ✅ Новые хуки для save/unsave
-export { useSavePin } from './hooks/useSavePin';
-export { useUnsavePin } from './hooks/useUnsavePin';
 
 // Store
 export { usePinPreferencesStore, selectSort } from './stores/pinPreferencesStore';

@@ -13,12 +13,13 @@ import {
   Heading,
 } from 'gestalt';
 import { BoardCreateModal } from './BoardCreateModal';
-import { useMyBoards } from '../hooks/useMyBoards';
+import { useMyBoardsForPin } from '../hooks/useMyBoardsForPin';
 import { useSavePinToBoard } from '../hooks/useSavePinToBoard';
 import { useSelectedBoard } from '../hooks/useSelectedBoard';
+import { useSelectBoard } from '../hooks/useSelectBoard';
 import { useImageUrl } from '@/modules/storage';
 import { useBoardPins } from '../hooks/useBoardPins';
-import type { BoardResponse } from '../types/board.types';
+import type { BoardResponse, BoardWithPinStatusResponse } from '../types/board.types';
 
 interface BoardSelectorProps {
   pinId: string;
@@ -26,9 +27,9 @@ interface BoardSelectorProps {
   onClose?: () => void;
 }
 
-// Board item with preview - исправленные цвета
+// Board item with preview
 const BoardSelectorItem: React.FC<{
-  board: BoardResponse;
+  board: BoardWithPinStatusResponse;
   isSelected: boolean;
   onSelect: () => void;
   isSaving: boolean;
@@ -37,17 +38,22 @@ const BoardSelectorItem: React.FC<{
   const coverImageId = pins[0]?.thumbnailId || pins[0]?.imageId;
   const { data: coverData } = useImageUrl(coverImageId, { enabled: !!coverImageId });
 
+  const isDisabled = isSaving || board.hasPin;
+
   return (
-    <TapArea onTap={onSelect} rounding={3} disabled={isSaving}>
+    <TapArea onTap={onSelect} rounding={3} disabled={isDisabled}>
       <Box
         padding={3}
         rounding={3}
         dangerouslySetInlineStyle={{
           __style: {
             transition: 'all 0.2s ease',
-            // ✅ Исправлено: светлый фон для выделенной доски
-            backgroundColor: isSelected ? 'rgba(230, 0, 35, 0.08)' : 'transparent',
-            border: isSelected ? '2px solid #e60023' : '2px solid transparent',
+            backgroundColor: board.hasPin 
+              ? 'rgba(0, 128, 0, 0.08)'
+              : isSelected 
+                ? 'rgba(230, 0, 35, 0.08)' 
+                : 'transparent',
+            border: isSelected && !board.hasPin ? '2px solid #e60023' : '2px solid transparent',
             opacity: isSaving ? 0.6 : 1,
           },
         }}
@@ -85,7 +91,7 @@ const BoardSelectorItem: React.FC<{
               <Text color="subtle" size="100">
                 {pinCount} {pinCount === 1 ? 'pin' : 'pins'}
               </Text>
-              {isSelected && (
+              {isSelected && !board.hasPin && (
                 <>
                   <Text color="subtle" size="100">•</Text>
                   <Text color="success" size="100" weight="bold">
@@ -96,13 +102,22 @@ const BoardSelectorItem: React.FC<{
             </Flex>
           </Flex>
 
-          {/* Save Button */}
-          <Button
-            text={isSaving ? '...' : 'Save'}
-            size="sm"
-            color="red"
-            disabled={isSaving}
-          />
+          {/* Status */}
+          {board.hasPin ? (
+            <Flex alignItems="center" gap={1}>
+              <Icon accessibilityLabel="Saved" icon="check-circle" size={16} color="success" />
+              <Text size="100" color="success" weight="bold">
+                Saved
+              </Text>
+            </Flex>
+          ) : (
+            <Button
+              text={isSaving ? '...' : 'Save'}
+              size="sm"
+              color="red"
+              disabled={isSaving}
+            />
+          )}
         </Flex>
       </Box>
     </TapArea>
@@ -118,14 +133,19 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [savingToBoardId, setSavingToBoardId] = useState<string | null>(null);
 
-  const { boards, isLoading, isEmpty } = useMyBoards();
+  const { boards, isLoading, refetch } = useMyBoardsForPin(pinId);
   const { selectedBoard } = useSelectedBoard();
+  const { selectBoard } = useSelectBoard();
+  
   const { savePinToBoard } = useSavePinToBoard({
     onSuccess: () => {
       setSavingToBoardId(null);
       onClose?.();
     },
   });
+
+  // ✅ Вычисляем isEmpty из boards
+  const isEmpty = boards.length === 0;
 
   // Filter boards by search
   const filteredBoards = useMemo(() => {
@@ -136,17 +156,21 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
     );
   }, [boards, searchQuery]);
 
-  const handleBoardSelect = useCallback((board: BoardResponse) => {
+  const handleBoardSelect = useCallback((board: BoardWithPinStatusResponse) => {
+    if (board.hasPin) return;
+    
     setSavingToBoardId(board.id);
     savePinToBoard({ boardId: board.id, pinId });
+    selectBoard(board.id);
     onSelect?.(board);
-  }, [savePinToBoard, pinId, onSelect]);
+  }, [savePinToBoard, pinId, selectBoard, onSelect]);
 
   const handleCreateSuccess = useCallback((boardId: string) => {
-    setSavingToBoardId(boardId);
-    savePinToBoard({ boardId, pinId });
+    selectBoard(boardId);
     setShowCreateModal(false);
-  }, [savePinToBoard, pinId]);
+    void refetch();
+    onClose?.();
+  }, [selectBoard, refetch, onClose]);
 
   if (isLoading) {
     return (
@@ -224,11 +248,12 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
         )}
       </Flex>
 
-      {/* Create Board Modal */}
+      {/* Create Board Modal с pinId */}
       <BoardCreateModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleCreateSuccess}
+        pinId={pinId}
       />
     </Box>
   );

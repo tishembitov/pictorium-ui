@@ -80,23 +80,6 @@ export const pinApi = {
     return del<void>(PIN_ENDPOINTS.delete(pinId));
   },
 
-  // ==================== Save/Unsave (в выбранную доску) ====================
-  
-  /**
-   * Сохранить пин в выбранную доску
-   * POST /api/v1/pins/{pinId}/saves
-   */
-  save: (pinId: string) => {
-    return post<PinResponse>(PIN_ENDPOINTS.save(pinId));
-  },
-
-  /**
-   * Убрать пин из последней сохранённой доски
-   * DELETE /api/v1/pins/{pinId}/saves
-   */
-  unsave: (pinId: string) => {
-    return del<void>(PIN_ENDPOINTS.unsave(pinId));
-  },
 };
 
 export default pinApi;

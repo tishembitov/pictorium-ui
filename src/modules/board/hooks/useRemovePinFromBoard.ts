@@ -39,7 +39,7 @@ const findPinInCache = (
 };
 
 /**
- * ✅ Создаёт обновлённый пин после удаления из доски
+ * Создаёт обновлённый пин после удаления из доски
  */
 const createUnsavedPin = (pin: PinResponse, removedBoardId: string): PinResponse => {
   const newSavedCount = Math.max(0, pin.savedToBoardsCount - 1);
@@ -49,7 +49,6 @@ const createUnsavedPin = (pin: PinResponse, removedBoardId: string): PinResponse
   
   return {
     ...pin,
-    // ✅ Убрано isSaved - вычисляется из savedToBoardsCount
     savedToBoardsCount: newSavedCount,
     // Если это была последняя доска или больше нет сохранений - очищаем
     lastSavedBoardId: newSavedCount === 0 || wasLastBoard ? null : pin.lastSavedBoardId,
@@ -103,8 +102,8 @@ const isSavedPinsQuery = (queryKey: QueryKey, userId: string): boolean => {
 // ==================== Hook ====================
 
 /**
- * Убрать пин из конкретной доски
- * ✅ Пин НЕ удаляется, только убирается из доски
+ * Hook to remove a pin from a specific board
+ * Uses DELETE /api/v1/boards/{boardId}/pins/{pinId}
  */
 export const useRemovePinFromBoard = (options: UseRemovePinFromBoardOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
@@ -129,7 +128,7 @@ export const useRemovePinFromBoard = (options: UseRemovePinFromBoardOptions = {}
       queryClient.getQueriesData<InfiniteData<PagePinResponse>>({ queryKey: queryKeys.pins.all })
         .forEach(([key, data]) => { if (data) previousLists.push({ key, data }); });
 
-      // ✅ Optimistic update с boardId для определения lastSavedBoardId
+      // Optimistic update
       if (previousPin) {
         queryClient.setQueryData<PinResponse>(
           queryKeys.pins.byId(pinId),
@@ -142,7 +141,7 @@ export const useRemovePinFromBoard = (options: UseRemovePinFromBoardOptions = {}
         (oldData) => updatePinInPages(oldData, pinId, (pin) => createUnsavedPin(pin, boardId))
       );
 
-      // ✅ Удаляем из saved списков если это была последняя доска
+      // Удаляем из saved списков если это была последняя доска
       if (previousPin && previousPin.savedToBoardsCount <= 1 && userId) {
         queryClient.getQueriesData<InfiniteData<PagePinResponse>>({ queryKey: queryKeys.pins.all })
           .forEach(([key]) => {
@@ -168,7 +167,7 @@ export const useRemovePinFromBoard = (options: UseRemovePinFromBoardOptions = {}
         toast.success('Removed from board');
       }
 
-      // ✅ Рефетчим пин для получения актуальных данных с сервера
+      // Рефетчим пин для получения актуальных данных с сервера
       void queryClient.invalidateQueries({ queryKey: queryKeys.pins.byId(pinId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.pins(boardId) });

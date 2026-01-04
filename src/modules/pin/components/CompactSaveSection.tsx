@@ -19,12 +19,12 @@ import { useAuth } from '@/modules/auth';
 import { 
   useMyBoardsForPin, 
   useSavePinToBoard,
+  useRemovePinFromBoard,
   BoardItem,
   BoardCreateModal,
   useSelectedBoardStore,
   useSelectBoard,
 } from '@/modules/board';
-import { useUnsavePin } from '../hooks/useUnsavePin';
 import { buildPath } from '@/app/router/routeConfig';
 import { isPinSaved } from '../utils/pinUtils';
 import type { BoardWithPinStatusResponse } from '@/modules/board';
@@ -77,19 +77,19 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
     },
   });
 
-  const { unsavePin, isLoading: isUnsaving } = useUnsavePin({
+  const { removePinFromBoard, isLoading: isRemoving } = useRemovePinFromBoard({
     showToast: false,
     onSuccess: () => {
       setLocalSaveInfo(null);
+      void refetchBoards();
     },
   });
 
-  const isLoading = isSavingToBoard || isUnsaving;
+  const isLoading = isSavingToBoard || isRemoving;
 
-  // ✅ Используем isPinSaved из утилит + локальное состояние
+  // Проверяем сохранён ли пин
   const isSaved = useMemo(() => {
     if (localSaveInfo !== null) return true;
-    // Создаем минимальный объект для проверки
     return isPinSaved({ savedToBoardsCount } as PinResponse);
   }, [localSaveInfo, savedToBoardsCount]);
 
@@ -104,7 +104,6 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
     return null;
   }, [localSaveInfo, lastSavedBoardId, lastSavedBoardName]);
 
-  // Актуальное количество сохранений
   const currentSavedCount = localSaveInfo 
     ? savedToBoardsCount + 1 
     : savedToBoardsCount;
@@ -124,11 +123,13 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
       return;
     }
 
+    // Если нет выбранной доски - открываем выбор
     if (!selectedBoard) {
       setIsOpen(true);
       return;
     }
 
+    // Проверяем, не сохранён ли уже в выбранную доску
     const alreadySaved = boards.find(b => b.id === selectedBoard.id)?.hasPin;
     if (alreadySaved) {
       setIsOpen(true);
@@ -139,8 +140,9 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
   }, [isAuthenticated, login, selectedBoard, boards, savePinToBoard, pinId]);
 
   const handleUnsaveClick = useCallback(() => {
-    unsavePin(pinId);
-  }, [unsavePin, pinId]);
+    if (!currentSaveInfo?.boardId) return;
+    removePinFromBoard({ boardId: currentSaveInfo.boardId, pinId });
+  }, [removePinFromBoard, currentSaveInfo, pinId]);
 
   const handleBoardSelect = useCallback((board: BoardWithPinStatusResponse) => {
     if (board.hasPin) return;
@@ -154,11 +156,23 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
     setShowCreateModal(true);
   }, []);
 
+  // ✅ ИСПРАВЛЕНО: убран вызов хука внутри callback
+  // Modal с pinId сам сохраняет пин через useCreateBoardWithPin
   const handleCreateSuccess = useCallback((boardId: string) => {
-    savePinToBoard({ boardId, pinId });
+    // Ищем доску в уже загруженном списке или используем boardId
+    const newBoard = boards.find(b => b.id === boardId);
+    if (newBoard) {
+      setLocalSaveInfo({ boardId, boardName: newBoard.title });
+    } else {
+      // Если доски нет в списке (только что создана) - просто рефетчим
+      setLocalSaveInfo({ boardId, boardName: 'New Board' });
+    }
+    
+    // Выбираем новую доску как дефолтную
     selectBoard(boardId);
     setShowCreateModal(false);
-  }, [savePinToBoard, pinId, selectBoard]);
+    void refetchBoards();
+  }, [boards, selectBoard, refetchBoards]);
 
   const handleDismiss = useCallback(() => {
     setIsOpen(false);
@@ -208,7 +222,7 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
           </Box>
         </Link>
         
-        {/* Saved button */}
+        {/* Saved button - click to unsave */}
         <TapArea 
           onTap={handleUnsaveClick} 
           rounding="pill" 
@@ -357,11 +371,12 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
         </Layer>
       )}
 
-      {/* Create Board Modal */}
+      {/* Create Board Modal с pinId - сохранит пин автоматически */}
       <BoardCreateModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleCreateSuccess}
+        pinId={pinId}
       />
     </>
   );

@@ -17,6 +17,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FormField } from '@/shared/components';
 import { useCreateBoard } from '../hooks/useCreateBoard';
+import { useCreateBoardWithPin } from '../hooks/useCreateBoardWithPin';
 import { boardCreateSchema, type BoardCreateFormData } from './boardCreateSchema';
 
 interface BoardCreateModalProps {
@@ -24,6 +25,8 @@ interface BoardCreateModalProps {
   onClose: () => void;
   onSuccess?: (boardId: string) => void;
   initialTitle?: string;
+  /** Если передан - создаст доску и сохранит пин одним запросом */
+  pinId?: string;
 }
 
 // Suggestion chips data
@@ -34,22 +37,31 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
   onClose,
   onSuccess,
   initialTitle = '',
+  pinId,
 }) => {
   const [keepOpen, setKeepOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const { createBoard, isLoading } = useCreateBoard({
+  // ✅ Используем разные хуки в зависимости от наличия pinId
+  const { createBoard, isLoading: isCreatingBoard } = useCreateBoard({
     onSuccess: (data) => {
-      onSuccess?.(data.id);
-      if (keepOpen) {
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 2000);
-        reset({ title: '' });
-      } else {
-        onClose();
-      }
+      handleSuccess(data.id);
     },
+    showToast: !pinId, // Показываем toast только если без пина
   });
+
+  const { createBoardWithPin, isLoading: isCreatingWithPin } = useCreateBoardWithPin(
+    pinId || '',
+    {
+      onSuccess: (data) => {
+        handleSuccess(data.id);
+      },
+      showToast: true,
+      autoSelect: true,
+    }
+  );
+
+  const isLoading = isCreatingBoard || isCreatingWithPin;
 
   const {
     control,
@@ -65,7 +77,17 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
     mode: 'onChange',
   });
 
-  // ✅ Исправлено: вместо useEffect используем обработчик в handleClose и при открытии
+  const handleSuccess = useCallback((boardId: string) => {
+    onSuccess?.(boardId);
+    if (keepOpen) {
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+      reset({ title: '' });
+    } else {
+      onClose();
+    }
+  }, [onSuccess, keepOpen, reset, onClose]);
+
   const handleClose = useCallback(() => {
     reset({ title: '' });
     setShowSuccess(false);
@@ -74,9 +96,14 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
 
   const handleCreate = useCallback(() => {
     handleSubmit((data: BoardCreateFormData) => {
-      createBoard(data);
+      // ✅ Выбираем нужный метод
+      if (pinId) {
+        createBoardWithPin(data);
+      } else {
+        createBoard(data);
+      }
     })();
-  }, [handleSubmit, createBoard]);
+  }, [handleSubmit, pinId, createBoardWithPin, createBoard]);
 
   const handleSuggestionClick = useCallback((suggestion: string) => {
     reset({ title: suggestion });
@@ -132,7 +159,7 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
         size="sm"
       >
         <Box paddingX={6} paddingY={4}>
-          <form onSubmit={handleSubmit((data) => createBoard(data))}>
+          <form onSubmit={(e) => { e.preventDefault(); handleCreate(); }}>
             <Flex direction="column" gap={4}>
               {/* Name Field */}
               <Controller
@@ -178,6 +205,18 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
                 </Box>
               </Box>
 
+              {/* Pin info - показываем если создаём с пином */}
+              {pinId && (
+                <Box color="infoBase" rounding={3} padding={3}>
+                  <Flex alignItems="center" gap={2}>
+                    <Icon accessibilityLabel="" icon="pin" size={16} color="inverse" />
+                    <Text color="inverse" size="200">
+                      Pin will be saved to this board
+                    </Text>
+                  </Flex>
+                </Box>
+              )}
+
               {/* Keep Open Switch */}
               <Box color="secondary" rounding={3} padding={3}>
                 <Flex alignItems="center" justifyContent="between">
@@ -203,7 +242,7 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
                   <Flex alignItems="center" gap={2}>
                     <Icon accessibilityLabel="" icon="check-circle" color="inverse" size={16} />
                     <Text color="inverse" size="200">
-                      Board created! Add another one.
+                      {pinId ? 'Board created and pin saved!' : 'Board created! Add another one.'}
                     </Text>
                   </Flex>
                 </Box>

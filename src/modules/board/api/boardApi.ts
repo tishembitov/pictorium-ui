@@ -4,7 +4,7 @@ import { get, post, del, patch } from '@/shared/api/apiClient';
 import { BOARD_ENDPOINTS } from '@/shared/api/apiEndpoints';
 import { createPaginationParams } from '@/shared/api/apiTypes';
 import type { Pageable } from '@/shared/types/pageable.types';
-import type { PagePinResponse } from '@/modules/pin';
+import type { PagePinResponse, PinResponse } from '@/modules/pin';
 import type { 
   BoardResponse, 
   BoardCreateRequest, 
@@ -24,6 +24,14 @@ export const boardApi = {
    */
   create: (data: BoardCreateRequest) => {
     return post<BoardResponse, BoardCreateRequest>(BOARD_ENDPOINTS.create(), data);
+  },
+
+  /**
+   * ✅ NEW: Create board and save pin in one request
+   * POST /api/v1/boards/with-pin/{pinId}
+   */
+  createWithPin: (pinId: string, data: BoardCreateRequest) => {
+    return post<BoardResponse, BoardCreateRequest>(BOARD_ENDPOINTS.createWithPin(pinId), data);
   },
 
   /**
@@ -68,6 +76,7 @@ export const boardApi = {
   /**
    * Get current user's boards with pin status
    * Показывает, в каких досках уже есть указанный пин
+   * GET /api/v1/boards/me/for-pin/{pinId}
    */
   getMyBoardsForPin: (pinId: string) => {
     return get<BoardWithPinStatusResponse[]>(BOARD_ENDPOINTS.myForPin(pinId));
@@ -84,13 +93,16 @@ export const boardApi = {
 
   /**
    * Save pin to a single board
+   * POST /api/v1/boards/{boardId}/pins/{pinId}
+   * ✅ Returns PinResponse with updated savedToBoardsCount
    */
   savePinToBoard: (boardId: string, pinId: string) => {
-    return post<void>(BOARD_ENDPOINTS.addPin(boardId, pinId));
+    return post<PinResponse>(BOARD_ENDPOINTS.addPin(boardId, pinId));
   },
 
   /**
    * Remove pin from a single board
+   * DELETE /api/v1/boards/{boardId}/pins/{pinId}
    */
   removePinFromBoard: (boardId: string, pinId: string) => {
     return del<void>(BOARD_ENDPOINTS.removePin(boardId, pinId));
@@ -98,19 +110,14 @@ export const boardApi = {
 
   /**
    * Save pin to multiple boards at once
+   * POST /api/v1/boards/pins/{pinId}
+   * ✅ Returns PinResponse with updated savedToBoardsCount
    */
   savePinToBoards: (pinId: string, boardIds: string[]) => {
-    return post<void, SavePinToBoardsRequest>(
+    return post<PinResponse, SavePinToBoardsRequest>(
       BOARD_ENDPOINTS.savePinToBoards(pinId), 
       { boardIds }
     );
-  },
-
-  /**
-   * Remove pin from all boards
-   */
-  removePinFromAllBoards: (pinId: string) => {
-    return del<void>(BOARD_ENDPOINTS.removePinFromAllBoards(pinId));
   },
 };
 

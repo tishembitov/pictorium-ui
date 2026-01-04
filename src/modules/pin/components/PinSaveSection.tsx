@@ -7,10 +7,10 @@ import { useAuth } from '@/modules/auth';
 import { 
   useMyBoardsForPin, 
   useSavePinToBoard,
+  useRemovePinFromBoard,
   BoardDropdown,
   useSelectedBoardStore,
 } from '@/modules/board';
-import { useUnsavePin } from '../hooks/useUnsavePin';
 import { buildPath } from '@/app/router/routeConfig';
 import { isPinSaved } from '../utils/pinUtils';
 import { PinSaveButton } from './PinSaveButton';
@@ -58,7 +58,7 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
     },
   });
 
-  const { unsavePin, isLoading: isUnsaving } = useUnsavePin({
+  const { removePinFromBoard, isLoading: isRemoving } = useRemovePinFromBoard({
     showToast: true,
     onSuccess: () => {
       setLocalSaveInfo(null);
@@ -66,9 +66,9 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
     },
   });
 
-  const isLoading = isSavingToBoard || isUnsaving;
+  const isLoading = isSavingToBoard || isRemoving;
 
-  // ✅ Используем isPinSaved из утилит
+  // Проверяем сохранён ли пин
   const isSaved = useMemo(() => {
     if (localSaveInfo !== null) return true;
     return isPinSaved({ savedToBoardsCount } as PinResponse);
@@ -107,6 +107,7 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
       return;
     }
 
+    // Проверяем, не сохранён ли уже
     const alreadySaved = boards.find(b => b.id === selectedBoard.id)?.hasPin;
     if (alreadySaved) {
       return;
@@ -116,8 +117,9 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
   }, [isAuthenticated, login, selectedBoard, boards, savePinToBoard, pinId]);
 
   const handleUnsave = useCallback(() => {
-    unsavePin(pinId);
-  }, [unsavePin, pinId]);
+    if (!currentSaveInfo?.boardId) return;
+    removePinFromBoard({ boardId: currentSaveInfo.boardId, pinId });
+  }, [removePinFromBoard, currentSaveInfo, pinId]);
 
   const handleBoardSelect = useCallback((board: BoardResponse) => {
     if (!isSaved) {
@@ -171,7 +173,7 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
     );
   }
 
-  // Not saved
+  // Not saved - ✅ BoardDropdown теперь передаёт pinId для создания доски
   return (
     <Flex alignItems="center" gap={3}>
       <BoardDropdown

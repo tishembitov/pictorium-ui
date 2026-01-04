@@ -9,7 +9,7 @@ import type { BatchBoardPinAction, BoardResponse } from '../types/board.types';
 import type { PinResponse, PagePinResponse } from '@/modules/pin';
 
 interface UseSavePinToBoardsOptions {
-  onSuccess?: (boardIds: string[]) => void;
+  onSuccess?: (boardIds: string[], updatedPin: PinResponse) => void;
   onError?: (error: Error) => void;
   showToast?: boolean;
 }
@@ -39,16 +39,15 @@ const findPinInCache = (
 };
 
 /**
- * ✅ Создаёт обновлённый пин после сохранения в несколько досок
+ * Создаёт optimistic обновление для batch save
  */
-const createBatchSavedPin = (
+const createOptimisticBatchSavedPin = (
   pin: PinResponse, 
   addedCount: number,
   lastBoardId: string,
   lastBoardName: string
 ): PinResponse => ({
   ...pin,
-  // ✅ Убрано isSaved - вычисляется из savedToBoardsCount
   savedToBoardsCount: pin.savedToBoardsCount + addedCount,
   lastSavedBoardId: lastBoardId,
   lastSavedBoardName: lastBoardName,
@@ -85,8 +84,11 @@ export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
   const userId = useAuthStore((state) => state.user?.id);
 
   const mutation = useMutation({
-    mutationFn: ({ pinId, boardIds }: BatchBoardPinAction) =>
-      boardApi.savePinToBoards(pinId, boardIds),
+    // ✅ API возвращает PinResponse
+    mutationFn: async ({ pinId, boardIds }: BatchBoardPinAction) => {
+      const updatedPin = await boardApi.savePinToBoards(pinId, boardIds);
+      return { boardIds, updatedPin };
+    },
 
     onMutate: async ({ pinId, boardIds }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.byId(pinId) });
@@ -113,31 +115,38 @@ export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
         if (data) previousLists.push({ key, data });
       });
 
-      // ✅ Optimistic update с новыми полями
+      // Optimistic update
       if (previousPin) {
         queryClient.setQueryData<PinResponse>(
           queryKeys.pins.byId(pinId),
-          createBatchSavedPin(previousPin, addedCount, lastBoardId, lastBoardName)
+          createOptimisticBatchSavedPin(previousPin, addedCount, lastBoardId, lastBoardName)
         );
       }
 
       queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
         { queryKey: queryKeys.pins.all },
         (oldData) => updatePinInPages(oldData, pinId, (pin) =>
-          createBatchSavedPin(pin, addedCount, lastBoardId, lastBoardName)
+          createOptimisticBatchSavedPin(pin, addedCount, lastBoardId, lastBoardName)
         )
       );
 
       return { previousPin, previousLists, pinId, boardIds, lastBoardName };
     },
 
-    onSuccess: (_, { pinId, boardIds }) => {
-      // Инвалидируем пин для получения актуальных данных
-      void queryClient.invalidateQueries({ queryKey: queryKeys.pins.byId(pinId) });
+    onSuccess: ({ boardIds, updatedPin }, { pinId }) => {
+      // ✅ Обновляем кэш реальными данными с сервера
+      queryClient.setQueryData(queryKeys.pins.byId(pinId), updatedPin);
+
+      // Обновляем пин во всех списках реальными данными
+      queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
+        { queryKey: queryKeys.pins.all },
+        (oldData) => updatePinInPages(oldData, pinId, () => updatedPin)
+      );
+
+      // Инвалидируем
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
 
-      // Инвалидируем пины для каждой доски
       boardIds.forEach(boardId => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.boards.pins(boardId) });
       });
@@ -158,16 +167,13 @@ export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
         toast.success(`Saved to ${count} ${boardWord}!`);
       }
 
-      onSuccess?.(boardIds);
+      onSuccess?.(boardIds, updatedPin);
     },
 
     onError: (error: Error, { pinId }, context) => {
       // Rollback
       if (context?.previousPin) {
-        queryClient.setQueryData(
-          queryKeys.pins.byId(pinId),
-          context.previousPin
-        );
+        queryClient.setQueryData(queryKeys.pins.byId(pinId), context.previousPin);
       }
 
       if (context?.previousLists) {

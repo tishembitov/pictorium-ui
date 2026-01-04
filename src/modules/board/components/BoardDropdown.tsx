@@ -24,6 +24,7 @@ import { BoardCreateModal } from './BoardCreateModal';
 import type { BoardResponse, BoardWithPinStatusResponse } from '../types/board.types';
 
 interface BoardDropdownProps {
+  /** Если передан - показывает статус hasPin и используется для создания доски с пином */
   pinId?: string;
   onBoardSelect?: (board: BoardResponse) => void;
   size?: 'sm' | 'md' | 'lg';
@@ -31,7 +32,7 @@ interface BoardDropdownProps {
   value?: BoardResponse | null;
 }
 
-// ✅ Отдельный компонент для превью доски
+// Отдельный компонент для превью доски
 const BoardPreview: React.FC<{ board: BoardResponse }> = ({ board }) => {
   const { pins } = useBoardPins(board.id, { pageable: { page: 0, size: 1 } });
   const coverImageId = pins[0]?.thumbnailId || pins[0]?.imageId;
@@ -62,7 +63,7 @@ const BoardPreview: React.FC<{ board: BoardResponse }> = ({ board }) => {
   );
 };
 
-// ✅ Элемент списка досок
+// Элемент списка досок
 const BoardDropdownItem: React.FC<{
   board: BoardResponse | BoardWithPinStatusResponse;
   isSelected: boolean;
@@ -139,13 +140,13 @@ export const BoardDropdown: React.FC<BoardDropdownProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  // ✅ Используем state вместо ref для anchor
   const [anchorElement, setAnchorElement] = useState<HTMLDivElement | null>(null);
 
-  // ✅ Если есть pinId - используем useMyBoardsForPin для статуса hasPin
+  // Если есть pinId - используем useMyBoardsForPin для статуса hasPin
   const { 
     boards: boardsWithStatus, 
-    isLoading: isLoadingWithStatus 
+    isLoading: isLoadingWithStatus,
+    refetch: refetchBoardsForPin, 
   } = useMyBoardsForPin(pinId, { enabled: !!pinId && isOpen });
 
   // Обычный список досок
@@ -169,7 +170,7 @@ export const BoardDropdown: React.FC<BoardDropdownProps> = ({
     return boards.filter(b => b.title.toLowerCase().includes(query));
   }, [boards, searchQuery]);
 
-  // ✅ Callback ref для сохранения элемента в state
+  // Callback ref для сохранения элемента в state
   const setAnchorRef = useCallback((node: HTMLDivElement | null) => {
     setAnchorElement(node);
   }, []);
@@ -200,13 +201,20 @@ export const BoardDropdown: React.FC<BoardDropdownProps> = ({
     setShowCreateModal(true);
   }, []);
 
+  // ✅ Обработчик успешного создания - modal уже сохранил пин
   const handleCreateSuccess = useCallback((boardId: string) => {
-    const newBoard = boards.find(b => b.id === boardId);
-    if (newBoard) {
-      handleBoardSelect(newBoard);
+    // Выбираем новую доску
+    if (!localOnly) {
+      selectBoard(boardId);
     }
+    
+    // Если есть pinId - refetch списка досок
+    if (pinId) {
+      void refetchBoardsForPin();
+    }
+    
     setShowCreateModal(false);
-  }, [boards, handleBoardSelect]);
+  }, [localOnly, selectBoard, pinId, refetchBoardsForPin]);
 
   // Button sizing
   const buttonHeight = size === 'lg' ? 48 : size === 'sm' ? 32 : 40;
@@ -214,7 +222,7 @@ export const BoardDropdown: React.FC<BoardDropdownProps> = ({
 
   return (
     <>
-      {/* Trigger Button - ✅ используем callback ref */}
+      {/* Trigger Button */}
       <Box ref={setAnchorRef}>
         <TapArea onTap={handleToggle} rounding={2}>
           <Box
@@ -260,7 +268,7 @@ export const BoardDropdown: React.FC<BoardDropdownProps> = ({
         </TapArea>
       </Box>
 
-      {/* Dropdown - ✅ проверяем anchorElement из state */}
+      {/* Dropdown */}
       {isOpen && anchorElement && (
         <Layer>
           <Popover
@@ -338,11 +346,12 @@ export const BoardDropdown: React.FC<BoardDropdownProps> = ({
         </Layer>
       )}
 
-      {/* Create Board Modal */}
+      {/* ✅ Create Board Modal с pinId - сохранит пин автоматически */}
       <BoardCreateModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleCreateSuccess}
+        pinId={pinId}
       />
     </>
   );

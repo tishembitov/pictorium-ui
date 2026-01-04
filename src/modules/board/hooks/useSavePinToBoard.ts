@@ -9,7 +9,7 @@ import type { BoardPinAction, BoardResponse } from '../types/board.types';
 import type { PinResponse, PagePinResponse } from '@/modules/pin';
 
 interface UseSavePinToBoardOptions {
-  onSuccess?: (boardId: string, boardName: string) => void;
+  onSuccess?: (boardId: string, boardName: string, updatedPin: PinResponse) => void;
   onError?: (error: Error) => void;
   showToast?: boolean;
 }
@@ -39,11 +39,14 @@ const findPinInCache = (
 };
 
 /**
- * ✅ Создаёт обновлённый пин после сохранения
+ * Создаёт optimistic update для пина
  */
-const createSavedPin = (pin: PinResponse, boardId: string, boardName: string): PinResponse => ({
+const createOptimisticSavedPin = (
+  pin: PinResponse, 
+  boardId: string, 
+  boardName: string
+): PinResponse => ({
   ...pin,
-  // ✅ Убрано isSaved - вычисляется из savedToBoardsCount
   savedToBoardsCount: pin.savedToBoardsCount + 1,
   lastSavedBoardId: boardId,
   lastSavedBoardName: boardName,
@@ -73,6 +76,10 @@ const isSavedPinsQuery = (queryKey: QueryKey, userId: string): boolean => {
 
 // ==================== Hook ====================
 
+/**
+ * Hook to save a pin to a specific board
+ * Uses POST /api/v1/boards/{boardId}/pins/{pinId}
+ */
 export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
   const queryClient = useQueryClient();
@@ -81,8 +88,8 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
 
   const mutation = useMutation({
     mutationFn: async ({ boardId, pinId }: BoardPinAction) => {
-      await boardApi.savePinToBoard(boardId, pinId);
-      return { boardId };
+      const updatedPin = await boardApi.savePinToBoard(boardId, pinId);
+      return { boardId, updatedPin };
     },
 
     onMutate: async ({ pinId, boardId }) => {
@@ -92,6 +99,7 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
       const boardFromList = boards?.find(b => b.id === boardId);
       const boardName = board?.title || boardFromList?.title || '';
 
+      // Cancel queries
       await queryClient.cancelQueries({ queryKey: queryKeys.pins.byId(pinId) });
       await queryClient.cancelQueries({ queryKey: queryKeys.boards.forPin(pinId) });
       await queryClient.cancelQueries({ queryKey: queryKeys.boards.pins(boardId) });
@@ -111,40 +119,40 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
         if (data) previousLists.push({ key, data });
       });
 
-      // ✅ Optimistic update
+      // Optimistic update
       if (previousPin) {
         queryClient.setQueryData<PinResponse>(
           queryKeys.pins.byId(pinId),
-          createSavedPin(previousPin, boardId, boardName)
+          createOptimisticSavedPin(previousPin, boardId, boardName)
         );
       }
 
       queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
         { queryKey: queryKeys.pins.all },
         (oldData) => updatePinInPages(oldData, pinId, (pin) => 
-          createSavedPin(pin, boardId, boardName)
+          createOptimisticSavedPin(pin, boardId, boardName)
         )
       );
 
       return { previousPin, previousLists, pinId, boardId, boardName };
     },
 
-    onSuccess: (_, { boardId, pinId }, context) => {
+    onSuccess: ({ boardId, updatedPin }, { pinId }, context) => {
       const boardName = context?.boardName || '';
 
+      // Обновляем кэш реальными данными с сервера
+      queryClient.setQueryData(queryKeys.pins.byId(pinId), updatedPin);
+
+      // Обновляем пин во всех списках реальными данными
+      queryClient.setQueriesData<InfiniteData<PagePinResponse>>(
+        { queryKey: queryKeys.pins.all },
+        (oldData) => updatePinInPages(oldData, pinId, () => updatedPin)
+      );
+
       // Инвалидируем связанные запросы
-      void queryClient.invalidateQueries({ queryKey: queryKeys.pins.byId(pinId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.pins(boardId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
-
-      // Инвалидируем все board pins queries
-      void queryClient.invalidateQueries({
-        predicate: (query) => {
-          const key = query.queryKey;
-          return Array.isArray(key) && key[0] === 'boards' && key[1] === 'pins';
-        }
-      });
 
       if (userId) {
         void queryClient.invalidateQueries({
@@ -156,10 +164,11 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
         toast.success(`Saved to "${boardName}"`);
       }
 
-      onSuccess?.(boardId, boardName);
+      onSuccess?.(boardId, boardName, updatedPin);
     },
 
     onError: (error: Error, { pinId }, context) => {
+      // Rollback
       if (context?.previousPin) {
         queryClient.setQueryData(queryKeys.pins.byId(pinId), context.previousPin);
       }
@@ -172,6 +181,7 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
       if (showToast) {
         toast.error(error.message || 'Failed to save pin');
       }
+
       onError?.(error);
     },
   });

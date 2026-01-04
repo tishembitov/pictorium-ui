@@ -23,13 +23,11 @@ import { boardCreateSchema, type BoardCreateFormData } from './boardCreateSchema
 interface BoardCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: (boardId: string) => void;
+  onSuccess?: (boardId: string, boardName: string) => void; // ✅ Добавлен boardName
   initialTitle?: string;
-  /** Если передан - создаст доску и сохранит пин одним запросом */
   pinId?: string;
 }
 
-// Suggestion chips data
 const BOARD_SUGGESTIONS = ['Travel', 'Recipes', 'Home Decor', 'Fashion', 'Art'];
 
 export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
@@ -42,21 +40,18 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
   const [keepOpen, setKeepOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // ✅ Используем разные хуки в зависимости от наличия pinId
   const { createBoard, isLoading: isCreatingBoard } = useCreateBoard({
     onSuccess: (data) => {
-      handleSuccess(data.id);
+      handleSuccess(data.id, data.title);
     },
-    showToast: !pinId, // Показываем toast только если без пина
   });
 
   const { createBoardWithPin, isLoading: isCreatingWithPin } = useCreateBoardWithPin(
     pinId || '',
     {
       onSuccess: (data) => {
-        handleSuccess(data.id);
+        handleSuccess(data.id, data.title);
       },
-      showToast: true,
       autoSelect: true,
     }
   );
@@ -71,14 +66,12 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
     getValues,
   } = useForm<BoardCreateFormData>({
     resolver: zodResolver(boardCreateSchema),
-    defaultValues: {
-      title: initialTitle,
-    },
+    defaultValues: { title: initialTitle },
     mode: 'onChange',
   });
 
-  const handleSuccess = useCallback((boardId: string) => {
-    onSuccess?.(boardId);
+  const handleSuccess = useCallback((boardId: string, boardName: string) => {
+    onSuccess?.(boardId, boardName); // ✅ Передаём оба значения
     if (keepOpen) {
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);
@@ -96,7 +89,6 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
 
   const handleCreate = useCallback(() => {
     handleSubmit((data: BoardCreateFormData) => {
-      // ✅ Выбираем нужный метод
       if (pinId) {
         createBoardWithPin(data);
       } else {
@@ -140,12 +132,7 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
         footer={
           <Box paddingX={6} paddingY={3}>
             <Flex justifyContent="end" gap={2}>
-              <Button
-                text="Cancel"
-                onClick={handleClose}
-                size="lg"
-                color="gray"
-              />
+              <Button text="Cancel" onClick={handleClose} size="lg" color="gray" />
               <Button
                 text={isLoading ? 'Creating...' : 'Create'}
                 onClick={handleCreate}
@@ -161,7 +148,6 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
         <Box paddingX={6} paddingY={4}>
           <form onSubmit={(e) => { e.preventDefault(); handleCreate(); }}>
             <Flex direction="column" gap={4}>
-              {/* Name Field */}
               <Controller
                 name="title"
                 control={control}
@@ -178,11 +164,8 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
                 )}
               />
 
-              {/* Suggestion chips */}
               <Box>
-                <Text size="100" color="subtle">
-                  Quick suggestions
-                </Text>
+                <Text size="100" color="subtle">Quick suggestions</Text>
                 <Box marginTop={2}>
                   <Flex gap={2} wrap>
                     {BOARD_SUGGESTIONS.map((suggestion) => (
@@ -191,12 +174,7 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
                         onTap={() => handleSuggestionClick(suggestion)}
                         rounding="pill"
                       >
-                        <Box
-                          rounding="pill"
-                          color="secondary"
-                          paddingX={3}
-                          paddingY={1}
-                        >
+                        <Box rounding="pill" color="secondary" paddingX={3} paddingY={1}>
                           <Text size="100">{suggestion}</Text>
                         </Box>
                       </TapArea>
@@ -205,7 +183,6 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
                 </Box>
               </Box>
 
-              {/* Pin info - показываем если создаём с пином */}
               {pinId && (
                 <Box color="infoBase" rounding={3} padding={3}>
                   <Flex alignItems="center" gap={2}>
@@ -217,16 +194,11 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
                 </Box>
               )}
 
-              {/* Keep Open Switch */}
               <Box color="secondary" rounding={3} padding={3}>
                 <Flex alignItems="center" justifyContent="between">
                   <Box>
-                    <Text weight="bold" size="200">
-                      Keep creating
-                    </Text>
-                    <Text color="subtle" size="100">
-                      Create multiple boards quickly
-                    </Text>
+                    <Text weight="bold" size="200">Keep creating</Text>
+                    <Text color="subtle" size="100">Create multiple boards quickly</Text>
                   </Box>
                   <Switch
                     id="keep-modal-open"
@@ -236,7 +208,6 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
                 </Flex>
               </Box>
 
-              {/* Success indicator */}
               {showSuccess && (
                 <Box color="successBase" rounding={3} padding={3}>
                   <Flex alignItems="center" gap={2}>

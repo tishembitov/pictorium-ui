@@ -4,20 +4,18 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { boardApi } from '../api/boardApi';
 import { useToast } from '@/shared/hooks/useToast';
-import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
 import type { BoardCreateRequest, BoardResponse } from '../types/board.types';
 
 interface UseCreateBoardOptions {
   onSuccess?: (data: BoardResponse) => void;
   onError?: (error: Error) => void;
-  showToast?: boolean;
 }
 
 /**
- * Hook to create a new board
+ * Простая мутация для создания доски.
  */
 export const useCreateBoard = (options: UseCreateBoardOptions = {}) => {
-  const { onSuccess, onError, showToast = true } = options;
+  const { onSuccess, onError } = options;
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -25,30 +23,16 @@ export const useCreateBoard = (options: UseCreateBoardOptions = {}) => {
     mutationFn: (data: BoardCreateRequest) => boardApi.create(data),
     
     onSuccess: (data) => {
-      // Add to my boards cache immediately
-      queryClient.setQueryData<BoardResponse[]>(
-        queryKeys.boards.my(),
-        (oldData) => oldData ? [data, ...oldData] : [data]
-      );
-      
-      // Set individual board cache
-      queryClient.setQueryData(queryKeys.boards.byId(data.id), data);
-      
-      // Invalidate to sync with server
-      queryClient.invalidateQueries({ queryKey: queryKeys.boards.all });
+      // Инвалидируем списки досок
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boards.all });
 
-      if (showToast) {
-        toast.success(SUCCESS_MESSAGES.BOARD_CREATED);
-      }
-
+      toast.success('Board created!');
       onSuccess?.(data);
     },
     
     onError: (error: Error) => {
-      if (showToast) {
-        toast.error(error.message || 'Failed to create board');
-      }
-
+      toast.error(error.message || 'Failed to create board');
       onError?.(error);
     },
   });
@@ -59,7 +43,6 @@ export const useCreateBoard = (options: UseCreateBoardOptions = {}) => {
     isLoading: mutation.isPending,
     isError: mutation.isError,
     error: mutation.error,
-    isSuccess: mutation.isSuccess,
     data: mutation.data,
     reset: mutation.reset,
   };

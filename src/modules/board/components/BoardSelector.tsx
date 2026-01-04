@@ -19,11 +19,12 @@ import { useSelectedBoard } from '../hooks/useSelectedBoard';
 import { useSelectBoard } from '../hooks/useSelectBoard';
 import { useImageUrl } from '@/modules/storage';
 import { useBoardPins } from '../hooks/useBoardPins';
+import { useToast } from '@/shared/hooks/useToast';
 import type { BoardResponse, BoardWithPinStatusResponse } from '../types/board.types';
 
 interface BoardSelectorProps {
   pinId: string;
-  onSelect?: (board: BoardResponse) => void;
+  onSave?: (board: BoardResponse) => void;
   onClose?: () => void;
 }
 
@@ -126,28 +127,36 @@ const BoardSelectorItem: React.FC<{
 
 export const BoardSelector: React.FC<BoardSelectorProps> = ({
   pinId,
-  onSelect,
+  onSave,
   onClose,
 }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [savingToBoardId, setSavingToBoardId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const { boards, isLoading, refetch } = useMyBoardsForPin(pinId);
   const { selectedBoard } = useSelectedBoard();
   const { selectBoard } = useSelectBoard();
   
+  // ✅ Упрощённый хук
   const { savePinToBoard } = useSavePinToBoard({
-    onSuccess: () => {
+    onSuccess: (_, boardId) => {
       setSavingToBoardId(null);
+      const board = boards.find(b => b.id === boardId);
+      if (board) {
+        toast.success(`Saved to "${board.title}"`);
+        onSave?.(board);
+      }
       onClose?.();
+    },
+    onError: () => {
+      setSavingToBoardId(null);
     },
   });
 
-  // ✅ Вычисляем isEmpty из boards
   const isEmpty = boards.length === 0;
 
-  // Filter boards by search
   const filteredBoards = useMemo(() => {
     if (!searchQuery.trim()) return boards;
     const query = searchQuery.toLowerCase();
@@ -160,17 +169,17 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
     if (board.hasPin) return;
     
     setSavingToBoardId(board.id);
-    savePinToBoard({ boardId: board.id, pinId });
     selectBoard(board.id);
-    onSelect?.(board);
-  }, [savePinToBoard, pinId, selectBoard, onSelect]);
+    savePinToBoard({ boardId: board.id, pinId });
+  }, [savePinToBoard, pinId, selectBoard]);
 
-  const handleCreateSuccess = useCallback((boardId: string) => {
+  const handleCreateSuccess = useCallback((boardId: string, boardName: string) => {
     selectBoard(boardId);
     setShowCreateModal(false);
     void refetch();
+    toast.success(`Created "${boardName}" and saved pin!`);
     onClose?.();
-  }, [selectBoard, refetch, onClose]);
+  }, [selectBoard, refetch, toast, onClose]);
 
   if (isLoading) {
     return (
@@ -183,12 +192,10 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
   return (
     <Box>
       <Flex direction="column" gap={3}>
-        {/* Header */}
         <Heading size="400" accessibilityLevel={2}>
           Save to board
         </Heading>
 
-        {/* Search Field */}
         {boards.length > 4 && (
           <SearchField
             id="board-selector-search"
@@ -200,7 +207,6 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
           />
         )}
 
-        {/* Create Board Button */}
         <Button
           text="Create new board"
           onClick={() => setShowCreateModal(true)}
@@ -210,7 +216,6 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
           iconEnd="add"
         />
 
-        {/* Boards List */}
         {isEmpty ? (
           <Box padding={6} color="secondary" rounding={4}>
             <Flex direction="column" alignItems="center" gap={3}>
@@ -221,10 +226,7 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
             </Flex>
           </Box>
         ) : (
-          <Box 
-            maxHeight={300} 
-            overflow="scrollY"
-          >
+          <Box maxHeight={300} overflow="scrollY">
             <Flex direction="column" gap={1}>
               {filteredBoards.map((board) => (
                 <BoardSelectorItem
@@ -248,7 +250,6 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
         )}
       </Flex>
 
-      {/* Create Board Modal с pinId */}
       <BoardCreateModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}

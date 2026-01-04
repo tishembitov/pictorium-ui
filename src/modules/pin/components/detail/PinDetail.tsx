@@ -27,7 +27,6 @@ export const PinDetail: React.FC<PinDetailProps> = ({ pinId }) => {
     fetchNextPage: fetchMoreRelated,
   } = useRelatedPins(pinId, { enabled: !!pin });
 
-  // Scroll to top when pin changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [pinId]);
@@ -51,12 +50,7 @@ export const PinDetail: React.FC<PinDetailProps> = ({ pinId }) => {
   // Loading state
   if (isLoading) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="60vh"
-      >
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
         <Spinner accessibilityLabel="Loading pin" show size="lg" />
       </Box>
     );
@@ -75,6 +69,7 @@ export const PinDetail: React.FC<PinDetailProps> = ({ pinId }) => {
     );
   }
 
+  // ✅ Pin существует - рендерим PinDetailCard
   return (
     <Box paddingY={6}>
       {/* Floating Back Button */}

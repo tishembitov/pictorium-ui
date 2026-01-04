@@ -11,11 +11,10 @@ interface PinDetailCardProps {
   onBack?: () => void;
 }
 
-/**
- * Карточка детального просмотра пина.
- * Ответственность: двухколоночный layout (изображение + контент).
- */
-export const PinDetailCard: React.FC<PinDetailCardProps> = ({ pin, onBack }) => {
+export const PinDetailCard: React.FC<PinDetailCardProps> = ({ 
+  pin, 
+  onBack,
+}) => {
   return (
     <Box
       maxWidth={1016}
@@ -26,8 +25,7 @@ export const PinDetailCard: React.FC<PinDetailCardProps> = ({ pin, onBack }) => 
       color="default"
       dangerouslySetInlineStyle={{
         __style: {
-          boxShadow:
-            '0 2px 10px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.1)',
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.1)',
         },
       }}
     >
@@ -38,9 +36,7 @@ export const PinDetailCard: React.FC<PinDetailCardProps> = ({ pin, onBack }) => 
           maxWidth={508}
           flex="grow"
           dangerouslySetInlineStyle={{
-            __style: {
-              flex: '1 1 50%',
-            },
+            __style: { flex: '1 1 50%' },
           }}
         >
           <PinDetailImage pin={pin} />
@@ -58,6 +54,7 @@ export const PinDetailCard: React.FC<PinDetailCardProps> = ({ pin, onBack }) => 
             },
           }}
         >
+          {/* PinDetailContent сам создаёт свой localState */}
           <PinDetailContent pin={pin} onBack={onBack} />
         </Box>
       </Flex>

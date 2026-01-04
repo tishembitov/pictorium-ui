@@ -9,34 +9,33 @@ import type { BoardResponse, BoardUpdateRequest } from '../types/board.types';
 interface UseUpdateBoardOptions {
   onSuccess?: (data: BoardResponse) => void;
   onError?: (error: Error) => void;
-  showToast?: boolean;
 }
 
 export const useUpdateBoard = (options: UseUpdateBoardOptions = {}) => {
-  const { onSuccess, onError, showToast = true } = options;
+  const { onSuccess, onError } = options;
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const mutation = useMutation({
     mutationFn: ({ boardId, data }: { boardId: string; data: BoardUpdateRequest }) =>
       boardApi.update(boardId, data),
+      
     onSuccess: (data, variables) => {
-      // Update board in cache
+      // Обновляем кэш этой доски
       queryClient.setQueryData(queryKeys.boards.byId(variables.boardId), data);
-      // Invalidate lists
-      queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.boards.all });
+      
+      // Инвалидируем списки
+      void queryClient.invalidateQueries({ 
+        queryKey: queryKeys.boards.my(),
+        refetchType: 'none',
+      });
 
-      if (showToast) {
-        toast.success('Board updated!');
-      }
-
+      toast.success('Board updated!');
       onSuccess?.(data);
     },
+    
     onError: (error: Error) => {
-      if (showToast) {
-        toast.error(error.message || 'Failed to update board');
-      }
+      toast.error(error.message || 'Failed to update board');
       onError?.(error);
     },
   });

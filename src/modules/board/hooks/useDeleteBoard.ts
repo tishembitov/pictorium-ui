@@ -5,26 +5,22 @@ import { useNavigate } from 'react-router-dom';
 import { queryKeys } from '@/app/config/queryClient';
 import { boardApi } from '../api/boardApi';
 import { useToast } from '@/shared/hooks/useToast';
-import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
 import { ROUTES } from '@/app/router/routeConfig';
 import { useSelectedBoardStore } from '../stores/selectedBoardStore';
-import type { BoardResponse } from '../types/board.types';
 
 interface UseDeleteBoardOptions {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
-  showToast?: boolean;
   navigateOnSuccess?: boolean;
 }
 
 /**
- * Hook to delete a board
+ * Простая мутация для удаления доски.
  */
 export const useDeleteBoard = (options: UseDeleteBoardOptions = {}) => {
   const {
     onSuccess,
     onError,
-    showToast = true,
     navigateOnSuccess = true,
   } = options;
   const queryClient = useQueryClient();
@@ -35,40 +31,23 @@ export const useDeleteBoard = (options: UseDeleteBoardOptions = {}) => {
 
   const mutation = useMutation({
     mutationFn: (boardId: string) => boardApi.delete(boardId),
-    
-    onMutate: async (boardId) => {
-      // Cancel related queries
-      await queryClient.cancelQueries({ queryKey: queryKeys.boards.my() });
-
-      // Snapshot previous data
-      const previousBoards = queryClient.getQueryData<BoardResponse[]>(
-        queryKeys.boards.my()
-      );
-
-      // Optimistic removal
-      queryClient.setQueryData<BoardResponse[]>(
-        queryKeys.boards.my(),
-        (oldData) => oldData?.filter((b) => b.id !== boardId) ?? []
-      );
-
-      return { previousBoards, boardId };
-    },
 
     onSuccess: (_, boardId) => {
-      // Remove from cache
+      // Удаляем из кэша
       queryClient.removeQueries({ queryKey: queryKeys.boards.byId(boardId) });
       
-      // Invalidate to sync
-      queryClient.invalidateQueries({ queryKey: queryKeys.boards.all });
+      // Инвалидируем списки
+      void queryClient.invalidateQueries({ 
+        queryKey: queryKeys.boards.all,
+        refetchType: 'none',
+      });
 
-      // Clear selected board if it was deleted
+      // Очищаем selected board если это она
       if (selectedBoard?.id === boardId) {
         clearSelectedBoard();
       }
 
-      if (showToast) {
-        toast.success(SUCCESS_MESSAGES.BOARD_DELETED);
-      }
+      toast.success('Board deleted');
 
       if (navigateOnSuccess) {
         navigate(ROUTES.HOME);
@@ -77,19 +56,8 @@ export const useDeleteBoard = (options: UseDeleteBoardOptions = {}) => {
       onSuccess?.();
     },
 
-    onError: (error: Error, _, context) => {
-      // Rollback
-      if (context?.previousBoards) {
-        queryClient.setQueryData(
-          queryKeys.boards.my(),
-          context.previousBoards
-        );
-      }
-
-      if (showToast) {
-        toast.error(error.message || 'Failed to delete board');
-      }
-
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete board');
       onError?.(error);
     },
   });

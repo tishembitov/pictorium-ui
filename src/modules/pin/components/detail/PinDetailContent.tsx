@@ -40,20 +40,15 @@ export const PinDetailContent: React.FC<PinDetailContentProps> = ({
 }) => {
   const { commentsRef, scrollToComments } = useScrollToComments();
   
-  // ✅ Единый локальный state для всех дочерних компонентов
-  const { 
-    state: localState, 
-    toggleLike, 
-    markAsSaved, 
-    markAsRemoved,
-  } = usePinLocalState(pin);
+  // ✅ Создаём localState прямо здесь, внутри компонента
+  const { state, toggleLike, markAsSaved, markAsRemoved } = usePinLocalState(pin);
 
   return (
     <Box padding={4} height="100%">
-      {/* Header - получает state и callbacks */}
+      {/* Header */}
       <PinDetailHeader 
         pin={pin} 
-        localState={localState}
+        localState={state}
         onToggleLike={toggleLike}
         onSave={markAsSaved}
         onRemove={markAsRemoved}
@@ -65,10 +60,10 @@ export const PinDetailContent: React.FC<PinDetailContentProps> = ({
         <PinDetailInfo pin={pin} />
       </Box>
 
-      {/* Stats - получает localState для актуальных значений */}
+      {/* Stats */}
       <Box paddingY={2}>
         <PinDetailStats 
-          localState={localState}
+          localState={state}
           commentCount={pin.commentCount}
           viewCount={pin.viewCount}
           onCommentsClick={scrollToComments} 

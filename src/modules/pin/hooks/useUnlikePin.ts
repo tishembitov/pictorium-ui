@@ -10,7 +10,7 @@ interface UseUnlikePinOptions {
 }
 
 /**
- * Простая мутация для анлайка пина.
+ * Простая мутация для анлайка.
  */
 export const useUnlikePin = (options: UseUnlikePinOptions = {}) => {
   const { onSuccess, onError } = options;
@@ -38,3 +38,5 @@ export const useUnlikePin = (options: UseUnlikePinOptions = {}) => {
     isLoading: mutation.isPending,
   };
 };
+
+export default useUnlikePin;

@@ -28,12 +28,8 @@ export const PinCard: React.FC<PinCardProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // ✅ Единый локальный state
-  const { 
-    state: localState, 
-    markAsSaved, 
-    markAsRemoved,
-  } = usePinLocalState(pin);
+  // ✅ Создаём localState внутри компонента
+  const { state: localState, markAsSaved, markAsRemoved } = usePinLocalState(pin);
 
   const imageId = pin.thumbnailId || pin.imageId;
   
@@ -85,7 +81,7 @@ export const PinCard: React.FC<PinCardProps> = ({
         </Mask>
       </TapArea>
 
-      {/* Hover Overlay */}
+      {/* Hover Overlay with Actions */}
       {isHovered && showActions && (
         <Box
           position="absolute"
@@ -104,7 +100,7 @@ export const PinCard: React.FC<PinCardProps> = ({
             },
           }}
         >
-          {/* Top Actions */}
+          {/* Top Actions - Board Dropdown + Save */}
           <Box padding={2} display="flex" justifyContent="end">
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
               {isAuthenticated ? (
@@ -116,13 +112,19 @@ export const PinCard: React.FC<PinCardProps> = ({
                   onRemove={markAsRemoved}
                 />
               ) : (
-                <TapArea onTap={() => {}} rounding="pill" tapStyle="compress">
+                <TapArea 
+                  onTap={() => {}} 
+                  rounding="pill"
+                  tapStyle="compress"
+                >
                   <Box
                     paddingX={3}
                     paddingY={2}
                     rounding="pill"
                     dangerouslySetInlineStyle={{
-                      __style: { backgroundColor: '#e60023' },
+                      __style: {
+                        backgroundColor: '#e60023',
+                      },
                     }}
                   >
                     <Text color="inverse" weight="bold" size="200">
@@ -134,7 +136,7 @@ export const PinCard: React.FC<PinCardProps> = ({
             </Box>
           </Box>
 
-          {/* Bottom Actions */}
+          {/* Bottom Actions - Share & Menu */}
           <Box padding={2} display="flex" justifyContent="end">
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
               <Flex gap={2} alignItems="center">
@@ -146,7 +148,7 @@ export const PinCard: React.FC<PinCardProps> = ({
         </Box>
       )}
 
-      {/* Title */}
+      {/* Title below image */}
       {pin.title && (
         <Box paddingX={1} paddingY={2}>
           <Text size="100" weight="bold" lineClamp={2}>

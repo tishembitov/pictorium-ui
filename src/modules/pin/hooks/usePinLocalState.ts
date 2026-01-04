@@ -4,11 +4,8 @@ import { useState, useCallback, useMemo } from 'react';
 import type { PinResponse } from '../types/pin.types';
 
 export interface PinLocalState {
-  // Like state
   isLiked: boolean;
   likeCount: number;
-  
-  // Save state  
   isSaved: boolean;
   savedCount: number;
   lastSavedBoardId: string | null;
@@ -20,32 +17,25 @@ export interface SavedBoardInfo {
   boardName: string;
 }
 
-interface UsePinLocalStateResult {
+export interface UsePinLocalStateResult {
   state: PinLocalState;
-  
-  // Like actions
-  toggleLike: () => boolean; // returns new isLiked
-  
-  // Save actions
+  toggleLike: () => boolean;
   markAsSaved: (board: SavedBoardInfo) => void;
   markAsRemoved: (boardId: string, remainingBoards?: SavedBoardInfo[]) => void;
-  
-  // Sync
   syncWithPin: (pin: PinResponse) => void;
 }
 
 /**
  * Единое локальное состояние пина.
- * Используется на уровне PinCard / PinDetail для синхронизации всех дочерних компонентов.
  */
-export const usePinLocalState = (pin: PinResponse): UsePinLocalStateResult => {
+export const usePinLocalState = (pin: PinResponse | undefined): UsePinLocalStateResult => {
   const [state, setState] = useState<PinLocalState>(() => ({
-    isLiked: pin.isLiked,
-    likeCount: pin.likeCount ?? 0,
-    isSaved: (pin.savedToBoardsCount ?? 0) > 0,
-    savedCount: pin.savedToBoardsCount ?? 0,
-    lastSavedBoardId: pin.lastSavedBoardId,
-    lastSavedBoardName: pin.lastSavedBoardName,
+    isLiked: pin?.isLiked ?? false,
+    likeCount: pin?.likeCount ?? 0,
+    isSaved: (pin?.savedToBoardsCount ?? 0) > 0,
+    savedCount: pin?.savedToBoardsCount ?? 0,
+    lastSavedBoardId: pin?.lastSavedBoardId ?? null,
+    lastSavedBoardName: pin?.lastSavedBoardName ?? null,
   }));
 
   const toggleLike = useCallback((): boolean => {
@@ -90,7 +80,6 @@ export const usePinLocalState = (pin: PinResponse): UsePinLocalStateResult => {
         };
       }
       
-      // Если удалили текущую последнюю доску
       if (prev.lastSavedBoardId === boardId && remainingBoards?.length) {
         const newLast = remainingBoards[0];
         return {

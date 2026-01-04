@@ -4,16 +4,14 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Box, Flex, Button, Divider, Text, Icon, TapArea, Spinner } from 'gestalt';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/app/config/queryClient';
 import { FormField, FormTextArea } from '@/shared/components';
 import { useImageUpload } from '@/modules/storage';
 import { TagInput } from '@/modules/tag';
 import {
-  useSavePinToBoard,
   useSelectedBoardStore,
   useSelectBoard,
   useMyBoards,
+  useSavePinToBoard,
   BoardCreateModal,
   BoardPickerDropdown,
 } from '@/modules/board';
@@ -43,6 +41,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   onCancel,
 }) => {
   const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
 
   const globalSelectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
   const { selectBoard } = useSelectBoard();
@@ -57,10 +56,9 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   const [showCreateBoardModal, setShowCreateBoardModal] = useState(false);
   const [boardSearchQuery, setBoardSearchQuery] = useState('');
   const [boardPickerAnchor, setBoardPickerAnchor] = useState<HTMLDivElement | null>(null);
+  const [isSavingToBoard, setIsSavingToBoard] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   // Hooks
   const { upload, isUploading } = useImageUpload();
@@ -68,7 +66,23 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     enabled: isAuthenticated,
   });
 
-  const { savePinToBoard } = useSavePinToBoard({ showToast: false });
+  // ✅ Хук для сохранения в доску после создания пина
+  const { savePinToBoard } = useSavePinToBoard({
+    onSuccess: () => {
+      setIsSavingToBoard(false);
+      if (localSelectedBoard) {
+        selectBoard(localSelectedBoard.id);
+        toast.success(`Pin created and saved to "${localSelectedBoard.title}"`);
+      }
+      onSuccess?.();
+    },
+    onError: () => {
+      setIsSavingToBoard(false);
+      // Пин создан, но не сохранён в доску
+      toast.success('Pin created! (Failed to save to board)');
+      onSuccess?.();
+    },
+  });
 
   useEffect(() => {
     return () => {
@@ -78,27 +92,19 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     };
   }, [previewUrl]);
 
+  // ✅ Создаём пин, затем сохраняем в доску
   const { createPin, isLoading: isCreating } = useCreatePin({
     onSuccess: (createdPin) => {
       if (localSelectedBoard) {
+        setIsSavingToBoard(true);
         savePinToBoard({ boardId: localSelectedBoard.id, pinId: createdPin.id });
-        selectBoard(localSelectedBoard.id);
-        toast.success(`Pin created and saved to "${localSelectedBoard.title}"`);
       } else {
         toast.success('Pin created!');
+        onSuccess?.();
       }
-
-      void queryClient.invalidateQueries({ queryKey: queryKeys.pins.all });
-      if (localSelectedBoard) {
-        void queryClient.invalidateQueries({
-          queryKey: queryKeys.boards.pins(localSelectedBoard.id),
-        });
-      }
-
-      onSuccess?.();
     },
-    navigateToPin: false,
-    showToast: false,
+    navigateToPin: false, // Не навигируем сразу, дождёмся сохранения в доску
+    showToast: false, // Покажем свой toast после сохранения в доску
   });
 
   const {
@@ -205,25 +211,21 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   }, []);
 
   const handleCreateBoardSuccess = useCallback(
-    (boardId: string) => {
+    (boardId: string, boardName: string) => {
       setShowCreateBoardModal(false);
-      void refetchBoards().then(() => {
-        const newBoard = boards.find((b) => b.id === boardId);
-        if (newBoard) {
-          setLocalSelectedBoard(newBoard);
-        }
-      });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
+      void refetchBoards();
+      setLocalSelectedBoard({ id: boardId, title: boardName } as BoardResponse);
     },
-    [boards, queryClient, refetchBoards]
+    [refetchBoards]
   );
 
   const setBoardPickerAnchorRef = useCallback((node: HTMLDivElement | null) => {
     setBoardPickerAnchor(node);
   }, []);
 
+  // ✅ Исправлено: убрали boardId из запроса
   const onSubmit = (data: PinCreateFormData) => {
-    if (!uploadedImage) return;
+    if (!uploadedImage || !localSelectedBoard) return;
 
     createPin({
       imageId: uploadedImage.imageId,
@@ -244,14 +246,13 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   const hasImage = !!uploadedImage;
   const hasBoard = !!localSelectedBoard;
   const canSubmit = hasImage && isValid && !!titleValue?.trim() && !isUploading && hasBoard;
-  const isLoading = isCreating || isUploading;
+  const isLoading = isCreating || isUploading || isSavingToBoard;
   const displayBoardName = localSelectedBoard?.title || 'Select board';
 
   // ==================== Render ====================
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -260,20 +261,14 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
         style={{ display: 'none' }}
       />
 
-      {/* Main Layout */}
       <Flex gap={6} wrap>
         {/* Left Column - Image */}
         <Box width={280}>
           <Box marginBottom={2}>
-            <Text weight="bold" size="200">
-              Pin image
-            </Text>
-            <Text color="subtle" size="100">
-              Recommended: 1000×1500 px
-            </Text>
+            <Text weight="bold" size="200">Pin image</Text>
+            <Text color="subtle" size="100">Recommended: 1000×1500 px</Text>
           </Box>
 
-          {/* Image Container */}
           <Box
             position="relative"
             width="100%"
@@ -344,7 +339,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
             )}
           </Box>
 
-          {/* Image actions */}
           {hasImage && !isUploading && (
             <Box marginTop={2}>
               <Flex gap={2}>
@@ -380,7 +374,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
               </Flex>
             </Box>
 
-            {/* Board Selector Trigger - стиль как в PinDetailInfo */}
             <Box ref={setBoardPickerAnchorRef}>
               <TapArea onTap={handleBoardPickerToggle} rounding={2}>
                 <Box
@@ -394,7 +387,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                     __style: {
                       backgroundColor: 'rgba(0, 0, 0, 0.06)',
                       cursor: 'pointer',
-                      transition: 'background-color 0.15s ease',
                     },
                   }}
                 >
@@ -414,7 +406,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
               </TapArea>
             </Box>
 
-            {/* Board Picker Dropdown */}
             <BoardPickerDropdown
               isOpen={showBoardPicker}
               anchorElement={boardPickerAnchor}
@@ -563,7 +554,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                 <Button text="Cancel" onClick={onCancel} size="md" color="gray" disabled={isLoading} />
               )}
               <Button
-                text={isCreating ? 'Creating...' : 'Create Pin'}
+                text={isLoading ? (isSavingToBoard ? 'Saving...' : 'Creating...') : 'Create Pin'}
                 type="submit"
                 size="md"
                 color="red"
@@ -574,7 +565,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
         </Box>
       </Box>
 
-      {/* Create Board Modal */}
       <BoardCreateModal
         isOpen={showCreateBoardModal}
         onClose={() => setShowCreateBoardModal(false)}

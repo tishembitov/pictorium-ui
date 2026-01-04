@@ -10,13 +10,11 @@ import type { BoardCreateRequest, BoardResponse } from '../types/board.types';
 interface UseCreateBoardWithPinOptions {
   onSuccess?: (board: BoardResponse) => void;
   onError?: (error: Error) => void;
-  showToast?: boolean;
   autoSelect?: boolean;
 }
 
 /**
- * Hook to create a new board and save a pin to it in one request
- * Uses POST /api/v1/boards/with-pin/{pinId}
+ * Создание доски с сохранением пина одним запросом.
  */
 export const useCreateBoardWithPin = (
   pinId: string,
@@ -25,7 +23,6 @@ export const useCreateBoardWithPin = (
   const { 
     onSuccess, 
     onError, 
-    showToast = true,
     autoSelect = true,
   } = options;
   
@@ -38,36 +35,20 @@ export const useCreateBoardWithPin = (
       boardApi.createWithPin(pinId, data),
 
     onSuccess: (board) => {
-      // Add to my boards cache
-      queryClient.setQueryData<BoardResponse[]>(
-        queryKeys.boards.my(),
-        (oldData) => oldData ? [board, ...oldData] : [board]
-      );
-      
-      // Set individual board cache
-      queryClient.setQueryData(queryKeys.boards.byId(board.id), board);
-      
-      // Invalidate related queries
+      // Инвалидируем связанные запросы
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.pins.byId(pinId) });
 
-      // Auto-select the new board
       if (autoSelect) {
         selectBoard(board.id);
       }
 
-      if (showToast) {
-        toast.success(`Created "${board.title}" and saved pin!`);
-      }
-
+      toast.success(`Created "${board.title}" and saved pin!`);
       onSuccess?.(board);
     },
 
     onError: (error: Error) => {
-      if (showToast) {
-        toast.error(error.message || 'Failed to create board');
-      }
+      toast.error(error.message || 'Failed to create board');
       onError?.(error);
     },
   });
@@ -78,7 +59,6 @@ export const useCreateBoardWithPin = (
     isLoading: mutation.isPending,
     isError: mutation.isError,
     error: mutation.error,
-    isSuccess: mutation.isSuccess,
     data: mutation.data,
     reset: mutation.reset,
   };

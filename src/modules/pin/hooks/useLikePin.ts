@@ -11,8 +11,8 @@ interface UseLikePinOptions {
 }
 
 /**
- * Простая мутация для лайка пина.
- * UI обновляется через usePinLikeState в компоненте.
+ * Простая мутация для лайка.
+ * UI обновляется через onToggle callback в компоненте.
  */
 export const useLikePin = (options: UseLikePinOptions = {}) => {
   const { onSuccess, onError } = options;
@@ -41,3 +41,5 @@ export const useLikePin = (options: UseLikePinOptions = {}) => {
     isLoading: mutation.isPending,
   };
 };
+
+export default useLikePin;

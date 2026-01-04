@@ -19,7 +19,7 @@ interface PinMenuButtonProps {
 }
 
 type IconButtonSize = 'xs' | 'md' | 'lg';
-type IconButtonBgColor = 'transparent' | 'transparentDarkGray';
+type IconButtonBgColor = 'transparent' | 'transparentDarkGray' | 'white';
 
 const getIconButtonSize = (size: 'sm' | 'md' | 'lg'): IconButtonSize => {
   if (size === 'sm') return 'xs';
@@ -133,6 +133,7 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
           id="pin-menu-dropdown"
           onDismiss={handleDismiss}
         >
+          {/* Download */}
           <Dropdown.Item
             onSelect={handleDownload}
             option={{ 
@@ -141,6 +142,7 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
             }}
           />
           
+          {/* Hide Pin - only for non-owners */}
           {!isOwner && isAuthenticated && (
             <Dropdown.Item
               onSelect={handleHidePin}
@@ -148,6 +150,7 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
             />
           )}
           
+          {/* Owner actions */}
           {isOwner && (
             <>
               <Dropdown.Item
@@ -161,6 +164,7 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
             </>
           )}
           
+          {/* Report - only for non-owners */}
           {isAuthenticated && !isOwner && (
             <Dropdown.Item
               onSelect={handleReport}

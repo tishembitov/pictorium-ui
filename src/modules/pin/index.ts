@@ -92,4 +92,5 @@ export {
   groupPinsByDate,
   filterPinsByTags,
   searchPins,
+  isPinSaved,
 } from './utils/pinUtils';

@@ -50,5 +50,3 @@ export { BoardCreateModal } from './components/BoardCreateModal';
 export { BoardEditModal } from './components/BoardEditModal';
 export { boardCreateSchema, type BoardCreateFormData } from './components/boardCreateSchema';
 export { BoardSelector } from './components/BoardSelector';
-export { BoardDropdown } from './components/BoardDropdown'; 
-export { BoardItem } from './components/BoardItem'; 

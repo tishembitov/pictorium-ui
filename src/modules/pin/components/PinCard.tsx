@@ -42,8 +42,8 @@ export const PinCard: React.FC<PinCardProps> = ({
   const handleImageLoad = useCallback(() => setIsLoaded(true), []);
 
   const dimensions = useMemo(() => ({
-    width: pin.thumbnailWidth,
-    height: pin.thumbnailHeight,
+    width: pin.thumbnailWidth || 236,
+    height: pin.thumbnailHeight || 300,
   }), [pin.thumbnailWidth, pin.thumbnailHeight]);
 
   return (
@@ -54,6 +54,7 @@ export const PinCard: React.FC<PinCardProps> = ({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
+      {/* Image Container */}
       <TapArea onTap={handleClick} rounding={4}>
         <Mask rounding={4}>
           <Box
@@ -76,7 +77,7 @@ export const PinCard: React.FC<PinCardProps> = ({
         </Mask>
       </TapArea>
 
-      {/* Hover Overlay */}
+      {/* Hover Overlay with Actions */}
       {isHovered && showActions && (
         <Box
           position="absolute"
@@ -89,21 +90,44 @@ export const PinCard: React.FC<PinCardProps> = ({
           justifyContent="between"
           dangerouslySetInlineStyle={{
             __style: {
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 40%, transparent 60%, rgba(0,0,0,0.5) 100%)',
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.5) 100%)',
               pointerEvents: 'none',
+              borderRadius: 16,
             },
           }}
         >
-          {/* Top Actions - Save */}
+          {/* Top Actions - Board Dropdown + Save */}
           <Box padding={2} display="flex" justifyContent="end">
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
-              {isAuthenticated && (
+              {isAuthenticated ? (
                 <CompactSaveSection
                   pinId={pin.id}
+                  pinTitle={pin.title}
                   lastSavedBoardId={pin.lastSavedBoardId}
                   lastSavedBoardName={pin.lastSavedBoardName}
                   savedToBoardsCount={pin.savedToBoardsCount}
                 />
+              ) : (
+                <TapArea 
+                  onTap={() => {}} 
+                  rounding="pill"
+                  tapStyle="compress"
+                >
+                  <Box
+                    paddingX={3}
+                    paddingY={2}
+                    rounding="pill"
+                    dangerouslySetInlineStyle={{
+                      __style: {
+                        backgroundColor: '#e60023',
+                      },
+                    }}
+                  >
+                    <Text color="inverse" weight="bold" size="200">
+                      Save
+                    </Text>
+                  </Box>
+                </TapArea>
               )}
             </Box>
           </Box>
@@ -120,7 +144,7 @@ export const PinCard: React.FC<PinCardProps> = ({
         </Box>
       )}
 
-      {/* Title */}
+      {/* Title below image */}
       {pin.title && (
         <Box paddingX={1} paddingY={2}>
           <Text size="100" weight="bold" lineClamp={2}>

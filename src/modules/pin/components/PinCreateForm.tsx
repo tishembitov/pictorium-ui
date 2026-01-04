@@ -15,7 +15,6 @@ import {
   useSelectBoard,
   useMyBoards,
   BoardCreateModal,
-  BoardPreviewImage,
   BoardPickerDropdown,
 } from '@/modules/board';
 import { useCreatePin } from '../hooks/useCreatePin';
@@ -45,7 +44,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
 }) => {
   const { isAuthenticated } = useAuth();
 
-  // Get global selected board as initial value
   const globalSelectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
   const { selectBoard } = useSelectBoard();
 
@@ -58,6 +56,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   const [showBoardPicker, setShowBoardPicker] = useState(false);
   const [showCreateBoardModal, setShowCreateBoardModal] = useState(false);
   const [boardSearchQuery, setBoardSearchQuery] = useState('');
+  const [boardPickerAnchor, setBoardPickerAnchor] = useState<HTMLDivElement | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -69,12 +68,8 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     enabled: isAuthenticated,
   });
 
-  // Save to board after creation
-  const { savePinToBoard } = useSavePinToBoard({
-    showToast: false,
-  });
+  const { savePinToBoard } = useSavePinToBoard({ showToast: false });
 
-  // Cleanup preview URL on unmount
   useEffect(() => {
     return () => {
       if (previewUrl) {
@@ -83,20 +78,16 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     };
   }, [previewUrl]);
 
-  // Create pin mutation
   const { createPin, isLoading: isCreating } = useCreatePin({
     onSuccess: (createdPin) => {
-      // Save to selected board
       if (localSelectedBoard) {
         savePinToBoard({ boardId: localSelectedBoard.id, pinId: createdPin.id });
-        // Update global selected board
         selectBoard(localSelectedBoard.id);
         toast.success(`Pin created and saved to "${localSelectedBoard.title}"`);
       } else {
         toast.success('Pin created!');
       }
 
-      // Invalidate queries
       void queryClient.invalidateQueries({ queryKey: queryKeys.pins.all });
       if (localSelectedBoard) {
         void queryClient.invalidateQueries({
@@ -128,10 +119,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     mode: 'onChange',
   });
 
-  const titleValue = useWatch({
-    control,
-    name: 'title',
-  });
+  const titleValue = useWatch({ control, name: 'title' });
 
   // ==================== Handlers ====================
 
@@ -195,7 +183,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     fileInputRef.current?.click();
   }, []);
 
-  // Board picker handlers
   const handleBoardPickerToggle = useCallback(() => {
     setShowBoardPicker((prev) => !prev);
     setBoardSearchQuery('');
@@ -209,6 +196,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   const handleBoardSelect = useCallback((board: BoardResponse) => {
     setLocalSelectedBoard(board);
     setShowBoardPicker(false);
+    setBoardSearchQuery('');
   }, []);
 
   const handleCreateBoardClick = useCallback(() => {
@@ -230,7 +218,10 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     [boards, queryClient, refetchBoards]
   );
 
-  // Submit
+  const setBoardPickerAnchorRef = useCallback((node: HTMLDivElement | null) => {
+    setBoardPickerAnchor(node);
+  }, []);
+
   const onSubmit = (data: PinCreateFormData) => {
     if (!uploadedImage) return;
 
@@ -254,7 +245,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   const hasBoard = !!localSelectedBoard;
   const canSubmit = hasImage && isValid && !!titleValue?.trim() && !isUploading && hasBoard;
   const isLoading = isCreating || isUploading;
-
   const displayBoardName = localSelectedBoard?.title || 'Select board';
 
   // ==================== Render ====================
@@ -302,13 +292,8 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                 <img
                   src={previewUrl}
                   alt="Pin preview"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                  }}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
-
                 {isUploading && (
                   <Box
                     position="absolute"
@@ -320,28 +305,18 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                     alignItems="center"
                     justifyContent="center"
                     dangerouslySetInlineStyle={{
-                      __style: {
-                        backgroundColor: 'rgba(255,255,255,0.8)',
-                      },
+                      __style: { backgroundColor: 'rgba(255,255,255,0.8)' },
                     }}
                   >
                     <Flex direction="column" alignItems="center" gap={2}>
                       <Spinner accessibilityLabel="Uploading" show />
-                      <Text size="200" weight="bold">
-                        Uploading...
-                      </Text>
+                      <Text size="200" weight="bold">Uploading...</Text>
                     </Flex>
                   </Box>
                 )}
               </>
             ) : (
-              <TapArea
-                onTap={handleUploadClick}
-                rounding={3}
-                disabled={isUploading}
-                fullWidth
-                fullHeight
-              >
+              <TapArea onTap={handleUploadClick} rounding={3} disabled={isUploading} fullWidth fullHeight>
                 <Box
                   width="100%"
                   height="100%"
@@ -358,13 +333,9 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                       <Box marginBottom={2} color="secondary" rounding="circle" padding={3}>
                         <Icon accessibilityLabel="Upload image" icon="camera" size={24} color="subtle" />
                       </Box>
-                      <Text weight="bold" align="center" size="200">
-                        Click to upload
-                      </Text>
+                      <Text weight="bold" align="center" size="200">Click to upload</Text>
                       <Box marginTop={1}>
-                        <Text color="subtle" align="center" size="100">
-                          or drag and drop
-                        </Text>
+                        <Text color="subtle" align="center" size="100">or drag and drop</Text>
                       </Box>
                     </>
                   )}
@@ -385,9 +356,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
 
           {errors.imageId && (
             <Box marginTop={2}>
-              <Text color="error" size="100">
-                {errors.imageId.message}
-              </Text>
+              <Text color="error" size="100">{errors.imageId.message}</Text>
             </Box>
           )}
 
@@ -406,71 +375,49 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
           <Box marginBottom={4}>
             <Box marginBottom={2}>
               <Flex alignItems="center" gap={1}>
-                <Text weight="bold" size="200">
-                  Save to board
-                </Text>
-                <Text color="error" size="200">
-                  *
-                </Text>
+                <Text weight="bold" size="200">Save to board</Text>
+                <Text color="error" size="200">*</Text>
               </Flex>
             </Box>
 
-            {/* Board Selector Trigger */}
-            <TapArea onTap={handleBoardPickerToggle} rounding={3}>
-              <Box
-                padding={3}
-                rounding={3}
-                display="flex"
-                alignItems="center"
-                justifyContent="between"
-                dangerouslySetInlineStyle={{
-                  __style: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.06)',
-                    border: hasBoard ? '2px solid #111' : '2px solid transparent',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  },
-                }}
-              >
-                <Flex alignItems="center" gap={3} flex="grow">
-                  {localSelectedBoard ? (
-                    <>
-                      <BoardPreviewImage boardId={localSelectedBoard.id} size={40} />
-                      <Text weight="bold" size="300" lineClamp={1}>
-                        {displayBoardName}
-                      </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Box
-                        width={40}
-                        height={40}
-                        rounding={2}
-                        color="secondary"
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="center"
-                      >
-                        <Icon accessibilityLabel="" icon="board" size={20} color="subtle" />
-                      </Box>
-                      <Text color="subtle" size="300">
-                        {displayBoardName}
-                      </Text>
-                    </>
-                  )}
-                </Flex>
-                <Icon
-                  accessibilityLabel=""
-                  icon={showBoardPicker ? 'arrow-up' : 'arrow-down'}
-                  size={16}
-                  color="default"
-                />
-              </Box>
-            </TapArea>
+            {/* Board Selector Trigger - стиль как в PinDetailInfo */}
+            <Box ref={setBoardPickerAnchorRef}>
+              <TapArea onTap={handleBoardPickerToggle} rounding={2}>
+                <Box
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="between"
+                  paddingX={3}
+                  paddingY={2}
+                  rounding={2}
+                  dangerouslySetInlineStyle={{
+                    __style: {
+                      backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.15s ease',
+                    },
+                  }}
+                >
+                  <Flex alignItems="center" gap={2}>
+                    <Icon accessibilityLabel="" icon="board" size={16} color="default" />
+                    <Text weight="bold" size="200" lineClamp={1}>
+                      {displayBoardName}
+                    </Text>
+                  </Flex>
+                  <Icon
+                    accessibilityLabel=""
+                    icon={showBoardPicker ? 'arrow-up' : 'arrow-down'}
+                    size={12}
+                    color="default"
+                  />
+                </Box>
+              </TapArea>
+            </Box>
 
             {/* Board Picker Dropdown */}
             <BoardPickerDropdown
               isOpen={showBoardPicker}
+              anchorElement={boardPickerAnchor}
               onDismiss={handleBoardPickerDismiss}
               boards={boards}
               isLoading={isBoardsLoading}
@@ -479,13 +426,13 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
               onSearchChange={setBoardSearchQuery}
               onSelectBoard={handleBoardSelect}
               onCreateNew={handleCreateBoardClick}
+              title="Select a board"
+              size="md"
             />
 
             {!hasBoard && (
               <Box marginTop={1}>
-                <Text color="subtle" size="100">
-                  Select a board to save your pin
-                </Text>
+                <Text color="subtle" size="100">Select a board to save your pin</Text>
               </Box>
             )}
           </Box>
@@ -496,12 +443,8 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
           <Box marginTop={4} marginBottom={4}>
             <Box marginBottom={1}>
               <Flex alignItems="center" gap={1}>
-                <Text weight="bold" size="200">
-                  Title
-                </Text>
-                <Text color="error" size="200">
-                  *
-                </Text>
+                <Text weight="bold" size="200">Title</Text>
+                <Text color="error" size="200">*</Text>
               </Flex>
             </Box>
             <Controller
@@ -526,9 +469,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
           {/* Description */}
           <Box marginBottom={4}>
             <Box marginBottom={1}>
-              <Text weight="bold" size="200">
-                Description
-              </Text>
+              <Text weight="bold" size="200">Description</Text>
             </Box>
             <Controller
               name="description"
@@ -552,9 +493,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
           {/* Link */}
           <Box marginBottom={4}>
             <Box marginBottom={1}>
-              <Text weight="bold" size="200">
-                Destination link
-              </Text>
+              <Text weight="bold" size="200">Destination link</Text>
             </Box>
             <Controller
               name="href"
@@ -580,9 +519,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
           {/* Tags */}
           <Box marginTop={4}>
             <Box marginBottom={1}>
-              <Text weight="bold" size="200">
-                Tags
-              </Text>
+              <Text weight="bold" size="200">Tags</Text>
             </Box>
             <Controller
               name="tags"
@@ -611,12 +548,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
             <Box>
               {!canSubmit && !isLoading && (
                 <Flex gap={2} alignItems="center">
-                  <Icon
-                    accessibilityLabel=""
-                    icon="workflow-status-warning"
-                    size={14}
-                    color="subtle"
-                  />
+                  <Icon accessibilityLabel="" icon="workflow-status-warning" size={14} color="subtle" />
                   <Text size="200" color="subtle">
                     {!hasImage && 'Upload an image'}
                     {hasImage && !titleValue?.trim() && 'Add a title'}
@@ -628,13 +560,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
 
             <Flex gap={2}>
               {onCancel && (
-                <Button
-                  text="Cancel"
-                  onClick={onCancel}
-                  size="md"
-                  color="gray"
-                  disabled={isLoading}
-                />
+                <Button text="Cancel" onClick={onCancel} size="md" color="gray" disabled={isLoading} />
               )}
               <Button
                 text={isCreating ? 'Creating...' : 'Create Pin'}

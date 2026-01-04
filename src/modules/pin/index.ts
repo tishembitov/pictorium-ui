@@ -42,6 +42,10 @@ export { usePinLikes, useInfinitePinLikes } from './hooks/usePinLikes';
 export { usePinComments, useInfinitePinComments } from './hooks/usePinComments';
 export { useCreateComment } from './hooks/useCreateComment';
 export { useScrollToComments } from './hooks/useScrollToComments';
+export { usePinSaveState, type PinSaveState, type SavedBoard } from './hooks/usePinSaveState';
+export { usePinLikeState } from './hooks/usePinLikeState';
+export { usePinLocalState } from './hooks/usePinLocalState';
+export type { PinLocalState, SavedBoardInfo } from './hooks/usePinLocalState';
 
 // Store
 export { usePinPreferencesStore, selectSort } from './stores/pinPreferencesStore';

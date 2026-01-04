@@ -3,10 +3,15 @@
 import React from 'react';
 import { Box, Flex, Text, Icon, TapArea } from 'gestalt';
 import { formatCompactNumber } from '@/shared/utils/formatters';
-import type { PinResponse } from '../../types/pin.types';
+import type { PinLocalState } from '../../hooks/usePinLocalState';
 
 interface PinDetailStatsProps {
-  pin: PinResponse;
+  /** Локальное состояние пина */
+  localState: PinLocalState;
+  /** Счётчик комментариев (из pin) */
+  commentCount: number;
+  /** Счётчик просмотров (из pin) */
+  viewCount: number;
   onCommentsClick?: () => void;
 }
 
@@ -41,29 +46,35 @@ const StatItem: React.FC<StatItemProps> = ({ icon, count, label, onClick }) => {
   return <Box padding={1}>{content}</Box>;
 };
 
-/**
- * Статистика пина: лайки, комментарии, просмотры.
- * Ответственность: отображение метрик пина.
- */
 export const PinDetailStats: React.FC<PinDetailStatsProps> = ({
-  pin,
+  localState,
+  commentCount,
+  viewCount,
   onCommentsClick,
 }) => {
-  const likeLabel = pin.likeCount === 1 ? 'like' : 'likes';
-  const commentLabel = pin.commentCount === 1 ? 'comment' : 'comments';
-  const viewLabel = pin.viewCount === 1 ? 'view' : 'views';
+  const likeLabel = localState.likeCount === 1 ? 'like' : 'likes';
+  const commentLabel = commentCount === 1 ? 'comment' : 'comments';
+  const viewLabel = viewCount === 1 ? 'view' : 'views';
 
   return (
     <Box paddingY={2}>
       <Flex gap={4} wrap>
-        <StatItem icon="heart" count={pin.likeCount} label={likeLabel} />
+        <StatItem 
+          icon="heart" 
+          count={localState.likeCount} 
+          label={likeLabel} 
+        />
         <StatItem
           icon="speech"
-          count={pin.commentCount}
+          count={commentCount}
           label={commentLabel}
           onClick={onCommentsClick}
         />
-        <StatItem icon="eye" count={pin.viewCount} label={viewLabel} />
+        <StatItem 
+          icon="eye" 
+          count={viewCount} 
+          label={viewLabel} 
+        />
       </Flex>
     </Box>
   );

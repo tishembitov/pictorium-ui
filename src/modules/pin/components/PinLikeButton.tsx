@@ -9,8 +9,12 @@ import { formatCompactNumber } from '@/shared/utils/formatters';
 
 interface PinLikeButtonProps {
   pinId: string;
+  /** Контролируемое состояние лайка */
   isLiked: boolean;
+  /** Контролируемый счётчик */
   likeCount: number;
+  /** Callback для обновления состояния */
+  onToggle: () => boolean;
   size?: 'sm' | 'md' | 'lg';
   showCount?: boolean;
 }
@@ -35,13 +39,25 @@ export const PinLikeButton: React.FC<PinLikeButtonProps> = ({
   pinId,
   isLiked,
   likeCount,
+  onToggle,
   size = 'md',
   showCount = true,
 }) => {
   const { isAuthenticated, login } = useAuth();
 
-  const { likePin, isLoading: isLiking } = useLikePin();
-  const { unlikePin, isLoading: isUnliking } = useUnlikePin();
+  const { likePin, isLoading: isLiking } = useLikePin({
+    onError: () => {
+      // Revert on error
+      onToggle();
+    },
+  });
+
+  const { unlikePin, isLoading: isUnliking } = useUnlikePin({
+    onError: () => {
+      // Revert on error  
+      onToggle();
+    },
+  });
 
   const isLoading = isLiking || isUnliking;
   const iconSize = getIconSize(size);
@@ -53,12 +69,16 @@ export const PinLikeButton: React.FC<PinLikeButtonProps> = ({
       return;
     }
 
-    if (isLiked) {
-      unlikePin(pinId);
-    } else {
+    // 1. Immediate UI update (parent updates state)
+    const newIsLiked = onToggle();
+
+    // 2. Background mutation
+    if (newIsLiked) {
       likePin(pinId);
+    } else {
+      unlikePin(pinId);
     }
-  }, [isAuthenticated, login, isLiked, pinId, likePin, unlikePin]);
+  }, [isAuthenticated, login, onToggle, likePin, unlikePin, pinId]);
 
   return (
     <Tooltip text={isLiked ? 'Unlike' : 'Like'}>
@@ -70,7 +90,7 @@ export const PinLikeButton: React.FC<PinLikeButtonProps> = ({
           alignItems="center"
           dangerouslySetInlineStyle={{
             __style: {
-              transition: 'transform 0.15s ease, background-color 0.15s ease',
+              transition: 'transform 0.15s ease',
               cursor: isLoading ? 'wait' : 'pointer',
             },
           }}

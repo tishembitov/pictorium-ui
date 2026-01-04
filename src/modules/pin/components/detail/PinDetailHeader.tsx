@@ -8,14 +8,23 @@ import { PinSaveSection } from '../PinSaveSection';
 import { PinShareButton } from '../PinShareButton';
 import { PinMenuButton } from '../PinMenuButton';
 import type { PinResponse } from '../../types/pin.types';
+import type { PinLocalState, SavedBoardInfo } from '../../hooks/usePinLocalState';
 
 interface PinDetailHeaderProps {
   pin: PinResponse;
+  localState: PinLocalState;
+  onToggleLike: () => boolean;
+  onSave: (board: SavedBoardInfo) => void;
+  onRemove: (boardId: string, remainingBoards?: SavedBoardInfo[]) => void;
   onBack?: () => void;
 }
 
 export const PinDetailHeader: React.FC<PinDetailHeaderProps> = ({
   pin,
+  localState,
+  onToggleLike,
+  onSave,
+  onRemove,
   onBack,
 }) => {
   const navigate = useNavigate();
@@ -45,8 +54,9 @@ export const PinDetailHeader: React.FC<PinDetailHeaderProps> = ({
           
           <PinLikeButton
             pinId={pin.id}
-            isLiked={pin.isLiked}
-            likeCount={pin.likeCount}
+            isLiked={localState.isLiked}
+            likeCount={localState.likeCount}
+            onToggle={onToggleLike}
             size="md"
           />
           
@@ -58,9 +68,9 @@ export const PinDetailHeader: React.FC<PinDetailHeaderProps> = ({
         <PinSaveSection
           pinId={pin.id}
           pinTitle={pin.title}
-          lastSavedBoardId={pin.lastSavedBoardId}
-          lastSavedBoardName={pin.lastSavedBoardName}
-          savedToBoardsCount={pin.savedToBoardsCount}
+          localState={localState}
+          onSave={onSave}
+          onRemove={onRemove}
           size="md"
         />
       </Flex>

@@ -9,28 +9,25 @@ import { useRemovePinFromBoard } from './useRemovePinFromBoard';
 import { useSelectedBoardStore } from '../stores/selectedBoardStore';
 import { useSelectBoard } from './useSelectBoard';
 import type { BoardWithPinStatusResponse } from '../types/board.types';
-
-export interface BoardSaveInfo {
-  boardId: string;
-  boardName: string;
-  count: number;
-}
+import type { PinLocalState, SavedBoardInfo } from '@/modules/pin';
 
 export interface UseBoardSaveManagerProps {
   pinId: string;
-  lastSavedBoardId: string | null;
-  lastSavedBoardName: string | null;
-  savedToBoardsCount: number;
+  localState: PinLocalState;
+  onSave: (board: SavedBoardInfo) => void;
+  onRemove: (boardId: string, remainingBoards?: SavedBoardInfo[]) => void;
 }
 
 export interface UseBoardSaveManagerResult {
-  // State
+  // UI State
   isDropdownOpen: boolean;
   showCreateModal: boolean;
   searchQuery: string;
+  anchorElement: HTMLDivElement | null;
+
+  // Loading states
   savingToBoardId: string | null;
   removingFromBoardId: string | null;
-  anchorElement: HTMLDivElement | null;
 
   // Data
   boards: BoardWithPinStatusResponse[];
@@ -38,12 +35,8 @@ export interface UseBoardSaveManagerResult {
   isBoardsLoading: boolean;
 
   // Computed
-  isSaved: boolean;
-  currentSaveInfo: BoardSaveInfo | null;
   displayBoardName: string;
-  currentCount: number;
   savedBoardsCount: number;
-  isLoading: boolean;
 
   // Auth
   isAuthenticated: boolean;
@@ -57,117 +50,79 @@ export interface UseBoardSaveManagerResult {
   handleSaveToBoard: (board: BoardWithPinStatusResponse) => void;
   handleRemoveFromBoard: (board: BoardWithPinStatusResponse) => void;
   handleCreateNew: () => void;
-  handleCreateSuccess: (boardId: string) => void;
+  handleCreateSuccess: (boardId: string, boardName?: string) => void;
   closeCreateModal: () => void;
 }
 
 export const useBoardSaveManager = ({
   pinId,
-  lastSavedBoardId,
-  lastSavedBoardName,
-  savedToBoardsCount,
+  localState,
+  onSave,
+  onRemove,
 }: UseBoardSaveManagerProps): UseBoardSaveManagerResult => {
   const { isAuthenticated, login } = useAuth();
   const { toast } = useToast();
 
-  // UI State
+  // ============ UI State ============
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [anchorElement, setAnchorElement] = useState<HTMLDivElement | null>(null);
   const [savingToBoardId, setSavingToBoardId] = useState<string | null>(null);
   const [removingFromBoardId, setRemovingFromBoardId] = useState<string | null>(null);
-  const [anchorElement, setAnchorElement] = useState<HTMLDivElement | null>(null);
 
-  // Local save state for immediate UI updates
-  const [localSaveInfo, setLocalSaveInfo] = useState<BoardSaveInfo | null>(null);
-
-  // Store
+  // ============ Store ============
   const selectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
   const { selectBoard } = useSelectBoard();
 
-  // Boards data
+  // ============ Server Data ============
   const {
     boards,
     isLoading: isBoardsLoading,
     refetch: refetchBoards,
-  } = useMyBoardsForPin(pinId, { enabled: isAuthenticated && isDropdownOpen });
+  } = useMyBoardsForPin(pinId, { 
+    enabled: isAuthenticated && isDropdownOpen,
+  });
 
-  // Mutations
-  const { savePinToBoard, isLoading: isSavingToBoard } = useSavePinToBoard({
-    showToast: false,
-    onSuccess: (boardId, boardName) => {
-      setLocalSaveInfo({
-        boardId,
-        boardName,
-        count: (localSaveInfo?.count ?? savedToBoardsCount) + 1,
-      });
+  // ============ Mutations ============
+  const { savePinToBoard } = useSavePinToBoard({
+    onSuccess: () => {
       setSavingToBoardId(null);
       void refetchBoards();
-      toast.success(`Saved to "${boardName}"`);
+    },
+    onError: (error) => {
+      setSavingToBoardId(null);
+      toast.error(error.message || 'Failed to save pin');
     },
   });
 
   const { removePinFromBoard } = useRemovePinFromBoard({
-    showToast: false,
     onSuccess: () => {
       setRemovingFromBoardId(null);
-      const newCount = (localSaveInfo?.count ?? savedToBoardsCount) - 1;
-      if (newCount <= 0) {
-        setLocalSaveInfo(null);
-      } else {
-        const remainingSaved = boards.filter(
-          (b) => b.hasPin && b.id !== removingFromBoardId
-        );
-        if (remainingSaved.length > 0 && remainingSaved[0]) {
-          setLocalSaveInfo({
-            boardId: remainingSaved[0].id,
-            boardName: remainingSaved[0].title,
-            count: newCount,
-          });
-        }
-      }
       void refetchBoards();
-      toast.success('Removed from board');
     },
-    onError: () => {
+    onError: (error) => {
       setRemovingFromBoardId(null);
+      toast.error(error.message || 'Failed to remove pin');
     },
   });
 
-  // Computed values
-  const isSaved = useMemo(() => {
-    return localSaveInfo !== null || savedToBoardsCount > 0;
-  }, [localSaveInfo, savedToBoardsCount]);
-
-  const currentSaveInfo = useMemo((): BoardSaveInfo | null => {
-    if (localSaveInfo) return localSaveInfo;
-    if (lastSavedBoardId && lastSavedBoardName) {
-      return {
-        boardId: lastSavedBoardId,
-        boardName: lastSavedBoardName,
-        count: savedToBoardsCount,
-      };
-    }
-    return null;
-  }, [localSaveInfo, lastSavedBoardId, lastSavedBoardName, savedToBoardsCount]);
-
-  const displayBoardName = useMemo(() => {
-    if (currentSaveInfo) return currentSaveInfo.boardName;
-    if (selectedBoard) return selectedBoard.title;
-    return 'Select board';
-  }, [currentSaveInfo, selectedBoard]);
-
+  // ============ Computed ============
   const filteredBoards = useMemo(() => {
     if (!searchQuery.trim()) return boards;
     const query = searchQuery.toLowerCase();
     return boards.filter((b) => b.title.toLowerCase().includes(query));
   }, [boards, searchQuery]);
 
-  const currentCount = localSaveInfo?.count ?? savedToBoardsCount;
-  const savedBoardsCount = boards.filter((b) => b.hasPin).length;
-  const isLoading = isSavingToBoard || savingToBoardId !== null;
+  const displayBoardName = useMemo(() => {
+    if (localState.lastSavedBoardName) return localState.lastSavedBoardName;
+    if (selectedBoard) return selectedBoard.title;
+    return 'Select board';
+  }, [localState.lastSavedBoardName, selectedBoard]);
 
-  // Handlers
+  const savedBoardsCount = boards.filter((b) => b.hasPin).length;
+
+  // ============ Handlers ============
   const setAnchorRef = useCallback((node: HTMLDivElement | null) => {
     setAnchorElement(node);
   }, []);
@@ -191,7 +146,7 @@ export const useBoardSaveManager = ({
       return;
     }
 
-    if (isSaved) {
+    if (localState.isSaved) {
       setIsDropdownOpen(true);
       return;
     }
@@ -201,86 +156,83 @@ export const useBoardSaveManager = ({
       return;
     }
 
-    const alreadySaved = boards.find((b) => b.id === selectedBoard.id)?.hasPin;
-    if (alreadySaved) {
-      setIsDropdownOpen(true);
-      return;
-    }
+    // 1. Immediate UI update via callback
+    onSave({
+      boardId: selectedBoard.id,
+      boardName: selectedBoard.title,
+    });
+    toast.success(`Saved to "${selectedBoard.title}"`);
 
+    // 2. Background mutation
     setSavingToBoardId(selectedBoard.id);
     savePinToBoard({ boardId: selectedBoard.id, pinId });
-  }, [isAuthenticated, login, isSaved, selectedBoard, boards, savePinToBoard, pinId]);
+  }, [isAuthenticated, login, localState.isSaved, selectedBoard, onSave, savePinToBoard, pinId, toast]);
 
-  const handleSaveToBoard = useCallback(
-    (board: BoardWithPinStatusResponse) => {
-      if (board.hasPin) return;
+  const handleSaveToBoard = useCallback((board: BoardWithPinStatusResponse) => {
+    if (board.hasPin) return;
 
-      setSavingToBoardId(board.id);
-      savePinToBoard({ boardId: board.id, pinId });
-      selectBoard(board.id);
-    },
-    [savePinToBoard, pinId, selectBoard]
-  );
+    // 1. Immediate UI update
+    onSave({
+      boardId: board.id,
+      boardName: board.title,
+    });
+    toast.success(`Saved to "${board.title}"`);
 
-  // ✅ Без confirm - сразу удаляем
-  const handleRemoveFromBoard = useCallback(
-    (board: BoardWithPinStatusResponse) => {
-      setRemovingFromBoardId(board.id);
-      removePinFromBoard({ boardId: board.id, pinId });
-    },
-    [removePinFromBoard, pinId]
-  );
+    // 2. Update selected board
+    selectBoard(board.id);
+
+    // 3. Background mutation
+    setSavingToBoardId(board.id);
+    savePinToBoard({ boardId: board.id, pinId });
+  }, [onSave, selectBoard, savePinToBoard, pinId, toast]);
+
+  const handleRemoveFromBoard = useCallback((board: BoardWithPinStatusResponse) => {
+    const remainingBoards = boards
+      .filter((b) => b.hasPin && b.id !== board.id)
+      .map((b) => ({ boardId: b.id, boardName: b.title }));
+
+    // 1. Immediate UI update
+    onRemove(board.id, remainingBoards);
+    toast.success('Removed from board');
+
+    // 2. Background mutation
+    setRemovingFromBoardId(board.id);
+    removePinFromBoard({ boardId: board.id, pinId });
+  }, [boards, onRemove, removePinFromBoard, pinId, toast]);
 
   const handleCreateNew = useCallback(() => {
     setIsDropdownOpen(false);
     setShowCreateModal(true);
   }, []);
 
-  const handleCreateSuccess = useCallback(
-    (boardId: string) => {
-      const newBoard = boards.find((b) => b.id === boardId);
-      setLocalSaveInfo({
-        boardId,
-        boardName: newBoard?.title || 'New Board',
-        count: (localSaveInfo?.count ?? savedToBoardsCount) + 1,
-      });
-      selectBoard(boardId);
-      setShowCreateModal(false);
-      void refetchBoards();
-    },
-    [boards, selectBoard, refetchBoards, localSaveInfo, savedToBoardsCount]
-  );
+  const handleCreateSuccess = useCallback((boardId: string, boardName?: string) => {
+    // Board was created with pin already saved
+    onSave({ 
+      boardId, 
+      boardName: boardName || 'New Board',
+    });
+    selectBoard(boardId);
+    setShowCreateModal(false);
+    void refetchBoards();
+  }, [onSave, selectBoard, refetchBoards]);
 
   const closeCreateModal = useCallback(() => {
     setShowCreateModal(false);
   }, []);
 
   return {
-    // State
     isDropdownOpen,
     showCreateModal,
     searchQuery,
+    anchorElement,
     savingToBoardId,
     removingFromBoardId,
-    anchorElement,
-
-    // Data
     boards,
     filteredBoards,
     isBoardsLoading,
-
-    // Computed
-    isSaved,
-    currentSaveInfo,
     displayBoardName,
-    currentCount,
     savedBoardsCount,
-    isLoading,
-
-    // Auth
     isAuthenticated,
-
-    // Handlers
     setAnchorRef,
     setSearchQuery,
     handleDropdownToggle,

@@ -9,29 +9,30 @@ import {
   BoardCreateModal,
 } from '@/modules/board';
 import { buildPath } from '@/app/router/routeConfig';
+import type { PinLocalState, SavedBoardInfo } from '../hooks/usePinLocalState';
 
 interface PinSaveSectionProps {
   pinId: string;
   pinTitle?: string | null;
-  lastSavedBoardId: string | null;
-  lastSavedBoardName: string | null;
-  savedToBoardsCount: number;
+  localState: PinLocalState;
+  onSave: (board: SavedBoardInfo) => void;
+  onRemove: (boardId: string, remainingBoards?: SavedBoardInfo[]) => void;
   size?: 'sm' | 'md' | 'lg';
 }
 
 export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
   pinId,
   pinTitle,
-  lastSavedBoardId,
-  lastSavedBoardName,
-  savedToBoardsCount,
+  localState,
+  onSave,
+  onRemove,
   size = 'md',
 }) => {
   const manager = useBoardSaveManager({
     pinId,
-    lastSavedBoardId,
-    lastSavedBoardName,
-    savedToBoardsCount,
+    localState,
+    onSave,
+    onRemove,
   });
 
   const {
@@ -43,12 +44,8 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
     anchorElement,
     filteredBoards,
     isBoardsLoading,
-    isSaved,
-    currentSaveInfo,
     displayBoardName,
-    currentCount,
-    savedBoardsCount: savedCount,
-    isLoading,
+    savedBoardsCount,
     setAnchorRef,
     setSearchQuery,
     handleDropdownToggle,
@@ -60,6 +57,8 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
     handleCreateSuccess,
     closeCreateModal,
   } = manager;
+
+  const isLoading = savingToBoardId !== null;
 
   const dimensions = useMemo(() => {
     switch (size) {
@@ -73,10 +72,13 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
   }, [size]);
 
   const renderBoardName = () => {
-    if (isSaved && currentSaveInfo) {
-      if (currentCount === 1) {
+    if (localState.isSaved && localState.lastSavedBoardId) {
+      if (localState.savedCount === 1) {
         return (
-          <Link to={buildPath.board(currentSaveInfo.boardId)} style={{ textDecoration: 'none' }}>
+          <Link 
+            to={buildPath.board(localState.lastSavedBoardId)} 
+            style={{ textDecoration: 'none' }}
+          >
             <Box
               display="flex"
               alignItems="center"
@@ -94,7 +96,7 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
               <Flex alignItems="center" gap={2}>
                 <Icon accessibilityLabel="" icon="board" size={16} color="default" />
                 <Text weight="bold" size={dimensions.fontSize} lineClamp={1}>
-                  {displayBoardName}
+                  {localState.lastSavedBoardName}
                 </Text>
               </Flex>
             </Box>
@@ -122,11 +124,11 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
               <Flex alignItems="center" gap={2}>
                 <Icon accessibilityLabel="" icon="board" size={16} color="default" />
                 <Text weight="bold" size={dimensions.fontSize} lineClamp={1}>
-                  {displayBoardName}
+                  {localState.lastSavedBoardName}
                 </Text>
                 <Box rounding="pill" paddingX={2} color="secondary">
                   <Text size="100" weight="bold">
-                    +{currentCount - 1}
+                    +{localState.savedCount - 1}
                   </Text>
                 </Box>
               </Flex>
@@ -178,7 +180,7 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
         {renderBoardName()}
 
         {/* Save/Saved Button */}
-        <Box ref={isSaved && currentCount === 1 ? setAnchorRef : undefined}>
+        <Box ref={localState.isSaved && localState.savedCount === 1 ? setAnchorRef : undefined}>
           <TapArea
             onTap={handleQuickSave}
             rounding={2}
@@ -195,7 +197,7 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
                 __style: {
                   height: dimensions.buttonHeight,
                   minWidth: 80,
-                  backgroundColor: isSaved ? '#111' : '#e60023',
+                  backgroundColor: localState.isSaved ? '#111' : '#e60023',
                   opacity: isLoading ? 0.7 : 1,
                   cursor: isLoading ? 'wait' : 'pointer',
                   transition: 'all 0.15s ease',
@@ -206,7 +208,7 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
                 <Spinner accessibilityLabel="Saving" show size="sm" />
               ) : (
                 <Text color="inverse" weight="bold" size={dimensions.fontSize}>
-                  {isSaved ? 'Saved' : 'Save'}
+                  {localState.isSaved ? 'Saved' : 'Save'}
                 </Text>
               )}
             </Box>
@@ -220,7 +222,7 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
         onDismiss={handleDropdownDismiss}
         boards={filteredBoards}
         isLoading={isBoardsLoading}
-        savedBoardsCount={savedCount}
+        savedBoardsCount={savedBoardsCount}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         savingToBoardId={savingToBoardId}

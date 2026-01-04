@@ -9,6 +9,7 @@ import { useAuth } from '@/modules/auth';
 import { CompactSaveSection } from './CompactSaveSection';
 import { PinShareButton } from './PinShareButton';
 import { PinMenuButton } from './PinMenuButton';
+import { usePinLocalState } from '../hooks/usePinLocalState';
 import type { PinResponse } from '../types/pin.types';
 
 interface PinCardProps {
@@ -26,6 +27,13 @@ export const PinCard: React.FC<PinCardProps> = ({
   const { isAuthenticated } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // ✅ Единый локальный state
+  const { 
+    state: localState, 
+    markAsSaved, 
+    markAsRemoved,
+  } = usePinLocalState(pin);
 
   const imageId = pin.thumbnailId || pin.imageId;
   
@@ -77,7 +85,7 @@ export const PinCard: React.FC<PinCardProps> = ({
         </Mask>
       </TapArea>
 
-      {/* Hover Overlay with Actions */}
+      {/* Hover Overlay */}
       {isHovered && showActions && (
         <Box
           position="absolute"
@@ -96,31 +104,25 @@ export const PinCard: React.FC<PinCardProps> = ({
             },
           }}
         >
-          {/* Top Actions - Board Dropdown + Save */}
+          {/* Top Actions */}
           <Box padding={2} display="flex" justifyContent="end">
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
               {isAuthenticated ? (
                 <CompactSaveSection
                   pinId={pin.id}
                   pinTitle={pin.title}
-                  lastSavedBoardId={pin.lastSavedBoardId}
-                  lastSavedBoardName={pin.lastSavedBoardName}
-                  savedToBoardsCount={pin.savedToBoardsCount}
+                  localState={localState}
+                  onSave={markAsSaved}
+                  onRemove={markAsRemoved}
                 />
               ) : (
-                <TapArea 
-                  onTap={() => {}} 
-                  rounding="pill"
-                  tapStyle="compress"
-                >
+                <TapArea onTap={() => {}} rounding="pill" tapStyle="compress">
                   <Box
                     paddingX={3}
                     paddingY={2}
                     rounding="pill"
                     dangerouslySetInlineStyle={{
-                      __style: {
-                        backgroundColor: '#e60023',
-                      },
+                      __style: { backgroundColor: '#e60023' },
                     }}
                   >
                     <Text color="inverse" weight="bold" size="200">
@@ -132,7 +134,7 @@ export const PinCard: React.FC<PinCardProps> = ({
             </Box>
           </Box>
 
-          {/* Bottom Actions - Share & Menu */}
+          {/* Bottom Actions */}
           <Box padding={2} display="flex" justifyContent="end">
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
               <Flex gap={2} alignItems="center">
@@ -144,7 +146,7 @@ export const PinCard: React.FC<PinCardProps> = ({
         </Box>
       )}
 
-      {/* Title below image */}
+      {/* Title */}
       {pin.title && (
         <Box paddingX={1} paddingY={2}>
           <Text size="100" weight="bold" lineClamp={2}>

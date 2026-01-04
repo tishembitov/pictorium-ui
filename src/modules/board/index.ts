@@ -34,7 +34,7 @@ export { useSavePinToBoards } from './hooks/useSavePinToBoards';
 export { useSelectedBoard } from './hooks/useSelectedBoard';
 export { useSelectBoard } from './hooks/useSelectBoard';
 export { useBoardSaveManager } from './hooks/useBoardSaveManager';
-export type { BoardSaveInfo, UseBoardSaveManagerResult } from './hooks/useBoardSaveManager';
+export type { UseBoardSaveManagerResult } from './hooks/useBoardSaveManager';
 
 // Store
 export {

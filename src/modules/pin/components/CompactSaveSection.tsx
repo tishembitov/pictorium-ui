@@ -3,36 +3,34 @@
 import React from 'react';
 import { Box, Flex, Text, TapArea, Spinner, Icon } from 'gestalt';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/modules/auth';
 import {
   useBoardSaveManager,
   BoardSaveDropdown,
   BoardCreateModal,
 } from '@/modules/board';
 import { buildPath } from '@/app/router/routeConfig';
+import type { PinLocalState, SavedBoardInfo } from '../hooks/usePinLocalState';
 
 interface CompactSaveSectionProps {
   pinId: string;
   pinTitle?: string | null;
-  lastSavedBoardId: string | null;
-  lastSavedBoardName: string | null;
-  savedToBoardsCount: number;
+  localState: PinLocalState;
+  onSave: (board: SavedBoardInfo) => void;
+  onRemove: (boardId: string, remainingBoards?: SavedBoardInfo[]) => void;
 }
 
 export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
   pinId,
   pinTitle,
-  lastSavedBoardId,
-  lastSavedBoardName,
-  savedToBoardsCount,
+  localState,
+  onSave,
+  onRemove,
 }) => {
-  useAuth();
-
   const manager = useBoardSaveManager({
     pinId,
-    lastSavedBoardId,
-    lastSavedBoardName,
-    savedToBoardsCount,
+    localState,
+    onSave,
+    onRemove,
   });
 
   const {
@@ -44,12 +42,8 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
     anchorElement,
     filteredBoards,
     isBoardsLoading,
-    isSaved,
-    currentSaveInfo,
     displayBoardName,
-    currentCount,
-    savedBoardsCount: savedCount,
-    isLoading,
+    savedBoardsCount,
     setAnchorRef,
     setSearchQuery,
     handleDropdownToggle,
@@ -62,15 +56,17 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
     closeCreateModal,
   } = manager;
 
+  const isLoading = savingToBoardId !== null;
+
   // Saved state
-  if (isSaved && currentSaveInfo) {
+  if (localState.isSaved && localState.lastSavedBoardId) {
     return (
       <>
         <Flex alignItems="center" gap={1}>
           {/* Board Name */}
-          {currentCount === 1 ? (
+          {localState.savedCount === 1 ? (
             <Link
-              to={buildPath.board(currentSaveInfo.boardId)}
+              to={buildPath.board(localState.lastSavedBoardId)}
               style={{ textDecoration: 'none' }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -87,7 +83,7 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
                 }}
               >
                 <Text size="100" weight="bold" lineClamp={1} color="dark">
-                  {currentSaveInfo.boardName}
+                  {localState.lastSavedBoardName}
                 </Text>
               </Box>
             </Link>
@@ -108,10 +104,10 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
                 >
                   <Flex alignItems="center" gap={1}>
                     <Text size="100" weight="bold" lineClamp={1} color="dark">
-                      {currentSaveInfo.boardName}
+                      {localState.lastSavedBoardName}
                     </Text>
                     <Text size="100" color="subtle">
-                      +{currentCount - 1}
+                      +{localState.savedCount - 1}
                     </Text>
                   </Flex>
                 </Box>
@@ -120,7 +116,7 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
           )}
 
           {/* Saved Button */}
-          <Box ref={currentCount === 1 ? setAnchorRef : undefined}>
+          <Box ref={localState.savedCount === 1 ? setAnchorRef : undefined}>
             <TapArea
               onTap={handleDropdownToggle}
               rounding="pill"
@@ -161,7 +157,7 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
           onDismiss={handleDropdownDismiss}
           boards={filteredBoards}
           isLoading={isBoardsLoading}
-          savedBoardsCount={savedCount}
+          savedBoardsCount={savedBoardsCount}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           savingToBoardId={savingToBoardId}
@@ -187,7 +183,6 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
   return (
     <>
       <Flex alignItems="center" gap={1}>
-        {/* Board Selector Trigger */}
         <Box ref={setAnchorRef}>
           <TapArea onTap={handleDropdownToggle} rounding={2}>
             <Box
@@ -214,7 +209,6 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
           </TapArea>
         </Box>
 
-        {/* Save Button */}
         <TapArea
           onTap={handleQuickSave}
           rounding="pill"
@@ -254,7 +248,7 @@ export const CompactSaveSection: React.FC<CompactSaveSectionProps> = ({
         onDismiss={handleDropdownDismiss}
         boards={filteredBoards}
         isLoading={isBoardsLoading}
-        savedBoardsCount={savedCount}
+        savedBoardsCount={savedBoardsCount}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         savingToBoardId={savingToBoardId}

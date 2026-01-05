@@ -1,11 +1,16 @@
 // src/modules/pin/components/PinCreateForm.tsx
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Box, Flex, Button, Divider, Text, Icon, TapArea, Spinner } from 'gestalt';
+import React, { useState, useCallback } from 'react';
+import { Box, Flex, Divider, Text, Icon, TapArea } from 'gestalt';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { FormField, FormTextArea } from '@/shared/components';
-import { useImageUpload } from '@/modules/storage';
+import {
+  FormField,
+  FormTextArea,
+  FormSection,
+  FormFooter,
+  ImageUploadArea,
+} from '@/shared/components';
 import { TagInput } from '@/modules/tag';
 import {
   useSelectedBoardStore,
@@ -21,6 +26,7 @@ import { useAuth } from '@/modules/auth';
 import { pinCreateSchema, type PinCreateFormData } from './pinCreateSchema';
 import { ensurePinLinkProtocol } from '../utils/pinUtils';
 import type { BoardResponse } from '@/modules/board';
+import type { UploadResult } from '@/modules/storage';
 
 interface PinCreateFormProps {
   onSuccess?: () => void;
@@ -51,22 +57,17 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     () => globalSelectedBoard
   );
   const [uploadedImage, setUploadedImage] = useState<UploadedImage | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showBoardPicker, setShowBoardPicker] = useState(false);
   const [showCreateBoardModal, setShowCreateBoardModal] = useState(false);
   const [boardSearchQuery, setBoardSearchQuery] = useState('');
   const [boardPickerAnchor, setBoardPickerAnchor] = useState<HTMLDivElement | null>(null);
   const [isSavingToBoard, setIsSavingToBoard] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   // Hooks
-  const { upload, isUploading } = useImageUpload();
   const { boards, isLoading: isBoardsLoading, refetch: refetchBoards } = useMyBoards({
     enabled: isAuthenticated,
   });
 
-  // Хук для сохранения в доску после создания пина
   const { savePinToBoard } = useSavePinToBoard({
     onSuccess: () => {
       setIsSavingToBoard(false);
@@ -82,14 +83,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
       onSuccess?.();
     },
   });
-
-  useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [previewUrl]);
 
   const { createPin, isLoading: isCreating } = useCreatePin({
     onSuccess: (createdPin) => {
@@ -125,67 +118,30 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
 
   const titleValue = useWatch({ control, name: 'title' });
 
-  // ==================== Handlers ====================
-
-  const handleFileSelect = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
-
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-
-      const newPreviewUrl = URL.createObjectURL(file);
-      setPreviewUrl(newPreviewUrl);
-
-      try {
-        const result = await upload(file, {
-          category: 'pins',
-          generateThumbnail: true,
-          thumbnailWidth: 236,
-        });
-
-        setUploadedImage({
-          imageId: result.imageId,
-          thumbnailId: result.thumbnailId,
-          originalWidth: result.originalWidth,
-          originalHeight: result.originalHeight,
-          thumbnailWidth: result.thumbnailWidth,
-          thumbnailHeight: result.thumbnailHeight,
-        });
-        setValue('imageId', result.imageId, { shouldValidate: true });
-        if (result.thumbnailId) {
-          setValue('thumbnailId', result.thumbnailId);
-        }
-      } catch (error) {
-        console.error('Upload failed:', error);
-        URL.revokeObjectURL(newPreviewUrl);
-        setPreviewUrl(null);
-        setUploadedImage(null);
-        toast.error('Failed to upload image');
-      }
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+  // Handlers
+  const handleImageUpload = useCallback(
+    (result: UploadResult) => {
+      setUploadedImage({
+        imageId: result.imageId,
+        thumbnailId: result.thumbnailId,
+        originalWidth: result.originalWidth,
+        originalHeight: result.originalHeight,
+        thumbnailWidth: result.thumbnailWidth,
+        thumbnailHeight: result.thumbnailHeight,
+      });
+      setValue('imageId', result.imageId, { shouldValidate: true });
+      if (result.thumbnailId) {
+        setValue('thumbnailId', result.thumbnailId);
       }
     },
-    [upload, setValue, previewUrl, toast]
+    [setValue]
   );
 
-  const handleRemoveImage = useCallback(() => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setPreviewUrl(null);
+  const handleImageRemove = useCallback(() => {
     setUploadedImage(null);
     setValue('imageId', '', { shouldValidate: true });
     setValue('thumbnailId', undefined);
-  }, [previewUrl, setValue]);
-
-  const handleUploadClick = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
+  }, [setValue]);
 
   const handleBoardPickerToggle = useCallback(() => {
     setShowBoardPicker((prev) => !prev);
@@ -238,25 +194,21 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     });
   };
 
-  // ==================== Computed ====================
-
+  // Computed
   const hasImage = !!uploadedImage;
   const hasBoard = !!localSelectedBoard;
   const hasBoards = boards.length > 0;
-  const canSubmit = hasImage && isValid && !!titleValue?.trim() && !isUploading && hasBoard;
-  const isLoading = isCreating || isUploading || isSavingToBoard;
+  const canSubmit = hasImage && isValid && !!titleValue?.trim() && hasBoard;
+  const isLoading = isCreating || isSavingToBoard;
 
-  // Текст для board selector
   const boardSelectorText = localSelectedBoard?.title || 'Select a board';
 
-  // Helper text для board section
   const getBoardHelperText = (): string | null => {
     if (localSelectedBoard) return null;
     if (!hasBoards) return 'Create a board to save your pin';
     return 'Select a board to save your pin';
   };
 
-  // ✅ Исправлено: вынесли логику в отдельную функцию
   const getValidationMessage = (): string | null => {
     if (!hasImage) return 'Upload an image';
     if (!titleValue?.trim()) return 'Add a title';
@@ -264,138 +216,35 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     return null;
   };
 
-  // ✅ Исправлено: вынесли логику в отдельную функцию
   const getSubmitButtonText = (): string => {
     if (isSavingToBoard) return 'Saving...';
-    if (isCreating || isUploading) return 'Creating...';
+    if (isCreating) return 'Creating...';
     return 'Create Pin';
   };
 
-  // ==================== Render ====================
-
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileSelect}
-        style={{ display: 'none' }}
-      />
-
       <Flex gap={6} wrap>
         {/* Left Column - Image */}
         <Box width={280}>
-          <Box marginBottom={2}>
-            <Text weight="bold" size="200">Pin image</Text>
-            <Text color="subtle" size="100">Recommended: 1000×1500 px</Text>
-          </Box>
-
-          <Box
-            position="relative"
-            width="100%"
-            rounding={3}
-            overflow="hidden"
-            dangerouslySetInlineStyle={{
-              __style: {
-                aspectRatio: '2 / 3',
-                backgroundColor: 'var(--bg-secondary)',
-                border: previewUrl ? 'none' : '2px dashed var(--border-default)',
-              },
-            }}
-          >
-            {previewUrl ? (
-              <>
-                <img
-                  src={previewUrl}
-                  alt="Pin preview"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-                {isUploading && (
-                  <Box
-                    position="absolute"
-                    top
-                    left
-                    right
-                    bottom
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                    dangerouslySetInlineStyle={{
-                      __style: { backgroundColor: 'rgba(255,255,255,0.8)' },
-                    }}
-                  >
-                    <Flex direction="column" alignItems="center" gap={2}>
-                      <Spinner accessibilityLabel="Uploading" show />
-                      <Text size="200" weight="bold">Uploading...</Text>
-                    </Flex>
-                  </Box>
-                )}
-              </>
-            ) : (
-              <TapArea onTap={handleUploadClick} rounding={3} disabled={isUploading} fullWidth fullHeight>
-                <Box
-                  width="100%"
-                  height="100%"
-                  display="flex"
-                  direction="column"
-                  alignItems="center"
-                  justifyContent="center"
-                  padding={4}
-                >
-                  {isUploading ? (
-                    <Spinner accessibilityLabel="Uploading" show />
-                  ) : (
-                    <>
-                      <Box marginBottom={2} color="secondary" rounding="circle" padding={3}>
-                        <Icon accessibilityLabel="Upload image" icon="camera" size={24} color="subtle" />
-                      </Box>
-                      <Text weight="bold" align="center" size="200">Click to upload</Text>
-                      <Box marginTop={1}>
-                        <Text color="subtle" align="center" size="100">or drag and drop</Text>
-                      </Box>
-                    </>
-                  )}
-                </Box>
-              </TapArea>
-            )}
-          </Box>
-
-          {hasImage && !isUploading && (
-            <Box marginTop={2}>
-              <Flex gap={2}>
-                <Button text="Change" onClick={handleUploadClick} size="sm" color="gray" />
-                <Button text="Remove" onClick={handleRemoveImage} size="sm" color="transparent" />
-              </Flex>
-            </Box>
-          )}
-
-          {errors.imageId && (
-            <Box marginTop={2}>
-              <Text color="error" size="100">{errors.imageId.message}</Text>
-            </Box>
-          )}
-
-          {uploadedImage && !isUploading && (
-            <Box marginTop={2}>
-              <Text color="subtle" size="100">
-                {uploadedImage.originalWidth} × {uploadedImage.originalHeight} px
-              </Text>
-            </Box>
-          )}
+          <FormSection title="Pin image" description="Recommended: 1000×1500 px">
+            <ImageUploadArea
+              onUploadComplete={handleImageUpload}
+              onRemove={handleImageRemove}
+              category="pins"
+              generateThumbnail
+              aspectRatio="2 / 3"
+              placeholderText="Click to upload"
+              placeholderSubtext="or drag and drop"
+              errorMessage={errors.imageId?.message}
+            />
+          </FormSection>
         </Box>
 
         {/* Right Column - Form Fields */}
         <Box flex="grow" minWidth={280} maxWidth={400}>
           {/* Board Selection */}
-          <Box marginBottom={4}>
-            <Box marginBottom={2}>
-              <Flex alignItems="center" gap={1}>
-                <Text weight="bold" size="200">Save to board</Text>
-                <Text color="error" size="200">*</Text>
-              </Flex>
-            </Box>
-
+          <FormSection title="Save to board" required>
             <Box ref={setBoardPickerAnchorRef}>
               <TapArea onTap={handleBoardPickerToggle} rounding={2}>
                 <Box
@@ -414,9 +263,9 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                 >
                   <Flex alignItems="center" gap={2}>
                     <Icon accessibilityLabel="" icon="board" size={16} color="default" />
-                    <Text 
-                      weight="bold" 
-                      size="200" 
+                    <Text
+                      weight="bold"
+                      size="200"
                       lineClamp={1}
                       color={localSelectedBoard ? 'default' : 'subtle'}
                     >
@@ -448,48 +297,42 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
               size="md"
             />
 
-            {/* Helper text */}
             {getBoardHelperText() && (
               <Box marginTop={1}>
-                <Text color="subtle" size="100">{getBoardHelperText()}</Text>
+                <Text color="subtle" size="100">
+                  {getBoardHelperText()}
+                </Text>
               </Box>
             )}
-          </Box>
+          </FormSection>
 
           <Divider />
 
           {/* Title */}
-          <Box marginTop={4} marginBottom={4}>
-            <Box marginBottom={1}>
-              <Flex alignItems="center" gap={1}>
-                <Text weight="bold" size="200">Title</Text>
-                <Text color="error" size="200">*</Text>
-              </Flex>
-            </Box>
-            <Controller
-              name="title"
-              control={control}
-              render={({ field }) => (
-                <FormField
-                  id="pin-title"
-                  label=""
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                  placeholder="Add a title"
-                  errorMessage={errors.title?.message}
-                  maxLength={200}
-                  size="md"
-                />
-              )}
-            />
+          <Box marginTop={4}>
+            <FormSection title="Title" required>
+              <Controller
+                name="title"
+                control={control}
+                render={({ field }) => (
+                  <FormField
+                    id="pin-title"
+                    label=""
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    placeholder="Add a title"
+                    errorMessage={errors.title?.message}
+                    maxLength={200}
+                    size="md"
+                  />
+                )}
+              />
+            </FormSection>
           </Box>
 
           {/* Description */}
-          <Box marginBottom={4}>
-            <Box marginBottom={1}>
-              <Text weight="bold" size="200">Description</Text>
-            </Box>
+          <FormSection title="Description">
             <Controller
               name="description"
               control={control}
@@ -507,13 +350,10 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                 />
               )}
             />
-          </Box>
+          </FormSection>
 
           {/* Link */}
-          <Box marginBottom={4}>
-            <Box marginBottom={1}>
-              <Text weight="bold" size="200">Destination link</Text>
-            </Box>
+          <FormSection title="Destination link">
             <Controller
               name="href"
               control={control}
@@ -531,65 +371,42 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                 />
               )}
             />
-          </Box>
+          </FormSection>
 
           <Divider />
 
           {/* Tags */}
           <Box marginTop={4}>
-            <Box marginBottom={1}>
-              <Text weight="bold" size="200">Tags</Text>
-            </Box>
-            <Controller
-              name="tags"
-              control={control}
-              render={({ field }) => (
-                <TagInput
-                  id="pin-tags"
-                  label=""
-                  selectedTags={field.value || []}
-                  onChange={field.onChange}
-                  placeholder="Search or create tags"
-                  maxTags={10}
-                  errorMessage={errors.tags?.message}
-                />
-              )}
-            />
+            <FormSection title="Tags">
+              <Controller
+                name="tags"
+                control={control}
+                render={({ field }) => (
+                  <TagInput
+                    id="pin-tags"
+                    label=""
+                    selectedTags={field.value || []}
+                    onChange={field.onChange}
+                    placeholder="Search or create tags"
+                    maxTags={10}
+                    errorMessage={errors.tags?.message}
+                  />
+                )}
+              />
+            </FormSection>
           </Box>
         </Box>
       </Flex>
 
       {/* Footer */}
-      <Box marginTop={6} padding={4}>
-        <Divider />
-        <Box paddingY={4}>
-          <Flex justifyContent="between" alignItems="center">
-            <Box>
-              {!canSubmit && !isLoading && (
-                <Flex gap={2} alignItems="center">
-                  <Icon accessibilityLabel="" icon="workflow-status-warning" size={14} color="subtle" />
-                  <Text size="200" color="subtle">
-                    {getValidationMessage()}
-                  </Text>
-                </Flex>
-              )}
-            </Box>
-
-            <Flex gap={2}>
-              {onCancel && (
-                <Button text="Cancel" onClick={onCancel} size="md" color="gray" disabled={isLoading} />
-              )}
-              <Button
-                text={getSubmitButtonText()}
-                type="submit"
-                size="md"
-                color="red"
-                disabled={isLoading || !canSubmit}
-              />
-            </Flex>
-          </Flex>
-        </Box>
-      </Box>
+      <FormFooter
+        onCancel={onCancel}
+        submitText={getSubmitButtonText()}
+        cancelText="Cancel"
+        isLoading={isLoading}
+        isDisabled={!canSubmit}
+        validationMessage={getValidationMessage()}
+      />
 
       <BoardCreateModal
         isOpen={showCreateBoardModal}

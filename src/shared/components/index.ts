@@ -22,6 +22,10 @@ export { ToastContainer } from './feedback/ToastContainer';
 export { FormField } from './forms/FormField';
 export { FormTextArea } from './forms/FormTextArea';
 export { FormSelect } from './forms/FormSelect';
+export { FormSection } from './forms/FormSection';
+export { FormFooter } from './forms/FormFooter';
+export { ImageUploadArea } from './forms/ImageUploadArea';
+export { SocialLinkInput } from './forms/SocialLinkInput';
 
 // Data Display
 export { Image } from './data-display/Image';

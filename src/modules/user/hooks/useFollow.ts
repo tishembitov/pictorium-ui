@@ -1,12 +1,11 @@
 // src/modules/user/hooks/useFollow.ts
 
-import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { subscriptionApi } from '../api/subscriptionApi';
 import { useToast } from '@/shared/hooks/useToast';
 import { useAuthStore } from '@/modules/auth';
 import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
-import type { FollowCheckResponse, PageUserResponse } from '../types/subscription.types';
 
 interface UseFollowOptions {
   onSuccess?: () => void;
@@ -15,7 +14,8 @@ interface UseFollowOptions {
 }
 
 /**
- * Hook to follow a user
+ * Простая мутация для подписки.
+ * UI обновляется через onToggle callback в компоненте.
  */
 export const useFollow = (options: UseFollowOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
@@ -25,46 +25,23 @@ export const useFollow = (options: UseFollowOptions = {}) => {
 
   const mutation = useMutation({
     mutationFn: (userId: string) => subscriptionApi.follow(userId),
-    onMutate: async (userId) => {
-      // Cancel related queries
-      await queryClient.cancelQueries({
-        queryKey: queryKeys.subscriptions.check(userId),
-      });
-
-      // Snapshot previous data
-      const previousCheck = queryClient.getQueryData<FollowCheckResponse>(
-        queryKeys.subscriptions.check(userId)
-      );
-
-      const previousFollowing = currentUserId
-        ? queryClient.getQueryData<InfiniteData<PageUserResponse>>(
-            [...queryKeys.subscriptions.following(currentUserId), 'infinite']
-          )
-        : undefined;
-
-      const previousTargetFollowers = queryClient.getQueryData<InfiniteData<PageUserResponse>>(
-        [...queryKeys.subscriptions.followers(userId), 'infinite']
-      );
-
-      // Optimistic update for follow check
-      queryClient.setQueryData<FollowCheckResponse>(
-        queryKeys.subscriptions.check(userId),
-        { isFollowing: true }
-      );
-
-      return { previousCheck, previousFollowing, previousTargetFollowers, userId };
-    },
+    
     onSuccess: (_, userId) => {
-      // Invalidate to get fresh data
-      queryClient.invalidateQueries({
+      // Фоновая инвалидация
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.subscriptions.check(userId),
+        refetchType: 'none',
       });
-      queryClient.invalidateQueries({
+      
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.subscriptions.followers(userId),
+        refetchType: 'none',
       });
+      
       if (currentUserId) {
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: queryKeys.subscriptions.following(currentUserId),
+          refetchType: 'none',
         });
       }
 
@@ -74,19 +51,11 @@ export const useFollow = (options: UseFollowOptions = {}) => {
 
       onSuccess?.();
     },
-    onError: (error: Error, userId, context) => {
-      // Rollback
-      if (context?.previousCheck) {
-        queryClient.setQueryData(
-          queryKeys.subscriptions.check(userId),
-          context.previousCheck
-        );
-      }
-
+    
+    onError: (error: Error) => {
       if (showToast) {
         toast.error(error.message || 'Failed to follow user');
       }
-
       onError?.(error);
     },
   });

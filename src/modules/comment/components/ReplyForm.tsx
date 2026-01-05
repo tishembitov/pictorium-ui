@@ -8,6 +8,7 @@ import type { CommentFormData } from './commentSchema';
 
 interface ReplyFormProps {
   commentId: string;
+  pinId?: string;
   onSuccess?: () => void;
   onCancel?: () => void;
   autoFocus?: boolean;
@@ -15,11 +16,13 @@ interface ReplyFormProps {
 
 export const ReplyForm: React.FC<ReplyFormProps> = ({
   commentId,
+  pinId,
   onSuccess,
   onCancel,
   autoFocus = true,
 }) => {
   const { createReply, isLoading } = useCreateReply(commentId, {
+    pinId,
     onSuccess: () => {
       onSuccess?.();
     },

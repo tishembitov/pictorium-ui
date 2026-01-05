@@ -29,6 +29,8 @@ export { useFollowing, useInfiniteFollowing } from './hooks/useFollowing';
 export { useFollow } from './hooks/useFollow';
 export { useUnfollow } from './hooks/useUnfollow';
 export { useFollowCheck } from './hooks/useFollowCheck';
+export { useFollowLocalState } from './hooks/useFollowLocalState';
+export type { FollowLocalState } from './hooks/useFollowLocalState';
 
 // Components
 export { UserAvatar } from './components/UserAvatar';

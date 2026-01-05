@@ -1,6 +1,6 @@
 // src/modules/comment/components/CommentItemActions.tsx
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { Flex, IconButton, Text, TapArea, Tooltip } from 'gestalt';
 import { useLikeComment } from '../hooks/useLikeComment';
 import { useUnlikeComment } from '../hooks/useUnlikeComment';
@@ -9,11 +9,17 @@ import { formatCompactNumber } from '@/shared/utils/formatters';
 
 interface CommentItemActionsProps {
   commentId: string;
+  pinId?: string;
+  parentId?: string;
+  /** Контролируемое состояние лайка */
   isLiked: boolean;
+  /** Контролируемый счётчик */
   likeCount: number;
   replyCount: number;
   isOwner: boolean;
   canReply?: boolean;
+  /** Callback для обновления состояния */
+  onToggleLike: () => boolean;
   onReply?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -21,46 +27,39 @@ interface CommentItemActionsProps {
 
 export const CommentItemActions: React.FC<CommentItemActionsProps> = ({
   commentId,
+  pinId,
+  parentId,
   isLiked,
   likeCount,
   replyCount,
   isOwner,
   canReply = false,
+  onToggleLike,
   onReply,
   onEdit,
   onDelete,
 }) => {
   const { isAuthenticated, login } = useAuth();
-  const [optimisticLiked, setOptimisticLiked] = useState(isLiked);
-  const [optimisticCount, setOptimisticCount] = useState(likeCount);
 
   const { likeComment, isLoading: isLiking } = useLikeComment({
-    onSuccess: () => {
-      setOptimisticLiked(true);
-      setOptimisticCount((prev) => prev + 1);
-    },
+    pinId,
+    parentId,
     onError: () => {
-      setOptimisticLiked(isLiked);
-      setOptimisticCount(likeCount);
+      // Revert on error
+      onToggleLike();
     },
   });
 
   const { unlikeComment, isLoading: isUnliking } = useUnlikeComment({
-    onSuccess: () => {
-      setOptimisticLiked(false);
-      setOptimisticCount((prev) => Math.max(0, prev - 1));
-    },
+    pinId,
+    parentId,
     onError: () => {
-      setOptimisticLiked(isLiked);
-      setOptimisticCount(likeCount);
+      // Revert on error
+      onToggleLike();
     },
   });
 
-  // Sync with props
-  React.useEffect(() => {
-    setOptimisticLiked(isLiked);
-    setOptimisticCount(likeCount);
-  }, [isLiked, likeCount]);
+  const isLoading = isLiking || isUnliking;
 
   const handleLikeToggle = useCallback(() => {
     if (!isAuthenticated) {
@@ -68,14 +67,16 @@ export const CommentItemActions: React.FC<CommentItemActionsProps> = ({
       return;
     }
 
-    if (optimisticLiked) {
-      unlikeComment(commentId);
-    } else {
-      likeComment(commentId);
-    }
-  }, [isAuthenticated, login, optimisticLiked, commentId, likeComment, unlikeComment]);
+    // 1. Immediate UI update (parent updates state)
+    const newIsLiked = onToggleLike();
 
-  const isLoading = isLiking || isUnliking;
+    // 2. Background mutation
+    if (newIsLiked) {
+      likeComment(commentId);
+    } else {
+      unlikeComment(commentId);
+    }
+  }, [isAuthenticated, login, onToggleLike, likeComment, unlikeComment, commentId]);
 
   return (
     <Flex alignItems="center" gap={4}>
@@ -84,16 +85,16 @@ export const CommentItemActions: React.FC<CommentItemActionsProps> = ({
         <TapArea onTap={handleLikeToggle} disabled={isLoading}>
           <Flex alignItems="center" gap={1}>
             <IconButton
-              accessibilityLabel={optimisticLiked ? 'Unlike' : 'Like'}
+              accessibilityLabel={isLiked ? 'Unlike' : 'Like'}
               icon="heart"
               size="xs"
               bgColor="transparent"
-              iconColor={optimisticLiked ? 'red' : 'gray'}
+              iconColor={isLiked ? 'red' : 'gray'}
               disabled={isLoading}
             />
-            {optimisticCount > 0 && (
+            {likeCount > 0 && (
               <Text size="100" color="subtle">
-                {formatCompactNumber(optimisticCount)}
+                {formatCompactNumber(likeCount)}
               </Text>
             )}
           </Flex>

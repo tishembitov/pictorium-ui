@@ -25,6 +25,8 @@ export type {
   export { useLikeComment } from './hooks/useLikeComment';
   export { useUnlikeComment } from './hooks/useUnlikeComment';
   export { useCommentLikes, useInfiniteCommentLikes } from './hooks/useCommentLikes';
+  export { useCommentLocalState } from './hooks/useCommentLocalState';
+  export type { CommentLocalState } from './hooks/useCommentLocalState';
   
   // Components
   export { CommentList } from './components/CommentList';

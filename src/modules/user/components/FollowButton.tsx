@@ -5,6 +5,7 @@ import { Box, Button, TapArea, Spinner } from 'gestalt';
 import { useFollow } from '../hooks/useFollow';
 import { useUnfollow } from '../hooks/useUnfollow';
 import { useFollowCheck } from '../hooks/useFollowCheck';
+import { useFollowLocalState } from '../hooks/useFollowLocalState';
 import { useAuth } from '@/modules/auth';
 
 interface FollowButtonProps {
@@ -21,9 +22,24 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
   variant = 'default',
 }) => {
   const { isAuthenticated, login } = useAuth();
-  const { isFollowing, isLoading: isCheckLoading } = useFollowCheck(userId);
-  const { follow, isLoading: isFollowLoading } = useFollow();
-  const { unfollow, isLoading: isUnfollowLoading } = useUnfollow();
+  const { isFollowing: serverIsFollowing, isLoading: isCheckLoading } = useFollowCheck(userId);
+  
+  // ✅ Локальный state для оптимистичных обновлений
+  const { state: localState, toggleFollow, resetOverride } = useFollowLocalState(serverIsFollowing);
+  
+  const { follow, isLoading: isFollowLoading } = useFollow({
+    onError: () => {
+      // Revert on error - сбрасываем к серверному значению
+      resetOverride();
+    },
+  });
+  
+  const { unfollow, isLoading: isUnfollowLoading } = useUnfollow({
+    onError: () => {
+      // Revert on error - сбрасываем к серверному значению
+      resetOverride();
+    },
+  });
   
   const [isHovered, setIsHovered] = useState(false);
 
@@ -35,12 +51,16 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
       return;
     }
 
-    if (isFollowing) {
-      unfollow(userId);
-    } else {
+    // 1. Immediate UI update
+    const newIsFollowing = toggleFollow();
+
+    // 2. Background mutation
+    if (newIsFollowing) {
       follow(userId);
+    } else {
+      unfollow(userId);
     }
-  }, [isAuthenticated, isFollowing, userId, login, follow, unfollow]);
+  }, [isAuthenticated, login, toggleFollow, follow, unfollow, userId]);
 
   // Gestalt Button передаёт объект с event
   const handleButtonClick = useCallback(
@@ -64,7 +84,7 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
 
   const getButtonText = (): string => {
     if (isLoading) return '';
-    if (isFollowing) {
+    if (localState.isFollowing) {
       return isHovered ? 'Unfollow' : 'Following';
     }
     return 'Follow';
@@ -78,7 +98,7 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
   const getFontSize = (): number => (size === 'sm' ? 14 : 16);
 
   // Outline variant for "Following" state
-  if (variant === 'outline' && isFollowing) {
+  if (variant === 'outline' && localState.isFollowing) {
     return (
       <Box
         display={fullWidth ? 'block' : 'inlineBlock'}
@@ -139,7 +159,7 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
         text={getButtonText()}
         onClick={handleButtonClick}
         size={size}
-        color={isFollowing ? 'gray' : 'red'}
+        color={localState.isFollowing ? 'gray' : 'red'}
         disabled={isLoading}
         fullWidth={fullWidth}
       />

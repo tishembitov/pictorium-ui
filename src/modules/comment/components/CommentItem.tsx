@@ -13,6 +13,7 @@ import { CommentItemActions } from './CommentItemActions';
 import { CommentForm } from './CommentForm';
 import { ReplyForm } from './ReplyForm';
 import { CommentReplies } from './CommentReplies';
+import { useCommentLocalState } from '../hooks/useCommentLocalState';
 import { useUpdateComment } from '../hooks/useUpdateComment';
 import { useDeleteComment } from '../hooks/useDeleteComment';
 import type { CommentResponse } from '../types/comment.types';
@@ -48,18 +49,28 @@ export const CommentItem: React.FC<CommentItemProps> = ({
 
   const { user: commentAuthor } = useUser(comment.userId);
 
+  // ✅ Локальный state для оптимистичных обновлений
+  const { state: localState, toggleLike, incrementReplyCount } = useCommentLocalState(comment);
+
   const [isEditing, setIsEditing] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
   const [showRepliesSection, setShowRepliesSection] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { updateComment, isLoading: isUpdating } = useUpdateComment({
     onSuccess: () => setIsEditing(false),
   });
 
-  const { deleteComment, isLoading: isDeleting } = useDeleteComment({
+  const { deleteComment } = useDeleteComment({
     pinId: comment.pinId,
     parentCommentId: comment.parentCommentId || undefined,
-    onSuccess: onDeleted,
+    onSuccess: () => {
+      setIsDeleting(false);
+      onDeleted?.();
+    },
+    onError: () => {
+      setIsDeleting(false);
+    },
   });
 
   const handleEdit = useCallback(() => {
@@ -86,7 +97,10 @@ export const CommentItem: React.FC<CommentItemProps> = ({
       message: 'This action cannot be undone.',
       confirmText: 'Delete',
       destructive: true,
-      onConfirm: () => deleteComment(comment.id),
+      onConfirm: () => {
+        setIsDeleting(true);
+        deleteComment(comment.id);
+      },
     });
   }, [comment.id, deleteComment, confirm]);
 
@@ -102,7 +116,8 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   const handleReplySuccess = useCallback(() => {
     setIsReplying(false);
     setShowRepliesSection(true);
-  }, []);
+    incrementReplyCount();
+  }, [incrementReplyCount]);
 
   const toggleReplies = useCallback(() => {
     setShowRepliesSection((prev) => !prev);
@@ -118,6 +133,11 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   const profilePath = commentAuthor?.username 
     ? buildPath.profile(commentAuthor.username) 
     : '#';
+
+  // Скрываем удалённые комментарии
+  if (localState.isDeleted) {
+    return null;
+  }
 
   // Edit mode
   if (isEditing) {
@@ -193,15 +213,18 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             </Box>
           )}
 
-          {/* Actions */}
+          {/* Actions - передаём локальный state */}
           <Box marginTop={2}>
             <CommentItemActions
               commentId={comment.id}
-              isLiked={comment.isLiked}
-              likeCount={comment.likeCount}
-              replyCount={comment.replyCount}
+              pinId={comment.pinId}
+              parentId={comment.parentCommentId || undefined}
+              isLiked={localState.isLiked}
+              likeCount={localState.likeCount}
+              replyCount={localState.replyCount}
               isOwner={isOwner}
               canReply={canReply}
+              onToggleLike={toggleLike}
               onReply={canReply ? handleReply : undefined}
               onEdit={isOwner ? handleEdit : undefined}
               onDelete={isOwner ? handleDelete : undefined}
@@ -212,17 +235,18 @@ export const CommentItem: React.FC<CommentItemProps> = ({
           {isReplying && (
             <ReplyForm
               commentId={comment.id}
+              pinId={comment.pinId}
               onSuccess={handleReplySuccess}
               onCancel={handleCancelReply}
             />
           )}
 
           {/* Show replies toggle - только для комментариев верхнего уровня */}
-          {showReplies && !isReply && comment.replyCount > 0 && (
+          {showReplies && !isReply && localState.replyCount > 0 && (
             <Box marginTop={2}>
               <TapArea onTap={toggleReplies}>
                 <Text size="100" color="subtle" weight="bold">
-                  {getReplyToggleText(showRepliesSection, comment.replyCount)}
+                  {getReplyToggleText(showRepliesSection, localState.replyCount)}
                 </Text>
               </TapArea>
             </Box>

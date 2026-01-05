@@ -60,6 +60,9 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
 
   const isLoading = savingToBoardId !== null;
 
+  // ✅ Проверяем есть ли выбранная доска
+  const hasSelectedBoard = displayBoardName !== 'Select board';
+
   const dimensions = useMemo(() => {
     switch (size) {
       case 'sm':
@@ -71,7 +74,9 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
     }
   }, [size]);
 
+  // ✅ Рендер названия доски - только если есть что показать
   const renderBoardName = () => {
+    // Если сохранено - показываем ссылку на доску
     if (localState.isSaved && localState.lastSavedBoardId) {
       if (localState.savedCount === 1) {
         return (
@@ -104,6 +109,7 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
         );
       }
 
+      // Несколько досок - показываем dropdown
       return (
         <Box ref={setAnchorRef}>
           <TapArea onTap={handleDropdownToggle} rounding={2}>
@@ -138,40 +144,46 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
       );
     }
 
-    return (
-      <Box ref={setAnchorRef}>
-        <TapArea onTap={handleDropdownToggle} rounding={2}>
-          <Box
-            display="flex"
-            alignItems="center"
-            justifyContent="between"
-            paddingX={3}
-            rounding={2}
-            dangerouslySetInlineStyle={{
-              __style: {
-                height: dimensions.buttonHeight,
-                minWidth: 140,
-                backgroundColor: 'rgba(0, 0, 0, 0.06)',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              },
-            }}
-          >
-            <Flex alignItems="center" gap={2} flex="grow">
-              <Text weight="bold" size={dimensions.fontSize} lineClamp={1}>
-                {displayBoardName}
-              </Text>
-            </Flex>
-            <Icon
-              accessibilityLabel=""
-              icon={isDropdownOpen ? 'arrow-up' : 'arrow-down'}
-              size={12}
-              color="default"
-            />
-          </Box>
-        </TapArea>
-      </Box>
-    );
+    // ✅ Не сохранено и есть selectedBoard - показываем selector
+    if (hasSelectedBoard) {
+      return (
+        <Box ref={setAnchorRef}>
+          <TapArea onTap={handleDropdownToggle} rounding={2}>
+            <Box
+              display="flex"
+              alignItems="center"
+              justifyContent="between"
+              paddingX={3}
+              rounding={2}
+              dangerouslySetInlineStyle={{
+                __style: {
+                  height: dimensions.buttonHeight,
+                  minWidth: 140,
+                  backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                },
+              }}
+            >
+              <Flex alignItems="center" gap={2} flex="grow">
+                <Text weight="bold" size={dimensions.fontSize} lineClamp={1}>
+                  {displayBoardName}
+                </Text>
+              </Flex>
+              <Icon
+                accessibilityLabel=""
+                icon={isDropdownOpen ? 'arrow-up' : 'arrow-down'}
+                size={12}
+                color="default"
+              />
+            </Box>
+          </TapArea>
+        </Box>
+      );
+    }
+
+    // ✅ Не сохранено и НЕТ selectedBoard - ничего не показываем
+    return null;
   };
 
   return (
@@ -180,9 +192,16 @@ export const PinSaveSection: React.FC<PinSaveSectionProps> = ({
         {renderBoardName()}
 
         {/* Save/Saved Button */}
-        <Box ref={localState.isSaved && localState.savedCount === 1 ? setAnchorRef : undefined}>
+        <Box ref={
+          // Anchor для dropdown если:
+          // 1. Сохранено в одну доску
+          // 2. Нет selectedBoard (кнопка Save открывает picker)
+          (localState.isSaved && localState.savedCount === 1) || !hasSelectedBoard 
+            ? setAnchorRef 
+            : undefined
+        }>
           <TapArea
-            onTap={handleQuickSave}
+            onTap={hasSelectedBoard ? handleQuickSave : handleDropdownToggle}
             rounding={2}
             disabled={isLoading}
             tapStyle="compress"

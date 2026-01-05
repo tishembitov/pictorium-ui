@@ -66,7 +66,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     enabled: isAuthenticated,
   });
 
-  // ✅ Хук для сохранения в доску после создания пина
+  // Хук для сохранения в доску после создания пина
   const { savePinToBoard } = useSavePinToBoard({
     onSuccess: () => {
       setIsSavingToBoard(false);
@@ -78,7 +78,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     },
     onError: () => {
       setIsSavingToBoard(false);
-      // Пин создан, но не сохранён в доску
       toast.success('Pin created! (Failed to save to board)');
       onSuccess?.();
     },
@@ -92,7 +91,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     };
   }, [previewUrl]);
 
-  // ✅ Создаём пин, затем сохраняем в доску
   const { createPin, isLoading: isCreating } = useCreatePin({
     onSuccess: (createdPin) => {
       if (localSelectedBoard) {
@@ -103,8 +101,8 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
         onSuccess?.();
       }
     },
-    navigateToPin: false, // Не навигируем сразу, дождёмся сохранения в доску
-    showToast: false, // Покажем свой toast после сохранения в доску
+    navigateToPin: false,
+    showToast: false,
   });
 
   const {
@@ -223,7 +221,6 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     setBoardPickerAnchor(node);
   }, []);
 
-  // ✅ Исправлено: убрали boardId из запроса
   const onSubmit = (data: PinCreateFormData) => {
     if (!uploadedImage || !localSelectedBoard) return;
 
@@ -245,9 +242,34 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
 
   const hasImage = !!uploadedImage;
   const hasBoard = !!localSelectedBoard;
+  const hasBoards = boards.length > 0;
   const canSubmit = hasImage && isValid && !!titleValue?.trim() && !isUploading && hasBoard;
   const isLoading = isCreating || isUploading || isSavingToBoard;
-  const displayBoardName = localSelectedBoard?.title || 'Select board';
+
+  // Текст для board selector
+  const boardSelectorText = localSelectedBoard?.title || 'Select a board';
+
+  // Helper text для board section
+  const getBoardHelperText = (): string | null => {
+    if (localSelectedBoard) return null;
+    if (!hasBoards) return 'Create a board to save your pin';
+    return 'Select a board to save your pin';
+  };
+
+  // ✅ Исправлено: вынесли логику в отдельную функцию
+  const getValidationMessage = (): string | null => {
+    if (!hasImage) return 'Upload an image';
+    if (!titleValue?.trim()) return 'Add a title';
+    if (!hasBoard) return 'Select a board';
+    return null;
+  };
+
+  // ✅ Исправлено: вынесли логику в отдельную функцию
+  const getSubmitButtonText = (): string => {
+    if (isSavingToBoard) return 'Saving...';
+    if (isCreating || isUploading) return 'Creating...';
+    return 'Create Pin';
+  };
 
   // ==================== Render ====================
 
@@ -392,8 +414,13 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                 >
                   <Flex alignItems="center" gap={2}>
                     <Icon accessibilityLabel="" icon="board" size={16} color="default" />
-                    <Text weight="bold" size="200" lineClamp={1}>
-                      {displayBoardName}
+                    <Text 
+                      weight="bold" 
+                      size="200" 
+                      lineClamp={1}
+                      color={localSelectedBoard ? 'default' : 'subtle'}
+                    >
+                      {boardSelectorText}
                     </Text>
                   </Flex>
                   <Icon
@@ -421,9 +448,10 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
               size="md"
             />
 
-            {!hasBoard && (
+            {/* Helper text */}
+            {getBoardHelperText() && (
               <Box marginTop={1}>
-                <Text color="subtle" size="100">Select a board to save your pin</Text>
+                <Text color="subtle" size="100">{getBoardHelperText()}</Text>
               </Box>
             )}
           </Box>
@@ -541,9 +569,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                 <Flex gap={2} alignItems="center">
                   <Icon accessibilityLabel="" icon="workflow-status-warning" size={14} color="subtle" />
                   <Text size="200" color="subtle">
-                    {!hasImage && 'Upload an image'}
-                    {hasImage && !titleValue?.trim() && 'Add a title'}
-                    {hasImage && titleValue?.trim() && !hasBoard && 'Select a board'}
+                    {getValidationMessage()}
                   </Text>
                 </Flex>
               )}
@@ -554,7 +580,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
                 <Button text="Cancel" onClick={onCancel} size="md" color="gray" disabled={isLoading} />
               )}
               <Button
-                text={isLoading ? (isSavingToBoard ? 'Saving...' : 'Creating...') : 'Create Pin'}
+                text={getSubmitButtonText()}
                 type="submit"
                 size="md"
                 color="red"

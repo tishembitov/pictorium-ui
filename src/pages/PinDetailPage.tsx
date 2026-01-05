@@ -41,7 +41,7 @@ const PinDetailPage: React.FC = () => {
   };
 
   const handleFetchMoreRelated = () => {
-    void fetchMoreRelated();
+    fetchMoreRelated();
   };
 
   if (!pinId) {

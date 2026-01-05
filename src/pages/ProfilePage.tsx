@@ -1,13 +1,12 @@
 // src/pages/ProfilePage.tsx
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { useParams, Navigate, useNavigate } from 'react-router-dom';
+import { useParams, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Box, Tabs, Divider, Spinner, Flex, IconButton, Tooltip } from 'gestalt';
 import { 
   UserProfileHeader, 
   useUserByUsername,
 } from '@/modules/user';
-import { useUserPins } from '@/modules/pin';
 import { useIsOwner } from '@/modules/auth';
 import { ErrorMessage } from '@/shared/components';
 import { ROUTES } from '@/app/router/routeConfig';
@@ -21,26 +20,40 @@ const TABS: { id: ProfileTab; text: string }[] = [
   { id: 'boards', text: 'Boards' },
 ];
 
+// ✅ Функция для получения таба из hash
+const getTabFromHash = (hash: string): ProfileTab => {
+  const normalizedHash = hash.replace('#', '').toLowerCase();
+  if (normalizedHash === 'boards') return 'boards';
+  return 'pins';
+};
+
 const ProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<ProfileTab>('pins');
+  const location = useLocation();
+  
+  // ✅ Используем useMemo для вычисления таба из hash
+  const tabFromHash = useMemo(() => getTabFromHash(location.hash), [location.hash]);
+  
+  // ✅ Локальный state только для случаев, когда пользователь кликает на таб
+  // Приоритет: hash из URL
+  const [localTab, setLocalTab] = useState<ProfileTab | null>(null);
+  
+  // ✅ Финальный активный таб: localTab если установлен и hash не изменился, иначе из hash
+  const activeTab = localTab ?? tabFromHash;
 
   const { user, isLoading, isError, error, refetch } = useUserByUsername(username);
   const isOwner = useIsOwner(user?.id);
 
-  // Get pins count for header
-  const { totalElements: pinsCount } = useUserPins(user?.id, 'CREATED', { 
-    enabled: !!user?.id, 
-    pageSize: 1,
-  });
-
+  // ✅ Сбрасываем localTab при изменении hash (например, при навигации)
   const handleTabChange = useCallback(({ activeTabIndex }: { activeTabIndex: number }) => {
     const tab = TABS[activeTabIndex];
     if (tab) {
-      setActiveTab(tab.id);
+      setLocalTab(tab.id);
+      // Обновляем hash в URL без перезагрузки
+      navigate(`${location.pathname}#${tab.id}`, { replace: true });
     }
-  }, []);
+  }, [navigate, location.pathname]);
 
   const activeTabIndex = useMemo(() => {
     return TABS.findIndex((tab) => tab.id === activeTab);
@@ -112,7 +125,7 @@ const ProfilePage: React.FC = () => {
       )}
 
       {/* Profile Header */}
-      <UserProfileHeader user={user} pinsCount={pinsCount} />
+      <UserProfileHeader user={user} />
 
       {/* Tabs */}
       <Box marginTop={6}>

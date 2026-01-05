@@ -47,12 +47,12 @@ export const usePinLocalState = (pin: PinResponse | undefined): UsePinLocalState
     likeCount: override.likeCount ?? pin?.likeCount ?? 0,
     isSaved: override.isSaved ?? ((pin?.savedToBoardsCount ?? 0) > 0),
     savedCount: override.savedCount ?? pin?.savedToBoardsCount ?? 0,
-    lastSavedBoardId: override.lastSavedBoardId !== undefined 
-      ? override.lastSavedBoardId 
-      : (pin?.lastSavedBoardId ?? null),
-    lastSavedBoardName: override.lastSavedBoardName !== undefined 
-      ? override.lastSavedBoardName 
-      : (pin?.lastSavedBoardName ?? null),
+    lastSavedBoardId: override.lastSavedBoardId === undefined 
+      ? (pin?.lastSavedBoardId ?? null) 
+      : override.lastSavedBoardId,
+    lastSavedBoardName: override.lastSavedBoardName === undefined 
+      ? (pin?.lastSavedBoardName ?? null) 
+      : override.lastSavedBoardName,
   }), [override, pin]);
 
   const toggleLike = useCallback((): boolean => {
@@ -86,9 +86,9 @@ export const usePinLocalState = (pin: PinResponse | undefined): UsePinLocalState
     remainingBoards?: SavedBoardInfo[]
   ) => {
     const currentCount = override.savedCount ?? pin?.savedToBoardsCount ?? 0;
-    const currentLastId = override.lastSavedBoardId !== undefined 
-      ? override.lastSavedBoardId 
-      : pin?.lastSavedBoardId;
+    const currentLastId = override.lastSavedBoardId === undefined 
+      ? pin?.lastSavedBoardId 
+      : override.lastSavedBoardId;
     
     const newCount = Math.max(0, currentCount - 1);
     

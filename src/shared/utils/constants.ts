@@ -156,3 +156,40 @@ export const SUCCESS_MESSAGES = {
   COPIED_TO_CLIPBOARD: 'Copied to clipboard!',
   IMAGE_UPLOADED: 'Image uploaded successfully!',
 } as const;
+
+export const ATTACHMENTS = {
+  // Изображения
+  IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+  IMAGE_EXTENSIONS: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
+  
+  // Видео
+  VIDEO_TYPES: ['video/mp4', 'video/webm', 'video/quicktime'],
+  VIDEO_EXTENSIONS: ['.mp4', '.webm', '.mov'],
+  
+  // Документы
+  DOC_TYPES: [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+  ],
+  DOC_EXTENSIONS: ['.pdf', '.doc', '.docx', '.txt'],
+  
+  // Все разрешённые
+  get ALL_TYPES() {
+    return [...this.IMAGE_TYPES, ...this.VIDEO_TYPES, ...this.DOC_TYPES];
+  },
+  
+  get ALL_EXTENSIONS() {
+    return [...this.IMAGE_EXTENSIONS, ...this.VIDEO_EXTENSIONS, ...this.DOC_EXTENSIONS];
+  },
+  
+  get ACCEPT_STRING() {
+    return this.ALL_TYPES.join(',');
+  },
+  
+  // Лимиты
+  MAX_FILE_SIZE: 25 * 1024 * 1024, // 25MB
+  MAX_IMAGE_SIZE: 10 * 1024 * 1024, // 10MB
+  MAX_VIDEO_SIZE: 50 * 1024 * 1024, // 50MB
+} as const;

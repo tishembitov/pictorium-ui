@@ -39,3 +39,8 @@ export { BaseModal } from './modals/BaseModal';
 export { ConfirmModal } from './modals/ConfirmModal';
 export { GlobalModals } from './modals/GlobalModals';
 
+// Input
+export { AttachmentButton } from './input/AttachmentButton';
+export { AttachmentPreview } from './input/AttachmentPreview';
+export { EmojiPicker } from './input/EmojiPicker';
+

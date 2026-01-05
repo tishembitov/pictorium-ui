@@ -22,6 +22,7 @@ export const pinLikeApi = {
 
   /**
    * Like a pin
+   * @returns Updated PinResponse
    */
   like: (pinId: string) => {
     return post<PinResponse>(PIN_ENDPOINTS.like(pinId));
@@ -29,9 +30,10 @@ export const pinLikeApi = {
 
   /**
    * Unlike a pin
+   * @returns Updated PinResponse
    */
   unlike: (pinId: string) => {
-    return del<void>(PIN_ENDPOINTS.unlike(pinId));
+    return del<PinResponse>(PIN_ENDPOINTS.unlike(pinId));
   },
 };
 

@@ -21,6 +21,7 @@ export const commentLikeApi = {
 
   /**
    * Like a comment
+   * @returns Updated CommentResponse
    */
   like: (commentId: string) => {
     return post<CommentResponse>(COMMENT_ENDPOINTS.like(commentId));
@@ -28,9 +29,10 @@ export const commentLikeApi = {
 
   /**
    * Unlike a comment
+   * @returns Updated CommentResponse
    */
   unlike: (commentId: string) => {
-    return del<void>(COMMENT_ENDPOINTS.unlike(commentId));
+    return del<CommentResponse>(COMMENT_ENDPOINTS.unlike(commentId));
   },
 };
 

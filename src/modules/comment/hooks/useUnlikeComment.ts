@@ -1,19 +1,38 @@
 // src/modules/comment/hooks/useUnlikeComment.ts
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { commentLikeApi } from '../api/commentLikeApi';
+import type { CommentResponse, PageCommentResponse } from '../types/comment.types';
 
 interface UseUnlikeCommentOptions {
   pinId?: string;
   parentId?: string;
-  onSuccess?: () => void;
+  onSuccess?: (data: CommentResponse) => void;
   onError?: (error: Error) => void;
 }
 
 /**
- * Простая мутация для анлайка комментария.
+ * Обновляет комментарий в списке комментариев (infinite query)
  */
+const updateCommentInList = (
+  data: InfiniteData<PageCommentResponse> | undefined,
+  commentId: string,
+  updatedComment: CommentResponse
+): InfiniteData<PageCommentResponse> | undefined => {
+  if (!data?.pages) return data;
+  
+  return {
+    ...data,
+    pages: data.pages.map(page => ({
+      ...page,
+      content: page.content.map(comment =>
+        comment.id === commentId ? updatedComment : comment
+      ),
+    })),
+  };
+};
+
 export const useUnlikeComment = (options: UseUnlikeCommentOptions = {}) => {
   const { pinId, parentId, onSuccess, onError } = options;
   const queryClient = useQueryClient();
@@ -21,33 +40,36 @@ export const useUnlikeComment = (options: UseUnlikeCommentOptions = {}) => {
   const mutation = useMutation({
     mutationFn: (commentId: string) => commentLikeApi.unlike(commentId),
 
-    onSuccess: (_, commentId) => {
-      // Фоновая инвалидация
-      void queryClient.invalidateQueries({ 
-        queryKey: queryKeys.comments.byId(commentId),
-        refetchType: 'none',
-      });
+    onSuccess: (updatedComment, commentId) => {
+      // ✅ Обновляем кэш конкретного комментария
+      queryClient.setQueryData(
+        queryKeys.comments.byId(commentId), 
+        updatedComment
+      );
       
+      // ✅ Обновляем комментарий в списке комментариев пина
+      if (pinId) {
+        queryClient.setQueryData<InfiniteData<PageCommentResponse>>(
+          [...queryKeys.pins.comments(pinId), 'infinite'],
+          (oldData) => updateCommentInList(oldData, commentId, updatedComment)
+        );
+      }
+
+      // ✅ Обновляем комментарий в списке ответов
+      if (parentId) {
+        queryClient.setQueryData<InfiniteData<PageCommentResponse>>(
+          [...queryKeys.comments.replies(parentId), 'infinite'],
+          (oldData) => updateCommentInList(oldData, commentId, updatedComment)
+        );
+      }
+      
+      // Фоновая инвалидация
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.comments.likes(commentId),
         refetchType: 'none',
       });
 
-      if (pinId) {
-        void queryClient.invalidateQueries({ 
-          queryKey: queryKeys.pins.comments(pinId),
-          refetchType: 'none',
-        });
-      }
-
-      if (parentId) {
-        void queryClient.invalidateQueries({ 
-          queryKey: queryKeys.comments.replies(parentId),
-          refetchType: 'none',
-        });
-      }
-
-      onSuccess?.();
+      onSuccess?.(updatedComment);
     },
 
     onError: (error: Error) => {

@@ -10,10 +10,6 @@ interface UseLikePinOptions {
   onError?: (error: Error) => void;
 }
 
-/**
- * Простая мутация для лайка.
- * UI обновляется через onToggle callback в компоненте.
- */
 export const useLikePin = (options: UseLikePinOptions = {}) => {
   const { onSuccess, onError } = options;
   const queryClient = useQueryClient();
@@ -21,13 +17,36 @@ export const useLikePin = (options: UseLikePinOptions = {}) => {
   const mutation = useMutation({
     mutationFn: (pinId: string) => pinLikeApi.like(pinId),
 
-    onSuccess: (data, pinId) => {
-      // Фоновая инвалидация
+    onSuccess: (updatedPin, pinId) => {
+      // ✅ DEBUG: проверяем что приходит от сервера
+      console.log('[useLikePin] Server response:', {
+        pinId,
+        isLiked: updatedPin.isLiked,
+        likeCount: updatedPin.likeCount,
+      });
+      
+      // ✅ DEBUG: проверяем что было в кэше до обновления
+      const oldPin = queryClient.getQueryData<PinResponse>(queryKeys.pins.byId(pinId));
+      console.log('[useLikePin] Old cache:', {
+        isLiked: oldPin?.isLiked,
+        likeCount: oldPin?.likeCount,
+      });
+
+      queryClient.setQueryData(queryKeys.pins.byId(pinId), updatedPin);
+      
+      // ✅ DEBUG: проверяем что стало в кэше после обновления
+      const newPin = queryClient.getQueryData<PinResponse>(queryKeys.pins.byId(pinId));
+      console.log('[useLikePin] New cache:', {
+        isLiked: newPin?.isLiked,
+        likeCount: newPin?.likeCount,
+      });
+
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.pins.likes(pinId),
         refetchType: 'none',
       });
-      onSuccess?.(data);
+      
+      onSuccess?.(updatedPin);
     },
 
     onError: (error: Error) => {

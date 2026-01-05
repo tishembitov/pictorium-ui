@@ -17,95 +17,124 @@ export interface SavedBoardInfo {
   boardName: string;
 }
 
+interface LocalOverride {
+  isLiked?: boolean;
+  likeCount?: number;
+  isSaved?: boolean;
+  savedCount?: number;
+  lastSavedBoardId?: string | null;
+  lastSavedBoardName?: string | null;
+}
+
 export interface UsePinLocalStateResult {
   state: PinLocalState;
   toggleLike: () => boolean;
   markAsSaved: (board: SavedBoardInfo) => void;
   markAsRemoved: (boardId: string, remainingBoards?: SavedBoardInfo[]) => void;
-  syncWithPin: (pin: PinResponse) => void;
+  resetOverride: () => void;
 }
 
-/**
- * Единое локальное состояние пина.
- */
 export const usePinLocalState = (pin: PinResponse | undefined): UsePinLocalStateResult => {
-  const [state, setState] = useState<PinLocalState>(() => ({
-    isLiked: pin?.isLiked ?? false,
-    likeCount: pin?.likeCount ?? 0,
-    isSaved: (pin?.savedToBoardsCount ?? 0) > 0,
-    savedCount: pin?.savedToBoardsCount ?? 0,
-    lastSavedBoardId: pin?.lastSavedBoardId ?? null,
-    lastSavedBoardName: pin?.lastSavedBoardName ?? null,
-  }));
+  const [override, setOverride] = useState<LocalOverride>({});
+
+  // ✅ DEBUG
+  console.log('[usePinLocalState] Input pin:', {
+    id: pin?.id,
+    isLiked: pin?.isLiked,
+    likeCount: pin?.likeCount,
+  });
+  console.log('[usePinLocalState] Override:', override);
+
+  const state: PinLocalState = useMemo(() => {
+    const result = {
+      isLiked: override.isLiked ?? pin?.isLiked ?? false,
+      likeCount: override.likeCount ?? pin?.likeCount ?? 0,
+      isSaved: override.isSaved ?? ((pin?.savedToBoardsCount ?? 0) > 0),
+      savedCount: override.savedCount ?? pin?.savedToBoardsCount ?? 0,
+      lastSavedBoardId: override.lastSavedBoardId !== undefined 
+        ? override.lastSavedBoardId 
+        : (pin?.lastSavedBoardId ?? null),
+      lastSavedBoardName: override.lastSavedBoardName !== undefined 
+        ? override.lastSavedBoardName 
+        : (pin?.lastSavedBoardName ?? null),
+    };
+    
+    // ✅ DEBUG
+    console.log('[usePinLocalState] Computed state:', {
+      isLiked: result.isLiked,
+      likeCount: result.likeCount,
+    });
+    
+    return result;
+  }, [override, pin]);
 
   const toggleLike = useCallback((): boolean => {
-    let newIsLiked = false;
-    setState(prev => {
-      newIsLiked = !prev.isLiked;
-      return {
-        ...prev,
-        isLiked: newIsLiked,
-        likeCount: newIsLiked 
-          ? prev.likeCount + 1 
-          : Math.max(0, prev.likeCount - 1),
-      };
-    });
+    const currentIsLiked = override.isLiked ?? pin?.isLiked ?? false;
+    const currentCount = override.likeCount ?? pin?.likeCount ?? 0;
+    const newIsLiked = !currentIsLiked;
+    
+    setOverride(prev => ({
+      ...prev,
+      isLiked: newIsLiked,
+      likeCount: newIsLiked ? currentCount + 1 : Math.max(0, currentCount - 1),
+    }));
+    
     return newIsLiked;
-  }, []);
+  }, [override.isLiked, override.likeCount, pin?.isLiked, pin?.likeCount]);
 
   const markAsSaved = useCallback((board: SavedBoardInfo) => {
-    setState(prev => ({
+    const currentCount = override.savedCount ?? pin?.savedToBoardsCount ?? 0;
+    
+    setOverride(prev => ({
       ...prev,
       isSaved: true,
-      savedCount: prev.savedCount + 1,
+      savedCount: currentCount + 1,
       lastSavedBoardId: board.boardId,
       lastSavedBoardName: board.boardName,
     }));
-  }, []);
+  }, [override.savedCount, pin?.savedToBoardsCount]);
 
   const markAsRemoved = useCallback((
     boardId: string,
     remainingBoards?: SavedBoardInfo[]
   ) => {
-    setState(prev => {
-      const newCount = Math.max(0, prev.savedCount - 1);
-      
-      if (newCount === 0) {
-        return {
-          ...prev,
-          isSaved: false,
-          savedCount: 0,
-          lastSavedBoardId: null,
-          lastSavedBoardName: null,
-        };
-      }
-      
-      if (prev.lastSavedBoardId === boardId && remainingBoards?.length) {
-        const newLast = remainingBoards[0];
-        return {
-          ...prev,
-          savedCount: newCount,
-          lastSavedBoardId: newLast?.boardId ?? null,
-          lastSavedBoardName: newLast?.boardName ?? null,
-        };
-      }
-      
-      return {
+    const currentCount = override.savedCount ?? pin?.savedToBoardsCount ?? 0;
+    const currentLastId = override.lastSavedBoardId !== undefined 
+      ? override.lastSavedBoardId 
+      : pin?.lastSavedBoardId;
+    
+    const newCount = Math.max(0, currentCount - 1);
+    
+    if (newCount === 0) {
+      setOverride(prev => ({
+        ...prev,
+        isSaved: false,
+        savedCount: 0,
+        lastSavedBoardId: null,
+        lastSavedBoardName: null,
+      }));
+      return;
+    }
+    
+    if (currentLastId === boardId && remainingBoards?.length) {
+      const newLast = remainingBoards[0];
+      setOverride(prev => ({
         ...prev,
         savedCount: newCount,
-      };
-    });
-  }, []);
+        lastSavedBoardId: newLast?.boardId ?? null,
+        lastSavedBoardName: newLast?.boardName ?? null,
+      }));
+      return;
+    }
+    
+    setOverride(prev => ({
+      ...prev,
+      savedCount: newCount,
+    }));
+  }, [override.savedCount, override.lastSavedBoardId, pin?.savedToBoardsCount, pin?.lastSavedBoardId]);
 
-  const syncWithPin = useCallback((newPin: PinResponse) => {
-    setState({
-      isLiked: newPin.isLiked,
-      likeCount: newPin.likeCount ?? 0,
-      isSaved: (newPin.savedToBoardsCount ?? 0) > 0,
-      savedCount: newPin.savedToBoardsCount ?? 0,
-      lastSavedBoardId: newPin.lastSavedBoardId,
-      lastSavedBoardName: newPin.lastSavedBoardName,
-    });
+  const resetOverride = useCallback(() => {
+    setOverride({});
   }, []);
 
   return useMemo(() => ({
@@ -113,8 +142,8 @@ export const usePinLocalState = (pin: PinResponse | undefined): UsePinLocalState
     toggleLike,
     markAsSaved,
     markAsRemoved,
-    syncWithPin,
-  }), [state, toggleLike, markAsSaved, markAsRemoved, syncWithPin]);
+    resetOverride,
+  }), [state, toggleLike, markAsSaved, markAsRemoved, resetOverride]);
 };
 
 export default usePinLocalState;

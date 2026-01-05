@@ -3,14 +3,17 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { pinLikeApi } from '../api/pinLikeApi';
+import type { PinResponse } from '../types/pin.types';
 
 interface UseUnlikePinOptions {
-  onSuccess?: () => void;
+  onSuccess?: (data: PinResponse) => void;
   onError?: (error: Error) => void;
 }
 
 /**
- * Простая мутация для анлайка.
+ * Мутация для анлайка пина.
+ * - Локальный state обновляется мгновенно в компоненте через onToggle
+ * - Кэш обновляется после успешного ответа сервера
  */
 export const useUnlikePin = (options: UseUnlikePinOptions = {}) => {
   const { onSuccess, onError } = options;
@@ -19,12 +22,20 @@ export const useUnlikePin = (options: UseUnlikePinOptions = {}) => {
   const mutation = useMutation({
     mutationFn: (pinId: string) => pinLikeApi.unlike(pinId),
 
-    onSuccess: (_, pinId) => {
+    onSuccess: (updatedPin, pinId) => {
+      // ✅ Обновляем кэш конкретного пина данными от сервера
+      queryClient.setQueryData(
+        queryKeys.pins.byId(pinId), 
+        updatedPin
+      );
+      
+      // Фоновая инвалидация связанных данных
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.pins.likes(pinId),
         refetchType: 'none',
       });
-      onSuccess?.();
+      
+      onSuccess?.(updatedPin);
     },
 
     onError: (error: Error) => {

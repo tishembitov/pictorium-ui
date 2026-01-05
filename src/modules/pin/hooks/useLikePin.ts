@@ -10,6 +10,11 @@ interface UseLikePinOptions {
   onError?: (error: Error) => void;
 }
 
+/**
+ * Мутация для лайка пина.
+ * - Локальный state обновляется мгновенно в компоненте через onToggle
+ * - Кэш обновляется после успешного ответа сервера
+ */
 export const useLikePin = (options: UseLikePinOptions = {}) => {
   const { onSuccess, onError } = options;
   const queryClient = useQueryClient();
@@ -18,29 +23,13 @@ export const useLikePin = (options: UseLikePinOptions = {}) => {
     mutationFn: (pinId: string) => pinLikeApi.like(pinId),
 
     onSuccess: (updatedPin, pinId) => {
-      // ✅ DEBUG: проверяем что приходит от сервера
-      console.log('[useLikePin] Server response:', {
-        pinId,
-        isLiked: updatedPin.isLiked,
-        likeCount: updatedPin.likeCount,
-      });
+      // ✅ Обновляем кэш конкретного пина данными от сервера
+      queryClient.setQueryData(
+        queryKeys.pins.byId(pinId), 
+        updatedPin
+      );
       
-      // ✅ DEBUG: проверяем что было в кэше до обновления
-      const oldPin = queryClient.getQueryData<PinResponse>(queryKeys.pins.byId(pinId));
-      console.log('[useLikePin] Old cache:', {
-        isLiked: oldPin?.isLiked,
-        likeCount: oldPin?.likeCount,
-      });
-
-      queryClient.setQueryData(queryKeys.pins.byId(pinId), updatedPin);
-      
-      // ✅ DEBUG: проверяем что стало в кэше после обновления
-      const newPin = queryClient.getQueryData<PinResponse>(queryKeys.pins.byId(pinId));
-      console.log('[useLikePin] New cache:', {
-        isLiked: newPin?.isLiked,
-        likeCount: newPin?.likeCount,
-      });
-
+      // Фоновая инвалидация связанных данных
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.pins.likes(pinId),
         refetchType: 'none',

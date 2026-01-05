@@ -34,39 +34,26 @@ export interface UsePinLocalStateResult {
   resetOverride: () => void;
 }
 
+/**
+ * Единое локальное состояние пина.
+ * Использует серверные данные как базу, локальный override для мгновенного UI.
+ */
 export const usePinLocalState = (pin: PinResponse | undefined): UsePinLocalStateResult => {
   const [override, setOverride] = useState<LocalOverride>({});
 
-  // ✅ DEBUG
-  console.log('[usePinLocalState] Input pin:', {
-    id: pin?.id,
-    isLiked: pin?.isLiked,
-    likeCount: pin?.likeCount,
-  });
-  console.log('[usePinLocalState] Override:', override);
-
-  const state: PinLocalState = useMemo(() => {
-    const result = {
-      isLiked: override.isLiked ?? pin?.isLiked ?? false,
-      likeCount: override.likeCount ?? pin?.likeCount ?? 0,
-      isSaved: override.isSaved ?? ((pin?.savedToBoardsCount ?? 0) > 0),
-      savedCount: override.savedCount ?? pin?.savedToBoardsCount ?? 0,
-      lastSavedBoardId: override.lastSavedBoardId !== undefined 
-        ? override.lastSavedBoardId 
-        : (pin?.lastSavedBoardId ?? null),
-      lastSavedBoardName: override.lastSavedBoardName !== undefined 
-        ? override.lastSavedBoardName 
-        : (pin?.lastSavedBoardName ?? null),
-    };
-    
-    // ✅ DEBUG
-    console.log('[usePinLocalState] Computed state:', {
-      isLiked: result.isLiked,
-      likeCount: result.likeCount,
-    });
-    
-    return result;
-  }, [override, pin]);
+  // Вычисляем итоговое состояние: override ?? server
+  const state: PinLocalState = useMemo(() => ({
+    isLiked: override.isLiked ?? pin?.isLiked ?? false,
+    likeCount: override.likeCount ?? pin?.likeCount ?? 0,
+    isSaved: override.isSaved ?? ((pin?.savedToBoardsCount ?? 0) > 0),
+    savedCount: override.savedCount ?? pin?.savedToBoardsCount ?? 0,
+    lastSavedBoardId: override.lastSavedBoardId !== undefined 
+      ? override.lastSavedBoardId 
+      : (pin?.lastSavedBoardId ?? null),
+    lastSavedBoardName: override.lastSavedBoardName !== undefined 
+      ? override.lastSavedBoardName 
+      : (pin?.lastSavedBoardName ?? null),
+  }), [override, pin]);
 
   const toggleLike = useCallback((): boolean => {
     const currentIsLiked = override.isLiked ?? pin?.isLiked ?? false;

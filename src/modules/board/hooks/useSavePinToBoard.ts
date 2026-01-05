@@ -13,11 +13,6 @@ interface UseSavePinToBoardOptions {
 
 /**
  * Мутация для сохранения пина в доску.
- * 
- * Стратегия Pinterest:
- * - НЕ обновляем глобальные кэши оптимистично
- * - UI обновляется через локальный state компонента
- * - Только инвалидируем связанные запросы для фоновой синхронизации
  */
 export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
   const { onSuccess, onError } = options;
@@ -30,10 +25,10 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
     },
 
     onSuccess: ({ boardId, updatedPin }, { pinId }) => {
-      // Фоновая инвалидация - данные обновятся при следующем fetch
+      // Инвалидация board-related запросов
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.boards.forPin(pinId),
-        refetchType: 'none', // Не рефетчим сразу, только помечаем stale
+        refetchType: 'none',
       });
       
       void queryClient.invalidateQueries({ 
@@ -43,6 +38,12 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
       
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.boards.my(),
+        refetchType: 'none',
+      });
+
+      // ✅ NEW: Инвалидация списков пинов (для ProfilePinsTab с scope: SAVED)
+      void queryClient.invalidateQueries({ 
+        queryKey: queryKeys.pins.all,
         refetchType: 'none',
       });
 

@@ -2,6 +2,7 @@
 
 import { useMemo, useCallback } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { queryKeys } from '@/app/config/queryClient';
 import { pinApi } from '../api/pinApi';
 import type { PinFilter, PinScope, PinSort, PinResponse } from '../types/pin.types';
 import { PAGINATION } from '@/shared/utils/constants';
@@ -26,6 +27,17 @@ interface UsePinsResult {
   refetch: () => void;
 }
 
+// ==================== Query Key Builder ====================
+
+/**
+ * Строит query key на основе фильтра.
+ * Использует унифицированные ключи для предсказуемой инвалидации.
+ */
+const buildQueryKey = (filter: PinFilter, sort?: PinSort) => {
+  // Базовый ключ для списков
+  return [...queryKeys.pins.lists(), { ...filter, sort }] as const;
+};
+
 // ==================== Filter Builder ====================
 
 const buildUserFilter = (userId: string, scope: PinScope): PinFilter => {
@@ -43,10 +55,6 @@ const buildUserFilter = (userId: string, scope: PinScope): PinFilter => {
   }
 };
 
-const createQueryKey = (filter: PinFilter, sort?: PinSort) => {
-  return ['pins', 'list', filter, sort] as const;
-};
-
 // ==================== Main Hook ====================
 
 export const usePins = (
@@ -59,8 +67,11 @@ export const usePins = (
     sort,
   } = options;
 
+  // ✅ Используем унифицированный query key
+  const queryKey = useMemo(() => buildQueryKey(filter, sort), [filter, sort]);
+
   const query = useInfiniteQuery({
-    queryKey: createQueryKey(filter, sort),
+    queryKey,
     queryFn: ({ pageParam = 0 }) =>
       pinApi.getAll(filter, { page: pageParam, size: pageSize }, sort),
     initialPageParam: 0,

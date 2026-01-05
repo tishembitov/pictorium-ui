@@ -12,11 +12,6 @@ interface UseRemovePinFromBoardOptions {
 
 /**
  * Мутация для удаления пина из доски.
- * 
- * Стратегия Pinterest:
- * - UI обновляется локально в компоненте
- * - Мутация отправляется в фоне
- * - Кэши инвалидируются для последующей синхронизации
  */
 export const useRemovePinFromBoard = (options: UseRemovePinFromBoardOptions = {}) => {
   const { onSuccess, onError } = options;
@@ -27,7 +22,7 @@ export const useRemovePinFromBoard = (options: UseRemovePinFromBoardOptions = {}
       boardApi.removePinFromBoard(boardId, pinId),
 
     onSuccess: (_, { boardId, pinId }) => {
-      // Фоновая инвалидация
+      // Board-related
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.boards.forPin(pinId),
         refetchType: 'none',
@@ -40,6 +35,13 @@ export const useRemovePinFromBoard = (options: UseRemovePinFromBoardOptions = {}
       
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.boards.my(),
+        refetchType: 'none',
+      });
+
+      // ✅ Pin lists - инвалидируем все списки пинов
+      // Это включает SAVED, CREATED, и другие scope
+      void queryClient.invalidateQueries({ 
+        queryKey: queryKeys.pins.lists(),
         refetchType: 'none',
       });
 

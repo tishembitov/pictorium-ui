@@ -29,7 +29,6 @@ export const createQueryClient = () => {
 
 export const queryClient = createQueryClient();
 
-// Query Keys Factory
 export const queryKeys = {
   // User
   users: {
@@ -47,18 +46,24 @@ export const queryKeys = {
     check: (userId: string) => [...queryKeys.subscriptions.all, 'check', userId] as const,
   },
   
-  // Pins
+  // Pins - ✅ UPDATED: более структурированные ключи
   pins: {
     all: ['pins'] as const,
-    list: (filters?: Record<string, unknown>) => [...queryKeys.pins.all, 'list', filters] as const,
+    
+    // Списки с фильтрами
+    lists: () => [...queryKeys.pins.all, 'list'] as const,
+    list: (filters?: Record<string, unknown>) => [...queryKeys.pins.lists(), filters] as const,
+    
+    // Специфичные списки для точечной инвалидации
+    byAuthor: (userId: string) => [...queryKeys.pins.lists(), { scope: 'CREATED', authorId: userId }] as const,
+    savedBy: (userId: string) => [...queryKeys.pins.lists(), { scope: 'SAVED', savedBy: userId }] as const,
+    likedBy: (userId: string) => [...queryKeys.pins.lists(), { scope: 'LIKED', likedBy: userId }] as const,
+    related: (pinId: string) => [...queryKeys.pins.lists(), { scope: 'RELATED', relatedTo: pinId }] as const,
+    
+    // Детали пина
     byId: (id: string) => [...queryKeys.pins.all, 'byId', id] as const,
     likes: (pinId: string) => [...queryKeys.pins.all, 'likes', pinId] as const,
     comments: (pinId: string) => [...queryKeys.pins.all, 'comments', pinId] as const,
-    byAuthor: (userId: string) => [...queryKeys.pins.all, 'byAuthor', userId] as const,
-    savedBy: (userId: string) => [...queryKeys.pins.all, 'savedBy', userId] as const,
-    likedBy: (userId: string) => [...queryKeys.pins.all, 'likedBy', userId] as const,
-    related: (pinId: string) => [...queryKeys.pins.all, 'related', pinId] as const,
-    // ✅ Убраны: savedToProfile, mySavedToProfile
   },
   
   // Boards

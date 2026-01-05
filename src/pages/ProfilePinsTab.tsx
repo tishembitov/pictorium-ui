@@ -19,15 +19,9 @@ const ProfilePinsTab: React.FC<ProfilePinsTabProps> = ({
   userId, 
   isOwner = false,
 }) => {
-  // Tabs: "Saved" (default) and "Created"
   const [activeTab, setActiveTab] = useState<'saved' | 'created'>('saved');
-  
-  // Global sort preference
   const sort = usePinPreferencesStore((s) => s.sort);
 
-  // Determine scope based on tab
-  // For owner: can see both saved and created
-  // For others: only created (saved is private)
   const scope: PinScope = useMemo(() => {
     if (!isOwner) {
       return 'CREATED';
@@ -64,77 +58,89 @@ const ProfilePinsTab: React.FC<ProfilePinsTabProps> = ({
     <Box>
       {/* Header */}
       <Box marginBottom={4}>
-        <Flex justifyContent="between" alignItems="center" wrap gap={3}>
-          {/* Left side - Tabs (only for owner) */}
-          <Flex alignItems="center" gap={3}>
-            {isOwner && (
-              <Flex gap={1}>
-                {/* Saved Tab */}
-                <TapArea 
-                  onTap={() => setActiveTab('saved')} 
+        <Flex alignItems="center" gap={3}>
+          {/* Tabs (only for owner) */}
+          {isOwner && (
+            <Flex gap={1} alignItems="center">
+              {/* Saved Tab */}
+              <TapArea 
+                onTap={() => setActiveTab('saved')} 
+                rounding="pill"
+              >
+                <Box
+                  paddingX={4}
+                  paddingY={2}
                   rounding="pill"
+                  dangerouslySetInlineStyle={{
+                    __style: {
+                      backgroundColor: activeTab === 'saved' 
+                        ? '#111' 
+                        : 'transparent',
+                      transition: 'all 0.15s ease',
+                    },
+                  }}
                 >
-                  <Box
-                    paddingX={4}
-                    paddingY={2}
-                    rounding="pill"
-                    dangerouslySetInlineStyle={{
-                      __style: {
-                        backgroundColor: activeTab === 'saved' 
-                          ? '#111' 
-                          : 'transparent',
-                        transition: 'all 0.15s ease',
-                      },
-                    }}
+                  <Text 
+                    weight="bold" 
+                    size="200"
+                    color={activeTab === 'saved' ? 'inverse' : 'default'}
                   >
-                    <Text 
-                      weight="bold" 
-                      size="200"
-                      color={activeTab === 'saved' ? 'inverse' : 'default'}
-                    >
-                      Saved
-                    </Text>
-                  </Box>
-                </TapArea>
+                    Saved
+                  </Text>
+                </Box>
+              </TapArea>
 
-                {/* Created Tab */}
-                <TapArea 
-                  onTap={() => setActiveTab('created')} 
+              {/* Created Tab */}
+              <TapArea 
+                onTap={() => setActiveTab('created')} 
+                rounding="pill"
+              >
+                <Box
+                  paddingX={4}
+                  paddingY={2}
                   rounding="pill"
+                  dangerouslySetInlineStyle={{
+                    __style: {
+                      backgroundColor: activeTab === 'created' 
+                        ? '#111' 
+                        : 'transparent',
+                      transition: 'all 0.15s ease',
+                    },
+                  }}
                 >
-                  <Box
-                    paddingX={4}
-                    paddingY={2}
-                    rounding="pill"
-                    dangerouslySetInlineStyle={{
-                      __style: {
-                        backgroundColor: activeTab === 'created' 
-                          ? '#111' 
-                          : 'transparent',
-                        transition: 'all 0.15s ease',
-                      },
-                    }}
+                  <Text 
+                    weight="bold" 
+                    size="200"
+                    color={activeTab === 'created' ? 'inverse' : 'default'}
                   >
-                    <Text 
-                      weight="bold" 
-                      size="200"
-                      color={activeTab === 'created' ? 'inverse' : 'default'}
-                    >
-                      Created
-                    </Text>
-                  </Box>
-                </TapArea>
-              </Flex>
-            )}
+                    Created
+                  </Text>
+                </Box>
+              </TapArea>
+            </Flex>
+          )}
 
-            {/* Count */}
-            <Text size="300" color="subtle">
-              {displayCount} {displayCount === 1 ? 'Pin' : 'Pins'}
-            </Text>
-          </Flex>
+          {/* Divider (only if tabs shown) */}
+          {isOwner && (
+            <Box
+              dangerouslySetInlineStyle={{
+                __style: {
+                  width: 1,
+                  height: 24,
+                  backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                },
+              }}
+            />
+          )}
 
-          {/* Right side - Sort */}
+          {/* Sort */}
           <PinSortSelect size="md" />
+
+
+          {/* Count */}
+          <Text size="300" color="subtle">
+            {displayCount} {displayCount === 1 ? 'Pin' : 'Pins'}
+          </Text>
         </Flex>
       </Box>
 

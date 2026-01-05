@@ -15,9 +15,6 @@ interface UseCreatePinOptions {
   navigateToPin?: boolean;
 }
 
-/**
- * Hook to create a new pin
- */
 export const useCreatePin = (options: UseCreatePinOptions = {}) => {
   const { 
     onSuccess, 
@@ -32,9 +29,9 @@ export const useCreatePin = (options: UseCreatePinOptions = {}) => {
   const mutation = useMutation({
     mutationFn: (data: PinCreateRequest) => pinApi.create(data),
     onSuccess: (data) => {
-      // Инвалидируем списки пинов
+      // ✅ Инвалидируем только списки пинов (не детали)
       void queryClient.invalidateQueries({ 
-        queryKey: queryKeys.pins.all,
+        queryKey: queryKeys.pins.lists(),
         refetchType: 'none',
       });
       

@@ -11,9 +11,6 @@ interface UseSavePinToBoardsOptions {
   onError?: (error: Error) => void;
 }
 
-/**
- * Batch сохранение пина в несколько досок.
- */
 export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
   const { onSuccess, onError } = options;
   const queryClient = useQueryClient();
@@ -26,7 +23,7 @@ export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
     },
 
     onSuccess: ({ boardIds, updatedPin }, { pinId }) => {
-      // Фоновая инвалидация
+      // Board-related
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.boards.forPin(pinId),
         refetchType: 'none',
@@ -42,6 +39,12 @@ export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
           queryKey: queryKeys.boards.pins(boardId),
           refetchType: 'none',
         });
+      });
+
+      // ✅ Pin lists
+      void queryClient.invalidateQueries({ 
+        queryKey: queryKeys.pins.lists(),
+        refetchType: 'none',
       });
 
       const count = boardIds.length;

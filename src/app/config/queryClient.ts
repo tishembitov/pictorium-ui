@@ -4,8 +4,8 @@ import { QueryClient, type DefaultOptions } from '@tanstack/react-query';
 
 const defaultOptions: DefaultOptions = {
   queries: {
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 30, // 30 minutes
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
     retry: (failureCount, error: unknown) => {
       const err = error as { response?: { status?: number } };
       if (err?.response?.status && err.response.status >= 400 && err.response.status < 500) {
@@ -29,8 +29,18 @@ export const createQueryClient = () => {
 
 export const queryClient = createQueryClient();
 
+/**
+ * Query Keys Factory
+ * 
+ * Структура:
+ * - `all` — корневой ключ для полной инвалидации модуля
+ * - `lists()` — все списки (для инвалидации гридов)
+ * - `list(filter)` — конкретный список с фильтром
+ * - `byId(id)` — детали сущности
+ * - Специфичные ключи для вложенных данных
+ */
 export const queryKeys = {
-  // User
+  // ==================== Users ====================
   users: {
     all: ['users'] as const,
     me: () => [...queryKeys.users.all, 'me'] as const,
@@ -38,7 +48,7 @@ export const queryKeys = {
     byUsername: (username: string) => [...queryKeys.users.all, 'byUsername', username] as const,
   },
   
-  // Subscriptions
+  // ==================== Subscriptions ====================
   subscriptions: {
     all: ['subscriptions'] as const,
     followers: (userId: string) => [...queryKeys.subscriptions.all, 'followers', userId] as const,
@@ -46,38 +56,42 @@ export const queryKeys = {
     check: (userId: string) => [...queryKeys.subscriptions.all, 'check', userId] as const,
   },
   
-  // Pins - ✅ UPDATED: более структурированные ключи
+  // ==================== Pins ====================
   pins: {
     all: ['pins'] as const,
     
-    // Списки с фильтрами
+    // Списки
     lists: () => [...queryKeys.pins.all, 'list'] as const,
     list: (filters?: Record<string, unknown>) => [...queryKeys.pins.lists(), filters] as const,
     
-    // Специфичные списки для точечной инвалидации
-    byAuthor: (userId: string) => [...queryKeys.pins.lists(), { scope: 'CREATED', authorId: userId }] as const,
-    savedBy: (userId: string) => [...queryKeys.pins.lists(), { scope: 'SAVED', savedBy: userId }] as const,
-    likedBy: (userId: string) => [...queryKeys.pins.lists(), { scope: 'LIKED', likedBy: userId }] as const,
-    related: (pinId: string) => [...queryKeys.pins.lists(), { scope: 'RELATED', relatedTo: pinId }] as const,
-    
-    // Детали пина
+    // Детали
     byId: (id: string) => [...queryKeys.pins.all, 'byId', id] as const,
+    
+    // Вложенные данные пина
     likes: (pinId: string) => [...queryKeys.pins.all, 'likes', pinId] as const,
     comments: (pinId: string) => [...queryKeys.pins.all, 'comments', pinId] as const,
   },
   
-  // Boards
+  // ==================== Boards ====================
   boards: {
     all: ['boards'] as const,
-    byId: (boardId: string) => ['boards', 'byId', boardId] as const,
-    byUser: (userId: string) => ['boards', 'byUser', userId] as const,
-    my: () => ['boards', 'my'] as const,
-    forPin: (pinId: string) => ['boards', 'forPin', pinId] as const,
-    pins: (boardId: string) => ['boards', 'pins', boardId] as const,
-    selected: () => ['boards', 'selected'] as const,
+    
+    // Списки
+    my: () => [...queryKeys.boards.all, 'my'] as const,
+    byUser: (userId: string) => [...queryKeys.boards.all, 'byUser', userId] as const,
+    forPin: (pinId: string) => [...queryKeys.boards.all, 'forPin', pinId] as const,
+    
+    // Детали
+    byId: (boardId: string) => [...queryKeys.boards.all, 'byId', boardId] as const,
+    
+    // Вложенные данные доски
+    pins: (boardId: string) => [...queryKeys.boards.all, 'pins', boardId] as const,
+    
+    // Selected board
+    selected: () => [...queryKeys.boards.all, 'selected'] as const,
   },
   
-  // Comments
+  // ==================== Comments ====================
   comments: {
     all: ['comments'] as const,
     byId: (id: string) => [...queryKeys.comments.all, 'byId', id] as const,
@@ -85,17 +99,18 @@ export const queryKeys = {
     likes: (commentId: string) => [...queryKeys.comments.all, 'likes', commentId] as const,
   },
   
-  // Tags
+  // ==================== Tags ====================
   tags: {
     all: ['tags'] as const,
-    list: (page?: number) => [...queryKeys.tags.all, 'list', page] as const,
+    lists: () => [...queryKeys.tags.all, 'list'] as const,
+    list: (page?: number) => [...queryKeys.tags.lists(), page] as const,
     byId: (id: string) => [...queryKeys.tags.all, 'byId', id] as const,
     search: (query: string) => [...queryKeys.tags.all, 'search', query] as const,
     byPin: (pinId: string) => [...queryKeys.tags.all, 'byPin', pinId] as const,
     categories: (limit?: number) => [...queryKeys.tags.all, 'categories', limit] as const,
   },
   
-  // Images
+  // ==================== Images ====================
   images: {
     all: ['images'] as const,
     metadata: (imageId: string) => [...queryKeys.images.all, 'metadata', imageId] as const,

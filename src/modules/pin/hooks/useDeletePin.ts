@@ -13,10 +13,6 @@ interface UseDeletePinOptions {
   navigateOnSuccess?: boolean;
 }
 
-/**
- * Простая мутация для удаления пина.
- * После успеха - редирект и инвалидация.
- */
 export const useDeletePin = (options: UseDeletePinOptions = {}) => {
   const { 
     onSuccess, 
@@ -31,12 +27,22 @@ export const useDeletePin = (options: UseDeletePinOptions = {}) => {
     mutationFn: (pinId: string) => pinApi.delete(pinId),
 
     onSuccess: (_, pinId) => {
-      // Удаляем из кэша
+      // Удаляем детали пина из кэша
       queryClient.removeQueries({ queryKey: queryKeys.pins.byId(pinId) });
       
-      // Инвалидируем списки - обновятся при следующем просмотре
+      // Удаляем связанные данные пина
+      queryClient.removeQueries({ queryKey: queryKeys.pins.likes(pinId) });
+      queryClient.removeQueries({ queryKey: queryKeys.pins.comments(pinId) });
+      
+      // ✅ Инвалидируем только списки
       void queryClient.invalidateQueries({ 
-        queryKey: queryKeys.pins.all,
+        queryKey: queryKeys.pins.lists(),
+        refetchType: 'none',
+      });
+
+      // ✅ Инвалидируем board pins (пин мог быть на досках)
+      void queryClient.invalidateQueries({ 
+        queryKey: queryKeys.boards.all,
         refetchType: 'none',
       });
       

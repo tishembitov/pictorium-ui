@@ -24,9 +24,9 @@ export const useUpdatePin = (options: UseUpdatePinOptions = {}) => {
       // Обновляем кэш этого пина
       queryClient.setQueryData(queryKeys.pins.byId(variables.pinId), data);
       
-      // Инвалидируем списки
+      // ✅ Инвалидируем только списки
       void queryClient.invalidateQueries({ 
-        queryKey: queryKeys.pins.all,
+        queryKey: queryKeys.pins.lists(),
         refetchType: 'none',
       });
       

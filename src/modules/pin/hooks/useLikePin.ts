@@ -10,11 +10,6 @@ interface UseLikePinOptions {
   onError?: (error: Error) => void;
 }
 
-/**
- * Мутация для лайка пина.
- * - Локальный state обновляется мгновенно в компоненте через onToggle
- * - Кэш обновляется после успешного ответа сервера
- */
 export const useLikePin = (options: UseLikePinOptions = {}) => {
   const { onSuccess, onError } = options;
   const queryClient = useQueryClient();
@@ -23,15 +18,21 @@ export const useLikePin = (options: UseLikePinOptions = {}) => {
     mutationFn: (pinId: string) => pinLikeApi.like(pinId),
 
     onSuccess: (updatedPin, pinId) => {
-      // ✅ Обновляем кэш конкретного пина данными от сервера
+      // Обновляем кэш конкретного пина данными от сервера
       queryClient.setQueryData(
         queryKeys.pins.byId(pinId), 
         updatedPin
       );
       
-      // Фоновая инвалидация связанных данных
+      // Инвалидация списка лайков пина
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.pins.likes(pinId),
+        refetchType: 'none',
+      });
+
+      // ✅ Инвалидируем списки (для обновления likeCount в гридах)
+      void queryClient.invalidateQueries({ 
+        queryKey: queryKeys.pins.lists(),
         refetchType: 'none',
       });
       

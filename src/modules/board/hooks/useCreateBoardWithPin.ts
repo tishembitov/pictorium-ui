@@ -13,9 +13,6 @@ interface UseCreateBoardWithPinOptions {
   autoSelect?: boolean;
 }
 
-/**
- * Создание доски с сохранением пина одним запросом.
- */
 export const useCreateBoardWithPin = (
   pinId: string,
   options: UseCreateBoardWithPinOptions = {}
@@ -35,9 +32,15 @@ export const useCreateBoardWithPin = (
       boardApi.createWithPin(pinId, data),
 
     onSuccess: (board) => {
-      // Инвалидируем связанные запросы
+      // Board-related
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
+
+      // ✅ Pin lists (пин теперь сохранён)
+      void queryClient.invalidateQueries({ 
+        queryKey: queryKeys.pins.lists(),
+        refetchType: 'none',
+      });
 
       if (autoSelect) {
         selectBoard(board.id);

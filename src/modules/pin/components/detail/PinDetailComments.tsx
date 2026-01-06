@@ -1,7 +1,7 @@
 // src/modules/pin/components/detail/PinDetailComments.tsx
 
 import React, { useRef, useCallback } from 'react';
-import { Box, Text, Divider } from 'gestalt';
+import { Box } from 'gestalt';
 import { CommentList, type CommentCreateRequest } from '@/modules/comment';
 import { useInfinitePinComments } from '../../hooks/usePinComments';
 import { useCreateComment } from '../../hooks/useCreateComment';
@@ -11,10 +11,6 @@ interface PinDetailCommentsProps {
   commentsRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-/**
- * Секция комментариев пина.
- * Ответственность: загрузка, отображение и создание комментариев.
- */
 export const PinDetailComments: React.FC<PinDetailCommentsProps> = ({
   pinId,
   commentsRef,
@@ -45,36 +41,26 @@ export const PinDetailComments: React.FC<PinDetailCommentsProps> = ({
   }, [fetchNextPage]);
 
   return (
-    <Box ref={ref}>
-      {/* Header */}
-      <Box paddingY={3}>
-        <Text weight="bold" size="400">
-          Comments
-          {totalElements > 0 && (
-            <Text inline color="subtle">
-              {' '}
-              ({totalElements})
-            </Text>
-          )}
-        </Text>
-      </Box>
-
-      <Divider />
-
-      {/* Comments List */}
-      <Box paddingY={3}>
-        <CommentList
-          comments={comments}
-          isLoading={isLoading}
-          isFetchingNextPage={isFetchingNextPage}
-          hasNextPage={hasNextPage}
-          fetchNextPage={handleFetchNextPage}
-          onCreateComment={handleCreateComment}
-          isCreating={isCreatingComment}
-          totalCount={totalElements}
-          emptyMessage="No comments yet. Be the first!"
-        />
-      </Box>
+    <Box 
+      ref={ref}
+      paddingY={4}
+      dangerouslySetInlineStyle={{
+        __style: {
+          borderTop: '1px solid rgba(0, 0, 0, 0.08)',
+        },
+      }}
+    >
+      <CommentList
+        comments={comments}
+        isLoading={isLoading}
+        isFetchingNextPage={isFetchingNextPage}
+        hasNextPage={hasNextPage}
+        fetchNextPage={handleFetchNextPage}
+        onCreateComment={handleCreateComment}
+        isCreating={isCreatingComment}
+        totalCount={totalElements}
+        emptyMessage="No comments yet"
+      />
     </Box>
   );
 };

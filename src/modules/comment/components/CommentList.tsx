@@ -1,11 +1,12 @@
 // src/modules/comment/components/CommentList.tsx
 
 import React from 'react';
-import { Box, Flex, Spinner, Text, Divider } from 'gestalt';
+import { Box, Flex, Spinner, Text, Heading } from 'gestalt';
 import { CommentItem } from './CommentItem';
 import { CommentForm } from './CommentForm';
 import { InfiniteScroll, EmptyState } from '@/shared/components';
 import { useAuth } from '@/modules/auth';
+import { formatCompactNumber } from '@/shared/utils/formatters';
 import type { CommentResponse, CommentCreateRequest } from '../types/comment.types';
 
 interface CommentListProps {
@@ -29,67 +30,128 @@ export const CommentList: React.FC<CommentListProps> = ({
   onCreateComment,
   isCreating = false,
   totalCount,
-  emptyMessage = 'No comments yet. Be the first to comment!',
+  emptyMessage = 'No comments yet',
 }) => {
   const { isAuthenticated } = useAuth();
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" padding={6}>
-        <Spinner accessibilityLabel="Loading comments" show />
+      <Box display="flex" justifyContent="center" padding={8}>
+        <Flex direction="column" alignItems="center" gap={3}>
+          <Spinner accessibilityLabel="Loading comments" show />
+          <Text color="subtle" size="200">Loading comments...</Text>
+        </Flex>
       </Box>
     );
   }
 
   return (
     <Box>
-      {/* Comment count */}
-      {totalCount !== undefined && totalCount > 0 && (
-        <Box marginBottom={4}>
-          <Text weight="bold" size="300">
-            {totalCount} {totalCount === 1 ? 'Comment' : 'Comments'}
-          </Text>
-        </Box>
-      )}
+      {/* Header */}
+      <Box marginBottom={4}>
+        <Flex alignItems="center" gap={2}>
+          <Text size="100">💬</Text>
+          <Heading size="400">
+            Comments
+          </Heading>
+          {totalCount !== undefined && totalCount > 0 && (
+            <Box 
+              paddingX={2} 
+              paddingY={1} 
+              rounding="pill"
+              color="secondary"
+            >
+              <Text size="100" weight="bold">
+                {formatCompactNumber(totalCount)}
+              </Text>
+            </Box>
+          )}
+        </Flex>
+      </Box>
 
       {/* Comment form */}
       {onCreateComment && (
-        <Box marginBottom={4}>
+        <Box marginBottom={5}>
           <CommentForm
             onSubmit={onCreateComment}
             isLoading={isCreating}
             showAvatar={isAuthenticated}
+            placeholder="Share your thoughts..."
           />
-          <Box marginTop={4}>
-            <Divider />
-          </Box>
         </Box>
       )}
 
       {/* Comments list */}
       {comments.length === 0 ? (
-        <EmptyState
-          title={emptyMessage}
-          icon="speech"
-        />
+        <Box 
+          paddingY={8}
+          rounding={4}
+          dangerouslySetInlineStyle={{
+            __style: {
+              backgroundColor: 'rgba(0, 0, 0, 0.02)',
+              border: '1px dashed rgba(0, 0, 0, 0.1)',
+            },
+          }}
+        >
+          <EmptyState
+            title={emptyMessage}
+            description="Be the first to share your thoughts! 🎉"
+            icon="speech"
+          />
+        </Box>
       ) : (
         <InfiniteScroll
           loadMore={() => fetchNextPage?.()}
           hasMore={hasNextPage}
           isLoading={isFetchingNextPage}
+          loader={
+            // ✅ Исправление: Box вместо Flex с padding
+            <Box padding={4} display="flex" justifyContent="center">
+              <Spinner accessibilityLabel="Loading more" show size="sm" />
+            </Box>
+          }
         >
           <Flex direction="column" gap={1}>
-            {comments.map((comment) => (
-              <React.Fragment key={comment.id}>
+            {comments.map((comment, index) => (
+              <Box 
+                key={comment.id}
+                dangerouslySetInlineStyle={{
+                  __style: {
+                    animation: `fadeIn 0.3s ease ${index * 0.05}s both`,
+                  },
+                }}
+              >
                 <CommentItem comment={comment} />
-                <Box marginTop={2} marginBottom={2}>
-                  <Divider />
-                </Box>
-              </React.Fragment>
+              </Box>
             ))}
           </Flex>
         </InfiniteScroll>
       )}
+
+      {/* Load more indicator */}
+      {hasNextPage && !isFetchingNextPage && (
+        <Box marginTop={4} display="flex" justifyContent="center">
+          <Text color="subtle" size="100">
+            Scroll for more comments ↓
+          </Text>
+        </Box>
+      )}
+
+      {/* CSS Animation */}
+      <style>
+        {`
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+              transform: translateY(10px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+        `}
+      </style>
     </Box>
   );
 };

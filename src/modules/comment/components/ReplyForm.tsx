@@ -1,7 +1,7 @@
 // src/modules/comment/components/ReplyForm.tsx
 
 import React from 'react';
-import { Box } from 'gestalt';
+import { Box, Text, Flex } from 'gestalt';
 import { CommentForm } from './CommentForm';
 import { useCreateReply } from '../hooks/useCreateReply';
 import type { CommentFormData } from './commentSchema';
@@ -23,9 +23,7 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
 }) => {
   const { createReply, isLoading } = useCreateReply(commentId, {
     pinId,
-    onSuccess: () => {
-      onSuccess?.();
-    },
+    onSuccess: () => onSuccess?.(),
   });
 
   const handleSubmit = (data: CommentFormData) => {
@@ -36,11 +34,29 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
   };
 
   return (
-    <Box marginStart={8} marginTop={2}>
+    <Box
+      marginStart={6}
+      dangerouslySetInlineStyle={{
+        __style: {
+          borderLeft: '2px solid rgba(0, 0, 0, 0.08)',
+          paddingLeft: 12,
+        },
+      }}
+    >
+      {/* ✅ Исправление: marginBottom перенесён в Box */}
+      <Box marginBottom={2}>
+        <Flex alignItems="center" gap={2}>
+          <Text size="100">↩️</Text>
+          <Text size="100" color="subtle">
+            Replying to comment
+          </Text>
+        </Flex>
+      </Box>
+      
       <CommentForm
         onSubmit={handleSubmit}
         isLoading={isLoading}
-        placeholder="Write a reply..."
+        placeholder="Write your reply... 💭"
         autoFocus={autoFocus}
         showAvatar={false}
         compact

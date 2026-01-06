@@ -1,7 +1,7 @@
 // src/modules/comment/components/CommentItem.tsx
 
 import React, { useState, useCallback } from 'react';
-import { Box, Flex, Text, TapArea } from 'gestalt';
+import { Box, Flex, Text, TapArea, Icon } from 'gestalt';
 import { Link } from 'react-router-dom';
 import { UserAvatar, useUser } from '@/modules/user';
 import { ImagePreview } from '@/modules/storage';
@@ -18,24 +18,141 @@ import { useUpdateComment } from '../hooks/useUpdateComment';
 import { useDeleteComment } from '../hooks/useDeleteComment';
 import type { CommentResponse } from '../types/comment.types';
 
+// ============ Sub-components ============
+
+interface CommentHeaderProps {
+  profilePath: string;
+  username: string;
+  createdAt: string;
+  updatedAt: string;
+  isReply: boolean;
+}
+
+const CommentHeader: React.FC<CommentHeaderProps> = ({
+  profilePath,
+  username,
+  createdAt,
+  updatedAt,
+  isReply,
+}) => {
+  const isEdited = updatedAt !== createdAt;
+
+  return (
+    <Flex alignItems="center" gap={2} wrap>
+      <Link to={profilePath} style={{ textDecoration: 'none' }}>
+        <Text weight="bold" size={isReply ? '100' : '200'}>
+          {username}
+        </Text>
+      </Link>
+      <Text color="subtle" size="100">•</Text>
+      <Text color="subtle" size="100">
+        {formatShortRelativeTime(createdAt)}
+      </Text>
+      {isEdited && (
+        <Text color="subtle" size="100" italic>
+          (edited)
+        </Text>
+      )}
+    </Flex>
+  );
+};
+
+interface CommentContentProps {
+  content: string | null;
+  imageId: string | null;
+  isReply: boolean;
+}
+
+const CommentContent: React.FC<CommentContentProps> = ({
+  content,
+  imageId,
+  isReply,
+}) => (
+  <>
+    {content && (
+      <Box marginTop={1}>
+        <Text size={isReply ? '100' : '200'} overflow="breakWord">
+          {content}
+        </Text>
+      </Box>
+    )}
+
+    {imageId && (
+      <Box
+        marginTop={3}
+        maxWidth={280}
+        rounding={3}
+        overflow="hidden"
+        dangerouslySetInlineStyle={{
+          __style: { boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)' },
+        }}
+      >
+        <ImagePreview imageId={imageId} alt="Comment image" rounding={3} />
+      </Box>
+    )}
+  </>
+);
+
+interface RepliesToggleProps {
+  replyCount: number;
+  isExpanded: boolean;
+  onToggle: () => void;
+}
+
+const RepliesToggle: React.FC<RepliesToggleProps> = ({
+  replyCount,
+  isExpanded,
+  onToggle,
+}) => {
+  // ✅ Исправление S3358: убираем вложенный тернарный оператор
+  const getToggleText = (): string => {
+    if (isExpanded) {
+      return 'Hide replies';
+    }
+    const replyWord = replyCount === 1 ? 'reply' : 'replies';
+    return `${replyCount} ${replyWord}`;
+  };
+
+  return (
+    <Box marginTop={3}>
+      <TapArea onTap={onToggle} rounding={2}>
+        <Box
+          paddingY={1}
+          paddingX={2}
+          rounding={2}
+          display="inlineBlock"
+          dangerouslySetInlineStyle={{
+            __style: {
+              backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              transition: 'all 0.15s ease',
+            },
+          }}
+        >
+          <Flex alignItems="center" gap={1}>
+            <Icon
+              accessibilityLabel=""
+              icon={isExpanded ? 'arrow-up' : 'arrow-down'}
+              size={10}
+              color="subtle"
+            />
+            <Text size="100" color="subtle">
+              {getToggleText()}
+            </Text>
+          </Flex>
+        </Box>
+      </TapArea>
+    </Box>
+  );
+};
+
+// ============ Main Component ============
+
 interface CommentItemProps {
   comment: CommentResponse;
   showReplies?: boolean;
   isReply?: boolean;
   onDeleted?: () => void;
 }
-
-/**
- * Get reply toggle text
- */
-const getReplyToggleText = (showRepliesSection: boolean, replyCount: number): string => {
-  if (showRepliesSection) {
-    return 'Hide replies';
-  }
-  
-  const replyWord = replyCount === 1 ? 'reply' : 'replies';
-  return `View ${replyCount} ${replyWord}`;
-};
 
 export const CommentItem: React.FC<CommentItemProps> = ({
   comment,
@@ -46,16 +163,15 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   const { isAuthenticated, user: currentUser } = useAuth();
   const isOwner = useIsOwner(comment.userId);
   const { confirm } = useConfirmModal();
-
   const { user: commentAuthor } = useUser(comment.userId);
 
-  // ✅ Локальный state для оптимистичных обновлений
   const { state: localState, toggleLike, incrementReplyCount } = useCommentLocalState(comment);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
   const [showRepliesSection, setShowRepliesSection] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   const { updateComment, isLoading: isUpdating } = useUpdateComment({
     onSuccess: () => setIsEditing(false),
@@ -68,25 +184,27 @@ export const CommentItem: React.FC<CommentItemProps> = ({
       setIsDeleting(false);
       onDeleted?.();
     },
-    onError: () => {
-      setIsDeleting(false);
-    },
+    onError: () => setIsDeleting(false),
   });
 
-  const handleEdit = useCallback(() => {
-    setIsEditing(true);
-  }, []);
+  // Memoized values
+  const authorUsername = commentAuthor?.username || 'Unknown';
+  const authorImageId = commentAuthor?.imageId || null;
+  const profilePath = commentAuthor?.username
+    ? buildPath.profile(commentAuthor.username)
+    : '#';
+  const isOwnComment = currentUser?.id === comment.userId;
+  const canReply = !isReply && !isOwnComment && isAuthenticated;
+  const hasReplies = localState.replyCount > 0;
+  const showRepliesToggle = showReplies && !isReply && hasReplies;
 
-  const handleCancelEdit = useCallback(() => {
-    setIsEditing(false);
-  }, []);
+  // Handlers
+  const handleEdit = useCallback(() => setIsEditing(true), []);
+  const handleCancelEdit = useCallback(() => setIsEditing(false), []);
 
   const handleUpdate = useCallback(
     (data: { content?: string; imageId?: string }) => {
-      updateComment({
-        commentId: comment.id,
-        data,
-      });
+      updateComment({ commentId: comment.id, data });
     },
     [comment.id, updateComment]
   );
@@ -105,13 +223,12 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   }, [comment.id, deleteComment, confirm]);
 
   const handleReply = useCallback(() => {
-    if (!isAuthenticated) return;
-    setIsReplying(true);
+    if (isAuthenticated) {
+      setIsReplying(true);
+    }
   }, [isAuthenticated]);
 
-  const handleCancelReply = useCallback(() => {
-    setIsReplying(false);
-  }, []);
+  const handleCancelReply = useCallback(() => setIsReplying(false), []);
 
   const handleReplySuccess = useCallback(() => {
     setIsReplying(false);
@@ -119,27 +236,15 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     incrementReplyCount();
   }, [incrementReplyCount]);
 
-  const toggleReplies = useCallback(() => {
-    setShowRepliesSection((prev) => !prev);
+  const toggleRepliesSection = useCallback(() => {
+    setShowRepliesSection(prev => !prev);
   }, []);
 
-  // ✅ Можно отвечать только на комментарии верхнего уровня (не reply)
-  // ✅ И нельзя отвечать на свой собственный комментарий
-  const isOwnComment = currentUser?.id === comment.userId;
-  const canReply = !isReply && !isOwnComment && isAuthenticated;
-
-  const authorUsername = commentAuthor?.username || 'Unknown';
-  const authorImageId = commentAuthor?.imageId || null;
-  const profilePath = commentAuthor?.username 
-    ? buildPath.profile(commentAuthor.username) 
-    : '#';
-
-  // Скрываем удалённые комментарии
+  // Early returns
   if (localState.isDeleted) {
     return null;
   }
 
-  // Edit mode
   if (isEditing) {
     return (
       <Box paddingY={2}>
@@ -158,62 +263,57 @@ export const CommentItem: React.FC<CommentItemProps> = ({
 
   return (
     <Box
-      paddingY={2}
+      paddingY={3}
+      paddingX={3}
+      rounding={3}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       dangerouslySetInlineStyle={{
-        __style: { opacity: isDeleting ? 0.5 : 1 },
+        __style: {
+          opacity: isDeleting ? 0.5 : 1,
+          backgroundColor: isHovered ? 'rgba(0, 0, 0, 0.02)' : 'transparent',
+          transition: 'all 0.15s ease',
+          marginLeft: isReply ? 24 : 0,
+          borderLeft: isReply ? '2px solid rgba(0, 0, 0, 0.08)' : 'none',
+        },
       }}
     >
       <Flex gap={3} alignItems="start">
         {/* Avatar */}
-        <Link to={profilePath}>
-          <UserAvatar
-            imageId={authorImageId}
-            name={authorUsername}
-            size="sm"
-          />
+        <Link to={profilePath} style={{ flexShrink: 0 }}>
+          <Box
+            dangerouslySetInlineStyle={{
+              __style: {
+                transition: 'transform 0.15s ease',
+                transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+              },
+            }}
+          >
+            <UserAvatar
+              imageId={authorImageId}
+              name={authorUsername}
+              size={isReply ? 'xs' : 'sm'}
+            />
+          </Box>
         </Link>
 
         {/* Content */}
         <Box flex="grow">
-          {/* Header */}
-          <Flex alignItems="center" gap={2}>
-            <Link
-              to={profilePath}
-              style={{ textDecoration: 'none' }}
-            >
-              <Text weight="bold" size="200">
-                {authorUsername}
-              </Text>
-            </Link>
-            <Text color="subtle" size="100">
-              {formatShortRelativeTime(comment.createdAt)}
-            </Text>
-            {comment.updatedAt !== comment.createdAt && (
-              <Text color="subtle" size="100">
-                (edited)
-              </Text>
-            )}
-          </Flex>
+          <CommentHeader
+            profilePath={profilePath}
+            username={authorUsername}
+            createdAt={comment.createdAt}
+            updatedAt={comment.updatedAt}
+            isReply={isReply}
+          />
 
-          {/* Text content */}
-          {comment.content && (
-            <Box marginTop={1}>
-              <Text size="200">{comment.content}</Text>
-            </Box>
-          )}
+          <CommentContent
+            content={comment.content}
+            imageId={comment.imageId}
+            isReply={isReply}
+          />
 
-          {/* Image */}
-          {comment.imageId && (
-            <Box marginTop={2} maxWidth={300}>
-              <ImagePreview
-                imageId={comment.imageId}
-                alt="Comment image"
-                rounding={2}
-              />
-            </Box>
-          )}
-
-          {/* Actions - передаём локальный state */}
+          {/* Actions */}
           <Box marginTop={2}>
             <CommentItemActions
               commentId={comment.id}
@@ -228,33 +328,34 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               onReply={canReply ? handleReply : undefined}
               onEdit={isOwner ? handleEdit : undefined}
               onDelete={isOwner ? handleDelete : undefined}
+              showActionsOnHover={isHovered}
             />
           </Box>
 
           {/* Reply form */}
           {isReplying && (
-            <ReplyForm
-              commentId={comment.id}
-              pinId={comment.pinId}
-              onSuccess={handleReplySuccess}
-              onCancel={handleCancelReply}
-            />
+            <Box marginTop={3}>
+              <ReplyForm
+                commentId={comment.id}
+                pinId={comment.pinId}
+                onSuccess={handleReplySuccess}
+                onCancel={handleCancelReply}
+              />
+            </Box>
           )}
 
-          {/* Show replies toggle - только для комментариев верхнего уровня */}
-          {showReplies && !isReply && localState.replyCount > 0 && (
-            <Box marginTop={2}>
-              <TapArea onTap={toggleReplies}>
-                <Text size="100" color="subtle" weight="bold">
-                  {getReplyToggleText(showRepliesSection, localState.replyCount)}
-                </Text>
-              </TapArea>
-            </Box>
+          {/* Replies toggle */}
+          {showRepliesToggle && (
+            <RepliesToggle
+              replyCount={localState.replyCount}
+              isExpanded={showRepliesSection}
+              onToggle={toggleRepliesSection}
+            />
           )}
 
           {/* Replies section */}
           {showReplies && !isReply && showRepliesSection && (
-            <Box marginTop={2}>
+            <Box marginTop={3}>
               <CommentReplies commentId={comment.id} />
             </Box>
           )}

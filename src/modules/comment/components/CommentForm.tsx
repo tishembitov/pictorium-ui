@@ -1,7 +1,7 @@
 // src/modules/comment/components/CommentForm.tsx
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Box, Flex, Button, TextArea, Text } from 'gestalt';
+import { Box, Flex, Button, Text, TextArea } from 'gestalt';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { EmojiPicker, AttachmentButton, AttachmentPreview } from '@/shared/components';
@@ -9,7 +9,6 @@ import { ImagePreview, useImageUpload } from '@/modules/storage';
 import { UserAvatar, useUser } from '@/modules/user';
 import { useAuth } from '@/modules/auth';
 import { commentSchema, type CommentFormData } from './commentSchema';
-import { TEXT_LIMITS } from '@/shared/utils/constants';
 import { AttachmentFile } from '@/shared/components/input/AttachmentPreview';
 
 interface CommentFormProps {
@@ -164,7 +163,6 @@ export const CommentForm: React.FC<CommentFormProps> = ({
     onCancel?.();
   }, [reset, onCancel]);
 
-  // ✅ Исправление 1: обёртка для login
   const handleLogin = useCallback(() => {
     login();
   }, [login]);
@@ -185,7 +183,6 @@ export const CommentForm: React.FC<CommentFormProps> = ({
           <Text color="subtle" align="center">
             Sign in to join the conversation
           </Text>
-          {/* ✅ Исправление 1: используем handleLogin */}
           <Button text="Log in" onClick={handleLogin} size="sm" color="red" />
         </Flex>
       </Box>
@@ -207,7 +204,6 @@ export const CommentForm: React.FC<CommentFormProps> = ({
         <Box padding={3}>
           <Flex gap={3} alignItems="start">
             {showAvatar && (
-              // ✅ Исправление 2: flexShrink через dangerouslySetInlineStyle
               <Box
                 dangerouslySetInlineStyle={{
                   __style: { flexShrink: 0 },
@@ -233,10 +229,6 @@ export const CommentForm: React.FC<CommentFormProps> = ({
                     onChange={({ value }) => field.onChange(value)}
                     placeholder={placeholder}
                     rows={compact ? 1 : 2}
-                    maxLength={{
-                      characterCount: TEXT_LIMITS.COMMENT_CONTENT,
-                      errorAccessibilityLabel: 'Character limit exceeded',
-                    }}
                     disabled={isLoading}
                     errorMessage={errors.content?.message}
                     label=""
@@ -309,18 +301,6 @@ export const CommentForm: React.FC<CommentFormProps> = ({
           </Flex>
         </Box>
       </Box>
-
-      {/* Character count */}
-      {content && content.length > TEXT_LIMITS.COMMENT_CONTENT * 0.8 && (
-        <Box marginTop={1} display="flex" justifyContent="end">
-          <Text 
-            size="100" 
-            color={content.length >= TEXT_LIMITS.COMMENT_CONTENT ? 'error' : 'subtle'}
-          >
-            {content.length}/{TEXT_LIMITS.COMMENT_CONTENT}
-          </Text>
-        </Box>
-      )}
     </form>
   );
 };

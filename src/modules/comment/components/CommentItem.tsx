@@ -321,7 +321,6 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               parentId={comment.parentCommentId || undefined}
               isLiked={localState.isLiked}
               likeCount={localState.likeCount}
-              replyCount={localState.replyCount}
               isOwner={isOwner}
               canReply={canReply}
               onToggleLike={toggleLike}

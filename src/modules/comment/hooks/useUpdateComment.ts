@@ -42,14 +42,14 @@ export const useUpdateComment = (options: UseUpdateCommentOptions = {}) => {
       }
 
       if (showToast) {
-        toast.success(SUCCESS_MESSAGES.COMMENT_UPDATED);
+        toast.comment.added(); // или toast.comment.updated(), если добавить новый пресет
       }
 
       onSuccess?.(data);
     },
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to update comment');
+        toast.error(error.message || 'Failed to update comment'); // Можно заменить на пресет
       }
 
       onError?.(error);

@@ -39,12 +39,12 @@ export const useCreateComment = (
         refetchType: 'none',
       });
 
-      toast.success('Comment added');
+      toast.comment.added();
       onSuccess?.(data);
     },
 
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to add comment');
+      toast.error(error.message || 'Failed to add comment'); // Можно заменить на пресет, если потребуется
       onError?.(error);
     },
   });

@@ -49,7 +49,7 @@ export const useCreateReply = (
       }
 
       if (showToast) {
-        toast.success(SUCCESS_MESSAGES.COMMENT_CREATED);
+        toast.comment.replied();
       }
 
       onSuccess?.(data);
@@ -57,7 +57,7 @@ export const useCreateReply = (
     
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to create reply');
+        toast.error(error.message || 'Failed to create reply'); // Можно заменить на пресет
       }
       onError?.(error);
     },

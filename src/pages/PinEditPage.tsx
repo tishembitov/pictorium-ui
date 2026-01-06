@@ -21,7 +21,7 @@ const PinEditPage: React.FC = () => {
   const isOwner = useIsOwner(pin?.userId);
 
   const handleSuccess = () => {
-    toast.success('Pin updated successfully!');
+    toast.pin.saved();
     if (pinId) {
       navigate(buildPath.pin(pinId));
     }
@@ -76,7 +76,7 @@ const PinEditPage: React.FC = () => {
 
   // Check ownership
   if (!isOwner) {
-    toast.error("You can only edit your own pins");
+    toast.errors.permission();
     return <Navigate to={buildPath.pin(pinId)} replace />;
   }
 

@@ -39,14 +39,14 @@ export const useSelectBoard = (options: UseSelectBoardOptions = {}) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.boards.selected() });
 
       if (showToast) {
-        toast.success('Board selected');
+        toast.board.selected(board?.name);
       }
 
       onSuccess?.();
     },
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to select board');
+        toast.error(error.message || 'Failed to select board'); // Можно заменить на пресет, если потребуется
       }
 
       onError?.(error);
@@ -61,14 +61,14 @@ export const useSelectBoard = (options: UseSelectBoardOptions = {}) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.boards.selected() });
 
       if (showToast) {
-        toast.success('Switched to Profile');
+        toast.info('Switched to Profile');
       }
 
       onSuccess?.();
     },
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to deselect board');
+        toast.error(error.message || 'Failed to deselect board'); // Можно заменить на пресет, если потребуется
       }
 
       onError?.(error);

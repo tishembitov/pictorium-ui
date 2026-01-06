@@ -53,7 +53,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
   const handleCopyLink = useCallback(async () => {
     const success = await copy(url);
     if (success) {
-      toast.success(SUCCESS_MESSAGES.COPIED_TO_CLIPBOARD);
+      toast.copy.link();
     }
     setIsOpen(false);
   }, [copy, url, toast]);
@@ -68,14 +68,14 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
     // Instagram не поддерживает прямой шаринг через URL
     // Копируем ссылку и показываем подсказку
     void copy(url);
-    toast.info('Link copied! Open Instagram and paste in your story or bio');
+    toast.copy.link();
     setIsOpen(false);
   }, [copy, url, toast]);
 
   const handleShareTikTok = useCallback(() => {
     // TikTok тоже не поддерживает прямой шаринг
     void copy(url);
-    toast.info('Link copied! Open TikTok and paste in your bio');
+    toast.copy.link();
     setIsOpen(false);
   }, [copy, url, toast]);
 

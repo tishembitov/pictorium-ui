@@ -46,7 +46,7 @@ export const useFollow = (options: UseFollowOptions = {}) => {
       }
 
       if (showToast) {
-        toast.success(SUCCESS_MESSAGES.FOLLOWED);
+        toast.follow.followed();
       }
 
       onSuccess?.();
@@ -54,7 +54,7 @@ export const useFollow = (options: UseFollowOptions = {}) => {
     
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to follow user');
+        toast.error(error.message || 'Failed to follow user'); // Можно поменять на пресет, если потребуется
       }
       onError?.(error);
     },

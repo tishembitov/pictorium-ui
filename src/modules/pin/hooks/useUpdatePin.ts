@@ -30,12 +30,12 @@ export const useUpdatePin = (options: UseUpdatePinOptions = {}) => {
         refetchType: 'none',
       });
       
-      toast.success('Pin updated!');
+      toast.pin.saved();
       onSuccess?.(data);
     },
     
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update pin');
+      toast.error(error.message || 'Failed to update pin'); // Можно заменить на пресет, если потребуется
       onError?.(error);
     },
   });

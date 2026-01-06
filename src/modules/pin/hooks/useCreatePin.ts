@@ -36,7 +36,7 @@ export const useCreatePin = (options: UseCreatePinOptions = {}) => {
       });
       
       if (showToast) {
-        toast.success('Pin created!');
+        toast.pin.created();
       }
       
       if (navigateToPin) {
@@ -47,7 +47,7 @@ export const useCreatePin = (options: UseCreatePinOptions = {}) => {
     },
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to create pin');
+        toast.error(error.message || 'Failed to create pin'); // Можно поменять на пресет, если потребуется
       }
       
       onError?.(error);

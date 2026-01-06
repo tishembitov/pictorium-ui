@@ -47,14 +47,14 @@ export const useUpdateUser = (options: UseUpdateUserOptions = {}) => {
       }
 
       if (showToast) {
-        toast.success(SUCCESS_MESSAGES.PROFILE_UPDATED);
+        toast.profile.updated();
       }
       
       onSuccess?.(data);
     },
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || ERROR_MESSAGES.UNKNOWN_ERROR);
+        toast.error(error.message || ERROR_MESSAGES.UNKNOWN_ERROR); // Можно поменять на пресет, если потребуется
       }
       
       onError?.(error);

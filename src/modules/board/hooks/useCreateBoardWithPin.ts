@@ -46,12 +46,12 @@ export const useCreateBoardWithPin = (
         selectBoard(board.id);
       }
 
-      toast.success(`Created "${board.title}" and saved pin!`);
+      toast.board.created(board.title);
       onSuccess?.(board);
     },
 
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create board');
+      toast.error(error.message || 'Failed to create board'); // Можно поменять на пресет, если потребуется
       onError?.(error);
     },
   });

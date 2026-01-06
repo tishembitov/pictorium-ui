@@ -57,7 +57,7 @@ export const useDeleteComment = (options: UseDeleteCommentOptions = {}) => {
       }
 
       if (showToast) {
-        toast.success(SUCCESS_MESSAGES.COMMENT_DELETED);
+        toast.comment.deleted();
       }
 
       onSuccess?.();
@@ -65,7 +65,7 @@ export const useDeleteComment = (options: UseDeleteCommentOptions = {}) => {
 
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to delete comment');
+        toast.error(error.message || 'Failed to delete comment'); // Можно заменить на пресет
       }
       onError?.(error);
     },

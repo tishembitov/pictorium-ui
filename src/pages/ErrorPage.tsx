@@ -68,7 +68,7 @@ ${stack ? `\nStack:\n${stack}` : ''}
     `.trim();
 
     void copy(errorInfo);
-    toast.success('Error details copied to clipboard');
+    toast.copy.link();
   };
 
   return (

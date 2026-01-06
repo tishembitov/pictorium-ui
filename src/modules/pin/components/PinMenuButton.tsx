@@ -82,16 +82,16 @@ export const PinMenuButton: React.FC<PinMenuButtonProps> = ({
       await download(pin.imageId, {
         fileName: pin.title || 'pin-image',
         onSuccess: () => {
-          toast.success('Image downloaded!');
+          toast.download.success();
         },
       });
     } catch {
-      toast.error('Failed to download image');
+      toast.download.error && toast.download.error('Failed to download image');
     }
   }, [download, pin.imageId, pin.title, toast]);
 
   const handleHidePin = useCallback(() => {
-    toast.info('Pin hidden from your feed');
+    toast.info('Pin hidden from your feed'); // Можно использовать пресет, если потребуется
     setIsOpen(false);
   }, [toast]);
 

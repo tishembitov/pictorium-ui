@@ -45,7 +45,7 @@ export const useUnfollow = (options: UseUnfollowOptions = {}) => {
       }
 
       if (showToast) {
-        toast.success(SUCCESS_MESSAGES.UNFOLLOWED);
+        toast.follow.unfollowed();
       }
 
       onSuccess?.();
@@ -53,7 +53,7 @@ export const useUnfollow = (options: UseUnfollowOptions = {}) => {
     
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to unfollow user');
+        toast.error(error.message || 'Failed to unfollow user'); // Можно поменять на пресет, если потребуется
       }
       onError?.(error);
     },

@@ -92,7 +92,7 @@ export const useBoardSaveManager = ({
     },
     onError: (error) => {
       setSavingToBoardId(null);
-      toast.error(error.message || 'Failed to save pin');
+      toast.error(error.message || 'Failed to save pin'); // Можно поменять на пресет, если потребуется
     },
   });
 
@@ -103,7 +103,7 @@ export const useBoardSaveManager = ({
     },
     onError: (error) => {
       setRemovingFromBoardId(null);
-      toast.error(error.message || 'Failed to remove pin');
+      toast.error(error.message || 'Failed to remove pin'); // Можно поменять на пресет, если потребуется
     },
   });
 
@@ -161,7 +161,7 @@ export const useBoardSaveManager = ({
       boardId: selectedBoard.id,
       boardName: selectedBoard.title,
     });
-    toast.success(`Saved to "${selectedBoard.title}"`);
+    toast.pin.saved(selectedBoard.title);
 
     // 2. Background mutation
     setSavingToBoardId(selectedBoard.id);
@@ -176,7 +176,7 @@ export const useBoardSaveManager = ({
       boardId: board.id,
       boardName: board.title,
     });
-    toast.success(`Saved to "${board.title}"`);
+    toast.pin.saved(board.title);
 
     // 2. Update selected board
     selectBoard(board.id);
@@ -193,7 +193,7 @@ export const useBoardSaveManager = ({
 
     // 1. Immediate UI update
     onRemove(board.id, remainingBoards);
-    toast.success('Removed from board');
+    toast.pin.removed(board.title);
 
     // 2. Background mutation
     setRemovingFromBoardId(board.id);

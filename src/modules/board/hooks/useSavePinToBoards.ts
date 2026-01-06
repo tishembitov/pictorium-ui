@@ -48,13 +48,13 @@ export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
       });
 
       const count = boardIds.length;
-      toast.success(`Saved to ${count} ${count === 1 ? 'board' : 'boards'}!`);
+      toast.pin.saved(count === 1 ? 'board' : 'boards');
       
       onSuccess?.(boardIds, updatedPin);
     },
 
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to save pin');
+      toast.error(error.message || 'Failed to save pin'); // Можно поменять на пресет, если потребуется
       onError?.(error);
     },
   });

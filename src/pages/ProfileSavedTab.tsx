@@ -55,7 +55,7 @@ const ProfileSavedTab: React.FC<ProfileSavedTabProps> = ({
 
   const handleBoardChange = useCallback((board: { title: string } | null) => {
     if (board) {
-      toast.success(`Default board: "${board.title}"`);
+      toast.board.selected(board.title);
     }
   }, [toast]);
 

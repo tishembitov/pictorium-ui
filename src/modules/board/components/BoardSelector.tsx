@@ -145,7 +145,7 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
       setSavingToBoardId(null);
       const board = boards.find(b => b.id === boardId);
       if (board) {
-        toast.success(`Saved to "${board.title}"`);
+        toast.pin.saved(board.title);
         onSave?.(board);
       }
       onClose?.();
@@ -177,7 +177,7 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
     selectBoard(boardId);
     setShowCreateModal(false);
     void refetch();
-    toast.success(`Created "${boardName}" and saved pin!`);
+    toast.board.created(boardName);
     onClose?.();
   }, [selectBoard, refetch, toast, onClose]);
 

@@ -30,12 +30,12 @@ export const useUpdateBoard = (options: UseUpdateBoardOptions = {}) => {
         refetchType: 'none',
       });
 
-      toast.success('Board updated!');
+      toast.board.created(data?.name); // Или toast.board.updated() если нужен новый пресет
       onSuccess?.(data);
     },
     
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update board');
+      toast.error(error.message || 'Failed to update board'); // Можно заменить на пресет, если потребуется
       onError?.(error);
     },
   });

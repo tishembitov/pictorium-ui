@@ -73,13 +73,13 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
       setIsSavingToBoard(false);
       if (localSelectedBoard) {
         selectBoard(localSelectedBoard.id);
-        toast.success(`Pin created and saved to "${localSelectedBoard.title}"`);
+        toast.pin.saved(localSelectedBoard.title);
       }
       onSuccess?.();
     },
     onError: () => {
       setIsSavingToBoard(false);
-      toast.success('Pin created! (Failed to save to board)');
+        toast.pin.created();
       onSuccess?.();
     },
   });
@@ -90,7 +90,7 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
         setIsSavingToBoard(true);
         savePinToBoard({ boardId: localSelectedBoard.id, pinId: createdPin.id });
       } else {
-        toast.success('Pin created!');
+        toast.pin.created();
         onSuccess?.();
       }
     },

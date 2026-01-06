@@ -36,7 +36,7 @@ const SettingsPage: React.FC = () => {
   const { user, isLoading, isError, error, refetch } = useUser(authUser?.id);
 
   const handleProfileUpdateSuccess = () => {
-    toast.success('Profile updated successfully!');
+    toast.profile.updated();
     refetch();
   };
 

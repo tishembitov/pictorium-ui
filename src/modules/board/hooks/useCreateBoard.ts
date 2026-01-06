@@ -27,12 +27,12 @@ export const useCreateBoard = (options: UseCreateBoardOptions = {}) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.all });
 
-      toast.success('Board created!');
+      toast.board.created(data?.name);
       onSuccess?.(data);
     },
     
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create board');
+      toast.error(error.message || 'Failed to create board'); // Можно заменить на пресет, если потребуется
       onError?.(error);
     },
   });

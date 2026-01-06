@@ -70,7 +70,7 @@ export const useDeleteBoard = (options: UseDeleteBoardOptions = {}) => {
         refetchType: 'none',
       });
 
-      toast.success('Board deleted');
+      toast.board.deleted();
 
       if (navigateOnSuccess && currentUser?.username) {
         navigate(`${buildPath.profile(currentUser.username)}#boards`);
@@ -94,7 +94,7 @@ export const useDeleteBoard = (options: UseDeleteBoardOptions = {}) => {
         }
       }
 
-      toast.error(error.message || 'Failed to delete board');
+      toast.error(error.message || 'Failed to delete board'); // Можно поменять на пресет, если потребуется
       onError?.(error);
     },
   });

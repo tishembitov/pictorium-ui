@@ -46,7 +46,7 @@ export const useDeletePin = (options: UseDeletePinOptions = {}) => {
         refetchType: 'none',
       });
       
-      toast.success('Pin deleted');
+      toast.pin.deleted();
       
       if (navigateOnSuccess) {
         navigate(ROUTES.HOME);
@@ -56,7 +56,7 @@ export const useDeletePin = (options: UseDeletePinOptions = {}) => {
     },
 
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete pin');
+      toast.error(error.message || 'Failed to delete pin'); // Можно заменить на пресет, если потребуется
       onError?.(error);
     },
   });

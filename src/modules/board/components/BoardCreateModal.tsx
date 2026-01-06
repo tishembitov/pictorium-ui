@@ -1,6 +1,6 @@
 // src/modules/board/components/BoardCreateModal.tsx
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback} from 'react';
 import {
   Box,
   Button,
@@ -9,7 +9,6 @@ import {
   Layer,
   Modal,
   Text,
-  Switch,
   Icon,
   TapArea,
 } from 'gestalt';
@@ -23,7 +22,7 @@ import { boardCreateSchema, type BoardCreateFormData } from './boardCreateSchema
 interface BoardCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: (boardId: string, boardName: string) => void; // ✅ Добавлен boardName
+  onSuccess?: (boardId: string, boardName: string) => void;
   initialTitle?: string;
   pinId?: string;
 }
@@ -37,8 +36,26 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
   initialTitle = '',
   pinId,
 }) => {
-  const [keepOpen, setKeepOpen] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  // ✅ Убраны: keepOpen, showSuccess - больше не нужны
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isValid },
+    reset,
+    getValues,
+  } = useForm<BoardCreateFormData>({
+    resolver: zodResolver(boardCreateSchema),
+    defaultValues: { title: initialTitle },
+    mode: 'onChange',
+  });
+
+  // ✅ Упрощённый handleSuccess - просто уведомляем и закрываем
+  const handleSuccess = useCallback((boardId: string, boardName: string) => {
+    onSuccess?.(boardId, boardName);
+    reset({ title: '' });
+    onClose();
+  }, [onSuccess, reset, onClose]);
 
   const { createBoard, isLoading: isCreatingBoard } = useCreateBoard({
     onSuccess: (data) => {
@@ -58,32 +75,8 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
 
   const isLoading = isCreatingBoard || isCreatingWithPin;
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isValid },
-    reset,
-    getValues,
-  } = useForm<BoardCreateFormData>({
-    resolver: zodResolver(boardCreateSchema),
-    defaultValues: { title: initialTitle },
-    mode: 'onChange',
-  });
-
-  const handleSuccess = useCallback((boardId: string, boardName: string) => {
-    onSuccess?.(boardId, boardName); // ✅ Передаём оба значения
-    if (keepOpen) {
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 2000);
-      reset({ title: '' });
-    } else {
-      onClose();
-    }
-  }, [onSuccess, keepOpen, reset, onClose]);
-
   const handleClose = useCallback(() => {
     reset({ title: '' });
-    setShowSuccess(false);
     onClose();
   }, [reset, onClose]);
 
@@ -189,31 +182,6 @@ export const BoardCreateModal: React.FC<BoardCreateModalProps> = ({
                     <Icon accessibilityLabel="" icon="pin" size={16} color="inverse" />
                     <Text color="inverse" size="200">
                       Pin will be saved to this board
-                    </Text>
-                  </Flex>
-                </Box>
-              )}
-
-              <Box color="secondary" rounding={3} padding={3}>
-                <Flex alignItems="center" justifyContent="between">
-                  <Box>
-                    <Text weight="bold" size="200">Keep creating</Text>
-                    <Text color="subtle" size="100">Create multiple boards quickly</Text>
-                  </Box>
-                  <Switch
-                    id="keep-modal-open"
-                    switched={keepOpen}
-                    onChange={() => setKeepOpen(!keepOpen)}
-                  />
-                </Flex>
-              </Box>
-
-              {showSuccess && (
-                <Box color="successBase" rounding={3} padding={3}>
-                  <Flex alignItems="center" gap={2}>
-                    <Icon accessibilityLabel="" icon="check-circle" color="inverse" size={16} />
-                    <Text color="inverse" size="200">
-                      {pinId ? 'Board created and pin saved!' : 'Board created! Add another one.'}
                     </Text>
                   </Flex>
                 </Box>

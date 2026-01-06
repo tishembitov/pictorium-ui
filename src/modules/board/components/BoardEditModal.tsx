@@ -8,12 +8,11 @@ import {
   Heading,
   Layer,
   Modal,
-  Text,
 } from 'gestalt';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { FormField, FormTextArea } from '@/shared/components';
+import { FormField } from '@/shared/components';
 import { useUpdateBoard } from '../hooks/useUpdateBoard';
 import { TEXT_LIMITS } from '@/shared/utils/constants';
 import type { BoardResponse } from '../types/board.types';
@@ -138,7 +137,7 @@ export const BoardEditModal: React.FC<BoardEditModalProps> = ({
                   />
                 )}
               />
-
+{/* 
               <Controller
                 name="description"
                 control={control}
@@ -154,13 +153,13 @@ export const BoardEditModal: React.FC<BoardEditModalProps> = ({
                     rows={3}
                   />
                 )}
-              />
+              /> */}
 
-              <Box>
+              {/* <Box>
                 <Text size="100" color="subtle">
                   Tip: Drag and drop to reorder your boards
                 </Text>
-              </Box>
+              </Box> */}
             </Flex>
           </form>
         </Box>

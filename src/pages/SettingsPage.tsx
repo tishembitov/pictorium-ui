@@ -17,7 +17,6 @@ import {
 import { UserProfileForm, UserAvatar, useUser } from '@/modules/user';
 import { useAuth } from '@/modules/auth';
 import { ErrorMessage } from '@/shared/components';
-import { useToast } from '@/shared/hooks/useToast';
 import { useConfirmModal } from '@/shared/hooks/useConfirmModal';
 // import { useTheme } from '@/shared/hooks/useTheme';
 import { buildPath } from '@/app/router/routeConfig';
@@ -27,7 +26,6 @@ type SettingsTab = 'profile' | 'account' ;
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user: authUser, logout } = useAuth();
-  const { toast } = useToast();
   const { confirm } = useConfirmModal();
   // const { colorScheme, setColorScheme } = useTheme();
   
@@ -36,7 +34,6 @@ const SettingsPage: React.FC = () => {
   const { user, isLoading, isError, error, refetch } = useUser(authUser?.id);
 
   const handleProfileUpdateSuccess = () => {
-    toast.profile.updated();
     refetch();
   };
 

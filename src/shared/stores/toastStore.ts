@@ -7,6 +7,8 @@ import { TIME } from '../utils/constants';
 // ============ Toast Types ============
 export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'loading';
 
+export type ToastSize = 'sm' | 'md' | 'lg';
+
 export type ToastVariant = 
   | 'default'
   | 'pin'
@@ -41,6 +43,7 @@ export interface Toast {
   timestamp?: number;
   groupId?: string;
   metadata?: Record<string, unknown>;
+  size?: ToastSize; 
 }
 
 export interface ToastOptions extends Omit<Toast, 'id' | 'type' | 'message'> {
@@ -60,9 +63,11 @@ export const TOAST_PRESETS = {
     description: boardName ? `Removed from "${boardName}"` : undefined,
     variant: 'delete' as const,
   }),
-  PIN_CREATED: () => ({
+  PIN_CREATED: (boardName?: string) => ({
     message: 'Pin created!',
-    description: 'Your pin is now live',
+    description: boardName 
+      ? `Saved to "${boardName}"` 
+      : 'Your pin is now live',
     variant: 'pin' as const,
   }),
   PIN_UPDATED: () => ({
@@ -303,6 +308,18 @@ export const useToastStore = create<ToastStore>()(
 
       addToast: (toastInput) => {
         const { replace, ...toast } = toastInput;
+        const currentToasts = get().toasts;
+        const lastToast = currentToasts[currentToasts.length - 1];
+
+        if (
+          lastToast &&
+          lastToast.message === toast.message &&
+          lastToast.type === toast.type &&
+          lastToast.timestamp &&
+          Date.now() - lastToast.timestamp < 500
+        ) {
+          return lastToast.id; // Возвращаем ID существующего тоста
+        }
         const id = generateId();
         
         const duration = toast.type === 'loading' 

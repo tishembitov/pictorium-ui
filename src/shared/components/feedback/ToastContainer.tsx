@@ -16,6 +16,7 @@ import {
   type Toast, 
   type ToastType,
   type ToastVariant,
+  type ToastSize,
 } from '../../stores/toastStore';
 import { Z_INDEX } from '../../utils/constants';
 
@@ -29,6 +30,51 @@ interface ToastConfig {
   bgColor: string;
   borderColor: string;
 }
+
+// ✅ Конфигурация размеров
+interface ToastSizeConfig {
+  minWidth: number;
+  maxWidth: number;
+  padding: number;
+  iconSize: number;
+  fontSize: {
+    message: string;
+    description: string;
+  };
+}
+
+const SIZE_CONFIG: Record<ToastSize, ToastSizeConfig> = {
+  sm: {
+    minWidth: 240,
+    maxWidth: 320,
+    padding: 12,
+    iconSize: 16,
+    fontSize: {
+      message: '14px',
+      description: '12px',
+    },
+  },
+  md: {
+    minWidth: 300,
+    maxWidth: 450,
+    padding: 16,
+    iconSize: 20,
+    fontSize: {
+      message: '15px',
+      description: '13px',
+    },
+  },
+  lg: {
+    minWidth: 360,
+    maxWidth: 600,
+    padding: 20,
+    iconSize: 24,
+    fontSize: {
+      message: '16px',
+      description: '14px',
+    },
+  },
+};
 
 // ============ Config Maps ============
 const DEFAULT_CONFIG: ToastConfig = {
@@ -104,6 +150,36 @@ const getToastConfig = (type: ToastType, variant?: ToastVariant): ToastConfig =>
   };
 };
 
+// ✅ Автоматическое определение размера
+const getAutoSize = (toast: Toast): ToastSize => {
+  // Если размер указан явно
+  if (toast.size) return toast.size;
+  
+  // Автоматический расчёт на основе контента
+  const messageLength = toast.message.length;
+  const hasDescription = !!toast.description;
+  const hasAction = !!toast.action;
+  const hasProgress = toast.progress !== undefined;
+  
+  // Large: длинное сообщение или много контента
+  if (
+    messageLength > 50 || 
+    (hasDescription && toast.description!.length > 60) ||
+    (hasAction && hasDescription) ||
+    hasProgress
+  ) {
+    return 'lg';
+  }
+  
+  // Small: короткое сообщение без extras
+  if (messageLength < 20 && !hasDescription && !hasAction) {
+    return 'sm';
+  }
+  
+  // Medium: всё остальное
+  return 'md';
+};
+
 // ============ Toast Item ============
 interface ToastItemProps {
   readonly toast: Toast;
@@ -121,6 +197,7 @@ const ToastItem: React.FC<ToastItemProps> = ({
   index,
 }) => {
   const config = getToastConfig(toast.type, toast.variant);
+  const sizeConfig = SIZE_CONFIG[getAutoSize(toast)];
   const isLoading = toast.type === 'loading';
 
   const handleMouseEnter = useCallback(() => {
@@ -155,15 +232,16 @@ const ToastItem: React.FC<ToastItemProps> = ({
       onMouseLeave={handleMouseLeave}
     >
       <Box
-        padding={4}
         rounding={3}
-        minWidth={300}
-        maxWidth={400}
         dangerouslySetInlineStyle={{
           __style: {
             backgroundColor: config.bgColor,
             border: `1px solid ${config.borderColor}`,
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            minWidth: `${sizeConfig.minWidth}px`,
+            maxWidth: `${sizeConfig.maxWidth}px`,
+            padding: `${sizeConfig.padding}px`,
+            transition: 'all 0.2s ease', // ✅ Плавный переход размера
           },
         }}
       >
@@ -177,24 +255,39 @@ const ToastItem: React.FC<ToastItemProps> = ({
                 accessibilityLabel={toast.type} 
                 icon={config.icon} 
                 color={config.color}
-                size={20} 
+                size={sizeConfig.iconSize}
               />
             )}
           </Box>
 
           {/* Content */}
-          <Box flex="grow">
+          <Box flex="grow" minWidth={0}>
             <Flex direction="column" gap={1}>
               {/* Message */}
-              <Text weight="bold" size="200" color="inverse">
+              <div
+                style={{
+                  color: 'white',
+                  fontWeight: 600,
+                  fontSize: sizeConfig.fontSize.message,
+                  lineHeight: '1.4',
+                  wordBreak: 'break-word',
+                }}
+              >
                 {toast.message}
-              </Text>
+              </div>
 
               {/* Description */}
               {toast.description && (
-                <Text size="100" color="inverse" overflow="breakWord">
-                  <span style={{ opacity: 0.8 }}>{toast.description}</span>
-                </Text>
+                <div
+                  style={{
+                    color: 'rgba(255, 255, 255, 0.8)',
+                    fontSize: sizeConfig.fontSize.description,
+                    lineHeight: '1.5',
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {toast.description}
+                </div>
               )}
 
               {/* Progress bar for loading toasts */}
@@ -307,6 +400,14 @@ export const ToastContainer: React.FC = () => {
               transform: translateY(0) scale(1);
             }
           }
+          
+          /* ✅ Responsive для мобильных */
+          @media (max-width: 768px) {
+            .toast-container {
+              padding-left: 12px !important;
+              padding-right: 12px !important;
+            }
+          }
         `}
       </style>
       
@@ -327,16 +428,20 @@ export const ToastContainer: React.FC = () => {
             },
           }}
         >
-          {toasts.map((toast, index) => (
-            <ToastItem
-              key={toast.id}
-              toast={toast}
-              index={index}
-              onDismiss={() => removeToast(toast.id)}
-              onPause={() => pauseToast(toast.id)}
-              onResume={() => resumeToast(toast.id)}
-            />
-          ))}
+          <div className="toast-container" style={{ width: '100%', maxWidth: '100vw' }}>
+            <Flex direction="column" alignItems="center" gap={2}>
+              {toasts.map((toast, index) => (
+                <ToastItem
+                  key={toast.id}
+                  toast={toast}
+                  index={index}
+                  onDismiss={() => removeToast(toast.id)}
+                  onPause={() => pauseToast(toast.id)}
+                  onResume={() => resumeToast(toast.id)}
+                />
+              ))}
+            </Flex>
+          </div>
         </Box>
       </Layer>
     </>

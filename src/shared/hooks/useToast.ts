@@ -86,8 +86,8 @@ export function useToast() {
   );
 
   const pinCreated = useCallback(
-    (options?: ToastOptions) => {
-      const preset = TOAST_PRESETS.PIN_CREATED();
+    (boardName?: string, options?: ToastOptions) => {
+      const preset = TOAST_PRESETS.PIN_CREATED(boardName);
       return addToast({ type: 'success', ...preset, ...options });
     },
     [addToast]

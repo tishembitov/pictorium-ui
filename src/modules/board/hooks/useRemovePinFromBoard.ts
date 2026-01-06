@@ -3,52 +3,50 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { boardApi } from '../api/boardApi';
-import type { BoardPinAction } from '../types/board.types';
+import { useToast } from '@/shared/hooks/useToast';
 
 interface UseRemovePinFromBoardOptions {
   onSuccess?: (boardId: string) => void;
   onError?: (error: Error) => void;
+  showToast?: boolean;
 }
 
-/**
- * Мутация для удаления пина из доски.
- */
 export const useRemovePinFromBoard = (options: UseRemovePinFromBoardOptions = {}) => {
-  const { onSuccess, onError } = options;
+  const { onSuccess, onError, showToast = true } = options;
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const mutation = useMutation({
-    mutationFn: ({ boardId, pinId }: BoardPinAction) =>
+    mutationFn: ({ boardId, pinId }: { boardId: string; pinId: string }) =>
       boardApi.removePinFromBoard(boardId, pinId),
 
     onSuccess: (_, { boardId, pinId }) => {
-      // Board-related
-      void queryClient.invalidateQueries({ 
-        queryKey: queryKeys.boards.forPin(pinId),
-        refetchType: 'none',
-      });
-      
-      void queryClient.invalidateQueries({ 
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.boards.pins(boardId),
         refetchType: 'none',
       });
-      
-      void queryClient.invalidateQueries({ 
-        queryKey: queryKeys.boards.my(),
+
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.boards.forPin(pinId),
         refetchType: 'none',
       });
 
-      // ✅ Pin lists - инвалидируем все списки пинов
-      // Это включает SAVED, CREATED, и другие scope
-      void queryClient.invalidateQueries({ 
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.pins.lists(),
         refetchType: 'none',
       });
+
+      if (showToast) {
+        toast.pin.removed();
+      }
 
       onSuccess?.(boardId);
     },
 
     onError: (error: Error) => {
+      if (showToast) {
+        toast.error(error.message || 'Failed to remove pin');
+      }
       onError?.(error);
     },
   });

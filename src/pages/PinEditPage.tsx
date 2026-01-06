@@ -20,8 +20,6 @@ const PinEditPage: React.FC = () => {
   const isOwner = useIsOwner(pin?.userId);
 
   const handleSuccess = () => {
-    // ✅ Исправлено: используем pin.updated вместо pin.saved
-    toast.pin.updated();
     if (pinId) {
       navigate(buildPath.pin(pinId));
     }

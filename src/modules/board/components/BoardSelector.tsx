@@ -141,6 +141,7 @@ export const BoardSelector: React.FC<BoardSelectorProps> = ({
   
   // ✅ Упрощённый хук
   const { savePinToBoard } = useSavePinToBoard({
+    showToast: false,
     onSuccess: (_, boardId) => {
       setSavingToBoardId(null);
       const board = boards.find(b => b.id === boardId);

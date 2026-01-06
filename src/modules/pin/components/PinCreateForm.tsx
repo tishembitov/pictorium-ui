@@ -16,7 +16,6 @@ import {
   useSelectedBoardStore,
   useSelectBoard,
   useMyBoards,
-  useSavePinToBoard,
   BoardCreateModal,
   BoardPickerDropdown,
 } from '@/modules/board';
@@ -68,31 +67,14 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
     enabled: isAuthenticated,
   });
 
-  const { savePinToBoard } = useSavePinToBoard({
+  const { createPin, isLoading: isCreating } = useCreatePin({
     onSuccess: () => {
       setIsSavingToBoard(false);
       if (localSelectedBoard) {
         selectBoard(localSelectedBoard.id);
-        toast.pin.saved(localSelectedBoard.title);
       }
+      toast.pin.created(localSelectedBoard?.title);
       onSuccess?.();
-    },
-    onError: () => {
-      setIsSavingToBoard(false);
-        toast.pin.created();
-      onSuccess?.();
-    },
-  });
-
-  const { createPin, isLoading: isCreating } = useCreatePin({
-    onSuccess: (createdPin) => {
-      if (localSelectedBoard) {
-        setIsSavingToBoard(true);
-        savePinToBoard({ boardId: localSelectedBoard.id, pinId: createdPin.id });
-      } else {
-        toast.pin.created();
-        onSuccess?.();
-      }
     },
     navigateToPin: false,
     showToast: false,

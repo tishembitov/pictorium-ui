@@ -4,7 +4,7 @@ import React from 'react';
 import { Box, Flex, Spinner, Text, Heading } from 'gestalt';
 import { CommentItem } from './CommentItem';
 import { CommentForm } from './CommentForm';
-import { InfiniteScroll, EmptyState } from '@/shared/components';
+import { InfiniteScroll } from '@/shared/components';
 import { useAuth } from '@/modules/auth';
 import { formatCompactNumber } from '@/shared/utils/formatters';
 import type { CommentResponse, CommentCreateRequest } from '../types/comment.types';
@@ -83,21 +83,13 @@ export const CommentList: React.FC<CommentListProps> = ({
 
       {/* Comments list */}
       {comments.length === 0 ? (
-        <Box 
-          paddingY={8}
-          rounding={4}
-          dangerouslySetInlineStyle={{
-            __style: {
-              backgroundColor: 'rgba(0, 0, 0, 0.02)',
-              border: '1px dashed rgba(0, 0, 0, 0.1)',
-            },
-          }}
-        >
-          <EmptyState
-            title={emptyMessage}
-            description="Be the first to share your thoughts! 🎉"
-            icon="speech"
-          />
+        <Box paddingY={5}>
+          <Flex direction="column" alignItems="center" gap={2}>
+            <Text size="300">💬</Text>
+            <Text align="center" color="subtle" size="200">
+              {emptyMessage}
+            </Text>
+          </Flex>
         </Box>
       ) : (
         <InfiniteScroll
@@ -105,7 +97,6 @@ export const CommentList: React.FC<CommentListProps> = ({
           hasMore={hasNextPage}
           isLoading={isFetchingNextPage}
           loader={
-            // ✅ Исправление: Box вместо Flex с padding
             <Box padding={4} display="flex" justifyContent="center">
               <Spinner accessibilityLabel="Loading more" show size="sm" />
             </Box>

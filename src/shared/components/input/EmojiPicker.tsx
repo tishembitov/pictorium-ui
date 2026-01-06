@@ -44,7 +44,6 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
       const pickerHeight = 400;
       const pickerWidth = 350;
 
-      // Position above or below button depending on space
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
 
@@ -55,7 +54,6 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
         top = rect.top - pickerHeight - 8;
       }
 
-      // Keep within horizontal bounds
       let left = rect.left;
       if (left + pickerWidth > window.innerWidth - 16) {
         left = window.innerWidth - pickerWidth - 16;
@@ -85,7 +83,6 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
     [onEmojiSelect]
   );
 
-  // Close on escape or click outside
   useEffect(() => {
     if (!isOpen) return;
 
@@ -115,7 +112,6 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
     };
   }, [isOpen]);
 
-  // Update position on scroll/resize
   useEffect(() => {
     if (!isOpen) return;
 
@@ -137,7 +133,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
       <IconButton
         ref={buttonRef}
         accessibilityLabel="Add emoji"
-        icon="smiley"
+        icon="sparkle"
         onClick={handleToggle}
         size={iconSize}
         bgColor="transparent"
@@ -181,7 +177,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
               previewConfig={{
                 showPreview: false,
               }}
-              skinTonesDisabled={false}
+              skinTonesDisabled
               autoFocusSearch={false}
               lazyLoadEmojis
             />

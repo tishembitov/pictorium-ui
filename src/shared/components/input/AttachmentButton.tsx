@@ -110,10 +110,10 @@ export const AttachmentButton: React.FC<AttachmentButtonProps> = ({
         style={{ display: 'none' }}
         disabled={disabled}
       />
-      <Tooltip text="Attach file">
+      <Tooltip text="Attach image">
         <IconButton
-          accessibilityLabel="Attach file"
-          icon="link"
+          accessibilityLabel="Attach image"
+          icon="paper-clip"
           onClick={handleClick}
           size={iconSize}
           bgColor="transparent"

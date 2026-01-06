@@ -4,7 +4,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { commentApi } from '../api/commentApi';
 import { useToast } from '@/shared/hooks/useToast';
-import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
 import type { CommentCreateRequest, CommentResponse } from '../types/comment.types';
 
 interface UseCreateReplyOptions {

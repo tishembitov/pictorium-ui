@@ -21,21 +21,20 @@ export const useUpdatePin = (options: UseUpdatePinOptions = {}) => {
       pinApi.update(pinId, data),
       
     onSuccess: (data, variables) => {
-      // Обновляем кэш этого пина
       queryClient.setQueryData(queryKeys.pins.byId(variables.pinId), data);
       
-      // ✅ Инвалидируем только списки
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.pins.lists(),
         refetchType: 'none',
       });
       
-      toast.pin.saved();
+      // ✅ Исправлено: используем pin.updated вместо pin.saved
+      toast.pin.updated();
       onSuccess?.(data);
     },
     
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update pin'); // Можно заменить на пресет, если потребуется
+      toast.error(error.message || 'Failed to update pin');
       onError?.(error);
     },
   });

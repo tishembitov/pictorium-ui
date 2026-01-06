@@ -11,9 +11,6 @@ interface UseCreateBoardOptions {
   onError?: (error: Error) => void;
 }
 
-/**
- * Простая мутация для создания доски.
- */
 export const useCreateBoard = (options: UseCreateBoardOptions = {}) => {
   const { onSuccess, onError } = options;
   const queryClient = useQueryClient();
@@ -23,16 +20,16 @@ export const useCreateBoard = (options: UseCreateBoardOptions = {}) => {
     mutationFn: (data: BoardCreateRequest) => boardApi.create(data),
     
     onSuccess: (data) => {
-      // Инвалидируем списки досок
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.my() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.boards.all });
 
-      toast.board.created(data?.name);
+      // ✅ Исправлено: используем data.title вместо data.name
+      toast.board.created(data?.title);
       onSuccess?.(data);
     },
     
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create board'); // Можно заменить на пресет, если потребуется
+      toast.error(error.message || 'Failed to create board');
       onError?.(error);
     },
   });

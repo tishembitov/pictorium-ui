@@ -21,21 +21,20 @@ export const useUpdateBoard = (options: UseUpdateBoardOptions = {}) => {
       boardApi.update(boardId, data),
       
     onSuccess: (data, variables) => {
-      // Обновляем кэш этой доски
       queryClient.setQueryData(queryKeys.boards.byId(variables.boardId), data);
       
-      // Инвалидируем списки
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.boards.my(),
         refetchType: 'none',
       });
 
-      toast.board.created(data?.name); // Или toast.board.updated() если нужен новый пресет
+      // ✅ Исправлено: используем board.updated вместо board.created
+      toast.board.updated(data?.title);
       onSuccess?.(data);
     },
     
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update board'); // Можно заменить на пресет, если потребуется
+      toast.error(error.message || 'Failed to update board');
       onError?.(error);
     },
   });

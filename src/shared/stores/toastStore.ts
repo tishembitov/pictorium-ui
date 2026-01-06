@@ -47,17 +47,17 @@ export interface ToastOptions extends Omit<Toast, 'id' | 'type' | 'message'> {
   replace?: boolean;
 }
 
-// ============ Preset Messages ============
+// ============ Preset Messages (с опциональными параметрами) ============
 export const TOAST_PRESETS = {
-  // Pin operations
-  PIN_SAVED: (boardName: string) => ({
+  // ============ Pin operations ============
+  PIN_SAVED: (boardName?: string) => ({
     message: 'Pin saved!',
-    description: `Added to "${boardName}"`,
+    description: boardName ? `Added to "${boardName}"` : undefined,
     variant: 'save' as const,
   }),
-  PIN_REMOVED: (boardName: string) => ({
+  PIN_REMOVED: (boardName?: string) => ({
     message: 'Pin removed',
-    description: `Removed from "${boardName}"`,
+    description: boardName ? `Removed from "${boardName}"` : undefined,
     variant: 'delete' as const,
   }),
   PIN_CREATED: () => ({
@@ -67,59 +67,13 @@ export const TOAST_PRESETS = {
   }),
   PIN_UPDATED: () => ({
     message: 'Pin updated',
+    description: 'Changes saved',
     variant: 'update' as const,
   }),
   PIN_DELETED: () => ({
     message: 'Pin deleted',
     variant: 'delete' as const,
   }),
-
-  // Board operations
-  BOARD_CREATED: (name: string) => ({
-    message: 'Board created!',
-    description: `"${name}" is ready to use`,
-    variant: 'board' as const,
-  }),
-  BOARD_UPDATED: () => ({
-    message: 'Board updated',
-    variant: 'update' as const,
-  }),
-  BOARD_DELETED: () => ({
-    message: 'Board deleted',
-    variant: 'delete' as const,
-  }),
-  BOARD_SELECTED: (name: string) => ({
-    message: 'Default board changed',
-    description: `New pins will save to "${name}"`,
-    variant: 'board' as const,
-  }),
-
-  // Follow operations
-  FOLLOWED: (username: string) => ({
-    message: `Following ${username}`,
-    description: "You'll see their pins in your feed",
-    variant: 'follow' as const,
-  }),
-  UNFOLLOWED: (username: string) => ({
-    message: `Unfollowed ${username}`,
-    variant: 'follow' as const,
-  }),
-
-  // Comment operations
-  COMMENT_ADDED: () => ({
-    message: 'Comment added',
-    variant: 'comment' as const,
-  }),
-  COMMENT_DELETED: () => ({
-    message: 'Comment deleted',
-    variant: 'delete' as const,
-  }),
-  REPLY_ADDED: () => ({
-    message: 'Reply added',
-    variant: 'comment' as const,
-  }),
-
-  // Like operations
   PIN_LIKED: () => ({
     message: 'Liked!',
     variant: 'pin' as const,
@@ -130,33 +84,100 @@ export const TOAST_PRESETS = {
     variant: 'pin' as const,
     duration: 2000,
   }),
+  PINS_SAVED: (count: number, boardName?: string) => ({
+    message: `${count} ${count === 1 ? 'pin' : 'pins'} saved!`,
+    description: boardName ? `Added to "${boardName}"` : undefined,
+    variant: 'save' as const,
+  }),
 
-  // Upload operations
-  UPLOAD_STARTED: () => ({
+  // ============ Board operations ============
+  BOARD_CREATED: (name?: string) => ({
+    message: 'Board created!',
+    description: name ? `"${name}" is ready to use` : undefined,
+    variant: 'board' as const,
+  }),
+  BOARD_UPDATED: (name?: string) => ({
+    message: 'Board updated',
+    description: name ? `"${name}" saved` : 'Changes saved',
+    variant: 'update' as const,
+  }),
+  BOARD_DELETED: (name?: string) => ({
+    message: 'Board deleted',
+    description: name ? `"${name}" removed` : undefined,
+    variant: 'delete' as const,
+  }),
+  BOARD_SELECTED: (name?: string) => ({
+    message: 'Default board changed',
+    description: name ? `New pins will save to "${name}"` : undefined,
+    variant: 'board' as const,
+  }),
+
+  // ============ Follow operations ============
+  FOLLOWED: (username?: string) => ({
+    message: username ? `Following ${username}` : 'Followed!',
+    description: username ? "You'll see their pins in your feed" : undefined,
+    variant: 'follow' as const,
+  }),
+  UNFOLLOWED: (username?: string) => ({
+    message: username ? `Unfollowed ${username}` : 'Unfollowed',
+    variant: 'follow' as const,
+  }),
+
+  // ============ Comment operations ============
+  COMMENT_ADDED: () => ({
+    message: 'Comment added',
+    variant: 'comment' as const,
+  }),
+
+  COMMENT_UPDATED: () => ({  // ✅ Новый пресет
+    message: 'Comment updated',
+    variant: 'update' as const,
+  }),
+  
+  COMMENT_DELETED: () => ({
+    message: 'Comment deleted',
+    variant: 'delete' as const,
+  }),
+  REPLY_ADDED: () => ({
+    message: 'Reply added',
+    variant: 'comment' as const,
+  }),
+
+  // ============ Upload operations ============
+  UPLOAD_STARTED: (filename?: string) => ({
     message: 'Uploading...',
+    description: filename,
     variant: 'upload' as const,
   }),
-  UPLOAD_SUCCESS: () => ({
+  UPLOAD_SUCCESS: (filename?: string) => ({
     message: 'Upload complete',
+    description: filename,
     variant: 'upload' as const,
   }),
-  UPLOAD_ERROR: (filename?: string) => ({
+  UPLOAD_ERROR: (message?: string) => ({
     message: 'Upload failed',
-    description: filename ? `Could not upload "${filename}"` : undefined,
+    description: message || 'Please try again',
     variant: 'upload' as const,
   }),
 
-  // Download operations
-  DOWNLOAD_STARTED: () => ({
+  // ============ Download operations ============
+  DOWNLOAD_STARTED: (filename?: string) => ({
     message: 'Downloading...',
+    description: filename,
     variant: 'download' as const,
   }),
-  DOWNLOAD_SUCCESS: () => ({
+  DOWNLOAD_SUCCESS: (filename?: string) => ({
     message: 'Downloaded!',
+    description: filename,
+    variant: 'download' as const,
+  }),
+  DOWNLOAD_ERROR: (message?: string) => ({
+    message: 'Download failed',
+    description: message || 'Please try again',
     variant: 'download' as const,
   }),
 
-  // Copy operations
+  // ============ Copy operations ============
   COPIED_LINK: () => ({
     message: 'Link copied!',
     description: 'Ready to share',
@@ -169,7 +190,7 @@ export const TOAST_PRESETS = {
     duration: 2500,
   }),
 
-  // Profile operations
+  // ============ Profile operations ============
   PROFILE_UPDATED: () => ({
     message: 'Profile updated',
     description: 'Changes saved successfully',
@@ -180,7 +201,7 @@ export const TOAST_PRESETS = {
     variant: 'update' as const,
   }),
 
-  // Auth operations
+  // ============ Auth operations ============
   LOGGED_IN: (username?: string) => ({
     message: username ? `Welcome back, ${username}!` : 'Welcome back!',
     variant: 'auth' as const,
@@ -196,21 +217,21 @@ export const TOAST_PRESETS = {
     variant: 'auth' as const,
   }),
 
-  // Generic operations
-  SAVED: () => ({
-    message: 'Saved!',
+  // ============ Generic operations ============
+  SAVED: (item?: string) => ({
+    message: item ? `${item} saved` : 'Saved!',
     variant: 'save' as const,
   }),
-  DELETED: () => ({
-    message: 'Deleted',
+  DELETED: (item?: string) => ({
+    message: item ? `${item} deleted` : 'Deleted',
     variant: 'delete' as const,
   }),
-  UPDATED: () => ({
-    message: 'Updated',
+  UPDATED: (item?: string) => ({
+    message: item ? `${item} updated` : 'Updated',
     variant: 'update' as const,
   }),
 
-  // Error presets
+  // ============ Error presets ============
   NETWORK_ERROR: () => ({
     message: 'Connection problem',
     description: 'Check your internet connection',
@@ -271,7 +292,6 @@ const DEFAULT_DURATION = TIME.TOAST_DURATION;
 const LOADING_DURATION = 0;
 const ERROR_DURATION = 6000;
 
-// Store timeout IDs for cleanup
 const toastTimeouts = new Map<string, NodeJS.Timeout>();
 
 export const useToastStore = create<ToastStore>()(
@@ -300,14 +320,12 @@ export const useToastStore = create<ToastStore>()(
         set((state) => {
           let updatedToasts = [...state.toasts];
           
-          // Replace existing toast with same groupId if requested
           if (replace && toast.groupId) {
             const existingIndex = updatedToasts.findIndex(
               t => t.groupId === toast.groupId
             );
             if (existingIndex !== -1) {
               const oldToast = updatedToasts[existingIndex];
-              // TS Check: Ensure object exists before accessing properties
               if (oldToast) {
                 const oldId = oldToast.id;
                 const timeout = toastTimeouts.get(oldId);
@@ -322,7 +340,6 @@ export const useToastStore = create<ToastStore>()(
           
           updatedToasts.push(newToast);
           
-          // Remove oldest toasts if exceeding max
           if (updatedToasts.length > state.maxToasts) {
             const removed = updatedToasts.slice(0, updatedToasts.length - state.maxToasts);
             removed.forEach(t => {
@@ -338,7 +355,6 @@ export const useToastStore = create<ToastStore>()(
           return { toasts: updatedToasts };
         }, false, 'addToast');
 
-        // Auto remove after duration (if not loading)
         if (duration > 0) {
           const timeout = setTimeout(() => {
             if (!get().pausedToasts.has(id)) {
@@ -352,7 +368,6 @@ export const useToastStore = create<ToastStore>()(
       },
 
       removeToast: (id) => {
-        // Clear timeout
         const timeout = toastTimeouts.get(id);
         if (timeout) {
           clearTimeout(timeout);
@@ -366,7 +381,6 @@ export const useToastStore = create<ToastStore>()(
       },
 
       clearToasts: () => {
-        // Clear all timeouts
         toastTimeouts.forEach((timeout) => clearTimeout(timeout));
         toastTimeouts.clear();
         
@@ -395,7 +409,6 @@ export const useToastStore = create<ToastStore>()(
           pausedToasts: new Set([...state.pausedToasts].filter(pId => pId !== id)),
         }), false, 'resumeToast');
         
-        // Set new timeout for remaining duration (use half of original for resumed)
         if (toast.duration && toast.duration > 0) {
           const existingTimeout = toastTimeouts.get(id);
           if (existingTimeout) clearTimeout(existingTimeout);
@@ -411,7 +424,6 @@ export const useToastStore = create<ToastStore>()(
         get().updateToast(id, { progress: Math.min(100, Math.max(0, progress)) });
       },
 
-      // ============ Convenience Methods ============
       success: (message, options) => {
         return get().addToast({ type: 'success', message, ...options });
       },
@@ -447,7 +459,6 @@ export const useToastStore = create<ToastStore>()(
         });
       },
 
-      // ============ Promise-based Toast ============
       promise: async <T>(
         promise: Promise<T>, 
         options: PromiseToastOptions<T>
@@ -457,13 +468,9 @@ export const useToastStore = create<ToastStore>()(
         try {
           const data = await promise;
           
-          // Compute success message
-          let successMessage: string;
-          if (typeof options.success === 'function') {
-            successMessage = options.success(data);
-          } else {
-            successMessage = options.success;
-          }
+          const successMessage = typeof options.success === 'function'
+            ? options.success(data)
+            : options.success;
             
           get().updateToast(id, {
             type: 'success',
@@ -472,21 +479,15 @@ export const useToastStore = create<ToastStore>()(
             duration: DEFAULT_DURATION,
           });
           
-          // Schedule removal
           setTimeout(() => get().removeToast(id), DEFAULT_DURATION);
           
           return data;
         } catch (err: unknown) {
-          // Safely convert error to Error instance
           const error = err instanceof Error ? err : new Error(String(err));
           
-          // Compute error message
-          let errorMessage: string;
-          if (typeof options.error === 'function') {
-            errorMessage = options.error(error);
-          } else {
-            errorMessage = options.error;
-          }
+          const errorMessage = typeof options.error === 'function'
+            ? options.error(error)
+            : options.error;
             
           get().updateToast(id, {
             type: 'error',
@@ -495,7 +496,6 @@ export const useToastStore = create<ToastStore>()(
             duration: ERROR_DURATION,
           });
           
-          // Schedule removal
           setTimeout(() => get().removeToast(id), ERROR_DURATION);
           
           throw error;

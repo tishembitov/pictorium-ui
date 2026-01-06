@@ -4,7 +4,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { commentApi } from '../api/commentApi';
 import { useToast } from '@/shared/hooks/useToast';
-import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
 import type { CommentUpdateRequest, CommentResponse } from '../types/comment.types';
 
 interface UseUpdateCommentOptions {
@@ -13,9 +12,6 @@ interface UseUpdateCommentOptions {
   showToast?: boolean;
 }
 
-/**
- * Hook to update a comment
- */
 export const useUpdateComment = (options: UseUpdateCommentOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
   const queryClient = useQueryClient();
@@ -29,12 +25,12 @@ export const useUpdateComment = (options: UseUpdateCommentOptions = {}) => {
       commentId: string;
       data: CommentUpdateRequest;
     }) => commentApi.update(commentId, data),
+    
     onSuccess: (data, variables) => {
-      // Invalidate comment
       queryClient.invalidateQueries({
         queryKey: queryKeys.comments.byId(variables.commentId),
       });
-      // Invalidate pin comments if we know the pinId
+      
       if (data.pinId) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.pins.comments(data.pinId),
@@ -42,16 +38,17 @@ export const useUpdateComment = (options: UseUpdateCommentOptions = {}) => {
       }
 
       if (showToast) {
-        toast.comment.added(); // или toast.comment.updated(), если добавить новый пресет
+        // ✅ Исправлено: используем comment.updated
+        toast.comment.updated();
       }
 
       onSuccess?.(data);
     },
+    
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to update comment'); // Можно заменить на пресет
+        toast.error(error.message || 'Failed to update comment');
       }
-
       onError?.(error);
     },
   });

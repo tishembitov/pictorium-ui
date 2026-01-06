@@ -13,9 +13,6 @@ interface UseSelectBoardOptions {
   showToast?: boolean;
 }
 
-/**
- * Hook to select/deselect a board
- */
 export const useSelectBoard = (options: UseSelectBoardOptions = {}) => {
   const { onSuccess, onError, showToast = false } = options;
   const queryClient = useQueryClient();
@@ -23,11 +20,9 @@ export const useSelectBoard = (options: UseSelectBoardOptions = {}) => {
   const setSelectedBoard = useSelectedBoardStore((state) => state.setSelectedBoard);
   const clearSelectedBoard = useSelectedBoardStore((state) => state.clearSelectedBoard);
 
-  // Select board mutation
   const selectMutation = useMutation({
     mutationFn: (boardId: string) => selectedBoardApi.select(boardId),
     onSuccess: (_, boardId) => {
-      // Get board data from cache
       const board = queryClient.getQueryData<BoardResponse>(
         queryKeys.boards.byId(boardId)
       );
@@ -35,25 +30,23 @@ export const useSelectBoard = (options: UseSelectBoardOptions = {}) => {
         setSelectedBoard(board);
       }
       
-      // Invalidate selected board query
       queryClient.invalidateQueries({ queryKey: queryKeys.boards.selected() });
 
       if (showToast) {
-        toast.board.selected(board?.name);
+        // ✅ Исправлено: используем board.title вместо board.name
+        toast.board.selected(board?.title);
       }
 
       onSuccess?.();
     },
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to select board'); // Можно заменить на пресет, если потребуется
+        toast.error(error.message || 'Failed to select board');
       }
-
       onError?.(error);
     },
   });
 
-  // Deselect board mutation (switch to Profile mode)
   const deselectMutation = useMutation({
     mutationFn: () => selectedBoardApi.deselect(),
     onSuccess: () => {
@@ -68,14 +61,12 @@ export const useSelectBoard = (options: UseSelectBoardOptions = {}) => {
     },
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to deselect board'); // Можно заменить на пресет, если потребуется
+        toast.error(error.message || 'Failed to deselect board');
       }
-
       onError?.(error);
     },
   });
 
-  // Switch to profile mode (same as deselect)
   const switchToProfile = () => {
     deselectMutation.mutate();
   };

@@ -107,7 +107,12 @@ export const UserCard: React.FC<UserCardProps> = ({
               </Box>
               
               {showFollowButton && !isCurrentUser && (
-                <FollowButton userId={user.id} size="sm" />
+                // ✅ Передаём username
+                <FollowButton 
+                  userId={user.id} 
+                  username={user.username}
+                  size="sm" 
+                />
               )}
             </Flex>
           </Box>
@@ -164,7 +169,13 @@ export const UserCard: React.FC<UserCardProps> = ({
         
         {showFollowButton && !isCurrentUser && (
           <Box width="100%">
-            <FollowButton userId={user.id} size="md" fullWidth />
+            {/* ✅ Передаём username */}
+            <FollowButton 
+              userId={user.id} 
+              username={user.username}
+              size="md" 
+              fullWidth 
+            />
           </Box>
         )}
       </Flex>

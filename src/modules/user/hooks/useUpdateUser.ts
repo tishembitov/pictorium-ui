@@ -5,7 +5,7 @@ import { queryKeys } from '@/app/config/queryClient';
 import { userApi } from '../api/userApi';
 import { useAuthStore } from '@/modules/auth';
 import { useToast } from '@/shared/hooks/useToast';
-import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/shared/utils/constants';
+import { ERROR_MESSAGES } from '@/shared/utils/constants';
 import type { UserResponse, UserUpdateRequest } from '../types/user.types';
 
 interface UseUpdateUserOptions {

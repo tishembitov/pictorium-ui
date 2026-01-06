@@ -5,18 +5,18 @@ import { queryKeys } from '@/app/config/queryClient';
 import { subscriptionApi } from '../api/subscriptionApi';
 import { useToast } from '@/shared/hooks/useToast';
 import { useAuthStore } from '@/modules/auth';
-import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
 
 interface UseFollowOptions {
-  onSuccess?: () => void;
+  onSuccess?: (userId: string, username?: string) => void;
   onError?: (error: Error) => void;
   showToast?: boolean;
 }
 
-/**
- * Простая мутация для подписки.
- * UI обновляется через onToggle callback в компоненте.
- */
+interface FollowParams {
+  userId: string;
+  username?: string;
+}
+
 export const useFollow = (options: UseFollowOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
   const queryClient = useQueryClient();
@@ -24,10 +24,9 @@ export const useFollow = (options: UseFollowOptions = {}) => {
   const currentUserId = useAuthStore((state) => state.user?.id);
 
   const mutation = useMutation({
-    mutationFn: (userId: string) => subscriptionApi.follow(userId),
+    mutationFn: ({ userId }: FollowParams) => subscriptionApi.follow(userId),
     
-    onSuccess: (_, userId) => {
-      // Фоновая инвалидация
+    onSuccess: (_, { userId, username }) => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.subscriptions.check(userId),
         refetchType: 'none',
@@ -46,23 +45,26 @@ export const useFollow = (options: UseFollowOptions = {}) => {
       }
 
       if (showToast) {
-        toast.follow.followed();
+        toast.follow.followed(username);
       }
 
-      onSuccess?.();
+      onSuccess?.(userId, username);
     },
     
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to follow user'); // Можно поменять на пресет, если потребуется
+        toast.error(error.message || 'Failed to follow user');
       }
       onError?.(error);
     },
   });
 
   return {
-    follow: mutation.mutate,
-    followAsync: mutation.mutateAsync,
+    // ✅ Удобная обёртка для вызова с двумя параметрами
+    follow: (userId: string, username?: string) => 
+      mutation.mutate({ userId, username }),
+    followAsync: (userId: string, username?: string) => 
+      mutation.mutateAsync({ userId, username }),
     isLoading: mutation.isPending,
     isError: mutation.isError,
     error: mutation.error,

@@ -23,7 +23,6 @@ export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
     },
 
     onSuccess: ({ boardIds, updatedPin }, { pinId }) => {
-      // Board-related
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.boards.forPin(pinId),
         refetchType: 'none',
@@ -41,20 +40,19 @@ export const useSavePinToBoards = (options: UseSavePinToBoardsOptions = {}) => {
         });
       });
 
-      // ✅ Pin lists
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.pins.lists(),
         refetchType: 'none',
       });
 
-      const count = boardIds.length;
-      toast.pin.saved(count === 1 ? 'board' : 'boards');
+      // ✅ Исправлено: используем правильный метод для множественного сохранения
+      toast.pin.savedMultiple(boardIds.length);
       
       onSuccess?.(boardIds, updatedPin);
     },
 
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to save pin'); // Можно поменять на пресет, если потребуется
+      toast.error(error.message || 'Failed to save pin');
       onError?.(error);
     },
   });

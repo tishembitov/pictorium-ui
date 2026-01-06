@@ -5,17 +5,18 @@ import { queryKeys } from '@/app/config/queryClient';
 import { subscriptionApi } from '../api/subscriptionApi';
 import { useToast } from '@/shared/hooks/useToast';
 import { useAuthStore } from '@/modules/auth';
-import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
 
 interface UseUnfollowOptions {
-  onSuccess?: () => void;
+  onSuccess?: (userId: string, username?: string) => void;
   onError?: (error: Error) => void;
   showToast?: boolean;
 }
 
-/**
- * Простая мутация для отписки.
- */
+interface UnfollowParams {
+  userId: string;
+  username?: string;
+}
+
 export const useUnfollow = (options: UseUnfollowOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
   const queryClient = useQueryClient();
@@ -23,10 +24,9 @@ export const useUnfollow = (options: UseUnfollowOptions = {}) => {
   const currentUserId = useAuthStore((state) => state.user?.id);
 
   const mutation = useMutation({
-    mutationFn: (userId: string) => subscriptionApi.unfollow(userId),
+    mutationFn: ({ userId }: UnfollowParams) => subscriptionApi.unfollow(userId),
     
-    onSuccess: (_, userId) => {
-      // Фоновая инвалидация
+    onSuccess: (_, { userId, username }) => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.subscriptions.check(userId),
         refetchType: 'none',
@@ -45,23 +45,26 @@ export const useUnfollow = (options: UseUnfollowOptions = {}) => {
       }
 
       if (showToast) {
-        toast.follow.unfollowed();
+        toast.follow.unfollowed(username);
       }
 
-      onSuccess?.();
+      onSuccess?.(userId, username);
     },
     
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to unfollow user'); // Можно поменять на пресет, если потребуется
+        toast.error(error.message || 'Failed to unfollow user');
       }
       onError?.(error);
     },
   });
 
   return {
-    unfollow: mutation.mutate,
-    unfollowAsync: mutation.mutateAsync,
+    // ✅ Удобная обёртка для вызова с двумя параметрами
+    unfollow: (userId: string, username?: string) => 
+      mutation.mutate({ userId, username }),
+    unfollowAsync: (userId: string, username?: string) => 
+      mutation.mutateAsync({ userId, username }),
     isLoading: mutation.isPending,
     isError: mutation.isError,
     error: mutation.error,

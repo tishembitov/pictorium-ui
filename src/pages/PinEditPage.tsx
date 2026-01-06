@@ -1,6 +1,5 @@
-// ================================================
-// FILE: src/pages/PinEditPage.tsx
-// ================================================
+// src/pages/PinEditPage.tsx
+
 import React from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { Box, Heading, Divider, Spinner, Flex, IconButton, Tooltip } from 'gestalt';
@@ -21,7 +20,8 @@ const PinEditPage: React.FC = () => {
   const isOwner = useIsOwner(pin?.userId);
 
   const handleSuccess = () => {
-    toast.pin.saved();
+    // ✅ Исправлено: используем pin.updated вместо pin.saved
+    toast.pin.updated();
     if (pinId) {
       navigate(buildPath.pin(pinId));
     }
@@ -74,7 +74,6 @@ const PinEditPage: React.FC = () => {
     );
   }
 
-  // Check ownership
   if (!isOwner) {
     toast.errors.permission();
     return <Navigate to={buildPath.pin(pinId)} replace />;
@@ -82,7 +81,6 @@ const PinEditPage: React.FC = () => {
 
   return (
     <Box paddingY={4} maxWidth={800} marginStart="auto" marginEnd="auto">
-      {/* Header */}
       <Box marginBottom={4}>
         <Flex alignItems="center" gap={3}>
           <Tooltip text="Go back">
@@ -102,7 +100,6 @@ const PinEditPage: React.FC = () => {
 
       <Divider />
 
-      {/* Form */}
       <Box marginTop={6}>
         <PinEditForm pin={pin} onSuccess={handleSuccess} onCancel={handleCancel} />
       </Box>

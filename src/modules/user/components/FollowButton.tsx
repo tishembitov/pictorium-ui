@@ -10,6 +10,7 @@ import { useAuth } from '@/modules/auth';
 
 interface FollowButtonProps {
   userId: string;
+  username?: string; // ✅ Добавлен проп
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   variant?: 'default' | 'outline';
@@ -17,6 +18,7 @@ interface FollowButtonProps {
 
 export const FollowButton: React.FC<FollowButtonProps> = ({
   userId,
+  username, // ✅ Деструктурируем
   size = 'md',
   fullWidth = false,
   variant = 'default',
@@ -24,19 +26,16 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
   const { isAuthenticated, login } = useAuth();
   const { isFollowing: serverIsFollowing, isLoading: isCheckLoading } = useFollowCheck(userId);
   
-  // ✅ Локальный state для оптимистичных обновлений
   const { state: localState, toggleFollow, resetOverride } = useFollowLocalState(serverIsFollowing);
   
   const { follow, isLoading: isFollowLoading } = useFollow({
     onError: () => {
-      // Revert on error - сбрасываем к серверному значению
       resetOverride();
     },
   });
   
   const { unfollow, isLoading: isUnfollowLoading } = useUnfollow({
     onError: () => {
-      // Revert on error - сбрасываем к серверному значению
       resetOverride();
     },
   });
@@ -54,13 +53,13 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
     // 1. Immediate UI update
     const newIsFollowing = toggleFollow();
 
-    // 2. Background mutation
+    // 2. Background mutation - ✅ передаём username
     if (newIsFollowing) {
-      follow(userId);
+      follow(userId, username);
     } else {
-      unfollow(userId);
+      unfollow(userId, username);
     }
-  }, [isAuthenticated, login, toggleFollow, follow, unfollow, userId]);
+  }, [isAuthenticated, login, toggleFollow, follow, unfollow, userId, username]);
 
   // Gestalt Button передаёт объект с event
   const handleButtonClick = useCallback(

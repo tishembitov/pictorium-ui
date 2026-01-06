@@ -39,6 +39,10 @@ export const useDeleteBoard = (options: UseDeleteBoardOptions = {}) => {
         queryKeys.boards.my()
       );
 
+      // ✅ Сохраняем название удаляемой доски для тоста
+      const deletedBoard = previousMyBoards?.find((board) => board.id === boardId);
+      const deletedBoardTitle = deletedBoard?.title;
+
       if (previousMyBoards) {
         queryClient.setQueryData<BoardResponse[]>(
           queryKeys.boards.my(),
@@ -50,27 +54,29 @@ export const useDeleteBoard = (options: UseDeleteBoardOptions = {}) => {
         clearSelectedBoard();
       }
 
-      return { previousMyBoards, wasSelected: selectedBoard?.id === boardId };
+      return { 
+        previousMyBoards, 
+        wasSelected: selectedBoard?.id === boardId,
+        deletedBoardTitle, // ✅ Передаём в контекст
+      };
     },
 
-    onSuccess: (_, boardId) => {
-      // Удаляем конкретную доску из кэша
+    onSuccess: (_, boardId, context) => {
       queryClient.removeQueries({ queryKey: queryKeys.boards.byId(boardId) });
       queryClient.removeQueries({ queryKey: queryKeys.boards.pins(boardId) });
       
-      // Инвалидируем связанные запросы
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.boards.all,
         refetchType: 'none',
       });
 
-      // ✅ Pin lists (savedToBoardsCount мог измениться)
       void queryClient.invalidateQueries({ 
         queryKey: queryKeys.pins.lists(),
         refetchType: 'none',
       });
 
-      toast.board.deleted();
+      // ✅ Передаём название доски в тост
+      toast.board.deleted(context?.deletedBoardTitle);
 
       if (navigateOnSuccess && currentUser?.username) {
         navigate(`${buildPath.profile(currentUser.username)}#boards`);
@@ -94,7 +100,7 @@ export const useDeleteBoard = (options: UseDeleteBoardOptions = {}) => {
         }
       }
 
-      toast.error(error.message || 'Failed to delete board'); // Можно поменять на пресет, если потребуется
+      toast.error(error.message || 'Failed to delete board');
       onError?.(error);
     },
   });

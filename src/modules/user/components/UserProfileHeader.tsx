@@ -380,12 +380,16 @@ export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
                 </>
               ) : (
                 <>
-                  <FollowButton userId={user.id} size="lg" />
-                  <Button
-                    text="Message"
-                    size="lg"
-                    color="gray"
-                  />
+                    <FollowButton 
+                      userId={user.id} 
+                      username={user.username}
+                      size="lg" 
+                    />
+                    <Button
+                      text="Message"
+                      size="lg"
+                      color="gray"
+                    />
                   <ProfileShareButton user={user} size="lg" />
                 </>
               )}

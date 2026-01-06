@@ -70,7 +70,7 @@ export function useToast() {
 
   // ============ Pin Operations ============
   const pinSaved = useCallback(
-    (boardName: string, options?: ToastOptions) => {
+    (boardName?: string, options?: ToastOptions) => {
       const preset = TOAST_PRESETS.PIN_SAVED(boardName);
       return addToast({ type: 'success', ...preset, ...options });
     },
@@ -78,7 +78,7 @@ export function useToast() {
   );
 
   const pinRemoved = useCallback(
-    (boardName: string, options?: ToastOptions) => {
+    (boardName?: string, options?: ToastOptions) => {
       const preset = TOAST_PRESETS.PIN_REMOVED(boardName);
       return addToast({ type: 'success', ...preset, ...options });
     },
@@ -88,6 +88,14 @@ export function useToast() {
   const pinCreated = useCallback(
     (options?: ToastOptions) => {
       const preset = TOAST_PRESETS.PIN_CREATED();
+      return addToast({ type: 'success', ...preset, ...options });
+    },
+    [addToast]
+  );
+
+  const pinUpdated = useCallback(
+    (options?: ToastOptions) => {
+      const preset = TOAST_PRESETS.PIN_UPDATED();
       return addToast({ type: 'success', ...preset, ...options });
     },
     [addToast]
@@ -117,25 +125,41 @@ export function useToast() {
     [addToast]
   );
 
+  const pinsSaved = useCallback(
+    (count: number, boardName?: string, options?: ToastOptions) => {
+      const preset = TOAST_PRESETS.PINS_SAVED(count, boardName);
+      return addToast({ type: 'success', ...preset, ...options });
+    },
+    [addToast]
+  );
+
   // ============ Board Operations ============
   const boardCreated = useCallback(
-    (name: string, options?: ToastOptions) => {
+    (name?: string, options?: ToastOptions) => {
       const preset = TOAST_PRESETS.BOARD_CREATED(name);
       return addToast({ type: 'success', ...preset, ...options });
     },
     [addToast]
   );
 
+  const boardUpdated = useCallback(
+    (name?: string, options?: ToastOptions) => {
+      const preset = TOAST_PRESETS.BOARD_UPDATED(name);
+      return addToast({ type: 'success', ...preset, ...options });
+    },
+    [addToast]
+  );
+
   const boardDeleted = useCallback(
-    (options?: ToastOptions) => {
-      const preset = TOAST_PRESETS.BOARD_DELETED();
+    (name?: string, options?: ToastOptions) => {
+      const preset = TOAST_PRESETS.BOARD_DELETED(name);
       return addToast({ type: 'success', ...preset, ...options });
     },
     [addToast]
   );
 
   const boardSelected = useCallback(
-    (name: string, options?: ToastOptions) => {
+    (name?: string, options?: ToastOptions) => {
       const preset = TOAST_PRESETS.BOARD_SELECTED(name);
       return addToast({ type: 'info', ...preset, ...options });
     },
@@ -144,7 +168,7 @@ export function useToast() {
 
   // ============ Follow Operations ============
   const followed = useCallback(
-    (username: string, options?: ToastOptions) => {
+    (username?: string, options?: ToastOptions) => {
       const preset = TOAST_PRESETS.FOLLOWED(username);
       return addToast({ type: 'success', ...preset, ...options });
     },
@@ -152,7 +176,7 @@ export function useToast() {
   );
 
   const unfollowed = useCallback(
-    (username: string, options?: ToastOptions) => {
+    (username?: string, options?: ToastOptions) => {
       const preset = TOAST_PRESETS.UNFOLLOWED(username);
       return addToast({ type: 'info', ...preset, ...options });
     },
@@ -163,6 +187,14 @@ export function useToast() {
   const commentAdded = useCallback(
     (options?: ToastOptions) => {
       const preset = TOAST_PRESETS.COMMENT_ADDED();
+      return addToast({ type: 'success', ...preset, ...options });
+    },
+    [addToast]
+  );
+
+  const commentUpdated = useCallback(
+    (options?: ToastOptions) => {
+      const preset = TOAST_PRESETS.COMMENT_UPDATED();
       return addToast({ type: 'success', ...preset, ...options });
     },
     [addToast]
@@ -201,27 +233,52 @@ export function useToast() {
     [addToast]
   );
 
-  // ============ Upload/Download Operations ============
+  // ============ Upload Operations ============
+  const uploadStarted = useCallback(
+    (filename?: string, options?: ToastOptions) => {
+      const preset = TOAST_PRESETS.UPLOAD_STARTED(filename);
+      return addToast({ type: 'loading', ...preset, ...options });
+    },
+    [addToast]
+  );
+
   const uploadSuccess = useCallback(
-    (options?: ToastOptions) => {
-      const preset = TOAST_PRESETS.UPLOAD_SUCCESS();
+    (filename?: string, options?: ToastOptions) => {
+      const preset = TOAST_PRESETS.UPLOAD_SUCCESS(filename);
       return addToast({ type: 'success', ...preset, ...options });
     },
     [addToast]
   );
 
   const uploadError = useCallback(
-    (filename?: string, options?: ToastOptions) => {
-      const preset = TOAST_PRESETS.UPLOAD_ERROR(filename);
+    (message?: string, options?: ToastOptions) => {
+      const preset = TOAST_PRESETS.UPLOAD_ERROR(message);
       return addToast({ type: 'error', ...preset, ...options });
     },
     [addToast]
   );
 
+  // ============ Download Operations ============
+  const downloadStarted = useCallback(
+    (filename?: string, options?: ToastOptions) => {
+      const preset = TOAST_PRESETS.DOWNLOAD_STARTED(filename);
+      return addToast({ type: 'loading', ...preset, ...options });
+    },
+    [addToast]
+  );
+
   const downloadSuccess = useCallback(
-    (options?: ToastOptions) => {
-      const preset = TOAST_PRESETS.DOWNLOAD_SUCCESS();
+    (filename?: string, options?: ToastOptions) => {
+      const preset = TOAST_PRESETS.DOWNLOAD_SUCCESS(filename);
       return addToast({ type: 'success', ...preset, ...options });
+    },
+    [addToast]
+  );
+
+  const downloadError = useCallback(
+    (message?: string, options?: ToastOptions) => {
+      const preset = TOAST_PRESETS.DOWNLOAD_ERROR(message);
+      return addToast({ type: 'error', ...preset, ...options });
     },
     [addToast]
   );
@@ -300,7 +357,7 @@ export function useToast() {
           onClick: onUndo,
           accessibilityLabel: 'Undo this action',
         },
-        duration: 6000, // Longer duration for undo
+        duration: 6000,
         ...options,
       });
     },
@@ -339,14 +396,17 @@ export function useToast() {
         saved: pinSaved,
         removed: pinRemoved,
         created: pinCreated,
+        updated: pinUpdated,
         deleted: pinDeleted,
         liked: pinLiked,
         unliked: pinUnliked,
+        savedMultiple: pinsSaved,
       },
       
       // Board operations
       board: {
         created: boardCreated,
+        updated: boardUpdated,
         deleted: boardDeleted,
         selected: boardSelected,
       },
@@ -360,6 +420,7 @@ export function useToast() {
       // Comment operations
       comment: {
         added: commentAdded,
+        updated: commentUpdated, 
         deleted: commentDeleted,
         replied: replyAdded,
       },
@@ -370,13 +431,18 @@ export function useToast() {
         text: copiedText,
       },
       
-      // Upload/Download
+      // Upload
       upload: {
+        started: uploadStarted,
         success: uploadSuccess,
         error: uploadError,
       },
+      
+      // Download
       download: {
+        started: downloadStarted,
         success: downloadSuccess,
+        error: downloadError,
       },
       
       // Profile
@@ -401,11 +467,13 @@ export function useToast() {
     [
       success, error, warning, info, loading, addToast, dismiss, updateToast,
       clearToasts, pauseToast, resumeToast, setProgress, promiseToast, withUndo,
-      pinSaved, pinRemoved, pinCreated, pinDeleted, pinLiked, pinUnliked,
-      boardCreated, boardDeleted, boardSelected, followed, unfollowed,
-      commentAdded, commentDeleted, replyAdded, copiedLink, copiedText,
-      uploadSuccess, uploadError, downloadSuccess, profileUpdated,
-      loggedIn, loggedOut, sessionExpired, networkError, serverError, permissionDenied,
+      pinSaved, pinRemoved, pinCreated, pinUpdated, pinDeleted, pinLiked, pinUnliked, pinsSaved,
+      boardCreated, boardUpdated, boardDeleted, boardSelected, followed, unfollowed,
+      commentAdded, commentUpdated, commentDeleted, replyAdded, copiedLink, copiedText,
+      uploadStarted, uploadSuccess, uploadError, 
+      downloadStarted, downloadSuccess, downloadError, 
+      profileUpdated, loggedIn, loggedOut, sessionExpired, 
+      networkError, serverError, permissionDenied,
     ]
   );
 
@@ -422,7 +490,6 @@ export function useToast() {
   };
 }
 
-// Re-export types
 export type { Toast, ToastType, ToastVariant, ToastOptions } from '../stores/toastStore';
 
 export default useToast;

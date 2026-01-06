@@ -45,33 +45,33 @@ interface ToastSizeConfig {
 
 const SIZE_CONFIG: Record<ToastSize, ToastSizeConfig> = {
   sm: {
+    minWidth: 180,
+    maxWidth: 260,
+    padding: 10,
+    iconSize: 14,
+    fontSize: {
+      message: '13px',
+      description: '11px',
+    },
+  },
+  md: {
     minWidth: 240,
-    maxWidth: 320,
+    maxWidth: 340,
     padding: 12,
-    iconSize: 16,
+    iconSize: 18,
     fontSize: {
       message: '14px',
       description: '12px',
     },
   },
-  md: {
-    minWidth: 300,
-    maxWidth: 450,
-    padding: 16,
+  lg: {
+    minWidth: 280,
+    maxWidth: 420,
+    padding: 14,
     iconSize: 20,
     fontSize: {
       message: '15px',
       description: '13px',
-    },
-  },
-  lg: {
-    minWidth: 360,
-    maxWidth: 600,
-    padding: 20,
-    iconSize: 24,
-    fontSize: {
-      message: '16px',
-      description: '14px',
     },
   },
 };

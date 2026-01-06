@@ -46,7 +46,7 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
       {/* ✅ Исправление: marginBottom перенесён в Box */}
       <Box marginBottom={2}>
         <Flex alignItems="center" gap={2}>
-          <Text size="100">↩️</Text>
+          <Text size="100">↩︎</Text>
           <Text size="100" color="subtle">
             Replying to comment
           </Text>
@@ -56,7 +56,7 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
       <CommentForm
         onSubmit={handleSubmit}
         isLoading={isLoading}
-        placeholder="Write your reply... 💭"
+        placeholder="Write your reply..."
         autoFocus={autoFocus}
         showAvatar={false}
         compact

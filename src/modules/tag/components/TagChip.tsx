@@ -2,48 +2,36 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Text, TapArea, Flex } from 'gestalt';
+import { TapArea, Icon } from 'gestalt';
 import type { TagResponse } from '../types/tag.types';
 
 interface TagChipProps {
   tag: TagResponse | string;
   size?: 'sm' | 'md' | 'lg';
+  variant?: 'default' | 'primary' | 'selected';
   onClick?: (tag: string) => void;
   removable?: boolean;
   onRemove?: (tag: string) => void;
   disabled?: boolean;
   selected?: boolean;
   navigateOnClick?: boolean;
+  className?: string;
 }
-
-// Gestalt Box padding accepts: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
-type GestaltPadding = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
-
-interface SizeStyle {
-  paddingX: GestaltPadding;
-  paddingY: GestaltPadding;
-  textSize: '100' | '200' | '300';
-}
-
-const sizeStyles: Record<'sm' | 'md' | 'lg', SizeStyle> = {
-  sm: { paddingX: 2, paddingY: 1, textSize: '100' },
-  md: { paddingX: 3, paddingY: 2, textSize: '200' },
-  lg: { paddingX: 4, paddingY: 2, textSize: '300' },
-};
 
 export const TagChip: React.FC<TagChipProps> = ({
   tag,
   size = 'md',
+  variant = 'default',
   onClick,
   removable = false,
   onRemove,
   disabled = false,
   selected = false,
   navigateOnClick = false,
+  className = '',
 }) => {
   const navigate = useNavigate();
   const tagName = typeof tag === 'string' ? tag : tag.name;
-  const styles = sizeStyles[size];
 
   const handleClick = () => {
     if (disabled) return;
@@ -55,57 +43,70 @@ export const TagChip: React.FC<TagChipProps> = ({
     }
   };
 
-  const handleRemove = () => {
+  const handleRemove = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!disabled && onRemove) {
       onRemove(tagName);
     }
   };
 
-  const content = (
-    <Box
-      paddingX={styles.paddingX}
-      paddingY={styles.paddingY}
-      rounding="pill"
-      color={selected ? 'dark' : 'secondary'}
-      dangerouslySetInlineStyle={{
-        __style: {
-          cursor: disabled ? 'default' : 'pointer',
-          opacity: disabled ? 0.5 : 1,
-          transition: 'all 0.15s ease',
-        },
-      }}
+  const handleRemoveKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!disabled && onRemove) {
+        onRemove(tagName);
+      }
+    }
+  };
+
+  const getVariantClass = () => {
+    if (selected) return 'tag-chip--selected';
+    if (variant === 'primary') return 'tag-chip--primary';
+    return '';
+  };
+
+  const chipContent = (
+    <span
+      className={`
+        tag-chip 
+        tag-chip--${size} 
+        ${getVariantClass()}
+        ${disabled ? 'tag-chip--disabled' : ''}
+        ${className}
+      `.trim()}
     >
-      <Flex alignItems="center" gap={1}>
-        <Text 
-          size={styles.textSize} 
-          color={selected ? 'inverse' : 'default'}
-          weight={selected ? 'bold' : 'normal'}
+      <span>{tagName}</span>
+      
+      {removable && onRemove && (
+        <button
+          type="button"
+          className="tag-chip__remove"
+          onClick={handleRemove}
+          onKeyDown={handleRemoveKeyDown}
+          aria-label={`Remove ${tagName}`}
+          disabled={disabled}
         >
-          {tagName}
-        </Text>
-        
-        {removable && onRemove && (
-          <TapArea onTap={handleRemove} tapStyle="compress">
-            <Box marginStart={1}>
-              <Text size="100" color={selected ? 'inverse' : 'subtle'}>
-                ✕
-              </Text>
-            </Box>
-          </TapArea>
-        )}
-      </Flex>
-    </Box>
+          <Icon
+            accessibilityLabel="Remove"
+            icon="cancel"
+            size={12}
+            color={selected ? 'inverse' : 'dark'}
+          />
+        </button>
+      )}
+    </span>
   );
 
   if (onClick || navigateOnClick) {
     return (
       <TapArea onTap={handleClick} disabled={disabled} rounding="pill">
-        {content}
+        {chipContent}
       </TapArea>
     );
   }
 
-  return content;
+  return chipContent;
 };
 
 export default TagChip;

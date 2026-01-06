@@ -1,18 +1,9 @@
 // src/modules/tag/components/TagInput.tsx
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { 
-  Box, 
-  TextField, 
-  Flex, 
-  Text, 
-  TapArea,
-  Popover,
-  Spinner,
-} from 'gestalt';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { Icon, Spinner } from 'gestalt';
 import { useSearchTags } from '../hooks/useSearchTags';
 import { TagChip } from './TagChip';
-import type { TagResponse } from '../types/tag.types';
 import { TEXT_LIMITS } from '@/shared/utils/constants';
 
 interface TagInputProps {
@@ -40,22 +31,32 @@ export const TagInput: React.FC<TagInputProps> = ({
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [isOpen, setIsOpen] = useState(false);
-  const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const { data: suggestions, isLoading } = useSearchTags(inputValue, {
     limit: 5,
     enabled: inputValue.length > 0,
   });
 
-  // Filter out already selected tags from suggestions
-  const filteredSuggestions = suggestions?.filter(
-    (tag) => !selectedTags.includes(tag.name)
-  ) ?? [];
+  const filteredSuggestions = useMemo(() => {
+    return suggestions?.filter(
+      (tag) => !selectedTags.includes(tag.name)
+    ) ?? [];
+  }, [suggestions, selectedTags]);
 
-  const handleInputChange = useCallback(({ value }: { value: string }) => {
-    setInputValue(value);
-    if (value.length > 0) {
+  const showCreateOption = inputValue.trim() && 
+    !selectedTags.includes(inputValue.trim().toLowerCase()) &&
+    !filteredSuggestions.some(t => t.name.toLowerCase() === inputValue.trim().toLowerCase());
+
+  const totalOptions = filteredSuggestions.length + (showCreateOption ? 1 : 0);
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+    setFocusedIndex(-1);
+    if (e.target.value.length > 0) {
       setIsOpen(true);
     }
   }, []);
@@ -71,29 +72,68 @@ export const TagInput: React.FC<TagInputProps> = ({
     onChange([...selectedTags, trimmedTag]);
     setInputValue('');
     setIsOpen(false);
+    setFocusedIndex(-1);
+    inputRef.current?.focus();
   }, [selectedTags, onChange, maxTags]);
 
   const handleRemoveTag = useCallback((tagName: string) => {
     onChange(selectedTags.filter((t) => t !== tagName));
   }, [selectedTags, onChange]);
 
-  const handleKeyDown = useCallback(
-    ({ event }: { event: React.KeyboardEvent<HTMLInputElement> }) => {
-      if (event.key === 'Enter' && inputValue.trim()) {
-        event.preventDefault();
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (focusedIndex >= 0 && focusedIndex < filteredSuggestions.length) {
+        handleAddTag(filteredSuggestions[focusedIndex]!.name);
+      } else if (focusedIndex === filteredSuggestions.length && showCreateOption) {
         handleAddTag(inputValue);
-      } else if (event.key === 'Backspace' && !inputValue && selectedTags.length > 0) {
-        handleRemoveTag(selectedTags[selectedTags.length - 1]!);
-      } else if (event.key === 'Escape') {
-        setIsOpen(false);
+      } else if (inputValue.trim()) {
+        handleAddTag(inputValue);
       }
-    },
-    [inputValue, selectedTags, handleAddTag, handleRemoveTag]
-  );
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setIsOpen(true);
+      const nextIndex = Math.min(focusedIndex + 1, totalOptions - 1);
+      setFocusedIndex(nextIndex);
+      optionRefs.current[nextIndex]?.focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prevIndex = Math.max(focusedIndex - 1, -1);
+      setFocusedIndex(prevIndex);
+      if (prevIndex === -1) {
+        inputRef.current?.focus();
+      } else {
+        optionRefs.current[prevIndex]?.focus();
+      }
+    } else if (e.key === 'Backspace' && !inputValue && selectedTags.length > 0) {
+      handleRemoveTag(selectedTags[selectedTags.length - 1]!);
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+      setFocusedIndex(-1);
+    }
+  }, [inputValue, selectedTags, focusedIndex, filteredSuggestions, showCreateOption, totalOptions, handleAddTag, handleRemoveTag]);
 
-  const handleSuggestionClick = useCallback((tag: TagResponse) => {
-    handleAddTag(tag.name);
-  }, [handleAddTag]);
+  const handleOptionKeyDown = useCallback((e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const nextIndex = Math.min(index + 1, totalOptions - 1);
+      setFocusedIndex(nextIndex);
+      optionRefs.current[nextIndex]?.focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prevIndex = index - 1;
+      setFocusedIndex(prevIndex);
+      if (prevIndex < 0) {
+        inputRef.current?.focus();
+      } else {
+        optionRefs.current[prevIndex]?.focus();
+      }
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+      setFocusedIndex(-1);
+      inputRef.current?.focus();
+    }
+  }, [totalOptions]);
 
   const handleFocus = useCallback(() => {
     if (inputValue.length > 0) {
@@ -101,142 +141,129 @@ export const TagInput: React.FC<TagInputProps> = ({
     }
   }, [inputValue]);
 
-  // Set anchor ref
-  const setAnchorRef = useCallback((node: HTMLDivElement | null) => {
-    if (node !== null) {
-      setAnchorElement(node);
-    }
-  }, []);
-
   // Close dropdown when clicking outside
   useEffect(() => {
-    if (!isOpen) {
-      return undefined;
-    }
+    if (!isOpen) return;
 
-    const handleClickOutside = () => {
-      setTimeout(() => setIsOpen(false), 150);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(e.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+        setFocusedIndex(-1);
+      }
     };
 
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
+  // Reset refs array when options change
+  useEffect(() => {
+    optionRefs.current = optionRefs.current.slice(0, totalOptions);
+  }, [totalOptions]);
+
   const canAddMore = selectedTags.length < maxTags;
-  const showSuggestions = isOpen && (filteredSuggestions.length > 0 || inputValue.trim());
+  const showDropdown = !!(isOpen && (filteredSuggestions.length > 0 || showCreateOption || isLoading));
 
   return (
-    <Box>
-      {/* Label */}
+    <div className="tag-input">
       {label && (
-        <Box marginBottom={2}>
-          <Text size="100" weight="bold">
-            {label}
-          </Text>
-        </Box>
+        <label htmlFor={id} className="tag-input__label">
+          {label}
+        </label>
       )}
 
-      {/* Selected Tags */}
       {selectedTags.length > 0 && (
-        <Box marginBottom={2}>
-          <Flex wrap gap={2}>
-            {selectedTags.map((tag) => (
-              <TagChip
-                key={tag}
-                tag={tag}
-                size="sm"
-                removable
-                onRemove={handleRemoveTag}
-                disabled={disabled}
-              />
-            ))}
-          </Flex>
-        </Box>
+        <div className="tag-input__selected">
+          {selectedTags.map((tag) => (
+            <TagChip
+              key={tag}
+              tag={tag}
+              size="sm"
+              removable
+              onRemove={handleRemoveTag}
+              disabled={disabled}
+            />
+          ))}
+        </div>
       )}
 
-      {/* Input */}
-      <Box ref={setAnchorRef}>
-        <TextField
+      <div className="tag-input__field-wrapper">
+        <input
+          ref={inputRef}
           id={id}
+          type="text"
+          className={`tag-input__field ${errorMessage ? 'tag-input__field--error' : ''}`}
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onFocus={handleFocus}
           placeholder={canAddMore ? placeholder : 'Maximum tags reached'}
           disabled={disabled || !canAddMore}
-          errorMessage={errorMessage}
-          helperText={helperText || `${selectedTags.length}/${maxTags} tags`}
-          size="lg"
-          ref={inputRef}
+          autoComplete="off"
+          aria-label={label}
         />
-      </Box>
 
-      {/* Suggestions Dropdown */}
-      {showSuggestions && anchorElement && (
-        <Popover
-          anchor={anchorElement}
-          onDismiss={() => setIsOpen(false)}
-          idealDirection="down"
-          positionRelativeToAnchor={false}
-          size="flexible"
-          color="white"
-        >
-          <Box padding={2} minWidth={200} maxHeight={300} overflow="auto">
+        {showDropdown && (
+          <div 
+            ref={dropdownRef} 
+            className="tag-input__dropdown"
+          >
             {isLoading && (
-              <Box padding={3} display="flex" justifyContent="center">
+              <div className="tag-input__dropdown-loading">
                 <Spinner accessibilityLabel="Loading tags" show size="sm" />
-              </Box>
+              </div>
             )}
 
-            {!isLoading && filteredSuggestions.length > 0 && (
-              <Flex direction="column" gap={1}>
-                {filteredSuggestions.map((tag) => (
-                  <TapArea
-                    key={tag.id}
-                    onTap={() => handleSuggestionClick(tag)}
-                    rounding={2}
-                  >
-                    <Box padding={2} rounding={2}>
-                      <Text size="200">{tag.name}</Text>
-                    </Box>
-                  </TapArea>
-                ))}
-              </Flex>
-            )}
-
-            {/* Create new tag option */}
-            {!isLoading && inputValue.trim() && !selectedTags.includes(inputValue.trim().toLowerCase()) && (
-              <TapArea
-                onTap={() => handleAddTag(inputValue)}
-                rounding={2}
+            {!isLoading && filteredSuggestions.map((tag, index) => (
+              <button
+                key={tag.id}
+                ref={el => { optionRefs.current[index] = el; }}
+                type="button"
+                className={`tag-input__dropdown-item ${focusedIndex === index ? 'tag-input__dropdown-item--focused' : ''}`}
+                onClick={() => handleAddTag(tag.name)}
+                onKeyDown={(e) => handleOptionKeyDown(e, index)}
+                onMouseEnter={() => setFocusedIndex(index)}
               >
-                <Box 
-                  padding={2} 
-                  rounding={2}
-                  color="secondary"
-                  marginTop={filteredSuggestions.length > 0 ? 1 : 0}
-                >
-                  <Flex alignItems="center" gap={2}>
-                    <Text size="200" weight="bold">Create:</Text>
-                    <Text size="200">"{inputValue.trim()}"</Text>
-                  </Flex>
-                </Box>
-              </TapArea>
-            )}
+                <span className="tag-input__dropdown-icon" aria-hidden="true">
+                  <Icon accessibilityLabel="" icon="tag" size={16} color="subtle" />
+                </span>
+                <span className="tag-input__dropdown-text">{tag.name}</span>
+              </button>
+            ))}
 
-            {!isLoading && filteredSuggestions.length === 0 && !inputValue.trim() && (
-              <Box padding={2}>
-                <Text size="200" color="subtle">
-                  Type to search tags...
-                </Text>
-              </Box>
+            {!isLoading && showCreateOption && (
+              <button
+                ref={el => { optionRefs.current[filteredSuggestions.length] = el; }}
+                type="button"
+                className={`tag-input__dropdown-item tag-input__dropdown-item--create ${focusedIndex === filteredSuggestions.length ? 'tag-input__dropdown-item--focused' : ''}`}
+                onClick={() => handleAddTag(inputValue)}
+                onKeyDown={(e) => handleOptionKeyDown(e, filteredSuggestions.length)}
+                onMouseEnter={() => setFocusedIndex(filteredSuggestions.length)}
+              >
+                <span className="tag-input__dropdown-icon" aria-hidden="true">
+                  <Icon accessibilityLabel="" icon="add" size={16} color="default" />
+                </span>
+                <span className="tag-input__dropdown-text">
+                  <span className="tag-input__dropdown-create-label">Create:</span>
+                  "{inputValue.trim()}"
+                </span>
+              </button>
             )}
-          </Box>
-        </Popover>
+          </div>
+        )}
+      </div>
+
+      {(helperText || errorMessage) && (
+        <p className={`tag-input__helper ${errorMessage ? 'tag-input__error' : ''}`}>
+          {errorMessage || helperText || `${selectedTags.length}/${maxTags} tags`}
+        </p>
       )}
-    </Box>
+    </div>
   );
 };
 

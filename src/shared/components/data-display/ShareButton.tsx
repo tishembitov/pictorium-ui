@@ -9,7 +9,6 @@ import {
 } from 'gestalt';
 import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard';
 import { useToast } from '@/shared/hooks/useToast';
-import { SUCCESS_MESSAGES } from '@/shared/utils/constants';
 
 interface ShareButtonProps {
   /** URL to share */
@@ -64,21 +63,6 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
     setIsOpen(false);
   }, [url, shareText]);
 
-  const handleShareInstagram = useCallback(() => {
-    // Instagram не поддерживает прямой шаринг через URL
-    // Копируем ссылку и показываем подсказку
-    void copy(url);
-    toast.copy.link();
-    setIsOpen(false);
-  }, [copy, url, toast]);
-
-  const handleShareTikTok = useCallback(() => {
-    // TikTok тоже не поддерживает прямой шаринг
-    void copy(url);
-    toast.copy.link();
-    setIsOpen(false);
-  }, [copy, url, toast]);
-
   const handleShareTelegram = useCallback(() => {
     const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(shareText)}`;
     globalThis.open(telegramUrl, '_blank', 'noopener,noreferrer');
@@ -130,14 +114,6 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
           <Dropdown.Item
             onSelect={handleSharePinterest}
             option={{ value: 'pinterest', label: 'Share on Pinterest' }}
-          />
-          <Dropdown.Item
-            onSelect={handleShareInstagram}
-            option={{ value: 'instagram', label: 'Share on Instagram' }}
-          />
-          <Dropdown.Item
-            onSelect={handleShareTikTok}
-            option={{ value: 'tiktok', label: 'Share on TikTok' }}
           />
           <Dropdown.Item
             onSelect={handleShareTelegram}

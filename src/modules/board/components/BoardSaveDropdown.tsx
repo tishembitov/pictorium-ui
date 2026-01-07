@@ -1,6 +1,6 @@
 // src/modules/board/components/BoardSaveDropdown.tsx
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Box,
   Flex,
@@ -18,7 +18,6 @@ import type { BoardWithPinStatusResponse } from '../types/board.types';
 
 type BoardSaveDropdownSize = 'sm' | 'md';
 
-// Gestalt types
 type Padding = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 
 interface BoardSaveDropdownProps {
@@ -51,6 +50,7 @@ interface BoardSaveDropdownProps {
 interface SizeConfig {
   width: number;
   maxHeight: number;
+  minHeight: number;
   headerSize: '300' | '400';
   padding: Padding;
   listItemSize: 'sm' | 'md';
@@ -68,6 +68,7 @@ const sizeConfig: Record<BoardSaveDropdownSize, SizeConfig> = {
   sm: {
     width: 300,
     maxHeight: 240,
+    minHeight: 200,
     headerSize: '300',
     padding: 3,
     listItemSize: 'sm',
@@ -83,6 +84,7 @@ const sizeConfig: Record<BoardSaveDropdownSize, SizeConfig> = {
   md: {
     width: 340,
     maxHeight: 320,
+    minHeight: 280,
     headerSize: '400',
     padding: 4,
     listItemSize: 'md',
@@ -115,15 +117,22 @@ export const BoardSaveDropdown: React.FC<BoardSaveDropdownProps> = ({
   pinTitle,
   size = 'md',
 }) => {
-  if (!isOpen || !anchorElement) return null;
-
   const config = sizeConfig[size];
   const showSearchField = showSearch && boards.length > 5;
 
-  const headerText =
-    savedBoardsCount > 0
+  const filteredBoards = useMemo(() => {
+    if (!searchQuery.trim()) return boards;
+    const query = searchQuery.toLowerCase();
+    return boards.filter((b) => b.title.toLowerCase().includes(query));
+  }, [boards, searchQuery]);
+
+  const headerText = useMemo(() => {
+    return savedBoardsCount > 0
       ? `Saved to ${savedBoardsCount} ${savedBoardsCount === 1 ? 'board' : 'boards'}`
       : 'Save to board';
+  }, [savedBoardsCount]);
+
+  if (!isOpen || !anchorElement) return null;
 
   return (
     <Layer>
@@ -131,13 +140,25 @@ export const BoardSaveDropdown: React.FC<BoardSaveDropdownProps> = ({
         anchor={anchorElement}
         onDismiss={onDismiss}
         idealDirection="down"
+        forceDirection
         positionRelativeToAnchor={false}
         size="flexible"
         color="white"
+        // ✅ Убраны несуществующие пропсы showCaret и shouldFocus
       >
-        <Box padding={config.padding} width={config.width}>
-          {/* Header */}
-          <Box marginBottom={3}>
+        <Box
+          padding={config.padding}
+          width={config.width}
+          minHeight={config.minHeight}
+          dangerouslySetInlineStyle={{
+            __style: {
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          }}
+        >
+          {/* Header - фиксированная высота */}
+          <Box marginBottom={3} minHeight={44}>
             <Text weight="bold" size={config.headerSize} align="center">
               {headerText}
             </Text>
@@ -150,9 +171,9 @@ export const BoardSaveDropdown: React.FC<BoardSaveDropdownProps> = ({
             )}
           </Box>
 
-          {/* Search */}
+          {/* Search - фиксированная высота */}
           {showSearchField && (
-            <Box marginBottom={config.marginBottom}>
+            <Box marginBottom={config.marginBottom} minHeight={48}>
               <SearchField
                 id="board-save-dropdown-search"
                 accessibilityLabel="Search boards"
@@ -165,15 +186,31 @@ export const BoardSaveDropdown: React.FC<BoardSaveDropdownProps> = ({
             </Box>
           )}
 
-          {/* Boards List */}
-          <Box maxHeight={config.maxHeight} overflow="scrollY">
+          {/* Boards List - фиксированная высота контейнера */}
+          <Box
+            maxHeight={config.maxHeight}
+            minHeight={config.minHeight - 160}
+            overflow="scrollY"
+            flex="grow"
+            dangerouslySetInlineStyle={{
+              __style: {
+                overflowAnchor: 'none',
+              },
+            }}
+          >
             {isLoading ? (
-              <Box display="flex" justifyContent="center" padding={config.spinnerPadding}>
+              <Box
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                height="100%"
+                minHeight={120}
+              >
                 <Spinner accessibilityLabel="Loading" show size={size === 'sm' ? 'sm' : 'md'} />
               </Box>
             ) : (
               <Flex direction="column" gap={1}>
-                {boards.map((board) => (
+                {filteredBoards.map((board) => (
                   <BoardListItem
                     key={board.id}
                     board={board}
@@ -185,8 +222,14 @@ export const BoardSaveDropdown: React.FC<BoardSaveDropdownProps> = ({
                   />
                 ))}
 
-                {boards.length === 0 && (
-                  <Box padding={config.emptyPadding}>
+                {filteredBoards.length === 0 && (
+                  <Box
+                    padding={config.emptyPadding}
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                    minHeight={80}
+                  >
                     <Text align="center" color="subtle" size={size === 'sm' ? '100' : '200'}>
                       {searchQuery ? 'No boards found' : 'No boards yet'}
                     </Text>
@@ -198,8 +241,8 @@ export const BoardSaveDropdown: React.FC<BoardSaveDropdownProps> = ({
 
           <Divider />
 
-          {/* Create Board Button */}
-          <Box marginTop={config.marginTop}>
+          {/* Create Board Button - фиксированная высота */}
+          <Box marginTop={config.marginTop} minHeight={44}>
             <TapArea onTap={onCreateNew} rounding={config.createButtonRounding}>
               <Box
                 padding={config.createButtonPadding}

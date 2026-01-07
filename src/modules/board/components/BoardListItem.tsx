@@ -34,6 +34,7 @@ interface SizeConfig {
   minButtonWidth: number;
   rounding: Rounding;
   gap: 1 | 2 | 3 | 4 | 5 | 6;
+  minHeight: number; // ✅ Добавлено для стабильности
 }
 
 const sizeConfig: Record<BoardListItemSize, SizeConfig> = {
@@ -49,6 +50,7 @@ const sizeConfig: Record<BoardListItemSize, SizeConfig> = {
     minButtonWidth: 70,
     rounding: 2,
     gap: 2,
+    minHeight: 48, // ✅ Минимальная высота для sm
   },
   md: {
     padding: 3,
@@ -62,6 +64,7 @@ const sizeConfig: Record<BoardListItemSize, SizeConfig> = {
     minButtonWidth: 90,
     rounding: 3,
     gap: 3,
+    minHeight: 64, // ✅ Минимальная высота для md
   },
 };
 
@@ -95,14 +98,25 @@ export const BoardListItem: React.FC<BoardListItemProps> = ({
   );
 
   const renderActionButton = () => {
+    // ✅ Spinner с фиксированной шириной
     if (isProcessing) {
       return (
-        <Box paddingX={config.buttonPaddingX}>
+        <Box 
+          display="flex" 
+          justifyContent="center" 
+          alignItems="center"
+          dangerouslySetInlineStyle={{
+            __style: {
+              minWidth: config.minButtonWidth,
+            },
+          }}
+        >
           <Spinner accessibilityLabel="Processing" show size="sm" />
         </Box>
       );
     }
 
+    // ✅ Кнопка "Saved" / "Remove"
     if (board.hasPin) {
       return (
         <TapArea onTap={onRemove} rounding={2}>
@@ -110,12 +124,16 @@ export const BoardListItem: React.FC<BoardListItemProps> = ({
             paddingX={config.buttonPaddingX}
             paddingY={config.buttonPaddingY}
             rounding={2}
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
             dangerouslySetInlineStyle={{
               __style: {
                 backgroundColor: isHovered ? 'rgba(180, 0, 0, 0.1)' : 'transparent',
                 border: '1px solid',
                 borderColor: isHovered ? '#b40000' : '#cdcdcd',
                 transition: 'all 0.15s ease',
+                minWidth: config.minButtonWidth, // ✅ Фиксированная ширина
               },
             }}
           >
@@ -139,18 +157,23 @@ export const BoardListItem: React.FC<BoardListItemProps> = ({
       );
     }
 
+    // ✅ Кнопка "Save"
     return (
       <TapArea onTap={onSave} rounding={2}>
         <Box
           paddingX={config.buttonPaddingX}
           paddingY={config.buttonPaddingY}
           rounding={2}
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
           dangerouslySetInlineStyle={{
             __style: {
               backgroundColor: isHovered ? '#e60023' : 'transparent',
               border: '1px solid',
               borderColor: isHovered ? '#e60023' : '#cdcdcd',
               transition: 'all 0.15s ease',
+              minWidth: config.minButtonWidth, // ✅ Фиксированная ширина
             },
           }}
         >
@@ -170,6 +193,7 @@ export const BoardListItem: React.FC<BoardListItemProps> = ({
     <Box
       padding={config.padding}
       rounding={config.rounding}
+      minHeight={config.minHeight} // ✅ Фиксированная минимальная высота
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       dangerouslySetInlineStyle={{
@@ -212,8 +236,17 @@ export const BoardListItem: React.FC<BoardListItemProps> = ({
           )}
         </Box>
 
-        {/* Action button */}
-        <Box minWidth={config.minButtonWidth} display="flex" justifyContent="end">
+        {/* Action button - фиксированная ширина */}
+        <Box 
+          minWidth={config.minButtonWidth} 
+          display="flex" 
+          justifyContent="end"
+          dangerouslySetInlineStyle={{
+            __style: {
+              flexShrink: 0, // ✅ Предотвращаем сжатие
+            },
+          }}
+        >
           {renderActionButton()}
         </Box>
       </Flex>

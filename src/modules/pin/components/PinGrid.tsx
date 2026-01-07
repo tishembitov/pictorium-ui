@@ -20,7 +20,7 @@ interface PinGridProps {
 }
 
 const COLUMN_WIDTH = 236;
-const GUTTER_WIDTH = 8;
+const GUTTER_WIDTH = 16;
 const MIN_COLUMNS = 2;
 
 const GridItem = ({ data }: { data: PinResponse }) => {

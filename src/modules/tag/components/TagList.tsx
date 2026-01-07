@@ -7,6 +7,7 @@ import type { TagResponse } from '../types/tag.types';
 interface TagListProps {
   tags: (TagResponse | string)[];
   size?: 'sm' | 'md' | 'lg';
+  variant?: 'default' | 'colorful' | 'minimal';
   onClick?: (tag: string) => void;
   selectedTags?: string[];
   onTagSelect?: (tag: string) => void;
@@ -21,11 +22,14 @@ interface TagListProps {
   animated?: boolean;
   showMoreLabel?: string;
   onShowMore?: () => void;
+  inline?: boolean;
+  align?: 'start' | 'center' | 'end';
 }
 
 export const TagList: React.FC<TagListProps> = ({
   tags,
   size = 'md',
+  variant = 'colorful',
   onClick,
   selectedTags = [],
   onTagSelect,
@@ -40,6 +44,8 @@ export const TagList: React.FC<TagListProps> = ({
   animated = false,
   showMoreLabel,
   onShowMore,
+  inline = false,
+  align = 'start',
 }) => {
   if (tags.length === 0) {
     if (emptyMessage) {
@@ -76,16 +82,28 @@ export const TagList: React.FC<TagListProps> = ({
     }
   };
 
+  const getAlignClass = () => {
+    switch (align) {
+      case 'center': return 'tag-list--center';
+      case 'end': return 'tag-list--end';
+      default: return '';
+    }
+  };
+
+  const chipVariant = variant === 'minimal' ? 'default' : 'colorful';
+
   return (
     <div 
       className={`
         tag-list 
-        ${wrap ? '' : 'tag-list--no-wrap'} 
+        ${wrap ? 'tag-list--wrap' : 'tag-list--no-wrap'} 
         ${animated ? 'tag-list--animated' : ''}
-      `.trim()}
-      style={{ gap: `${gap * 4}px` }}
+        ${inline ? 'tag-list--inline' : ''}
+        ${getAlignClass()}
+        tag-list--gap-${gap}
+      `.trim().replace(/\s+/g, ' ')}
     >
-      {visibleTags.map((tag) => {
+      {visibleTags.map((tag, index) => {
         const tagName = typeof tag === 'string' ? tag : tag.name;
         const isSelected = selectedTags.includes(tagName);
 
@@ -94,11 +112,13 @@ export const TagList: React.FC<TagListProps> = ({
             key={tagName}
             tag={tag}
             size={size}
+            variant={isSelected ? 'selected' : chipVariant}
             selected={isSelected}
             onClick={onClick || onTagSelect || onTagDeselect ? handleTagClick : undefined}
             removable={removable}
             onRemove={onRemove}
             navigateOnClick={navigateOnClick && !onClick}
+            colorIndex={index}
           />
         );
       })}
@@ -109,7 +129,7 @@ export const TagList: React.FC<TagListProps> = ({
           className="tag-more"
           onClick={onShowMore}
         >
-          {showMoreLabel || `+${hiddenCount} more`}
+          {showMoreLabel || `+${hiddenCount}`}
         </button>
       )}
     </div>

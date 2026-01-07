@@ -99,6 +99,39 @@
   --pin-detail-max-width: 1016px;
   --pin-detail-image-width: 508px;
   --pin-detail-content-width: 508px;
+
+  /* Добавить/обновить в src/app/styles/variables.css */
+
+  /* ============================================
+     TAG MODULE COLORS - Enhanced
+     ============================================ */
+  --tag-bg-default: #f0f0f0;
+  --tag-bg-hover: #e0e0e0;
+  --tag-bg-selected: #111111;
+  --tag-bg-primary: #e60023;
+  --tag-text-default: #333333;
+  --tag-text-selected: #ffffff;
+  --tag-text-muted: #767676;
+  --tag-border-focus: #0074e8;
+  --tag-remove-hover: rgba(0, 0, 0, 0.15);
+  
+  /* Colorful tag palette */
+  --tag-color-red-bg: #FEE2E2;
+  --tag-color-red-text: #DC2626;
+  --tag-color-amber-bg: #FEF3C7;
+  --tag-color-amber-text: #D97706;
+  --tag-color-emerald-bg: #D1FAE5;
+  --tag-color-emerald-text: #059669;
+  --tag-color-blue-bg: #DBEAFE;
+  --tag-color-blue-text: #2563EB;
+  --tag-color-indigo-bg: #E0E7FF;
+  --tag-color-indigo-text: #4F46E5;
+  --tag-color-violet-bg: #EDE9FE;
+  --tag-color-violet-text: #7C3AED;
+  --tag-color-pink-bg: #FCE7F3;
+  --tag-color-pink-text: #DB2777;
+  --tag-color-teal-bg: #F0FDFA;
+  --tag-color-teal-text: #0D9488;
   
   /* Masonry */
   --masonry-column-width: 236px;

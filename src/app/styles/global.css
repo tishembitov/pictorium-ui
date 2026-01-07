@@ -1410,3 +1410,1481 @@ select {
     --category-overlay-end: rgba(0, 0, 0, 0.7);
   }
 }
+
+/* Заменить секцию TAG MODULE STYLES в src/app/styles/global.css */
+
+/* ============================================
+   TAG MODULE STYLES - COLORFUL PINTEREST STYLE
+   ============================================ */
+
+/* ✅ Wrapper для inline-flex поведения */
+.tag-chip-wrapper {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* Tag Chip Base */
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--tag-bg, var(--tag-bg-default));
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--tag-text, var(--tag-text-default));
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  outline: none;
+  user-select: none;
+  white-space: nowrap;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  /* ✅ Убираем растягивание */
+  width: auto;
+  flex-shrink: 0;
+}
+
+/* Colorful variant with custom properties */
+.tag-chip--has-color {
+  background: var(--tag-bg);
+  color: var(--tag-text);
+}
+
+.tag-chip--has-color:hover {
+  background: var(--tag-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tag-chip--has-color:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Text inside chip */
+.tag-chip__text {
+  position: relative;
+  z-index: 1;
+  line-height: 1.2;
+}
+
+/* Hover effect - subtle shine */
+.tag-chip::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.tag-chip:hover::before {
+  left: 100%;
+}
+
+/* Tag sizes */
+.tag-chip--sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  gap: 4px;
+}
+
+.tag-chip--lg {
+  padding: 10px 20px;
+  font-size: 16px;
+  gap: 8px;
+}
+
+/* Tag selected state */
+.tag-chip--selected {
+  background: var(--tag-bg-selected) !important;
+  color: var(--tag-text-selected) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.tag-chip--selected:hover {
+  background: var(--color-secondary-hover) !important;
+  transform: translateY(-2px);
+}
+
+/* Tag primary variant */
+.tag-chip--primary {
+  background: var(--tag-bg-primary) !important;
+  color: var(--tag-text-selected) !important;
+}
+
+.tag-chip--primary:hover {
+  background: var(--color-primary-hover) !important;
+}
+
+/* Tag disabled state */
+.tag-chip--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Tag chip remove button */
+.tag-chip__remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  margin-right: -6px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.tag-chip__remove:hover {
+  background: rgba(0, 0, 0, 0.2);
+  transform: scale(1.1);
+}
+
+.tag-chip--selected .tag-chip__remove {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.tag-chip--selected .tag-chip__remove:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ============================================
+   TAG LIST STYLES
+   ============================================ */
+
+.tag-list {
+  display: flex;
+  align-items: center;
+  /* ✅ По умолчанию в ряд */
+  flex-direction: row;
+}
+
+/* ✅ Wrap - переносить на новую строку */
+.tag-list--wrap {
+  flex-wrap: wrap;
+}
+
+/* Gap variants */
+.tag-list--gap-1 { gap: 4px; }
+.tag-list--gap-2 { gap: 8px; }
+.tag-list--gap-3 { gap: 12px; }
+.tag-list--gap-4 { gap: 16px; }
+
+/* No wrap - horizontal scroll */
+.tag-list--no-wrap {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  margin-bottom: -4px;
+}
+
+.tag-list--no-wrap::-webkit-scrollbar {
+  height: 4px;
+}
+
+.tag-list--no-wrap::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 2px;
+}
+
+/* Inline layout */
+.tag-list--inline {
+  display: inline-flex;
+}
+
+/* Alignment */
+.tag-list--center {
+  justify-content: center;
+}
+
+.tag-list--end {
+  justify-content: flex-end;
+}
+
+/* Animated entrance */
+.tag-list--animated .tag-chip-wrapper {
+  animation: tagBounceIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  opacity: 0;
+}
+
+@keyframes tagBounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) translateY(10px);
+  }
+  50% {
+    transform: scale(1.05) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Stagger animation delays */
+.tag-list--animated .tag-chip-wrapper:nth-child(1) { animation-delay: 0ms; }
+.tag-list--animated .tag-chip-wrapper:nth-child(2) { animation-delay: 50ms; }
+.tag-list--animated .tag-chip-wrapper:nth-child(3) { animation-delay: 100ms; }
+.tag-list--animated .tag-chip-wrapper:nth-child(4) { animation-delay: 150ms; }
+.tag-list--animated .tag-chip-wrapper:nth-child(5) { animation-delay: 200ms; }
+.tag-list--animated .tag-chip-wrapper:nth-child(6) { animation-delay: 250ms; }
+.tag-list--animated .tag-chip-wrapper:nth-child(7) { animation-delay: 300ms; }
+.tag-list--animated .tag-chip-wrapper:nth-child(8) { animation-delay: 350ms; }
+.tag-list--animated .tag-chip-wrapper:nth-child(n+9) { animation-delay: 400ms; }
+
+/* Tag "more" button */
+.tag-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  background: transparent;
+  border: 2px dashed var(--border-default);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 48px;
+  flex-shrink: 0;
+}
+
+.tag-more:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  transform: scale(1.05);
+}
+
+/* ============================================
+   TAG EMPTY STATE
+   ============================================ */
+
+.tag-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.tag-empty__icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  color: var(--text-tertiary);
+  opacity: 0.5;
+}
+
+.tag-empty__text {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ============================================
+   KEYBOARD & ACCESSIBILITY
+   ============================================ */
+
+.tag-chip:focus {
+  outline: none;
+}
+
+.tag-chip:focus-visible {
+  outline: 3px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* Touch-friendly */
+@media (hover: none) {
+  .tag-chip {
+    min-height: 44px;
+  }
+  
+  .tag-chip::before {
+    display: none;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .tag-chip,
+  .tag-list--animated .tag-chip-wrapper {
+    animation: none !important;
+    transition: background 0.1s ease, color 0.1s ease !important;
+    transform: none !important;
+  }
+  
+  .tag-chip::before {
+    display: none;
+  }
+}
+
+/* Добавить в src/app/styles/global.css */
+
+/* ============================================
+   PIN INFO STYLES - Pinterest Style
+   ============================================ */
+
+.pin-info {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ============================================
+   EXTERNAL LINK - Pill Style with Favicon
+   ============================================ */
+
+.pin-info__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.pin-info__link:hover {
+  background: var(--bg-tertiary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.pin-info__link:active {
+  transform: translateY(0);
+}
+
+.pin-info__link-favicon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-default);
+}
+
+.pin-info__link-favicon img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.pin-info__link-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.pin-info__link-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: all 0.2s ease;
+}
+
+.pin-info__link:hover .pin-info__link-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ============================================
+   TITLE - Large Bold Heading
+   ============================================ */
+
+.pin-info__title {
+  margin: 0;
+  padding: 0;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-primary);
+  word-break: break-word;
+  letter-spacing: -0.5px;
+}
+
+/* Responsive title */
+@media (min-width: 768px) {
+  .pin-info__title {
+    font-size: 36px;
+    line-height: 1.2;
+  }
+}
+
+/* ============================================
+   DESCRIPTION - Expandable Text
+   ============================================ */
+
+.pin-info__description-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pin-info__description {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.pin-info__read-more {
+  display: inline-block;
+  width: fit-content;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.pin-info__read-more:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+.pin-info__read-more:focus {
+  outline: none;
+}
+
+.pin-info__read-more:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============================================
+   TAGS SECTION
+   ============================================ */
+
+.pin-info__tags {
+  padding-top: 8px;
+}
+
+/* ============================================
+   ENHANCED PIN DETAIL CARD LAYOUT
+   ============================================ */
+
+/* Улучшаем общий layout контента */
+.pin-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px 32px;
+}
+
+/* Более плавный скроллинг */
+.pin-detail-body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+
+.pin-detail-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pin-detail-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pin-detail-body::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+
+.pin-detail-body::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes pinInfoFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pin-info > * {
+  animation: pinInfoFadeIn 0.3s ease forwards;
+}
+
+.pin-info > *:nth-child(1) { animation-delay: 0ms; }
+.pin-info > *:nth-child(2) { animation-delay: 50ms; }
+.pin-info > *:nth-child(3) { animation-delay: 100ms; }
+.pin-info > *:nth-child(4) { animation-delay: 150ms; }
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@media (max-width: 768px) {
+  .pin-info {
+    gap: 12px;
+  }
+  
+  .pin-info__link {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+  
+  .pin-info__title {
+    font-size: 24px;
+  }
+  
+  .pin-info__description {
+    font-size: 15px;
+  }
+}
+
+/* ============================================
+   DARK MODE SUPPORT
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  .pin-info__link {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .pin-info__link:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  
+  .pin-info__link-favicon {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* ============================================
+   REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .pin-info > *,
+  .pin-info__link,
+  .pin-info__link-arrow {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Добавить в src/app/styles/global.css */
+
+/* ============================================
+   PIN STATS STYLES
+   ============================================ */
+
+.pin-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pin-stats__divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-light);
+}
+
+.pin-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease;
+}
+
+.pin-stat--clickable {
+  cursor: pointer;
+}
+
+.pin-stat--clickable:hover {
+  background: var(--bg-hover);
+}
+
+.pin-stat__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pin-stat__content {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.pin-stat__count {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pin-stat__count--active {
+  color: var(--color-error);
+}
+
+.pin-stat__label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* Active state animation */
+.pin-stat--active .pin-stat__icon {
+  animation: statPulse 0.3s ease;
+}
+
+@keyframes statPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .pin-stats {
+    gap: 8px;
+  }
+  
+  .pin-stats__divider {
+    display: none;
+  }
+  
+  .pin-stat {
+    padding: 6px 8px;
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .pin-stat__content {
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  
+  .pin-stat__count {
+    font-size: 14px;
+  }
+  
+  .pin-stat__label {
+    font-size: 11px;
+  }
+}
+
+/* Добавить в src/app/styles/global.css */
+
+/* ============================================
+   PIN AUTHOR STYLES
+   ============================================ */
+
+.pin-author {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pin-author__label {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pin-author__card {
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  transition: background 0.15s ease;
+}
+
+.pin-author__card:hover {
+  background: var(--bg-tertiary);
+}
+
+/* Loading skeleton */
+.pin-author--loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+}
+
+.pin-author__skeleton-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s infinite;
+}
+
+.pin-author__skeleton-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.pin-author__skeleton-name {
+  width: 120px;
+  height: 16px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s infinite;
+}
+
+.pin-author__skeleton-followers {
+  width: 80px;
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s infinite;
+  animation-delay: 0.1s;
+}
+
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Добавить в src/app/styles/global.css */
+
+/* ============================================
+   PIN DETAIL PAGE STYLES
+   ============================================ */
+
+.pin-detail-page {
+  min-height: 100vh;
+  padding: 24px 16px 64px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ============================================
+   PIN DETAIL BACK BUTTON
+   ============================================ */
+
+.pin-detail-back-btn {
+  position: fixed;
+  top: calc(var(--header-height) + 16px);
+  left: 16px;
+  z-index: 100;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-default);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.pin-detail-back-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.pin-detail-back-btn:active {
+  transform: scale(0.95);
+}
+
+/* ============================================
+   PIN DETAIL CARD
+   ============================================ */
+
+.pin-detail-card {
+  display: flex;
+  max-width: 1016px;
+  margin: 0 auto;
+  background: var(--bg-default);
+  border-radius: 32px;
+  overflow: hidden;
+  box-shadow: 
+    0 2px 10px rgba(0, 0, 0, 0.1),
+    0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.pin-detail-card__image {
+  flex: 1 1 50%;
+  min-width: 300px;
+  max-width: 508px;
+}
+
+.pin-detail-card__content {
+  flex: 1 1 50%;
+  min-width: 300px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .pin-detail-card {
+    flex-direction: column;
+    border-radius: 0;
+  }
+  
+  .pin-detail-card__image {
+    max-width: 100%;
+  }
+  
+  .pin-detail-card__content {
+    max-height: none;
+  }
+  
+  .pin-detail-back-btn {
+    top: calc(var(--header-height) + 8px);
+    left: 8px;
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* ============================================
+   PIN IMAGE CONTAINER
+   ============================================ */
+
+.pin-image-container {
+  position: relative;
+  width: 100%;
+  background: #f0f0f0;
+  border-radius: 32px 0 0 32px;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .pin-image-container {
+    border-radius: 0;
+  }
+}
+
+.pin-image-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.pin-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.pin-image--loaded {
+  opacity: 1;
+}
+
+/* Loading placeholder */
+.pin-image-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+}
+
+/* Skeleton loading */
+.pin-image-skeleton {
+  width: 100%;
+  padding-bottom: 133%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e8e8e8 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: imageSkeletonShimmer 1.5s infinite;
+}
+
+@keyframes imageSkeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Error state */
+.pin-image-container--error {
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pin-image-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px;
+  text-align: center;
+}
+
+.pin-image-error__text {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   PIN IMAGE OVERLAY
+   ============================================ */
+
+.pin-image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.pin-image-overlay--visible {
+  opacity: 1;
+}
+
+.pin-image-overlay__gradient {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 100px;
+  pointer-events: none;
+}
+
+.pin-image-overlay__gradient--top {
+  top: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), transparent);
+}
+
+.pin-image-overlay__gradient--bottom {
+  bottom: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.4), transparent);
+}
+
+/* Action buttons */
+.pin-image-actions {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.pin-image-action-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+
+.pin-image-action-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
+}
+
+.pin-image-action-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Zoom hint */
+.pin-image-zoom-hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 20px;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
+/* Image dimensions */
+.pin-image-dimensions {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 12px;
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  backdrop-filter: blur(4px);
+}
+
+/* ============================================
+   PIN FULLSCREEN MODAL
+   ============================================ */
+
+.pin-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pin-fullscreen__backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  cursor: zoom-out;
+}
+
+.pin-fullscreen__content {
+  position: relative;
+  z-index: 1;
+  max-width: 95vw;
+  max-height: 95vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pin-fullscreen__image {
+  max-width: 100%;
+  max-height: 95vh;
+  object-fit: contain;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.pin-fullscreen__controls {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  gap: 12px;
+  z-index: 2;
+}
+
+.pin-fullscreen__btn {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.pin-fullscreen__btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+}
+
+.pin-fullscreen__btn--close {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.pin-fullscreen__info {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.pin-fullscreen__title {
+  padding: 12px 24px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 24px;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  max-width: 400px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+
+/* Заменить секцию RELATED PINS в src/app/styles/global.css */
+
+/* ============================================
+   RELATED PINS SECTION - Minimal
+   ============================================ */
+
+.related-pins {
+  margin-top: 48px;
+}
+
+.related-pins__grid {
+  padding: 0;
+}
+
+/* Loading state */
+.related-pins__loading {
+  display: flex;
+  justify-content: center;
+  padding: 64px 16px;
+}
+
+/* Empty state - компактный */
+.related-pins__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.related-pins__empty-icon {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-radius: 50%;
+  margin-bottom: 20px;
+}
+
+.related-pins__empty-text {
+  margin: 0 0 24px;
+  max-width: 300px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.related-pins__explore-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--color-primary);
+  border: none;
+  border-radius: 24px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.related-pins__explore-btn:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(230, 0, 35, 0.3);
+}
+
+/* ============================================
+   PIN CARD - Larger for related pins
+   ============================================ */
+
+/* Hover effect для карточек */
+.pin-card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pin-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+  .related-pins {
+    margin-top: 32px;
+  }
+  
+  .related-pins__empty {
+    padding: 32px 16px;
+  }
+  
+  .related-pins__empty-icon {
+    width: 64px;
+    height: 64px;
+  }
+}
+
+/* ============================================
+   PIN DETAIL LOADER
+   ============================================ */
+
+.pin-detail-page--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+}
+
+.pin-detail-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.pin-detail-loader__spinner {
+  padding: 16px;
+}
+
+.pin-detail-loader__text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   PIN DETAIL ERROR
+   ============================================ */
+
+.pin-detail-page--error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+}
+
+.pin-detail-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 48px 24px;
+  max-width: 400px;
+}
+
+.pin-detail-error__icon {
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-radius: 50%;
+  margin-bottom: 24px;
+}
+
+.pin-detail-error__title {
+  margin: 0 0 12px;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pin-detail-error__message {
+  margin: 0 0 32px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.pin-detail-error__actions {
+  display: flex;
+  gap: 12px;
+}
+
+.pin-detail-error__btn {
+  padding: 14px 24px;
+  border: none;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pin-detail-error__btn--primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.pin-detail-error__btn--primary:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-2px);
+}
+
+.pin-detail-error__btn--secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.pin-detail-error__btn--secondary:hover {
+  background: var(--bg-tertiary);
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes pinDetailFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pin-detail-card {
+  animation: pinDetailFadeIn 0.4s ease forwards;
+}
+
+.related-pins {
+  animation: pinDetailFadeIn 0.4s ease 0.2s forwards;
+  opacity: 0;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 1024px) {
+  .related-pins__title {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .pin-detail-page {
+    padding: 16px 8px 48px;
+  }
+  
+  .related-pins {
+    margin-top: 40px;
+    padding-top: 24px;
+  }
+  
+  .related-pins__header {
+    margin-bottom: 24px;
+  }
+  
+  .related-pins__title {
+    font-size: 18px;
+  }
+  
+  .related-pins__empty {
+    padding: 48px 16px;
+  }
+  
+  .related-pins__empty-icon {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .pin-fullscreen__controls {
+    top: 16px;
+    right: 16px;
+  }
+  
+  .pin-fullscreen__btn {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* ============================================
+   REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .pin-detail-card,
+  .related-pins,
+  .pin-image,
+  .pin-image-overlay,
+  .pin-image-action-btn,
+  .pin-fullscreen__btn,
+  .related-pins__explore-btn,
+  .pin-detail-error__btn {
+    animation: none !important;
+    transition: none !important;
+  }
+}

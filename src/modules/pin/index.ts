@@ -77,6 +77,7 @@ export { PinDetailInfo } from './components/detail/PinDetailInfo';
 export { PinDetailAuthor } from './components/detail/PinDetailAuthor';
 export { PinDetailStats } from './components/detail/PinDetailStats';
 export { PinDetailComments } from './components/detail/PinDetailComments';
+export { RelatedPinsSection } from './components/detail/RelatedPinsSection';
 
 // Utils
 export {

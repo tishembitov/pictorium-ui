@@ -1,22 +1,24 @@
 // src/modules/pin/components/detail/PinDetailImage.tsx
 
-import React, { useState, useCallback } from 'react';
-import { Box, IconButton, Layer, TapArea, Spinner } from 'gestalt';
-import { useImageUrl } from '@/modules/storage';
+import React, { useState, useCallback, useRef } from 'react';
+import { Layer, TapArea, Spinner, Icon } from 'gestalt';
+import { useImageUrl, useDownloadImage } from '@/modules/storage';
+import { useToast } from '@/shared/hooks/useToast';
 import type { PinResponse } from '../../types/pin.types';
 
 interface PinDetailImageProps {
   pin: PinResponse;
 }
 
-/**
- * Компонент изображения пина с поддержкой fullscreen режима.
- * Ответственность: отображение и взаимодействие с изображением пина.
- */
 export const PinDetailImage: React.FC<PinDetailImageProps> = ({ pin }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const imageRef = useRef<HTMLImageElement>(null);
+
+  const { toast } = useToast();
+  const { download, isDownloading } = useDownloadImage();
 
   const { data: imageData, isLoading } = useImageUrl(pin.imageId, {
     enabled: !!pin.imageId,
@@ -30,6 +32,24 @@ export const PinDetailImage: React.FC<PinDetailImageProps> = ({ pin }) => {
     setIsImageLoaded(true);
   }, []);
 
+  const handleImageError = useCallback(() => {
+    setImageError(true);
+    setIsImageLoaded(true);
+  }, []);
+
+  const handleDownload = useCallback(async () => {
+    try {
+      await download(pin.imageId, {
+        fileName: pin.title || 'pin-image',
+        onSuccess: () => {
+          toast.download.success();
+        },
+      });
+    } catch {
+      toast.download.error('Failed to download image');
+    }
+  }, [download, pin.imageId, pin.title, toast]);
+
   // Вычисляем aspect ratio для контейнера
   const aspectRatio =
     pin.originalHeight && pin.originalWidth
@@ -39,160 +59,147 @@ export const PinDetailImage: React.FC<PinDetailImageProps> = ({ pin }) => {
   // Ограничиваем максимальную высоту
   const containerPaddingBottom = `${Math.min(aspectRatio * 100, 150)}%`;
 
+  // Loading state
   if (isLoading) {
     return (
-      <Box
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-        height={400}
-        color="secondary"
-        rounding={5}
-      >
-        <Spinner accessibilityLabel="Loading image" show />
-      </Box>
+      <div className="pin-image-container pin-image-container--loading">
+        <div className="pin-image-skeleton">
+          <Spinner accessibilityLabel="Loading image" show size="md" />
+        </div>
+      </div>
     );
   }
 
-  if (!imageData?.url) {
+  // Error state
+  if (imageError || !imageData?.url) {
     return (
-      <Box
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-        height={400}
-        color="secondary"
-        rounding={5}
-      />
+      <div className="pin-image-container pin-image-container--error">
+        <div className="pin-image-error">
+          <Icon accessibilityLabel="" icon="camera" size={48} color="subtle" />
+          <span className="pin-image-error__text">Image not available</span>
+        </div>
+      </div>
     );
   }
 
   return (
     <>
       {/* Main Image Container */}
-      <Box
-        position="relative"
-        width="100%"
+      <div 
+        className={`pin-image-container ${isHovered ? 'pin-image-container--hovered' : ''}`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        rounding={5}
-        overflow="hidden"
-        dangerouslySetInlineStyle={{
-          __style: {
-            backgroundColor: '#efefef',
-          },
-        }}
       >
         <TapArea onTap={toggleFullscreen} fullWidth>
-          <Box
-            position="relative"
-            width="100%"
-            dangerouslySetInlineStyle={{
-              __style: { paddingBottom: containerPaddingBottom },
-            }}
+          <div 
+            className="pin-image-wrapper"
+            style={{ paddingBottom: containerPaddingBottom }}
           >
             {/* Loading placeholder */}
             {!isImageLoaded && (
-              <Box
-                position="absolute"
-                top
-                left
-                right
-                bottom
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                color="secondary"
-              >
+              <div className="pin-image-placeholder">
                 <Spinner accessibilityLabel="Loading" show size="sm" />
-              </Box>
+              </div>
             )}
 
             <img
+              ref={imageRef}
               src={imageData.url}
               alt={pin.title || 'Pin image'}
+              className={`pin-image ${isImageLoaded ? 'pin-image--loaded' : ''}`}
               onLoad={handleImageLoad}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain',
-                opacity: isImageLoaded ? 1 : 0,
-                transition: 'opacity 0.3s ease',
-              }}
+              onError={handleImageError}
             />
-          </Box>
+          </div>
         </TapArea>
 
-        {/* Zoom Button on Hover */}
-        {isHovered && isImageLoaded && (
-          <Box position="absolute" bottom right padding={3}>
-            <IconButton
-              accessibilityLabel="View fullscreen"
-              icon="maximize"
+        {/* Hover Overlay */}
+        <div className={`pin-image-overlay ${isHovered && isImageLoaded ? 'pin-image-overlay--visible' : ''}`}>
+          {/* Top gradient */}
+          <div className="pin-image-overlay__gradient pin-image-overlay__gradient--top" />
+          
+          {/* Bottom gradient */}
+          <div className="pin-image-overlay__gradient pin-image-overlay__gradient--bottom" />
+
+          {/* Action buttons */}
+          <div className="pin-image-actions">
+            <button 
+              className="pin-image-action-btn"
+              onClick={handleDownload}
+              disabled={isDownloading}
+              aria-label="Download image"
+            >
+              <Icon 
+                accessibilityLabel="" 
+                icon={isDownloading ? 'clock' : 'download'} 
+                size={20} 
+                color="inverse" 
+              />
+            </button>
+            
+            <button 
+              className="pin-image-action-btn"
               onClick={toggleFullscreen}
-              bgColor="white"
-              size="md"
-            />
-          </Box>
+              aria-label="View fullscreen"
+            >
+              <Icon accessibilityLabel="" icon="maximize" size={20} color="inverse" />
+            </button>
+          </div>
+
+          {/* Zoom hint */}
+          <div className="pin-image-zoom-hint">
+            <Icon accessibilityLabel="" icon="search" size={16} color="inverse" />
+            <span>Click to zoom</span>
+          </div>
+        </div>
+
+        {/* Image dimensions badge */}
+        {pin.originalWidth && pin.originalHeight && isHovered && isImageLoaded && (
+          <div className="pin-image-dimensions">
+            {pin.originalWidth} × {pin.originalHeight}
+          </div>
         )}
-      </Box>
+      </div>
 
       {/* Fullscreen Modal */}
       {isFullscreen && (
         <Layer>
-          <Box
-            position="fixed"
-            top
-            left
-            right
-            bottom
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            dangerouslySetInlineStyle={{
-              __style: {
-                backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                zIndex: 999,
-                cursor: 'zoom-out',
-              },
-            }}
-          >
-            <TapArea onTap={toggleFullscreen} fullWidth fullHeight>
-              <Box
-                width="100%"
-                height="100%"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                padding={4}
-              >
-                <img
-                  src={imageData.url}
-                  alt={pin.title || 'Pin image'}
-                  style={{
-                    maxWidth: '95%',
-                    maxHeight: '95%',
-                    objectFit: 'contain',
-                    borderRadius: 16,
-                  }}
-                />
-              </Box>
-            </TapArea>
-
-            {/* Close Button */}
-            <Box position="absolute" top right padding={4}>
-              <IconButton
-                accessibilityLabel="Close fullscreen"
-                icon="cancel"
-                onClick={toggleFullscreen}
-                bgColor="white"
-                size="lg"
+          <div className="pin-fullscreen">
+            <div className="pin-fullscreen__backdrop" onClick={toggleFullscreen} />
+            
+            <div className="pin-fullscreen__content">
+              <img
+                src={imageData.url}
+                alt={pin.title || 'Pin image'}
+                className="pin-fullscreen__image"
               />
-            </Box>
-          </Box>
+            </div>
+
+            {/* Controls */}
+            <div className="pin-fullscreen__controls">
+              <button 
+                className="pin-fullscreen__btn"
+                onClick={handleDownload}
+                disabled={isDownloading}
+              >
+                <Icon accessibilityLabel="Download" icon="download" size={24} color="inverse" />
+              </button>
+              
+              <button 
+                className="pin-fullscreen__btn pin-fullscreen__btn--close"
+                onClick={toggleFullscreen}
+              >
+                <Icon accessibilityLabel="Close" icon="cancel" size={24} color="inverse" />
+              </button>
+            </div>
+
+            {/* Image info */}
+            {pin.title && (
+              <div className="pin-fullscreen__info">
+                <span className="pin-fullscreen__title">{pin.title}</span>
+              </div>
+            )}
+          </div>
         </Layer>
       )}
     </>

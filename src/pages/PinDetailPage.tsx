@@ -2,15 +2,14 @@
 
 import React, { useEffect } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
-import { Box, Flex, Spinner, IconButton } from 'gestalt';
+import { Spinner, Icon } from 'gestalt';
 import { 
   PinDetailImage,
   PinDetailContent,
-  PinGrid,
+  RelatedPinsSection,
   usePin, 
   useRelatedPins,
 } from '@/modules/pin';
-import { ErrorMessage } from '@/shared/components';
 import { ROUTES } from '@/app/router/routeConfig';
 
 const PinDetailPage: React.FC = () => {
@@ -27,9 +26,8 @@ const PinDetailPage: React.FC = () => {
     fetchNextPage: fetchMoreRelated,
   } = useRelatedPins(pinId, { enabled: !!pin });
 
-  // Scroll to top on mount
   useEffect(() => {
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [pinId]);
 
   const handleGoBack = () => {
@@ -50,127 +48,75 @@ const PinDetailPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Box 
-        display="flex" 
-        justifyContent="center" 
-        alignItems="center" 
-        minHeight="80vh"
-      >
-        <Spinner accessibilityLabel="Loading pin" show size="lg" />
-      </Box>
+      <div className="pin-detail-page pin-detail-page--loading">
+        <div className="pin-detail-loader">
+          <Spinner accessibilityLabel="Loading pin" show size="lg" />
+        </div>
+      </div>
     );
   }
 
   if (isError || !pin) {
     return (
-      <Box paddingY={8}>
-        <ErrorMessage
-          title="Failed to load pin"
-          message={error?.message || 'Pin not found'}
-          onRetry={handleRetry}
-        />
-      </Box>
+      <div className="pin-detail-page pin-detail-page--error">
+        <div className="pin-detail-error">
+          <div className="pin-detail-error__icon">
+            <Icon accessibilityLabel="" icon="workflow-status-problem" size={64} color="subtle" />
+          </div>
+          <h1 className="pin-detail-error__title">Pin not found</h1>
+          <p className="pin-detail-error__message">
+            {error?.message || 'This pin may have been deleted or is no longer available.'}
+          </p>
+          <div className="pin-detail-error__actions">
+            <button 
+              className="pin-detail-error__btn pin-detail-error__btn--primary"
+              onClick={handleRetry}
+            >
+              Try again
+            </button>
+            <button 
+              className="pin-detail-error__btn pin-detail-error__btn--secondary"
+              onClick={handleGoBack}
+            >
+              Go back
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Box paddingY={6}>
-      {/* Close/Back Button - Fixed position */}
-      <Box
-        position="fixed"
-        dangerouslySetInlineStyle={{
-          __style: {
-            top: 'calc(var(--header-height) + 16px)',
-            left: 16,
-            zIndex: 10,
-          },
-        }}
+    <div className="pin-detail-page">
+      {/* Back Button */}
+      <button 
+        className="pin-detail-back-btn"
+        onClick={handleGoBack}
+        aria-label="Go back"
       >
-        <IconButton
-          accessibilityLabel="Go back"
-          icon="arrow-back"
-          onClick={handleGoBack}
-          size="lg"
-          bgColor="white"
-          iconColor="darkGray"
-        />
-      </Box>
+        <Icon accessibilityLabel="" icon="arrow-back" size={20} color="dark" />
+      </button>
 
       {/* Main Pin Card */}
-      <Box
-        maxWidth={1016}
-        marginStart="auto"
-        marginEnd="auto"
-        rounding={5}
-        overflow="hidden"
-        color="default"
-        dangerouslySetInlineStyle={{
-          __style: {
-            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.1)',
-          },
-        }}
-      >
-        <Flex wrap>
-          {/* Left Side - Image */}
-          <Box
-            minWidth={300}
-            maxWidth={508}
-            flex="grow"
-            dangerouslySetInlineStyle={{
-              __style: {
-                flex: '1 1 50%',
-              },
-            }}
-          >
-            <PinDetailImage pin={pin} />
-          </Box>
+      <article className="pin-detail-card">
+        <div className="pin-detail-card__image">
+          <PinDetailImage pin={pin} />
+        </div>
+        <div className="pin-detail-card__content">
+          <PinDetailContent pin={pin} onBack={handleGoBack} />
+        </div>
+      </article>
 
-          {/* Right Side - Content */}
-          <Box
-            minWidth={300}
-            flex="grow"
-            dangerouslySetInlineStyle={{
-              __style: {
-                flex: '1 1 50%',
-                maxHeight: '90vh',
-                overflowY: 'auto',
-              },
-            }}
-          >
-            <PinDetailContent pin={pin} />
-          </Box>
-        </Flex>
-      </Box>
-
-      {/* Related Pins Section */}
-      <Box marginTop={8}>
-        <Box 
-          marginBottom={4}
-          display="flex"
-          justifyContent="center"
-        >
-          <Box
-            dangerouslySetInlineStyle={{
-              __style: {
-                fontSize: 20,
-                fontWeight: 600,
-              },
-            }}
-          >
-            More like this
-          </Box>
-        </Box>
-
-        <PinGrid
-          pins={relatedPins}
-          isLoading={isLoadingRelated}
-          isFetchingNextPage={isFetchingMoreRelated}
-          hasNextPage={hasMoreRelated}
-          fetchNextPage={handleFetchMoreRelated}
-          emptyMessage="No related pins found"
-        />
-      </Box>
-    </Box>
+      {/* Related Pins - только карточки */}
+      <RelatedPinsSection
+        pins={relatedPins}
+        isLoading={isLoadingRelated}
+        isFetchingNextPage={isFetchingMoreRelated}
+        hasNextPage={hasMoreRelated}
+        fetchNextPage={handleFetchMoreRelated}
+        pinTitle={pin.title}
+      />
+    </div>
   );
 };
 

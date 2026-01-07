@@ -1,16 +1,13 @@
 // src/modules/pin/components/detail/PinDetailStats.tsx
 
 import React from 'react';
-import { Box, Flex, Text, Icon, TapArea } from 'gestalt';
+import { Icon, TapArea, Tooltip } from 'gestalt';
 import { formatCompactNumber } from '@/shared/utils/formatters';
 import type { PinLocalState } from '../../hooks/usePinLocalState';
 
 interface PinDetailStatsProps {
-  /** Локальное состояние пина */
   localState: PinLocalState;
-  /** Счётчик комментариев (из pin) */
   commentCount: number;
-  /** Счётчик просмотров (из pin) */
   viewCount: number;
   onCommentsClick?: () => void;
 }
@@ -20,30 +17,52 @@ interface StatItemProps {
   count: number;
   label: string;
   onClick?: () => void;
+  isActive?: boolean;
+  tooltip?: string;
 }
 
-const StatItem: React.FC<StatItemProps> = ({ icon, count, label, onClick }) => {
+const StatItem: React.FC<StatItemProps> = ({ 
+  icon, 
+  count, 
+  label, 
+  onClick, 
+  isActive = false,
+  tooltip,
+}) => {
   const content = (
-    <Flex alignItems="center" gap={2}>
-      <Icon accessibilityLabel="" icon={icon} size={16} color="subtle" />
-      <Text size="200" color="subtle">
-        <Text weight="bold" inline>
+    <div className={`pin-stat ${onClick ? 'pin-stat--clickable' : ''} ${isActive ? 'pin-stat--active' : ''}`}>
+      <span className="pin-stat__icon">
+        <Icon 
+          accessibilityLabel="" 
+          icon={icon} 
+          size={18} 
+          color={isActive ? 'error' : 'subtle'} 
+        />
+      </span>
+      <span className="pin-stat__content">
+        <span className={`pin-stat__count ${isActive ? 'pin-stat__count--active' : ''}`}>
           {formatCompactNumber(count)}
-        </Text>{' '}
-        {label}
-      </Text>
-    </Flex>
+        </span>
+        <span className="pin-stat__label">{label}</span>
+      </span>
+    </div>
   );
 
   if (onClick) {
+    const wrappedContent = tooltip ? (
+      <Tooltip text={tooltip}>
+        {content}
+      </Tooltip>
+    ) : content;
+
     return (
       <TapArea onTap={onClick} rounding={2}>
-        <Box padding={1}>{content}</Box>
+        {wrappedContent}
       </TapArea>
     );
   }
 
-  return <Box padding={1}>{content}</Box>;
+  return content;
 };
 
 export const PinDetailStats: React.FC<PinDetailStatsProps> = ({
@@ -57,26 +76,28 @@ export const PinDetailStats: React.FC<PinDetailStatsProps> = ({
   const viewLabel = viewCount === 1 ? 'view' : 'views';
 
   return (
-    <Box paddingY={2}>
-      <Flex gap={4} wrap>
-        <StatItem 
-          icon="heart" 
-          count={localState.likeCount} 
-          label={likeLabel} 
-        />
-        <StatItem
-          icon="speech"
-          count={commentCount}
-          label={commentLabel}
-          onClick={onCommentsClick}
-        />
-        <StatItem 
-          icon="eye" 
-          count={viewCount} 
-          label={viewLabel} 
-        />
-      </Flex>
-    </Box>
+    <div className="pin-stats">
+      <StatItem 
+        icon="heart" 
+        count={localState.likeCount} 
+        label={likeLabel}
+        isActive={localState.isLiked}
+      />
+      <div className="pin-stats__divider" />
+      <StatItem
+        icon="speech"
+        count={commentCount}
+        label={commentLabel}
+        onClick={onCommentsClick}
+        tooltip="View comments"
+      />
+      <div className="pin-stats__divider" />
+      <StatItem 
+        icon="eye" 
+        count={viewCount} 
+        label={viewLabel} 
+      />
+    </div>
   );
 };
 

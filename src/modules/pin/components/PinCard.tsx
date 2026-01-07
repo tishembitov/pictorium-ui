@@ -28,7 +28,6 @@ export const PinCard: React.FC<PinCardProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // ✅ Создаём localState внутри компонента
   const { state: localState, markAsSaved, markAsRemoved } = usePinLocalState(pin);
 
   const imageId = pin.thumbnailId || pin.imageId;
@@ -45,6 +44,7 @@ export const PinCard: React.FC<PinCardProps> = ({
   const handleMouseLeave = useCallback(() => setIsHovered(false), []);
   const handleImageLoad = useCallback(() => setIsLoaded(true), []);
 
+  // Стандартные размеры
   const dimensions = useMemo(() => ({
     width: pin.thumbnailWidth || 236,
     height: pin.thumbnailHeight || 300,

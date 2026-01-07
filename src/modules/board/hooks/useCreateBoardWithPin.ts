@@ -6,38 +6,69 @@ import { boardApi } from '../api/boardApi';
 import { useToast } from '@/shared/hooks/useToast';
 import { useSelectBoard } from './useSelectBoard';
 import type { BoardCreateRequest, BoardResponse } from '../types/board.types';
+import type { PinResponse } from '@/modules/pin';
 
 interface UseCreateBoardWithPinOptions {
   onSuccess?: (board: BoardResponse) => void;
   onError?: (error: Error) => void;
   autoSelect?: boolean;
+  showToast?: boolean;
 }
 
+/**
+ * Создаёт доску и сохраняет пин в одном запросе.
+ * ✅ Оптимистично обновляет кэш пина.
+ */
 export const useCreateBoardWithPin = (
   pinId: string,
   options: UseCreateBoardWithPinOptions = {}
 ) => {
-  const { 
-    onSuccess, 
-    onError, 
+  const {
+    onSuccess,
+    onError,
     autoSelect = true,
+    showToast = true,
   } = options;
-  
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { selectBoard } = useSelectBoard();
 
   const mutation = useMutation({
-    mutationFn: (data: BoardCreateRequest) => 
+    mutationFn: (data: BoardCreateRequest) =>
       boardApi.createWithPin(pinId, data),
 
     onSuccess: (board) => {
-      // Board-related
-      void queryClient.invalidateQueries({ queryKey: queryKeys.boards.all });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.boards.forPin(pinId) });
+      // ✅ КЛЮЧЕВОЕ: Оптимистичное обновление кэша пина
+      // API createWithPin возвращает BoardResponse, а не PinResponse
+      // Поэтому обновляем вручную
+      queryClient.setQueryData<PinResponse | undefined>(
+        queryKeys.pins.byId(pinId),
+        (oldPin) => {
+          if (!oldPin) return oldPin;
 
-      // ✅ Pin lists (пин теперь сохранён)
-      void queryClient.invalidateQueries({ 
+          return {
+            ...oldPin,
+            savedToBoardsCount: oldPin.savedToBoardsCount + 1,
+            lastSavedBoardId: board.id,
+            lastSavedBoardName: board.title,
+          };
+        }
+      );
+
+      // Board-related инвалидации
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.boards.all,
+        refetchType: 'none',
+      });
+
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.boards.forPin(pinId),
+        refetchType: 'none',
+      });
+
+      // Pin lists инвалидация
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.pins.lists(),
         refetchType: 'none',
       });
@@ -46,12 +77,17 @@ export const useCreateBoardWithPin = (
         selectBoard(board.id);
       }
 
-      toast.board.created(board.title);
+      if (showToast) {
+        toast.board.created(board.title);
+      }
+
       onSuccess?.(board);
     },
 
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create board'); // Можно поменять на пресет, если потребуется
+      if (showToast) {
+        toast.error(error.message || 'Failed to create board');
+      }
       onError?.(error);
     },
   });

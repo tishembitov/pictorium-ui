@@ -16,6 +16,7 @@ import {
   useSelectedBoardStore,
   useSelectBoard,
   useMyBoards,
+  useSavePinToBoard,
   BoardCreateModal,
   BoardPickerDropdown,
 } from '@/modules/board';
@@ -60,24 +61,43 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   const [showCreateBoardModal, setShowCreateBoardModal] = useState(false);
   const [boardSearchQuery, setBoardSearchQuery] = useState('');
   const [boardPickerAnchor, setBoardPickerAnchor] = useState<HTMLDivElement | null>(null);
-  const [isSavingToBoard, setIsSavingToBoard] = useState(false);
 
   // Hooks
   const { boards, isLoading: isBoardsLoading, refetch: refetchBoards } = useMyBoards({
     enabled: isAuthenticated,
   });
 
-  const { createPin, isLoading: isCreating } = useCreatePin({
+  // ✅ Хук для сохранения пина в доску
+  const { savePinToBoard, isLoading: isSavingToBoard } = useSavePinToBoard({
+    showToast: false, // Тост покажем сами после всей операции
     onSuccess: () => {
-      setIsSavingToBoard(false);
       if (localSelectedBoard) {
         selectBoard(localSelectedBoard.id);
+        toast.pin.created(localSelectedBoard.title);
       }
-      toast.pin.created(localSelectedBoard?.title);
       onSuccess?.();
     },
-    navigateToPin: false,
-    showToast: false,
+    onError: (error) => {
+      // Пин создан, но не сохранён в доску
+      toast.error(`Pin created but failed to save to board: ${error.message}`);
+      onSuccess?.(); // Всё равно закрываем форму
+    },
+  });
+
+  // ✅ Хук создания пина с колбэком для сохранения в доску
+  const { createPin, isLoading: isCreating } = useCreatePin({
+    onSuccess: (pin) => {
+      // После создания пина сохраняем в выбранную доску
+      if (localSelectedBoard) {
+        savePinToBoard({ boardId: localSelectedBoard.id, pinId: pin.id });
+      } else {
+        // Если доска не выбрана (не должно случиться из-за валидации)
+        toast.pin.created();
+        onSuccess?.();
+      }
+    },
+    navigateToPin: false, // Не переходим сразу, ждём сохранения в доску
+    showToast: false, // Тост покажем после сохранения в доску
   });
 
   const {
@@ -181,6 +201,8 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   const hasBoard = !!localSelectedBoard;
   const hasBoards = boards.length > 0;
   const canSubmit = hasImage && isValid && !!titleValue?.trim() && hasBoard;
+  
+  // ✅ Объединяем состояния загрузки
   const isLoading = isCreating || isSavingToBoard;
 
   const boardSelectorText = localSelectedBoard?.title || 'Select a board';
@@ -199,8 +221,8 @@ export const PinCreateForm: React.FC<PinCreateFormProps> = ({
   };
 
   const getSubmitButtonText = (): string => {
-    if (isSavingToBoard) return 'Saving...';
     if (isCreating) return 'Creating...';
+    if (isSavingToBoard) return 'Saving to board...';
     return 'Create Pin';
   };
 

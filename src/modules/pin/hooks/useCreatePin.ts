@@ -15,41 +15,57 @@ interface UseCreatePinOptions {
   navigateToPin?: boolean;
 }
 
+/**
+ * Мутация для создания пина.
+ * ✅ Кладёт созданный пин в кэш для мгновенного отображения на PinDetail.
+ */
 export const useCreatePin = (options: UseCreatePinOptions = {}) => {
-  const { 
-    onSuccess, 
-    onError, 
+  const {
+    onSuccess,
+    onError,
     showToast = true,
     navigateToPin = true,
   } = options;
+  
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const mutation = useMutation({
     mutationFn: (data: PinCreateRequest) => pinApi.create(data),
+    
     onSuccess: (data) => {
-      // ✅ Инвалидируем только списки пинов (не детали)
-      void queryClient.invalidateQueries({ 
+      // ✅ КЛЮЧЕВОЕ: Кладём созданный пин в кэш
+      // При переходе на PinDetail данные уже будут в кэше
+      queryClient.setQueryData(queryKeys.pins.byId(data.id), data);
+
+      // Инвалидируем списки пинов (новый пин должен появиться)
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.pins.lists(),
         refetchType: 'none',
       });
-      
+
+      // Инвалидируем boards.my() для обновления pinCount досок
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.boards.my(),
+        refetchType: 'none',
+      });
+
       if (showToast) {
         toast.pin.created();
       }
-      
+
       if (navigateToPin) {
         navigate(buildPath.pin(data.id));
       }
-      
+
       onSuccess?.(data);
     },
+    
     onError: (error: Error) => {
       if (showToast) {
-        toast.error(error.message || 'Failed to create pin'); // Можно поменять на пресет, если потребуется
+        toast.error(error.message || 'Failed to create pin');
       }
-      
       onError?.(error);
     },
   });

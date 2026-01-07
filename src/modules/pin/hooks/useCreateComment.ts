@@ -5,6 +5,7 @@ import { queryKeys } from '@/app/config/queryClient';
 import { pinCommentApi } from '../api/pinCommentApi';
 import { useToast } from '@/shared/hooks/useToast';
 import type { CommentResponse, CommentCreateRequest } from '@/modules/comment';
+import type { PinResponse } from '../types/pin.types';
 
 interface UseCreateCommentOptions {
   onSuccess?: (data: CommentResponse) => void;
@@ -12,8 +13,8 @@ interface UseCreateCommentOptions {
 }
 
 /**
- * Простая мутация для создания комментария.
- * UI обновляется через refetch после успеха.
+ * Мутация для создания комментария.
+ * ✅ Обновляет commentCount в кэше пина для синхронизации состояния.
  */
 export const useCreateComment = (
   pinId: string,
@@ -28,14 +29,26 @@ export const useCreateComment = (
       pinCommentApi.createComment(pinId, data),
 
     onSuccess: (data) => {
-      // Инвалидируем для рефетча - комментарий появится после загрузки
+      // ✅ КЛЮЧЕВОЕ: Обновляем commentCount в кэше пина
+      queryClient.setQueryData<PinResponse | undefined>(
+        queryKeys.pins.byId(pinId),
+        (oldPin) => {
+          if (!oldPin) return oldPin;
+          return {
+            ...oldPin,
+            commentCount: oldPin.commentCount + 1,
+          };
+        }
+      );
+
+      // Инвалидируем список комментариев для рефетча
       void queryClient.invalidateQueries({
         queryKey: queryKeys.pins.comments(pinId),
       });
-      
-      // Обновляем счётчик комментариев в пине (optional)
+
+      // Инвалидируем списки пинов (для обновления commentCount в гридах)
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.pins.byId(pinId),
+        queryKey: queryKeys.pins.lists(),
         refetchType: 'none',
       });
 
@@ -44,7 +57,7 @@ export const useCreateComment = (
     },
 
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to add comment'); // Можно заменить на пресет, если потребуется
+      toast.error(error.message || 'Failed to add comment');
       onError?.(error);
     },
   });

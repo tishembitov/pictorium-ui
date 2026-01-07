@@ -3,18 +3,19 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { boardApi } from '../api/boardApi';
+import { useToast } from '@/shared/hooks/useToast';
 import type { BoardPinAction } from '../types/board.types';
 import type { PinResponse } from '@/modules/pin';
-import { useToast } from '@/shared';
 
 interface UseSavePinToBoardOptions {
   onSuccess?: (updatedPin: PinResponse, boardId: string) => void;
   onError?: (error: Error) => void;
-  showToast?: boolean; 
+  showToast?: boolean;
 }
 
 /**
  * Мутация для сохранения пина в доску.
+ * ✅ Обновляет кэш пина данными от сервера для синхронизации состояния.
  */
 export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
   const { onSuccess, onError, showToast = true } = options;
@@ -28,32 +29,38 @@ export const useSavePinToBoard = (options: UseSavePinToBoardOptions = {}) => {
     },
 
     onSuccess: ({ boardId, updatedPin }, { pinId }) => {
-      // Инвалидация board-related запросов
-      void queryClient.invalidateQueries({ 
+      // ✅ КЛЮЧЕВОЕ: Обновляем кэш конкретного пина данными от сервера
+      // Это гарантирует, что при переходе на PinDetail данные будут актуальными
+      queryClient.setQueryData(
+        queryKeys.pins.byId(pinId),
+        updatedPin
+      );
+
+      // Board-related инвалидации (фоновое обновление)
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.boards.forPin(pinId),
         refetchType: 'none',
       });
-      
-      void queryClient.invalidateQueries({ 
+
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.boards.pins(boardId),
         refetchType: 'none',
       });
-      
-      void queryClient.invalidateQueries({ 
+
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.boards.my(),
         refetchType: 'none',
       });
 
-      // ✅ NEW: Инвалидация списков пинов (для ProfilePinsTab с scope: SAVED)
-      void queryClient.invalidateQueries({ 
-        queryKey: queryKeys.pins.all,
+      // ✅ Инвалидируем списки пинов (для обновления savedToBoardsCount в гридах)
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.pins.lists(),
         refetchType: 'none',
       });
 
-      if (showToast) { // ✅ Проверяем флаг
-        toast.pin.saved(); // или с boardName если доступен
+      if (showToast) {
+        toast.pin.saved();
       }
-      
 
       onSuccess?.(updatedPin, boardId);
     },

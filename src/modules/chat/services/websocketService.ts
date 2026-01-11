@@ -1,6 +1,5 @@
 // src/modules/chat/services/websocketService.ts
 
-import SockJS from 'sockjs-client';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import { env } from '@/app/config/env';
 import { keycloak } from '@/app/config/keycloak';
@@ -41,45 +40,39 @@ class WebSocketService {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
-  /**
-   * Connect to WebSocket server
-   */
   connect(): void {
     if (this.client?.connected) {
-      console.debug('[WebSocket] Already connected');
       return;
     }
 
     if (!keycloak.authenticated || !keycloak.token) {
-      console.error('[WebSocket] Not authenticated');
       return;
     }
 
     const userId = keycloak.tokenParsed?.sub;
     if (!userId) {
-      console.error('[WebSocket] User ID not found');
       return;
     }
 
     this.isManualDisconnect = false;
 
-    // ✅ Исправленный endpoint: /ws/chat вместо /ws
+    const wsProtocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${new URL(env.apiGatewayUrl).host}/ws/chat`;
+
     this.client = new Client({
-      webSocketFactory: () => new SockJS(`${env.apiGatewayUrl}/ws/chat`),
+      brokerURL: wsUrl,
+      
       connectHeaders: {
         Authorization: `Bearer ${keycloak.token}`,
       },
-      debug: (str) => {
-        if (env.isDevelopment) {
-          console.debug('[WebSocket]', str);
-        }
-      },
+      
+      debug: () => {},
+      
       reconnectDelay: this.config.reconnectDelay,
       heartbeatIncoming: this.config.heartbeatIncoming,
       heartbeatOutgoing: this.config.heartbeatOutgoing,
 
       onConnect: () => {
-        console.log('[WebSocket] Connected');
         this.reconnectAttempts = 0;
         this.notifyConnectionHandlers(true);
         this.subscribeToUserChannel(userId);
@@ -88,28 +81,22 @@ class WebSocketService {
       },
 
       onDisconnect: () => {
-        console.log('[WebSocket] Disconnected');
         this.stopHeartbeat();
         this.notifyConnectionHandlers(false);
       },
 
-      onStompError: (frame) => {
-        console.error('[WebSocket] STOMP error:', frame.headers.message);
+      onStompError: () => {
         this.handleReconnect();
       },
 
-      onWebSocketError: (event) => {
-        console.error('[WebSocket] WebSocket error:', event);
-        this.handleReconnect();
-      },
+      onWebSocketError: () => {},
+
+      onWebSocketClose: () => {},
     });
 
     this.client.activate();
   }
 
-  /**
-   * Disconnect from WebSocket server
-   */
   disconnect(): void {
     this.isManualDisconnect = true;
     this.stopHeartbeat();
@@ -132,75 +119,46 @@ class WebSocketService {
     this.notifyConnectionHandlers(false);
   }
 
-  /**
-   * Subscribe to user's personal channel
-   * ✅ Исправленный endpoint: /queue/messages вместо /chat
-   */
   private subscribeToUserChannel(userId: string): void {
-    if (!this.client?.connected) {
-      return;
-    }
+    if (!this.client?.connected) return;
 
-    // ✅ Правильный destination для личных сообщений
     const destination = `/user/${userId}/queue/messages`;
     
     this.subscription = this.client.subscribe(destination, (message: IMessage) => {
       try {
         const parsed = JSON.parse(message.body) as WsOutgoingMessage;
         this.notifyMessageHandlers(parsed);
-      } catch (error) {
-        console.error('[WebSocket] Failed to parse message:', error);
+      } catch {
+        // Silent fail
       }
     });
-
-    console.log('[WebSocket] Subscribed to:', destination);
   }
 
-  /**
-   * Subscribe to presence updates
-   */
   private subscribeToPresence(): void {
-    if (!this.client?.connected) {
-      return;
-    }
+    if (!this.client?.connected) return;
 
     this.presenceSubscription = this.client.subscribe('/topic/presence', (message: IMessage) => {
       try {
         const parsed = JSON.parse(message.body) as WsOutgoingMessage;
         this.notifyMessageHandlers(parsed);
-      } catch (error) {
-        console.error('[WebSocket] Failed to parse presence message:', error);
+      } catch {
+        // Silent fail
       }
     });
-
-    console.log('[WebSocket] Subscribed to presence');
   }
 
-  
   private send(message: WsIncomingMessage): void {
     if (!this.client?.connected) {
-      console.error('[WebSocket] Cannot send - not connected:', message.type);
       return;
     }
 
     this.client.publish({
       destination: '/app/chat',
       body: JSON.stringify(message),
-      headers: {
-        Authorization: `Bearer ${keycloak.token}`,
-      },
     });
   }
 
-  /**
-   * Send a chat message
-   */
   sendMessage(chatId: string, content: string, messageType: 'TEXT' | 'IMAGE' = 'TEXT', imageId?: string): void {
-    if (!this.isConnected) {
-      console.warn('[WebSocket] Cannot send message - not connected');
-      return;
-    }
-
     this.send({
       type: 'SEND_MESSAGE',
       chatId,
@@ -210,82 +168,37 @@ class WebSocketService {
     });
   }
 
-  /**
-   * Send typing indicator
-   */
   sendTyping(chatId: string, isTyping: boolean): void {
-    if (!this.isConnected) {
-      console.warn('[WebSocket] Cannot send typing - not connected');
-      return;
-    }
-
+    if (!this.isConnected) return;
     this.send({
       type: isTyping ? 'TYPING_START' : 'TYPING_STOP',
       chatId,
     });
   }
 
-  /**
-   * Mark messages as read
-   */
   markAsRead(chatId: string): void {
-    if (!this.isConnected) {
-      console.warn('[WebSocket] Cannot mark read - not connected');
-      return;
-    }
-
-    this.send({
-      type: 'MARK_READ',
-      chatId,
-    });
+    this.send({ type: 'MARK_READ', chatId });
   }
 
-  /**
-   * Join a chat (for presence tracking)
-   */
   joinChat(chatId: string): void {
-    if (!this.isConnected) {
-      console.warn('[WebSocket] Cannot join chat - not connected');
-      return;
-    }
-
-    this.send({
-      type: 'JOIN_CHAT',
-      chatId,
-    });
+    if (!this.isConnected) return;
+    this.send({ type: 'JOIN_CHAT', chatId });
   }
 
-  /**
-   * Leave a chat
-   */
   leaveChat(chatId: string): void {
-    if (!this.isConnected) {
-      console.warn('[WebSocket] Cannot leave chat - not connected');
-      return;
-    }
-
-    this.send({
-      type: 'LEAVE_CHAT',
-      chatId,
-    });
+    if (!this.isConnected) return;
+    this.send({ type: 'LEAVE_CHAT', chatId });
   }
-  
-  /**
-   * Start heartbeat to keep connection alive
-   */
+
   private startHeartbeat(): void {
     this.stopHeartbeat();
-    
     this.heartbeatInterval = setInterval(() => {
       if (this.client?.connected) {
         this.send({ type: 'HEARTBEAT' });
       }
-    }, 30000); // Every 30 seconds
+    }, 30000);
   }
 
-  /**
-   * Stop heartbeat
-   */
   private stopHeartbeat(): void {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
@@ -293,74 +206,48 @@ class WebSocketService {
     }
   }
 
-  /**
-   * Add message handler
-   */
   onMessage(handler: MessageHandler): () => void {
     this.messageHandlers.add(handler);
     return () => this.messageHandlers.delete(handler);
   }
 
-  /**
-   * Add connection status handler
-   */
   onConnectionChange(handler: ConnectionHandler): () => void {
     this.connectionHandlers.add(handler);
     return () => this.connectionHandlers.delete(handler);
   }
 
-  /**
-   * Check if connected
-   */
   get isConnected(): boolean {
     return this.client?.connected ?? false;
   }
 
-  /**
-   * Handle reconnection logic
-   */
   private handleReconnect(): void {
-    if (this.isManualDisconnect) {
-      return;
-    }
-
+    if (this.isManualDisconnect) return;
     if (this.reconnectAttempts >= (this.config.maxReconnectAttempts ?? 10)) {
-      console.error('[WebSocket] Max reconnect attempts reached');
       return;
     }
-
     this.reconnectAttempts++;
-    console.log(`[WebSocket] Reconnecting... Attempt ${this.reconnectAttempts}`);
   }
 
-  /**
-   * Notify all message handlers
-   */
   private notifyMessageHandlers(message: WsOutgoingMessage): void {
     this.messageHandlers.forEach((handler) => {
       try {
         handler(message);
-      } catch (error) {
-        console.error('[WebSocket] Handler error:', error);
+      } catch {
+        // Silent fail
       }
     });
   }
 
-  /**
-   * Notify all connection handlers
-   */
   private notifyConnectionHandlers(connected: boolean): void {
     this.connectionHandlers.forEach((handler) => {
       try {
         handler(connected);
-      } catch (error) {
-        console.error('[WebSocket] Connection handler error:', error);
+      } catch {
+        // Silent fail
       }
     });
   }
 }
 
-// Singleton instance
 export const websocketService = new WebSocketService();
-
 export default websocketService;

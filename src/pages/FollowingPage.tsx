@@ -10,7 +10,7 @@ import {
   UserAvatar,
 } from '@/modules/user';
 import { ErrorMessage } from '@/shared/components';
-import { ROUTES, buildPath } from '@/app/router/routeConfig';
+import { buildPath, ROUTES } from '@/app/router/routes';
 
 const FollowingPage: React.FC = () => {
   const { username } = useParams<{ username: string }>();

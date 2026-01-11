@@ -3,7 +3,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Flex, Text, IconButton, TapArea } from 'gestalt';
-import { useShallow } from 'zustand/react/shallow';
 import { buildPath } from '@/app/router/routes';
 import { UserAvatar } from '@/modules/user';
 import { OnlineIndicator } from './OnlineIndicator';
@@ -28,16 +27,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   const navigate = useNavigate();
   const { isOnline } = useUserPresence(recipientId);
 
-  // ✅ ПРАВИЛЬНОЕ использование useShallow
-  const { typingUsers } = useChatStore(
-    useShallow((state) => ({
-      selectedChatId: state.selectedChatId,
-      typingUsers: state.selectedChatId 
-        ? (state.typingUsers[state.selectedChatId] ?? [])
-        : [],
-    }))
-  );
-
+  // ✅ ПРАВИЛЬНО: отдельные селекторы для примитивов
+  const selectedChatId = useChatStore((state) => state.selectedChatId);
+  const typingUsersMap = useChatStore((state) => state.typingUsers);
+  
+  // Вычисляем производное значение вне селектора
+  const typingUsers = selectedChatId ? (typingUsersMap[selectedChatId] ?? []) : [];
   const isTyping = typingUsers.includes(recipientId);
 
   const handleProfileClick = () => {

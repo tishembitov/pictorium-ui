@@ -14,7 +14,7 @@ import type {
   MessageState,
 } from '../types/chat.types';
 
-// ===== Helper functions for cache updates =====
+// ===== Helper functions =====
 
 const createPagesWithNewMessage = (
   pages: MessagesInfiniteData['pages'],
@@ -74,17 +74,25 @@ export const useChatWebSocket = () => {
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
   
+  // ✅ Отдельные селекторы
   const setConnected = useChatStore((state) => state.setConnected);
   const setConnecting = useChatStore((state) => state.setConnecting);
   const setTypingUser = useChatStore((state) => state.setTypingUser);
   const incrementTotalUnread = useChatStore((state) => state.incrementTotalUnread);
   const selectedChatId = useChatStore((state) => state.selectedChatId);
+  const isConnected = useChatStore((state) => state.isConnected);
+  const isConnecting = useChatStore((state) => state.isConnecting);
   
   const selectedChatIdRef = useRef(selectedChatId);
+  const isConnectedRef = useRef(isConnected);
   
   useEffect(() => {
     selectedChatIdRef.current = selectedChatId;
   }, [selectedChatId]);
+
+  useEffect(() => {
+    isConnectedRef.current = isConnected;
+  }, [isConnected]);
 
   // ✅ Обработчик NEW_MESSAGE
   const handleNewMessage = useCallback((wsMessage: WsOutgoingMessage) => {
@@ -93,7 +101,6 @@ export const useChatWebSocket = () => {
 
     const chatId = message.chatId;
 
-    // Add to messages cache
     queryClient.setQueryData<MessagesInfiniteData>(
       queryKeys.chats.messagesInfinite(chatId),
       (old) => {
@@ -105,7 +112,6 @@ export const useChatWebSocket = () => {
       }
     );
 
-    // Update chat in list
     const isCurrentChat = selectedChatIdRef.current === chatId;
     
     queryClient.setQueryData<ChatResponse[]>(
@@ -122,7 +128,6 @@ export const useChatWebSocket = () => {
       }
     );
 
-    // Increment total unread if not in this chat
     if (!isCurrentChat) {
       incrementTotalUnread();
     }
@@ -227,24 +232,40 @@ export const useChatWebSocket = () => {
     }
   }, [isAuthenticated, setConnected]);
 
-  // Join/Leave chat when selected chat changes
+  // ✅ Join/Leave chat ТОЛЬКО когда connected
   useEffect(() => {
-    if (!selectedChatId) return;
+    if (!selectedChatId || !isConnected) {
+      return;
+    }
     
     websocketService.joinChat(selectedChatId);
     
     return () => {
-      websocketService.leaveChat(selectedChatId);
+      // Проверяем актуальное состояние через ref
+      if (isConnectedRef.current) {
+        websocketService.leaveChat(selectedChatId);
+      }
     };
-  }, [selectedChatId]);
+  }, [selectedChatId, isConnected]);
+
+  // ✅ Возвращаем безопасные функции
+  const sendTyping = useCallback((chatId: string, typing: boolean) => {
+    if (websocketService.isConnected) {
+      websocketService.sendTyping(chatId, typing);
+    }
+  }, []);
+
+  const markAsRead = useCallback((chatId: string) => {
+    if (websocketService.isConnected) {
+      websocketService.markAsRead(chatId);
+    }
+  }, []);
 
   return {
-    isConnected: useChatStore((state) => state.isConnected),
-    isConnecting: useChatStore((state) => state.isConnecting),
-    sendTyping: (chatId: string, isTyping: boolean) => 
-      websocketService.sendTyping(chatId, isTyping),
-    markAsRead: (chatId: string) => 
-      websocketService.markAsRead(chatId),
+    isConnected,
+    isConnecting,
+    sendTyping,
+    markAsRead,
   };
 };
 

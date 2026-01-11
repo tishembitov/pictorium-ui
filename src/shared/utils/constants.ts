@@ -110,7 +110,7 @@ export const QUERY_KEYS = {
 } as const;
 
 // ✅ ИСПРАВЛЕНИЕ: ROUTES удалены - используйте импорт из @/app/router/routeConfig
-// import { ROUTES, buildPath } from '@/app/router/routeConfig';
+// import { buildPath, ROUTES } from '@/app/router/routes';
 
 // Pin filter scopes - согласно API enum
 export const PIN_SCOPES = {

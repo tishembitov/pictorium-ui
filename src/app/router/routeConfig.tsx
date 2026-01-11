@@ -19,6 +19,7 @@ import {
   NotFoundPage,
   ErrorPage,
 } from './LazyRoutes';
+import MessagesPage from '@/pages/MessagesPage';
 
 const MainLayout = React.lazy(() => import('@/shared/components/layout/MainLayout'));
 
@@ -77,6 +78,8 @@ export const routes: RouteObject[] = [
         path: 'settings', 
         element: <ProtectedRoute><SettingsPage /></ProtectedRoute> 
       },
+      { path: 'messages', element: <ProtectedRoute><MessagesPage /></ProtectedRoute> },
+      { path: 'messages/:chatId', element: <ProtectedRoute><MessagesPage /></ProtectedRoute> },
       { path: 'board/:boardId', element: <BoardDetailPage /> },
       { path: '404', element: <NotFoundPage /> },
       { path: '*', element: <Navigate to="/404" replace /> },

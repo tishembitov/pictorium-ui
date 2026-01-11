@@ -15,12 +15,14 @@ import {
 import { useAuth, useCurrentUser } from '@/modules/auth';
 import { UserAvatar } from '@/modules/user';
 import { ROUTES, buildPath } from '@/app/router/routeConfig';
+import { ChatBadge, useTotalUnread } from '@/modules/chat';
 
 export const HeaderUserMenu: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, login, logout } = useAuth();
   const { user, username, imageId } = useCurrentUser();
   const [isOpen, setIsOpen] = useState(false);
+  const totalUnread = useTotalUnread();
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
 
   const handleClose = useCallback(() => {
@@ -93,6 +95,26 @@ export const HeaderUserMenu: React.FC = () => {
         size="md"
         bgColor="transparent"
       />
+
+      <Box position="relative">
+        <IconButton
+          accessibilityLabel="Messages"
+          icon="speech"
+          onClick={() => navigate('/messages')}
+          size="md"
+          bgColor="transparent"
+        />
+        {totalUnread > 0 && (
+          <Box
+            position="absolute"
+            dangerouslySetInlineStyle={{
+              __style: { top: -4, right: -4 },
+            }}
+          >
+            <ChatBadge count={totalUnread} />
+          </Box>
+        )}
+      </Box>
       
       {/* User Avatar & Menu */}
       <Box ref={setAnchorRef}>

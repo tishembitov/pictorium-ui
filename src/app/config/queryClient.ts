@@ -117,6 +117,28 @@ export const queryKeys = {
     url: (imageId: string, expiry?: number) => [...queryKeys.images.all, 'url', imageId, expiry] as const,
     list: (category?: string) => [...queryKeys.images.all, 'list', category] as const,
   },
+
+  chats: {
+    all: ['chats'] as const,
+    lists: () => [...queryKeys.chats.all, 'list'] as const,
+    byId: (chatId: string) => [...queryKeys.chats.all, 'byId', chatId] as const,
+    withUser: (recipientId: string) => [...queryKeys.chats.all, 'with', recipientId] as const,
+    
+    // Messages
+    messages: (chatId: string) => [...queryKeys.chats.all, chatId, 'messages'] as const,
+    messagesInfinite: (chatId: string) => [...queryKeys.chats.all, chatId, 'messages', 'infinite'] as const,
+    unreadCount: (chatId: string) => [...queryKeys.chats.all, chatId, 'unread'] as const,
+    totalUnread: () => [...queryKeys.chats.all, 'totalUnread'] as const,
+  },
+  
+  // ==================== Presence ====================
+  presence: {
+    all: ['presence'] as const,
+    byUser: (userId: string) => [...queryKeys.presence.all, userId] as const,
+    batch: (userIds: string[]) => [...queryKeys.presence.all, 'batch', ...userIds.sort()] as const,
+  },
+  
 } as const;
+
 
 export default queryClient;

@@ -236,6 +236,26 @@ export const TOAST_PRESETS = {
     variant: 'update' as const,
   }),
 
+  MESSAGE_SENT: () => ({
+    message: 'Message sent',
+    variant: 'comment' as const,
+    duration: 2000,
+  }),
+  MESSAGE_FAILED: () => ({
+    message: 'Failed to send message',
+    description: 'Please try again',
+    variant: 'comment' as const,
+  }),
+  CHAT_CREATED: (name?: string) => ({
+    message: 'Chat created',
+    description: name ? `Started conversation with ${name}` : undefined,
+    variant: 'comment' as const,
+  }),
+  CHAT_DELETED: () => ({
+    message: 'Chat deleted',
+    variant: 'delete' as const,
+  }),
+
   // ============ Error presets ============
   NETWORK_ERROR: () => ({
     message: 'Connection problem',

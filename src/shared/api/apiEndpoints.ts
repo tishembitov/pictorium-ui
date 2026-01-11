@@ -14,6 +14,7 @@ export const API_PREFIXES = {
   comments: '/api/v1/comments',
   tags: '/api/v1/tags',
   images: '/api/v1/images',
+  chats: '/api/v1/chats',
 } as const;
 
 // User Service Endpoints
@@ -119,6 +120,27 @@ export const IMAGE_ENDPOINTS = {
   delete: (imageId: string) => `${API_PREFIXES.images}/${imageId}`,
   list: () => `${API_PREFIXES.images}/list`,
 } as const;
+
+// Chat Service Endpoints
+export const CHAT_ENDPOINTS = {
+  // Chats
+  list: () => `${API_PREFIXES.chats}`,
+  byId: (chatId: string) => `${API_PREFIXES.chats}/${chatId}`,
+  withUser: (recipientId: string) => `${API_PREFIXES.chats}/with/${recipientId}`,
+  delete: (chatId: string) => `${API_PREFIXES.chats}/${chatId}`,
+  
+  // Messages
+  messages: (chatId: string) => `${API_PREFIXES.chats}/${chatId}/messages`,
+  allMessages: (chatId: string) => `${API_PREFIXES.chats}/${chatId}/messages/all`,
+  markRead: (chatId: string) => `${API_PREFIXES.chats}/${chatId}/messages/read`,
+  unreadCount: (chatId: string) => `${API_PREFIXES.chats}/${chatId}/messages/unread/count`,
+} as const;
+
+export const PRESENCE_ENDPOINTS = {
+  batch: () => '/api/v1/presence',
+  byUser: (userId: string) => `/api/v1/presence/${userId}`,
+} as const;
+
 
 // All endpoints combined
 export const API_ENDPOINTS = {

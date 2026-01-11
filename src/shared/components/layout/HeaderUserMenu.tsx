@@ -86,15 +86,6 @@ export const HeaderUserMenu: React.FC = () => {
         size="md"
         bgColor="transparent"
       />
-      
-      {/* Messages - placeholder */}
-      <IconButton
-        accessibilityLabel="Messages"
-        icon="speech"
-        onClick={() => {}}
-        size="md"
-        bgColor="transparent"
-      />
 
       <Box position="relative">
         <IconButton

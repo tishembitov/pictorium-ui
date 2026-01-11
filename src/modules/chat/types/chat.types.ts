@@ -4,6 +4,25 @@
 export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE';
 export type MessageState = 'SENT' | 'DELIVERED' | 'READ';
 
+// ===== WebSocket Message Types (соответствуют бэкенду) =====
+export type WsMessageType =
+  // Client → Server
+  | 'SEND_MESSAGE'
+  | 'TYPING_START'
+  | 'TYPING_STOP'
+  | 'MARK_READ'
+  | 'JOIN_CHAT'
+  | 'LEAVE_CHAT'
+  | 'HEARTBEAT'
+  // Server → Client
+  | 'NEW_MESSAGE'
+  | 'USER_TYPING'
+  | 'USER_STOPPED_TYPING'
+  | 'MESSAGES_READ'
+  | 'USER_ONLINE'
+  | 'USER_OFFLINE'
+  | 'ERROR';
+
 // ===== API Response Types =====
 
 export interface ChatResponse {
@@ -53,38 +72,28 @@ export interface MessageWithSender extends MessageResponse {
   imageUrl?: string;
 }
 
-// ===== Request Types =====
+// ===== WebSocket Types (соответствуют бэкенду) =====
 
-export interface SendMessageRequest {
-  chatId: string;
+/**
+ * Incoming message from client to server
+ */
+export interface WsIncomingMessage {
+  type: WsMessageType;
+  chatId?: string;
   content?: string;
-  type: MessageType;
+  messageType?: MessageType;
   imageId?: string;
 }
 
-// ===== WebSocket Types =====
-
-export type WebSocketEventType = 
-  | 'MESSAGE' 
-  | 'IMAGE'
-  | 'VIDEO'
-  | 'AUDIO'
-  | 'FILE'
-  | 'SEEN' 
-  | 'DELIVERED' 
-  | 'TYPING' 
-  | 'ONLINE' 
-  | 'OFFLINE';
-
-export interface WebSocketMessage {
-  type: WebSocketEventType;
-  chatId: string;
-  senderId: string;
-  receiverId: string;
-  content?: string;
-  messageType?: MessageType;
-  messageId?: string;
-  imageId?: string;
+/**
+ * Outgoing message from server to client
+ */
+export interface WsOutgoingMessage {
+  type: WsMessageType;
+  chatId?: string;
+  userId?: string;
+  message?: MessageResponse;
+  error?: string;
   timestamp: string;
 }
 

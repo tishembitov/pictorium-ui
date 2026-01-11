@@ -1,7 +1,10 @@
 // src/modules/chat/components/ChatHeader.tsx
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Box, Flex, Text, IconButton, TapArea } from 'gestalt';
+import { useShallow } from 'zustand/react/shallow';
+import { buildPath } from '@/app/router/routes';
 import { UserAvatar } from '@/modules/user';
 import { OnlineIndicator } from './OnlineIndicator';
 import { useUserPresence } from '../hooks/usePresence';
@@ -22,22 +25,28 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onBack,
   onInfoClick,
 }) => {
+  const navigate = useNavigate();
   const { isOnline } = useUserPresence(recipientId);
-  const typingUsers = useChatStore((state) => 
-    state.typingUsers[useChatStore.getState().selectedChatId || ''] || []
+
+  // ✅ ПРАВИЛЬНОЕ использование useShallow
+  const { typingUsers } = useChatStore(
+    useShallow((state) => ({
+      selectedChatId: state.selectedChatId,
+      typingUsers: state.selectedChatId 
+        ? (state.typingUsers[state.selectedChatId] ?? [])
+        : [],
+    }))
   );
 
   const isTyping = typingUsers.includes(recipientId);
 
   const handleProfileClick = () => {
-    // Navigate to user profile
-    // navigate(`/profile/${recipientId}`);
+    navigate(buildPath.profile(recipientName));
   };
 
   return (
     <Box color="secondary" padding={3}>
       <Flex alignItems="center" gap={3}>
-        {/* Back button (mobile) */}
         {onBack && (
           <IconButton
             accessibilityLabel="Back"
@@ -48,7 +57,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           />
         )}
 
-        {/* User info */}
         <TapArea onTap={handleProfileClick} rounding="circle">
           <Box position="relative">
             <UserAvatar
@@ -56,7 +64,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               name={recipientName}
               size="md"
             />
-            {/* Online indicator */}
             <Box
               position="absolute"
               dangerouslySetInlineStyle={{
@@ -68,20 +75,23 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           </Box>
         </TapArea>
 
-        <Flex direction="column" flex="grow">
-          <Text weight="bold">{recipientName}</Text>
-          {isTyping ? (
-            <Text size="100" color="subtle" italic>
-              typing...
-            </Text>
-          ) : (
-            <Text size="100" color="subtle">
-              {isOnline ? 'Online' : 'Offline'}
-            </Text>
-          )}
-        </Flex>
+        <TapArea onTap={handleProfileClick}>
+          <Flex direction="column" flex="grow">
+            <Text weight="bold">{recipientName}</Text>
+            {isTyping ? (
+              <Text size="100" color="subtle" italic>
+                typing...
+              </Text>
+            ) : (
+              <Text size="100" color="subtle">
+                {isOnline ? 'Online' : 'Offline'}
+              </Text>
+            )}
+          </Flex>
+        </TapArea>
 
-        {/* Actions */}
+        <Box flex="grow" />
+
         <Flex gap={2}>
           <IconButton
             accessibilityLabel="Video call"

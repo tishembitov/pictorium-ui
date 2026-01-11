@@ -1,21 +1,20 @@
 // src/modules/chat/index.ts
 
-// Types
 export type {
-    MessageType,
-    MessageState,
-    ChatResponse,
-    MessageResponse,
-    UserPresenceResponse,
-    ChatWithRecipient,
-    MessageWithSender,
-    SendMessageRequest,
-    WebSocketEventType,
-    WebSocketMessage,
-    ChatState,
-    ChatActions,
-    PageMessageResponse,
-  } from './types/chat.types';
+  MessageType,
+  MessageState,
+  WsMessageType,
+  ChatResponse,
+  MessageResponse,
+  UserPresenceResponse,
+  ChatWithRecipient,
+  MessageWithSender,
+  WsIncomingMessage,
+  WsOutgoingMessage,
+  ChatState,
+  ChatActions,
+  PageMessageResponse,
+} from './types/chat.types';
   
   // API
   export { chatApi } from './api/chatApi';

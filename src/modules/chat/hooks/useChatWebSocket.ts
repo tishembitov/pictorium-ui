@@ -7,7 +7,7 @@ import { useAuth } from '@/modules/auth';
 import { useChatStore } from '../stores/chatStore';
 import { websocketService } from '../services/websocketService';
 import type { 
-  WebSocketMessage, 
+  WsOutgoingMessage, 
   MessageResponse, 
   ChatResponse,
   MessagesInfiniteData,
@@ -16,9 +16,6 @@ import type {
 
 // ===== Helper functions for cache updates =====
 
-/**
- * Creates updated pages with a new message added
- */
 const createPagesWithNewMessage = (
   pages: MessagesInfiniteData['pages'],
   message: MessageResponse
@@ -36,9 +33,6 @@ const createPagesWithNewMessage = (
   return newPages;
 };
 
-/**
- * Creates updated pages with message states changed
- */
 const createPagesWithUpdatedState = (
   pages: MessagesInfiniteData['pages'],
   newState: MessageState
@@ -52,9 +46,6 @@ const createPagesWithUpdatedState = (
   }));
 };
 
-/**
- * Creates updated chats list with new message info
- */
 const createChatsWithNewMessage = (
   chats: ChatResponse[],
   chatId: string,
@@ -85,34 +76,26 @@ export const useChatWebSocket = () => {
   
   const setConnected = useChatStore((state) => state.setConnected);
   const setConnecting = useChatStore((state) => state.setConnecting);
+  const setTypingUser = useChatStore((state) => state.setTypingUser);
   const incrementTotalUnread = useChatStore((state) => state.incrementTotalUnread);
   const selectedChatId = useChatStore((state) => state.selectedChatId);
   
-  // Use ref to access current selectedChatId in callback
   const selectedChatIdRef = useRef(selectedChatId);
   
-  // Sync ref with state via effect
   useEffect(() => {
     selectedChatIdRef.current = selectedChatId;
   }, [selectedChatId]);
 
-  // Handle media messages (MESSAGE, IMAGE, VIDEO, etc.)
-  const handleMediaMessage = useCallback((wsMessage: WebSocketMessage) => {
-    const message: MessageResponse = {
-      id: wsMessage.messageId || `ws-${Date.now()}`,
-      chatId: wsMessage.chatId,
-      senderId: wsMessage.senderId,
-      receiverId: wsMessage.receiverId,
-      content: wsMessage.content || null,
-      type: wsMessage.messageType || 'TEXT',
-      state: 'DELIVERED',
-      imageId: wsMessage.imageId || null,
-      createdAt: wsMessage.timestamp,
-    };
+  // ✅ Обработчик NEW_MESSAGE
+  const handleNewMessage = useCallback((wsMessage: WsOutgoingMessage) => {
+    const message = wsMessage.message;
+    if (!message) return;
+
+    const chatId = message.chatId;
 
     // Add to messages cache
     queryClient.setQueryData<MessagesInfiniteData>(
-      queryKeys.chats.messagesInfinite(wsMessage.chatId),
+      queryKeys.chats.messagesInfinite(chatId),
       (old) => {
         if (!old) return old;
         return {
@@ -123,7 +106,7 @@ export const useChatWebSocket = () => {
     );
 
     // Update chat in list
-    const isCurrentChat = selectedChatIdRef.current === wsMessage.chatId;
+    const isCurrentChat = selectedChatIdRef.current === chatId;
     
     queryClient.setQueryData<ChatResponse[]>(
       queryKeys.chats.lists(),
@@ -131,9 +114,9 @@ export const useChatWebSocket = () => {
         if (!old) return old;
         return createChatsWithNewMessage(
           old,
-          wsMessage.chatId,
-          wsMessage.content,
-          wsMessage.timestamp,
+          chatId,
+          message.content ?? undefined,
+          message.createdAt,
           isCurrentChat
         );
       }
@@ -145,55 +128,72 @@ export const useChatWebSocket = () => {
     }
   }, [queryClient, incrementTotalUnread]);
 
-  // Handle message state updates (SEEN, DELIVERED)
-  const handleStateUpdate = useCallback((wsMessage: WebSocketMessage) => {
-    const newState: MessageState = wsMessage.type === 'SEEN' ? 'READ' : 'DELIVERED';
-    
+  // ✅ Обработчик MESSAGES_READ
+  const handleMessagesRead = useCallback((wsMessage: WsOutgoingMessage) => {
+    if (!wsMessage.chatId) return;
+
     queryClient.setQueryData<MessagesInfiniteData>(
       queryKeys.chats.messagesInfinite(wsMessage.chatId),
       (old) => {
         if (!old) return old;
         return {
           ...old,
-          pages: createPagesWithUpdatedState(old.pages, newState),
+          pages: createPagesWithUpdatedState(old.pages, 'READ'),
         };
       }
     );
   }, [queryClient]);
 
-  // Handle presence updates (ONLINE, OFFLINE)
-  const handlePresenceUpdate = useCallback((wsMessage: WebSocketMessage) => {
+  // ✅ Обработчик TYPING
+  const handleTyping = useCallback((wsMessage: WsOutgoingMessage, isTyping: boolean) => {
+    if (!wsMessage.chatId || !wsMessage.userId) return;
+    setTypingUser(wsMessage.chatId, wsMessage.userId, isTyping);
+  }, [setTypingUser]);
+
+  // ✅ Обработчик PRESENCE
+  const handlePresence = useCallback((wsMessage: WsOutgoingMessage) => {
+    if (!wsMessage.userId) return;
+    
     queryClient.setQueryData(
-      queryKeys.presence.byUser(wsMessage.senderId),
-      wsMessage.type === 'ONLINE'
+      queryKeys.presence.byUser(wsMessage.userId),
+      wsMessage.type === 'USER_ONLINE'
     );
   }, [queryClient]);
 
   // Main message handler
-  const handleMessage = useCallback((wsMessage: WebSocketMessage) => {
+  const handleMessage = useCallback((wsMessage: WsOutgoingMessage) => {
     console.log('[useChatWebSocket] Received:', wsMessage);
 
-    const isMediaMessage = 
-      wsMessage.type === 'MESSAGE' ||
-      wsMessage.type === 'IMAGE' ||
-      wsMessage.type === 'VIDEO' ||
-      wsMessage.type === 'AUDIO' ||
-      wsMessage.type === 'FILE';
-
-    if (isMediaMessage) {
-      handleMediaMessage(wsMessage);
-      return;
+    switch (wsMessage.type) {
+      case 'NEW_MESSAGE':
+        handleNewMessage(wsMessage);
+        break;
+        
+      case 'MESSAGES_READ':
+        handleMessagesRead(wsMessage);
+        break;
+        
+      case 'USER_TYPING':
+        handleTyping(wsMessage, true);
+        break;
+        
+      case 'USER_STOPPED_TYPING':
+        handleTyping(wsMessage, false);
+        break;
+        
+      case 'USER_ONLINE':
+      case 'USER_OFFLINE':
+        handlePresence(wsMessage);
+        break;
+        
+      case 'ERROR':
+        console.error('[WebSocket] Server error:', wsMessage.error);
+        break;
+        
+      default:
+        console.warn('[WebSocket] Unknown message type:', wsMessage.type);
     }
-
-    if (wsMessage.type === 'SEEN' || wsMessage.type === 'DELIVERED') {
-      handleStateUpdate(wsMessage);
-      return;
-    }
-
-    if (wsMessage.type === 'ONLINE' || wsMessage.type === 'OFFLINE') {
-      handlePresenceUpdate(wsMessage);
-    }
-  }, [handleMediaMessage, handleStateUpdate, handlePresenceUpdate]);
+  }, [handleNewMessage, handleMessagesRead, handleTyping, handlePresence]);
 
   // Handle connection status changes
   const handleConnectionChange = useCallback((connected: boolean) => {
@@ -227,11 +227,24 @@ export const useChatWebSocket = () => {
     }
   }, [isAuthenticated, setConnected]);
 
+  // Join/Leave chat when selected chat changes
+  useEffect(() => {
+    if (!selectedChatId) return;
+    
+    websocketService.joinChat(selectedChatId);
+    
+    return () => {
+      websocketService.leaveChat(selectedChatId);
+    };
+  }, [selectedChatId]);
+
   return {
     isConnected: useChatStore((state) => state.isConnected),
     isConnecting: useChatStore((state) => state.isConnecting),
     sendTyping: (chatId: string, isTyping: boolean) => 
       websocketService.sendTyping(chatId, isTyping),
+    markAsRead: (chatId: string) => 
+      websocketService.markAsRead(chatId),
   };
 };
 

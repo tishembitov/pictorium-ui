@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Box, Text, TapArea, Mask, IconButton, Icon, Flex } from 'gestalt';
-import { buildPath } from '@/app/router/routeConfig';
+import { buildPath } from '@/app/router/routes';
 import { useImageUrl } from '@/modules/storage';
 import { useBoardPins } from '../hooks/useBoardPins';
 import { useIsOwner } from '@/modules/auth';

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Box, Flex, Text, TapArea } from 'gestalt';
-import { buildPath } from '@/app/router/routeConfig';
+import { buildPath } from '@/app/router/routes';
 import { UserAvatar } from './UserAvatar';
 import { FollowButton } from './FollowButton';
 import { useAuth } from '@/modules/auth';

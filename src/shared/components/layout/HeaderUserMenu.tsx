@@ -14,7 +14,7 @@ import {
 } from 'gestalt';
 import { useAuth, useCurrentUser } from '@/modules/auth';
 import { UserAvatar } from '@/modules/user';
-import { ROUTES, buildPath } from '@/app/router/routeConfig';
+import { buildPath, ROUTES } from '@/app/router/routes';
 import { ChatBadge, useTotalUnread } from '@/modules/chat';
 
 export const HeaderUserMenu: React.FC = () => {

@@ -7,7 +7,7 @@ import { UserAvatar, useUser } from '@/modules/user';
 import { ImagePreview } from '@/modules/storage';
 import { useAuth, useIsOwner } from '@/modules/auth';
 import { useConfirmModal } from '@/shared/hooks/useConfirmModal';
-import { buildPath } from '@/app/router/routeConfig';
+import { buildPath } from '@/app/router/routes';
 import { formatShortRelativeTime } from '@/shared/utils/formatters';
 import { CommentItemActions } from './CommentItemActions';
 import { CommentForm } from './CommentForm';

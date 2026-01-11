@@ -4,7 +4,7 @@ import React from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import { Box, IconButton, Tooltip } from 'gestalt';
 import { BoardDetail } from '@/modules/board';
-import { ROUTES } from '@/app/router/routeConfig';
+import { ROUTES } from '@/app/router/routes';
 
 const BoardDetailPage: React.FC = () => {
   const { boardId } = useParams<{ boardId: string }>();

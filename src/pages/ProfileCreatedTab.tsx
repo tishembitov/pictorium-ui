@@ -10,7 +10,7 @@ import {
 } from '@/modules/pin';
 import { usePinPreferencesStore } from '@/modules/pin/stores/pinPreferencesStore';
 import { useIsOwner } from '@/modules/auth';
-import { ROUTES } from '@/app/router/routeConfig';
+import { ROUTES } from '@/app/router/routes';
 
 interface ProfileCreatedTabProps {
   userId: string;

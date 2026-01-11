@@ -1,8 +1,6 @@
-// src/app/router/routeConfig.tsx
-
-/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
-import { type RouteObject, Navigate } from 'react-router-dom';
+import { Navigate, type RouteObject } from 'react-router-dom';
+import { MainLayout } from '@/shared/components';
 import { ProtectedRoute } from './ProtectedRoute';
 import {
   HomePage,
@@ -16,38 +14,12 @@ import {
   BoardDetailPage,
   FollowersPage,
   FollowingPage,
+  MessagesPage,
   NotFoundPage,
   ErrorPage,
 } from './LazyRoutes';
-import MessagesPage from '@/pages/MessagesPage';
 
-const MainLayout = React.lazy(() => import('@/shared/components/layout/MainLayout'));
-
-export const ROUTES = {
-  HOME: '/',
-  EXPLORE: '/explore',
-  SEARCH: '/search',
-  PIN: '/pin/:pinId',
-  PIN_CREATE: '/pin/create',
-  PIN_EDIT: '/pin/:pinId/edit',
-  PROFILE: '/profile/:username',
-  SETTINGS: '/settings',
-  BOARD: '/board/:boardId',
-  FOLLOWERS: '/profile/:username/followers',
-  FOLLOWING: '/profile/:username/following',
-  NOT_FOUND: '/404',
-  ERROR: '/error',
-} as const;
-
-export const buildPath = {
-  pin: (pinId: string) => `/pin/${pinId}`,
-  pinEdit: (pinId: string) => `/pin/${pinId}/edit`,
-  profile: (username: string) => `/profile/${username}`,
-  board: (boardId: string) => `/board/${boardId}`,
-  followers: (username: string) => `/profile/${username}/followers`,
-  following: (username: string) => `/profile/${username}/following`,
-  search: (query?: string) => query ? `/search?q=${encodeURIComponent(query)}` : '/search',
-};
+// НЕ реэкспортируем ROUTES здесь - импортируйте напрямую из './routes'
 
 export const routes: RouteObject[] = [
   {
@@ -78,9 +50,15 @@ export const routes: RouteObject[] = [
         path: 'settings', 
         element: <ProtectedRoute><SettingsPage /></ProtectedRoute> 
       },
-      { path: 'messages', element: <ProtectedRoute><MessagesPage /></ProtectedRoute> },
-      { path: 'messages/:chatId', element: <ProtectedRoute><MessagesPage /></ProtectedRoute> },
       { path: 'board/:boardId', element: <BoardDetailPage /> },
+      { 
+        path: 'messages', 
+        element: <ProtectedRoute><MessagesPage /></ProtectedRoute> 
+      },
+      { 
+        path: 'messages/:chatId', 
+        element: <ProtectedRoute><MessagesPage /></ProtectedRoute> 
+      },
       { path: '404', element: <NotFoundPage /> },
       { path: '*', element: <Navigate to="/404" replace /> },
     ],

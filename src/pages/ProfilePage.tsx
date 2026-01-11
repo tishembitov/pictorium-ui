@@ -9,7 +9,7 @@ import {
 } from '@/modules/user';
 import { useIsOwner } from '@/modules/auth';
 import { ErrorMessage } from '@/shared/components';
-import { ROUTES } from '@/app/router/routeConfig';
+import { ROUTES } from '@/app/router/routes';
 import ProfilePinsTab from './ProfilePinsTab';
 import ProfileBoardsTab from './ProfileBoardsTab';
 

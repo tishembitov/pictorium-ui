@@ -7,7 +7,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Box, Text, Icon, Flex, Divider, Tooltip } from 'gestalt';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuth } from '@/modules/auth';
-import { ROUTES } from '@/app/router/routeConfig';
+import { ROUTES } from '@/app/router/routes';
 import { Z_INDEX, LAYOUT } from '../../utils/constants';
 
 type SidebarIconName = 'home' | 'compass' | 'add' | 'person' | 'cog';

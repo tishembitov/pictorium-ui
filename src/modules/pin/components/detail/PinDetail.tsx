@@ -8,7 +8,7 @@ import { PinGrid } from '../PinGrid';
 import { usePin } from '../../hooks/usePin';
 import { useRelatedPins } from '../../hooks/usePins';
 import { ErrorMessage } from '@/shared/components';
-import { ROUTES } from '@/app/router/routeConfig';
+import { ROUTES } from '@/app/router/routes';
 
 interface PinDetailProps {
   pinId: string;

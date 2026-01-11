@@ -10,7 +10,7 @@ import {
   usePin, 
   useRelatedPins,
 } from '@/modules/pin';
-import { ROUTES } from '@/app/router/routeConfig';
+import { ROUTES } from '@/app/router/routes';
 
 const PinDetailPage: React.FC = () => {
   const { pinId } = useParams<{ pinId: string }>();

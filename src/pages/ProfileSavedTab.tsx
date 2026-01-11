@@ -16,7 +16,7 @@ import {
 } from '@/modules/pin';
 import { usePinPreferencesStore } from '@/modules/pin/stores/pinPreferencesStore';
 import { BoardPicker, useSelectedBoard } from '@/modules/board';
-import { ROUTES } from '@/app/router/routeConfig';
+import { ROUTES } from '@/app/router/routes';
 import { useToast } from '@/shared/hooks/useToast';
 
 interface ProfileSavedTabProps {

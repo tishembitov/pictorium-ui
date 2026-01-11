@@ -8,7 +8,7 @@ import {
   BoardSaveDropdown,
   BoardCreateModal,
 } from '@/modules/board';
-import { buildPath } from '@/app/router/routeConfig';
+import { buildPath } from '@/app/router/routes';
 import type { PinLocalState, SavedBoardInfo } from '../hooks/usePinLocalState';
 import type { UseBoardSaveManagerResult } from '@/modules/board';
 

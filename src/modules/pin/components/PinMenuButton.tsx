@@ -8,7 +8,7 @@ import { useDeletePin } from '../hooks/useDeletePin';
 import { useConfirmModal } from '@/shared/hooks/useConfirmModal';
 import { useToast } from '@/shared/hooks/useToast';
 import { useDownloadImage } from '@/modules/storage';
-import { buildPath } from '@/app/router/routeConfig';
+import { buildPath } from '@/app/router/routes';
 import type { PinResponse } from '../types/pin.types';
 
 interface PinMenuButtonProps {

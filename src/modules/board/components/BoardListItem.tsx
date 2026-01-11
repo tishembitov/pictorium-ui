@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Box, Flex, Text, TapArea, Spinner, Icon } from 'gestalt';
 import { Link } from 'react-router-dom';
-import { buildPath } from '@/app/router/routeConfig';
+import { buildPath } from '@/app/router/routes';
 import { BoardPreviewImage } from './BoardPreviewImage';
 import type { BoardWithPinStatusResponse } from '../types/board.types';
 

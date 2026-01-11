@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { queryKeys } from '@/app/config/queryClient';
 import { pinApi } from '../api/pinApi';
 import { useToast } from '@/shared/hooks/useToast';
-import { buildPath } from '@/app/router/routeConfig';
+import { buildPath } from '@/app/router/routes';
 import type { PinCreateRequest, PinResponse } from '../types/pin.types';
 
 interface UseCreatePinOptions {

@@ -135,7 +135,11 @@ export const queryKeys = {
   presence: {
     all: ['presence'] as const,
     byUser: (userId: string) => [...queryKeys.presence.all, userId] as const,
-    batch: (userIds: string[]) => [...queryKeys.presence.all, 'batch', ...userIds.sort()] as const,
+    batch: (userIds: string[]) => [
+      ...queryKeys.presence.all, 
+      'batch', 
+      ...[...userIds].sort((a, b) => a.localeCompare(b))
+    ] as const,
   },
   
 } as const;

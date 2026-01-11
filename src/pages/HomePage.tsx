@@ -22,7 +22,7 @@ import { useAuth } from '@/modules/auth';
 import { EmptyState } from '@/shared/components';
 import { useIsMobile } from '@/shared/hooks/useMediaQuery';
 import { useDebounce } from '@/shared/hooks/useDebounce';
-import { ROUTES } from '@/app/router/routeConfig';
+import { ROUTES } from '@/app/router/routes';
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();

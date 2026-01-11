@@ -13,7 +13,7 @@ import {
   Layer, 
   Spinner 
 } from 'gestalt';
-import { buildPath, ROUTES } from '@/app/router/routeConfig';
+import { buildPath, ROUTES } from '@/app/router/routes';
 import { UserAvatar } from './UserAvatar';
 import { FollowButton } from './FollowButton';
 import { ProfileShareButton } from './ProfileShareButton';

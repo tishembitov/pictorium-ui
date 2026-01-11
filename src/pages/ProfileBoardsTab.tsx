@@ -16,7 +16,7 @@ import {
   useUserBoards,
   useSelectedBoard,
 } from '@/modules/board';
-import { buildPath } from '@/app/router/routeConfig';
+import { buildPath } from '@/app/router/routes';
 import type { BoardResponse } from '@/modules/board';
 
 interface ProfileBoardsTabProps {

@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Mask, TapArea, Text, Image as GestaltImage, Flex } from 'gestalt';
-import { buildPath } from '@/app/router/routeConfig';
+import { buildPath } from '@/app/router/routes';
 import { useImageUrl } from '@/modules/storage';
 import { useAuth } from '@/modules/auth';
 import { CompactSaveSection } from './CompactSaveSection';

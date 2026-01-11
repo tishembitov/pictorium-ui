@@ -19,7 +19,7 @@ import { useAuth } from '@/modules/auth';
 import { ErrorMessage } from '@/shared/components';
 import { useConfirmModal } from '@/shared/hooks/useConfirmModal';
 // import { useTheme } from '@/shared/hooks/useTheme';
-import { buildPath } from '@/app/router/routeConfig';
+import { buildPath } from '@/app/router/routes';
 
 type SettingsTab = 'profile' | 'account' ;
 

@@ -38,6 +38,7 @@ export type {
   
   // Hooks
   export { useChats } from './hooks/useChats';
+  export { useUsers } from './hooks/useRecipients'; // Добавляем
   export { useChat, useGetOrCreateChat, useDeleteChat } from './hooks/useChat';
   export { useMessages, useAllMessages, useAddMessageToCache } from './hooks/useMessages';
   export { useSendMessage } from './hooks/useSendMessage';

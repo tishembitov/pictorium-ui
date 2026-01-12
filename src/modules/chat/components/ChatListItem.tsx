@@ -50,7 +50,6 @@ const MediaPreview: React.FC<MediaPreviewProps> = ({ type, imageId }) => {
 
   return (
     <Flex alignItems="center" gap={1}>
-      {/* Миниатюра для изображений */}
       {type === 'IMAGE' && imageData?.url ? (
         <Box
           width={20}
@@ -95,7 +94,6 @@ interface LastMessagePreviewProps {
 const LastMessagePreview: React.FC<LastMessagePreviewProps> = ({ chat }) => {
   const { lastMessage, lastMessageType, lastMessageImageId } = chat;
 
-  // Медиа сообщение
   if (lastMessageType && lastMessageType !== 'TEXT') {
     return (
       <MediaPreview 
@@ -105,7 +103,6 @@ const LastMessagePreview: React.FC<LastMessagePreviewProps> = ({ chat }) => {
     );
   }
 
-  // Текстовое сообщение
   if (lastMessage) {
     return (
       <Text size="200" color="subtle" lineClamp={1}>
@@ -114,7 +111,6 @@ const LastMessagePreview: React.FC<LastMessagePreviewProps> = ({ chat }) => {
     );
   }
 
-  // Нет сообщений
   return (
     <Text size="200" color="subtle" italic>
       No messages yet
@@ -129,6 +125,8 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
   isSelected,
   onClick,
 }) => {
+  const displayName = chat.recipient?.username || 'Loading...';
+  const avatarImageId = chat.recipient?.imageId ?? null;
 
   return (
     <TapArea onTap={onClick} rounding={2}>
@@ -145,10 +143,10 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
       >
         <Flex alignItems="center" gap={3}>
           {/* Avatar with online indicator */}
-          <Box position="relative">
+          <Box position="relative" dangerouslySetInlineStyle={{ __style: { flexShrink: 0 } }}>
             <UserAvatar
-              imageId={chat.recipient?.imageId}
-              name={chat.recipient?.username || 'User'}
+              imageId={avatarImageId}
+              name={displayName}
               size="md"
             />
             {chat.isOnline && (
@@ -164,32 +162,46 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
           </Box>
 
           {/* Chat info */}
-          <Flex direction="column" flex="grow" gap={1}>
+          <Box flex="grow" minWidth={0}>
             {/* Header: name and time */}
-            <Flex alignItems="center" justifyContent="between">
-              <Text weight="bold" size="200" lineClamp={1}>
-                {chat.recipient?.username || 'Unknown'}
-              </Text>
-              {chat.lastMessageTime && (
-                <Text
-                  size="100"
-                  color={chat.unreadCount > 0 ? 'success' : 'subtle'}
-                >
-                  {formatShortRelativeTime(chat.lastMessageTime)}
+            <Flex alignItems="center" gap={2}>
+              {/* Username - занимает доступное место, обрезается */}
+              <Box flex="grow" minWidth={0}>
+                <Text weight="bold" size="200" lineClamp={1}>
+                  {displayName}
                 </Text>
+              </Box>
+              
+              {/* Time - фиксированная ширина, не сжимается */}
+              {chat.lastMessageTime && (
+                <Box dangerouslySetInlineStyle={{ __style: { flexShrink: 0 } }}>
+                  <Text
+                    size="100"
+                    color={chat.unreadCount > 0 ? 'success' : 'subtle'}
+                  >
+                    {formatShortRelativeTime(chat.lastMessageTime)}
+                  </Text>
+                </Box>
               )}
             </Flex>
 
             {/* Footer: message preview and unread badge */}
-            <Flex alignItems="center" justifyContent="between" gap={2}>
-              <Box flex="grow" overflow="hidden">
-                <LastMessagePreview chat={chat} />
-              </Box>
-              {chat.unreadCount > 0 && (
-                <ChatBadge count={chat.unreadCount} />
-              )}
-            </Flex>
-          </Flex>
+            <Box marginTop={1}>
+              <Flex alignItems="center" gap={2}>
+                {/* Message preview - занимает доступное место */}
+                <Box flex="grow" minWidth={0}>
+                  <LastMessagePreview chat={chat} />
+                </Box>
+                
+                {/* Unread badge - фиксированная ширина */}
+                {chat.unreadCount > 0 && (
+                  <Box dangerouslySetInlineStyle={{ __style: { flexShrink: 0 } }}>
+                    <ChatBadge count={chat.unreadCount} />
+                  </Box>
+                )}
+              </Flex>
+            </Box>
+          </Box>
         </Flex>
       </Box>
     </TapArea>

@@ -6,6 +6,7 @@ import { Box, Flex, Text, IconButton, TapArea } from 'gestalt';
 import { buildPath } from '@/app/router/routes';
 import { UserAvatar } from '@/modules/user';
 import { OnlineIndicator } from './OnlineIndicator';
+import { PresenceIndicator } from './PresenceIndicator';
 import { useUserPresence } from '../hooks/usePresence';
 import { useChatStore } from '../stores/chatStore';
 
@@ -25,13 +26,11 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onInfoClick,
 }) => {
   const navigate = useNavigate();
-  const { isOnline } = useUserPresence(recipientId);
+  const { status, isOnline } = useUserPresence(recipientId);
 
-  // ✅ ПРАВИЛЬНО: отдельные селекторы для примитивов
   const selectedChatId = useChatStore((state) => state.selectedChatId);
   const typingUsersMap = useChatStore((state) => state.typingUsers);
   
-  // Вычисляем производное значение вне селектора
   const typingUsers = selectedChatId ? (typingUsersMap[selectedChatId] ?? []) : [];
   const isTyping = typingUsers.includes(recipientId);
 
@@ -65,7 +64,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 __style: { bottom: 0, right: 0 },
               }}
             >
-              <OnlineIndicator isOnline={isOnline} size="sm" />
+              <OnlineIndicator status={status} isOnline={isOnline} size="sm" />
             </Box>
           </Box>
         </TapArea>
@@ -78,9 +77,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 typing...
               </Text>
             ) : (
-              <Text size="100" color="subtle">
-                {isOnline ? 'Online' : 'Offline'}
-              </Text>
+              <PresenceIndicator status={status} showText size="sm" />
             )}
           </Flex>
         </TapArea>

@@ -2,23 +2,30 @@
 
 import { get } from '@/shared/api/apiClient';
 import { PRESENCE_ENDPOINTS } from '@/shared/api/apiEndpoints';
-import type { UserPresenceResponse } from '../types/chat.types';
+import type { UserPresenceResponse, UserPresence } from '../types/chat.types';
 
 export const presenceApi = {
   /**
-   * Get online status for multiple users
+   * Get presence data for multiple users
    */
-  getOnlineStatus: (userIds: string[]) => {
+  getPresenceData: (userIds: string[]) => {
     return get<UserPresenceResponse>(PRESENCE_ENDPOINTS.batch(), {
       params: { userIds },
     });
   },
 
   /**
-   * Check if specific user is online
+   * Get presence for a single user
+   */
+  getUserPresence: (userId: string) => {
+    return get<UserPresence>(PRESENCE_ENDPOINTS.byUser(userId));
+  },
+
+  /**
+   * Check if user is online (legacy)
    */
   isUserOnline: (userId: string) => {
-    return get<boolean>(PRESENCE_ENDPOINTS.byUser(userId));
+    return get<boolean>(`${PRESENCE_ENDPOINTS.byUser(userId)}/online`);
   },
 };
 

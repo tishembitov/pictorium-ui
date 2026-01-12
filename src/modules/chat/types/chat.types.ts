@@ -51,8 +51,23 @@ export interface MessageResponse {
   createdAt: string;
 }
 
+export type PresenceStatus = 
+  | 'ONLINE'
+  | 'RECENTLY'
+  | 'LAST_HOUR'
+  | 'TODAY'
+  | 'YESTERDAY'
+  | 'WEEK'
+  | 'LONG_AGO';
+
+export interface UserPresence {
+  status: PresenceStatus;
+  lastSeen: string | null;
+  isOnline: boolean;
+}
+
 export interface UserPresenceResponse {
-  onlineStatus: Record<string, boolean>;
+  presenceData: Record<string, UserPresence>;
 }
 
 // ===== Extended Types (with user info) =====

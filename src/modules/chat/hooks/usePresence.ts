@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { presenceApi } from '../api/presenceApi';
+import type { PresenceStatus } from '../types/chat.types';
 
 interface UsePresenceOptions {
   enabled?: boolean;
@@ -10,42 +11,53 @@ interface UsePresenceOptions {
 }
 
 /**
- * Hook to check if a single user is online
+ * Hook to get full presence data for a single user
  */
-export const useUserPresence = (userId: string | null | undefined, options: UsePresenceOptions = {}) => {
+export const useUserPresence = (
+  userId: string | null | undefined, 
+  options: UsePresenceOptions = {}
+) => {
   const { enabled = true, refetchInterval = 30000 } = options;
 
   const query = useQuery({
     queryKey: queryKeys.presence.byUser(userId || ''),
-    queryFn: () => presenceApi.isUserOnline(userId!),
+    queryFn: () => presenceApi.getUserPresence(userId!),
     enabled: enabled && !!userId,
     staleTime: 1000 * 30,
     refetchInterval,
   });
 
+  const presence = query.data;
+
   return {
-    isOnline: query.data ?? false,
+    presence,
+    status: presence?.status ?? 'LONG_AGO' as PresenceStatus,
+    isOnline: presence?.isOnline ?? false,
+    lastSeen: presence?.lastSeen ?? null,
     isLoading: query.isLoading,
     refetch: query.refetch,
   };
 };
 
 /**
- * Hook to check online status for multiple users
+ * Hook to get presence data for multiple users
  */
-export const useUsersPresence = (userIds: string[], options: UsePresenceOptions = {}) => {
+export const useUsersPresence = (
+  userIds: string[], 
+  options: UsePresenceOptions = {}
+) => {
   const { enabled = true, refetchInterval = 30000 } = options;
 
   const query = useQuery({
     queryKey: queryKeys.presence.batch(userIds),
-    queryFn: () => presenceApi.getOnlineStatus(userIds),
+    queryFn: () => presenceApi.getPresenceData(userIds),
     enabled: enabled && userIds.length > 0,
     staleTime: 1000 * 30,
     refetchInterval,
   });
 
   return {
-    onlineStatus: query.data?.onlineStatus ?? {},
+    presenceData: query.data?.presenceData ?? {},
     isLoading: query.isLoading,
     refetch: query.refetch,
   };

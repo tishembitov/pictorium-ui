@@ -6,6 +6,8 @@ export type {
   WsMessageType,
   ChatResponse,
   MessageResponse,
+  PresenceStatus,
+  UserPresence,
   UserPresenceResponse,
   ChatWithRecipient,
   MessageWithSender,
@@ -55,3 +57,4 @@ export type {
   export { ChatList } from './components/ChatList';
   export { ChatWindow } from './components/ChatWindow';
   export { NewChatModal } from './components/NewChatModal';
+  export { PresenceIndicator } from './components/PresenceIndicator';

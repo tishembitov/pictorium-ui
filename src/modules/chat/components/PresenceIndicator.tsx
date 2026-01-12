@@ -1,7 +1,7 @@
 // src/modules/chat/components/PresenceIndicator.tsx
 
 import React from 'react';
-import { Box, Text, Flex } from 'gestalt';
+import { Box, Flex, Text } from 'gestalt';
 import type { PresenceStatus } from '../types/chat.types';
 
 interface PresenceIndicatorProps {
@@ -37,20 +37,32 @@ const getStatusConfig = (status: PresenceStatus): StatusConfig => {
 };
 
 const dotSizes = {
-  sm: 10,
-  md: 14,
-  lg: 18,
+  sm: 8,
+  md: 10,
+  lg: 12,
 };
 
 export const PresenceIndicator: React.FC<PresenceIndicatorProps> = ({
   status,
-  showDot = true,
-  showText = false,
+  showDot = false,
+  showText = true,
   size = 'md',
 }) => {
   const config = getStatusConfig(status);
   const dotSize = dotSizes[size];
   const isOnline = status === 'ONLINE';
+
+  // Text only (по умолчанию)
+  if (showText && !showDot) {
+    return (
+      <Text 
+        size="100" 
+        color={isOnline ? 'success' : 'subtle'}
+      >
+        {config.text}
+      </Text>
+    );
+  }
 
   // Text with optional dot
   if (showText && showDot) {
@@ -59,29 +71,20 @@ export const PresenceIndicator: React.FC<PresenceIndicatorProps> = ({
         {isOnline && (
           <Box
             rounding="circle"
-            width={dotSize}
-            height={dotSize}
             dangerouslySetInlineStyle={{
               __style: {
+                width: dotSize,
+                height: dotSize,
                 backgroundColor: config.color,
                 flexShrink: 0,
               },
             }}
           />
         )}
-        <Text size="100" color="subtle">
+        <Text size="100" color={isOnline ? 'success' : 'subtle'}>
           {config.text}
         </Text>
       </Flex>
-    );
-  }
-
-  // Text only
-  if (showText) {
-    return (
-      <Text size="100" color="subtle">
-        {config.text}
-      </Text>
     );
   }
 
@@ -93,13 +96,11 @@ export const PresenceIndicator: React.FC<PresenceIndicatorProps> = ({
   return (
     <Box
       rounding="circle"
-      width={dotSize}
-      height={dotSize}
       dangerouslySetInlineStyle={{
         __style: {
+          width: dotSize,
+          height: dotSize,
           backgroundColor: config.color,
-          border: '2px solid white',
-          boxShadow: '0 0 3px rgba(0,0,0,0.25)',
         },
       }}
     />

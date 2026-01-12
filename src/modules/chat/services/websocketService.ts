@@ -1,12 +1,9 @@
 // src/modules/chat/services/websocketService.ts
 
-import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
-import { env } from '@/app/config/env';
+import { Client, type IMessage, type StompSubscription } from '@stomp/stompjs';
 import { keycloak } from '@/app/config/keycloak';
-import type { 
-  WsOutgoingMessage, 
-  WsIncomingMessage, 
-} from '../types/chat.types';
+import { env } from '@/app/config/env';
+import type { WsOutgoingMessage, WsIncomingMessage } from '../types/chat.types';
 
 type MessageHandler = (message: WsOutgoingMessage) => void;
 type ConnectionHandler = (connected: boolean) => void;

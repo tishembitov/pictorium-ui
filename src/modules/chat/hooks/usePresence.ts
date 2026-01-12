@@ -23,8 +23,9 @@ export const useUserPresence = (
     queryKey: queryKeys.presence.byUser(userId || ''),
     queryFn: () => presenceApi.getUserPresence(userId!),
     enabled: enabled && !!userId,
-    staleTime: 1000 * 30,
+    staleTime: 1000 * 10, // 10 секунд - короче для более актуальных данных
     refetchInterval,
+    refetchOnWindowFocus: true,
   });
 
   const presence = query.data;
@@ -52,8 +53,9 @@ export const useUsersPresence = (
     queryKey: queryKeys.presence.batch(userIds),
     queryFn: () => presenceApi.getPresenceData(userIds),
     enabled: enabled && userIds.length > 0,
-    staleTime: 1000 * 30,
+    staleTime: 1000 * 10,
     refetchInterval,
+    refetchOnWindowFocus: true,
   });
 
   return {

@@ -1,14 +1,13 @@
 // src/modules/chat/components/ChatHeader.tsx
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Box, Flex, Text, IconButton, TapArea } from 'gestalt';
-import { buildPath } from '@/app/router/routes';
-import { UserAvatar } from '@/modules/user';
-import { OnlineIndicator } from './OnlineIndicator';
-import { PresenceIndicator } from './PresenceIndicator';
+import { useNavigate } from 'react-router-dom';
 import { useUserPresence } from '../hooks/usePresence';
 import { useChatStore } from '../stores/chatStore';
+import { buildPath } from '@/app/router';
+import { PresenceIndicator } from './PresenceIndicator';
+import { UserAvatar } from '@/modules/user';
 
 interface ChatHeaderProps {
   recipientId: string;
@@ -58,14 +57,25 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               name={recipientName}
               size="md"
             />
-            <Box
-              position="absolute"
-              dangerouslySetInlineStyle={{
-                __style: { bottom: 0, right: 0 },
-              }}
-            >
-              <OnlineIndicator status={status} isOnline={isOnline} size="sm" />
-            </Box>
+            
+            {/* Online индикатор - увеличенный */}
+            {isOnline && (
+              <Box
+                position="absolute"
+                dangerouslySetInlineStyle={{
+                  __style: {
+                    bottom: 0,
+                    right: 0,
+                    width: 14,
+                    height: 14,
+                    backgroundColor: '#1fa855',
+                    borderRadius: '50%',
+                    border: '2px solid white',
+                    boxShadow: '0 0 4px rgba(31, 168, 85, 0.5)',
+                  },
+                }}
+              />
+            )}
           </Box>
         </TapArea>
 
@@ -77,7 +87,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 typing...
               </Text>
             ) : (
-              <PresenceIndicator status={status} showText size="sm" />
+              <PresenceIndicator status={status} showText showDot={false} size="sm" />
             )}
           </Flex>
         </TapArea>

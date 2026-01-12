@@ -2,22 +2,57 @@
 
 import { useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/app/config/queryClient';
 import { useAuth } from '@/modules/auth';
+import { queryKeys } from '@/app/config/queryClient';
 import { useChatStore } from '../stores/chatStore';
 import { websocketService } from '../services/websocketService';
-import type { 
+import type {
   WsOutgoingMessage, 
   MessageResponse, 
   ChatResponse,
   MessagesInfiniteData,
   MessageState,
   MessageType,
+  UserPresence,
 } from '../types/chat.types';
 
 // ===== Helper functions =====
 
-const createPagesWithNewMessage = (
+const isMessageDuplicate = (
+  pages: MessagesInfiniteData['pages'],
+  message: MessageResponse
+): boolean => {
+  return pages.some(page => 
+    page.content.some(m => 
+      m.id === message.id || 
+      (m.id.startsWith('temp-') && 
+       m.content === message.content && 
+       m.senderId === message.senderId &&
+       Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 5000)
+    )
+  );
+};
+
+const replaceOptimisticMessage = (
+  pages: MessagesInfiniteData['pages'],
+  message: MessageResponse
+): MessagesInfiniteData['pages'] => {
+  return pages.map(page => ({
+    ...page,
+    content: page.content.map(m => {
+      if (m.id === message.id) return message;
+      // Заменяем временное сообщение на реальное
+      if (m.id.startsWith('temp-') && 
+          m.content === message.content && 
+          m.senderId === message.senderId) {
+        return message;
+      }
+      return m;
+    }),
+  }));
+};
+
+const addMessageToPages = (
   pages: MessagesInfiniteData['pages'],
   message: MessageResponse
 ): MessagesInfiniteData['pages'] => {
@@ -28,10 +63,25 @@ const createPagesWithNewMessage = (
     newPages[0] = {
       ...firstPage,
       content: [message, ...firstPage.content],
+      totalElements: firstPage.totalElements + 1,
     };
   }
   
   return newPages;
+};
+
+const createPagesWithNewMessage = (
+  pages: MessagesInfiniteData['pages'],
+  message: MessageResponse
+): MessagesInfiniteData['pages'] => {
+  // Проверяем на дубликат
+  if (isMessageDuplicate(pages, message)) {
+    // Заменяем оптимистичное сообщение
+    return replaceOptimisticMessage(pages, message);
+  }
+  
+  // Добавляем новое сообщение
+  return addMessageToPages(pages, message);
 };
 
 const createPagesWithUpdatedState = (
@@ -53,14 +103,14 @@ interface UpdateChatParams {
   timestamp: string;
   messageType: MessageType;
   imageId: string | null;
-  isCurrentChat: boolean;
+  incrementUnread: boolean;
 }
 
-const createChatsWithNewMessage = (
+const updateChatsWithNewMessage = (
   chats: ChatResponse[],
   params: UpdateChatParams
 ): ChatResponse[] => {
-  const { chatId, content, timestamp, messageType, imageId, isCurrentChat } = params;
+  const { chatId, content, timestamp, messageType, imageId, incrementUnread } = params;
   
   return chats.map((chat) => {
     if (chat.id === chatId) {
@@ -70,22 +120,36 @@ const createChatsWithNewMessage = (
         lastMessageTime: timestamp,
         lastMessageType: messageType,
         lastMessageImageId: imageId,
-        unreadCount: isCurrentChat 
-          ? chat.unreadCount 
-          : (chat.unreadCount || 0) + 1,
+        unreadCount: incrementUnread 
+          ? (chat.unreadCount || 0) + 1 
+          : chat.unreadCount,
       };
     }
     return chat;
   });
 };
 
+const createInitialMessagesData = (message: MessageResponse): MessagesInfiniteData => ({
+  pages: [{
+    content: [message],
+    totalElements: 1,
+    totalPages: 1,
+    size: 50,
+    number: 0,
+    first: true,
+    last: true,
+    empty: false,
+  }],
+  pageParams: [0],
+});
+
 // ===== Main Hook =====
 
 export const useChatWebSocket = () => {
   const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, userId } = useAuth();
   
-  // Отдельные селекторы
+  // Store selectors
   const setConnected = useChatStore((state) => state.setConnected);
   const setConnecting = useChatStore((state) => state.setConnecting);
   const setTypingUser = useChatStore((state) => state.setTypingUser);
@@ -94,8 +158,10 @@ export const useChatWebSocket = () => {
   const isConnected = useChatStore((state) => state.isConnected);
   const isConnecting = useChatStore((state) => state.isConnecting);
   
+  // Refs для актуальных значений в callbacks
   const selectedChatIdRef = useRef(selectedChatId);
   const isConnectedRef = useRef(isConnected);
+  const userIdRef = useRef(userId);
   
   useEffect(() => {
     selectedChatIdRef.current = selectedChatId;
@@ -105,18 +171,38 @@ export const useChatWebSocket = () => {
     isConnectedRef.current = isConnected;
   }, [isConnected]);
 
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+
   // Обработчик NEW_MESSAGE
   const handleNewMessage = useCallback((wsMessage: WsOutgoingMessage) => {
     const message = wsMessage.message;
-    if (!message) return;
+    if (!message) {
+      console.warn('[WS] NEW_MESSAGE without message payload');
+      return;
+    }
 
     const chatId = message.chatId;
+    const currentUserId = userIdRef.current;
+    const isOwnMessage = message.senderId === currentUserId;
+    const isCurrentChat = selectedChatIdRef.current === chatId;
 
-    // Обновляем сообщения
+    console.log('[WS] NEW_MESSAGE:', { 
+      messageId: message.id, 
+      chatId, 
+      isOwnMessage,
+      isCurrentChat,
+      content: message.content?.substring(0, 20),
+    });
+
+    // Обновляем сообщения в кэше
     queryClient.setQueryData<MessagesInfiniteData>(
       queryKeys.chats.messagesInfinite(chatId),
       (old) => {
-        if (!old) return old;
+        if (!old) {
+          return createInitialMessagesData(message);
+        }
         return {
           ...old,
           pages: createPagesWithNewMessage(old.pages, message),
@@ -124,35 +210,43 @@ export const useChatWebSocket = () => {
       }
     );
 
-    const isCurrentChat = selectedChatIdRef.current === chatId;
+    // Определяем, нужно ли увеличивать счётчик непрочитанных
+    const shouldIncrementUnread = !isOwnMessage && !isCurrentChat;
     
-    // Обновляем список чатов с новыми полями
+    // Обновляем список чатов
     queryClient.setQueryData<ChatResponse[]>(
       queryKeys.chats.lists(),
       (old) => {
         if (!old) return old;
-        return createChatsWithNewMessage(old, {
+        return updateChatsWithNewMessage(old, {
           chatId,
           content: message.content,
           timestamp: message.createdAt,
           messageType: message.type,
           imageId: message.imageId,
-          isCurrentChat,
+          incrementUnread: shouldIncrementUnread,
         });
       }
     );
 
-    if (!isCurrentChat) {
+    // Увеличиваем общий счётчик
+    if (shouldIncrementUnread) {
       incrementTotalUnread();
     }
   }, [queryClient, incrementTotalUnread]);
 
   // Обработчик MESSAGES_READ
   const handleMessagesRead = useCallback((wsMessage: WsOutgoingMessage) => {
-    if (!wsMessage.chatId) return;
+    const chatId = wsMessage.chatId;
+    if (!chatId) {
+      console.warn('[WS] MESSAGES_READ without chatId');
+      return;
+    }
+
+    console.log('[WS] MESSAGES_READ:', { chatId, userId: wsMessage.userId });
 
     queryClient.setQueryData<MessagesInfiniteData>(
-      queryKeys.chats.messagesInfinite(wsMessage.chatId),
+      queryKeys.chats.messagesInfinite(chatId),
       (old) => {
         if (!old) return old;
         return {
@@ -165,23 +259,34 @@ export const useChatWebSocket = () => {
 
   // Обработчик TYPING
   const handleTyping = useCallback((wsMessage: WsOutgoingMessage, isTyping: boolean) => {
-    if (!wsMessage.chatId || !wsMessage.userId) return;
-    setTypingUser(wsMessage.chatId, wsMessage.userId, isTyping);
+    const { chatId, userId: typingUserId } = wsMessage;
+    if (!chatId || !typingUserId) return;
+    
+    setTypingUser(chatId, typingUserId, isTyping);
   }, [setTypingUser]);
 
   // Обработчик PRESENCE
   const handlePresence = useCallback((wsMessage: WsOutgoingMessage) => {
-    if (!wsMessage.userId) return;
+    const { userId: presenceUserId, type } = wsMessage;
+    if (!presenceUserId) return;
     
-    queryClient.setQueryData(
-      queryKeys.presence.byUser(wsMessage.userId),
-      wsMessage.type === 'USER_ONLINE'
+    const isOnline = type === 'USER_ONLINE';
+    console.log('[WS] PRESENCE:', { userId: presenceUserId, isOnline });
+    
+    // Обновляем кэш presence с правильной типизацией
+    queryClient.setQueryData<UserPresence>(
+      queryKeys.presence.byUser(presenceUserId),
+      (old): UserPresence => ({
+        status: isOnline ? 'ONLINE' : (old?.status ?? 'RECENTLY'),
+        isOnline,
+        lastSeen: isOnline ? null : new Date().toISOString(),
+      })
     );
   }, [queryClient]);
 
   // Main message handler
   const handleMessage = useCallback((wsMessage: WsOutgoingMessage) => {
-    console.log('[useChatWebSocket] Received:', wsMessage);
+    console.log('[WS] Received:', wsMessage.type);
 
     switch (wsMessage.type) {
       case 'NEW_MESSAGE':
@@ -206,16 +311,17 @@ export const useChatWebSocket = () => {
         break;
         
       case 'ERROR':
-        console.error('[WebSocket] Server error:', wsMessage.error);
+        console.error('[WS] Server error:', wsMessage.error);
         break;
         
       default:
-        console.warn('[WebSocket] Unknown message type:', wsMessage.type);
+        console.warn('[WS] Unknown message type:', wsMessage.type);
     }
   }, [handleNewMessage, handleMessagesRead, handleTyping, handlePresence]);
 
   // Handle connection status changes
   const handleConnectionChange = useCallback((connected: boolean) => {
+    console.log('[WS] Connection status:', connected);
     setConnected(connected);
     setConnecting(false);
   }, [setConnected, setConnecting]);
@@ -252,16 +358,18 @@ export const useChatWebSocket = () => {
       return;
     }
     
+    console.log('[WS] Joining chat:', selectedChatId);
     websocketService.joinChat(selectedChatId);
     
     return () => {
-      if (isConnectedRef.current) {
+      if (isConnectedRef.current && selectedChatId) {
+        console.log('[WS] Leaving chat:', selectedChatId);
         websocketService.leaveChat(selectedChatId);
       }
     };
   }, [selectedChatId, isConnected]);
 
-  // Возвращаем безопасные функции
+  // Public API
   const sendTyping = useCallback((chatId: string, typing: boolean) => {
     if (websocketService.isConnected) {
       websocketService.sendTyping(chatId, typing);

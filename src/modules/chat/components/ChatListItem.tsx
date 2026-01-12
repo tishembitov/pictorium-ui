@@ -1,13 +1,11 @@
 // src/modules/chat/components/ChatListItem.tsx
 
-import React from 'react';
-import { Box, Flex, Text, TapArea, Icon } from 'gestalt';
-import { UserAvatar } from '@/modules/user';
-import { useImageUrl } from '@/modules/storage';
-import { OnlineIndicator } from './OnlineIndicator';
-import { ChatBadge } from './ChatBadge';
-import { formatShortRelativeTime } from '@/shared/utils/formatters';
+import React, { useState, useMemo } from 'react';
+import { Box, Flex, Text, TapArea } from 'gestalt';
+import { useUserPresence } from '../hooks/usePresence';
+import { formatRelativeTime } from '@/shared/utils/formatters';
 import type { ChatWithRecipient, MessageType } from '../types/chat.types';
+import { UserAvatar } from '@/modules/user';
 
 interface ChatListItemProps {
   chat: ChatWithRecipient;
@@ -15,185 +13,171 @@ interface ChatListItemProps {
   onClick: () => void;
 }
 
-type GestaltIconName = React.ComponentProps<typeof Icon>['icon'];
-
-// ==================== Sub-components ====================
-
-interface MediaPreviewProps {
-  type: MessageType;
-  imageId: string | null;
-}
-
-const MediaPreview: React.FC<MediaPreviewProps> = ({ type, imageId }) => {
-  const { data: imageData } = useImageUrl(imageId, {
-    enabled: type === 'IMAGE' && !!imageId,
-  });
-
-  const getMediaIcon = (): {
-    icon: GestaltIconName; // Используем точный тип из библиотеки
-    label: string;
-  } => {
+// Компонент для отображения превью последнего сообщения
+const LastMessagePreview: React.FC<{
+  message: string | null;
+  type: MessageType | null;
+}> = ({ message, type }) => {
+  const getMediaPreview = (): string | null => {
     switch (type) {
       case 'IMAGE':
-        return { icon: 'camera', label: 'Photo' }; // или 'image'
+        return '📷 Photo';
       case 'VIDEO':
-        return { icon: 'video-camera', label: 'Video' };
+        return '🎥 Video';
       case 'AUDIO':
-        // 'music' нет в Gestalt. Используем 'speech' (для голосовых) или 'play'
-        return { icon: 'speech', label: 'Audio' }; 
+        return '🎵 Audio';
       case 'FILE':
+        return '📎 File';
       default:
-        return { icon: 'terms', label: 'File' };
+        return null;
     }
   };
 
-  const { icon, label } = getMediaIcon();
-
-  return (
-    <Flex alignItems="center" gap={1}>
-      {/* Миниатюра для изображений */}
-      {type === 'IMAGE' && imageData?.url ? (
-        <Box
-          width={20}
-          height={20}
-          rounding={1}
-          overflow="hidden"
-          dangerouslySetInlineStyle={{
-            __style: {
-              flexShrink: 0,
-            },
-          }}
-        >
-          <img
-            src={imageData.url}
-            alt=""
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-            }}
-          />
-        </Box>
-      ) : (
-        <Icon
-          accessibilityLabel={label}
-          icon={icon}
-          size={14}
-          color="subtle"
-        />
-      )}
-      <Text size="200" color="subtle" lineClamp={1}>
-        {label}
-      </Text>
-    </Flex>
-  );
-};
-
-interface LastMessagePreviewProps {
-  chat: ChatWithRecipient;
-}
-
-const LastMessagePreview: React.FC<LastMessagePreviewProps> = ({ chat }) => {
-  const { lastMessage, lastMessageType, lastMessageImageId } = chat;
-
-  // Медиа сообщение
-  if (lastMessageType && lastMessageType !== 'TEXT') {
-    return (
-      <MediaPreview 
-        type={lastMessageType} 
-        imageId={lastMessageImageId} 
-      />
-    );
+  const mediaPreview = getMediaPreview();
+  
+  if (mediaPreview) {
+    return <Text size="100" color="subtle">{mediaPreview}</Text>;
   }
-
-  // Текстовое сообщение
-  if (lastMessage) {
-    const truncated = lastMessage.length > 30
-      ? lastMessage.substring(0, 27) + '...'
-      : lastMessage;
-
-    return (
-      <Text size="200" color="subtle" lineClamp={1}>
-        {truncated}
-      </Text>
-    );
+  
+  if (!message) {
+    return <Text size="100" color="subtle">No messages yet</Text>;
   }
-
-  // Нет сообщений
+  
   return (
-    <Text size="200" color="subtle" italic>
-      No messages yet
+    <Text size="100" color="subtle" overflow="noWrap" lineClamp={1}>
+      {message}
     </Text>
   );
 };
 
-// ==================== Main Component ====================
+// Компонент для бейджа непрочитанных
+const UnreadBadge: React.FC<{ count: number }> = ({ count }) => {
+  if (count <= 0) return null;
+  
+  const displayCount = count > 99 ? '99+' : String(count);
+  
+  return (
+    <Box
+      rounding="circle"
+      dangerouslySetInlineStyle={{
+        __style: {
+          backgroundColor: '#e60023',
+          minWidth: 20,
+          height: 20,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '0 6px',
+        },
+      }}
+    >
+      <Text size="100" color="inverse" weight="bold">
+        {displayCount}
+      </Text>
+    </Box>
+  );
+};
+
+// Компонент для online индикатора
+const OnlineDot: React.FC = () => (
+  <Box
+    position="absolute"
+    dangerouslySetInlineStyle={{
+      __style: {
+        bottom: 0,
+        right: 0,
+        width: 14,
+        height: 14,
+        backgroundColor: '#1fa855',
+        borderRadius: '50%',
+        border: '2px solid white',
+        boxShadow: '0 0 4px rgba(31, 168, 85, 0.5)',
+      },
+    }}
+  />
+);
 
 export const ChatListItem: React.FC<ChatListItemProps> = ({
   chat,
   isSelected,
   onClick,
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  // Получаем статус присутствия
+  const { isOnline } = useUserPresence(chat.recipientId);
+  
+  const recipientName = chat.recipient?.username || 'User';
+  const recipientImageId = chat.recipient?.imageId;
+  
+  const formattedTime = useMemo(() => {
+    if (!chat.lastMessageTime) return '';
+    return formatRelativeTime(chat.lastMessageTime);
+  }, [chat.lastMessageTime]);
+
+  // Определяем цвет фона
+  const getBackgroundColor = (): string | undefined => {
+    if (isSelected) return 'rgba(0, 0, 0, 0.08)';
+    if (isHovered) return 'rgba(0, 0, 0, 0.04)';
+    return undefined;
+  };
+
   return (
-    <TapArea onTap={onClick} rounding={2}>
+    <TapArea
+      onTap={onClick}
+      rounding={2}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <Box
         padding={3}
         rounding={2}
-        color={isSelected ? 'secondary' : 'default'}
+        position="relative"
         dangerouslySetInlineStyle={{
           __style: {
-            borderBottom: '1px solid var(--border-light)',
+            backgroundColor: getBackgroundColor(),
             transition: 'background-color 0.15s ease',
           },
         }}
       >
         <Flex alignItems="center" gap={3}>
-          {/* Avatar with online indicator */}
+          {/* Avatar с online индикатором */}
           <Box position="relative">
             <UserAvatar
-              imageId={chat.recipient?.imageId}
-              name={chat.recipient?.username || 'User'}
+              imageId={recipientImageId}
+              name={recipientName}
               size="md"
             />
-            {chat.isOnline && (
-              <Box
-                position="absolute"
-                dangerouslySetInlineStyle={{
-                  __style: { bottom: 0, right: 0 },
-                }}
-              >
-                <OnlineIndicator isOnline size="sm" />
-              </Box>
-            )}
+            {isOnline && <OnlineDot />}
           </Box>
 
-          {/* Chat info */}
-          <Flex direction="column" flex="grow" gap={1}>
-            {/* Header: name and time */}
+          {/* Content */}
+          <Box flex="grow" overflow="hidden">
             <Flex alignItems="center" justifyContent="between">
-              <Text weight="bold" size="200" lineClamp={1}>
-                {chat.recipient?.username || 'Unknown'}
+              <Text weight="bold" overflow="noWrap" lineClamp={1}>
+                {recipientName}
               </Text>
-              {chat.lastMessageTime && (
-                <Text
-                  size="100"
-                  color={chat.unreadCount > 0 ? 'success' : 'subtle'}
-                >
-                  {formatShortRelativeTime(chat.lastMessageTime)}
+              
+              {formattedTime && (
+                <Text size="100" color="subtle">
+                  {formattedTime}
                 </Text>
               )}
             </Flex>
-
-            {/* Footer: message preview and unread badge */}
-            <Flex alignItems="center" justifyContent="between" gap={2}>
-              <Box flex="grow" overflow="hidden">
-                <LastMessagePreview chat={chat} />
-              </Box>
-              {chat.unreadCount > 0 && (
-                <ChatBadge count={chat.unreadCount} />
-              )}
-            </Flex>
-          </Flex>
+            
+            <Box marginTop={1}>
+              <Flex alignItems="center" gap={2}>
+                <Box flex="grow" overflow="hidden">
+                  <LastMessagePreview 
+                    message={chat.lastMessage} 
+                    type={chat.lastMessageType}
+                  />
+                </Box>
+                
+                <UnreadBadge count={chat.unreadCount} />
+              </Flex>
+            </Box>
+          </Box>
         </Flex>
       </Box>
     </TapArea>

@@ -33,13 +33,13 @@ export const OnlineIndicator: React.FC<OnlineIndicatorProps> = ({
   return (
     <Box
       rounding="circle"
-      width={dimension}
-      height={dimension}
       dangerouslySetInlineStyle={{
         __style: {
+          width: dimension,
+          height: dimension,
           backgroundColor: '#1fa855',
           border: '2px solid white',
-          boxShadow: '0 0 3px rgba(0,0,0,0.25)',
+          boxShadow: '0 0 4px rgba(31, 168, 85, 0.5)',
         },
       }}
     />

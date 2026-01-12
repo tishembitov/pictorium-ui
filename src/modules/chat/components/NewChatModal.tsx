@@ -25,7 +25,6 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
   const { following, isLoading } = useFollowing(userId);
   const { getOrCreateChat, isLoading: isCreating } = useGetOrCreateChat();
 
-  // Filter users
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return following;
     
@@ -40,12 +39,11 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
       const chat = await getOrCreateChat(recipientId);
       onChatCreated(chat.id);
       onClose();
-    } catch (error) {
-      console.error('Failed to create chat:', error);
+    } catch {
+      // Error handled by mutation
     }
   };
 
-  // Render user list content
   const renderUserList = () => {
     if (isLoading) {
       return (
@@ -88,7 +86,6 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
       size="sm"
     >
       <Box paddingX={2}>
-        {/* Search */}
         <Box marginBottom={4}>
           <SearchField
             id="new-chat-search"
@@ -99,7 +96,6 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
           />
         </Box>
 
-        {/* User list */}
         <Box maxHeight={400} overflow="auto">
           {renderUserList()}
         </Box>
@@ -108,7 +104,6 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
   );
 };
 
-// Extracted component for user list item
 interface UserListItemProps {
   user: UserResponse;
   onSelect: () => void;

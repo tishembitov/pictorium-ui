@@ -25,7 +25,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) =>
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
-      // Отправляем stop typing при выходе из компонента
       if (isTypingRef.current) {
         sendTyping(chatId, false);
       }
@@ -36,7 +35,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) =>
     ({ value }: { value: string }) => {
       setContent(value);
 
-      // Если текст пустой — сразу останавливаем typing
       if (!value.trim()) {
         if (isTypingRef.current) {
           sendTyping(chatId, false);
@@ -49,18 +47,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) =>
         return;
       }
 
-      // Отправляем typing start только если ещё не typing
       if (!isTypingRef.current) {
         sendTyping(chatId, true);
         isTypingRef.current = true;
       }
 
-      // Сбрасываем предыдущий timeout
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
 
-      // Останавливаем typing после 2 секунд неактивности
       typingTimeoutRef.current = setTimeout(() => {
         sendTyping(chatId, false);
         isTypingRef.current = false;
@@ -74,7 +69,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) =>
     const trimmed = content.trim();
     if (!trimmed || isLoading) return;
 
-    // ✅ Останавливаем typing при отправке
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
@@ -88,12 +82,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) =>
       sendMessage(chatId, trimmed);
       setContent('');
       onSend?.();
-    } catch (error) {
-      console.error('Failed to send message:', error);
+    } catch {
+      // Error handled silently
     }
   }, [content, chatId, isLoading, sendMessage, sendTyping, onSend]);
 
-  // Handle key press
   const handleKeyDown = useCallback(
     ({ event }: { event: React.KeyboardEvent<HTMLTextAreaElement>; value: string }) => {
       if (event.key === 'Enter' && !event.shiftKey) {
@@ -104,12 +97,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) =>
     [handleSend]
   );
 
-  // Handle emoji select
   const handleEmojiSelect = useCallback((emoji: string) => {
     setContent((prev) => prev + emoji);
   }, []);
 
-  // Handle file attachment
   const handleFileSelect = useCallback(
     async (files: File[]) => {
       const file = files[0];
@@ -119,8 +110,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) =>
         const result = await upload(file, { category: 'chat' });
         sendImage(chatId, result.imageId);
         onSend?.();
-      } catch (error) {
-        console.error('Failed to upload image:', error);
+      } catch {
+        // Error handled silently
       }
     },
     [chatId, upload, sendImage, onSend]
@@ -131,20 +122,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) =>
   return (
     <Box color="secondary" padding={2}>
       <Flex alignItems="end" gap={2}>
-        {/* Attachment button */}
         <AttachmentButton
           onFileSelect={handleFileSelect}
           accept="image/*"
           disabled={isSending}
         />
 
-        {/* Emoji picker */}
         <EmojiPicker
           onEmojiSelect={handleEmojiSelect}
           disabled={isSending}
         />
 
-        {/* Text input */}
         <Box flex="grow">
           <TextArea
             id="message-input"
@@ -157,7 +145,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) =>
           />
         </Box>
 
-        {/* Send button */}
         {content.trim() ? (
           <IconButton
             accessibilityLabel="Send message"

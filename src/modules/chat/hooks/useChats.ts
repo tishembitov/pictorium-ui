@@ -26,6 +26,7 @@ export const useChats = (options: UseChatsOptions = {}) => {
   // Prefetch recipient data
   const chatsWithRecipients: ChatWithRecipient[] = query.data || [];
 
+
   return {
     chats: chatsWithRecipients,
     isLoading: query.isLoading,

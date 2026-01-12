@@ -1,6 +1,6 @@
 // src/modules/chat/hooks/useTotalUnread.ts
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { chatApi } from '../api/chatApi';
@@ -13,20 +13,25 @@ export const useTotalUnread = () => {
   const setTotalUnread = useChatStore((state) => state.setTotalUnread);
   const totalUnread = useChatStore((state) => state.totalUnread);
 
-  // Fetch chats and calculate total unread
+  // Fetch chats
   const { data: chats } = useQuery({
     queryKey: queryKeys.chats.lists(),
     queryFn: chatApi.getMyChats,
     staleTime: 1000 * 60 * 2,
   });
 
-  // Sync total unread from chats
+  // Calculate total from chats
+  const calculatedTotal = useMemo(() => {
+    if (!chats) return 0;
+    return chats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
+  }, [chats]);
+
+  // Sync to store when chats change
   useEffect(() => {
     if (chats) {
-      const total = chats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
-      setTotalUnread(total);
+      setTotalUnread(calculatedTotal);
     }
-  }, [chats, setTotalUnread]);
+  }, [chats, calculatedTotal, setTotalUnread]);
 
   return totalUnread;
 };

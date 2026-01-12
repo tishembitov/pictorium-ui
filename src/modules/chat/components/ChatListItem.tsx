@@ -129,6 +129,7 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
   isSelected,
   onClick,
 }) => {
+
   return (
     <TapArea onTap={onClick} rounding={2}>
       <Box

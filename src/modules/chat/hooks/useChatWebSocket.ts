@@ -16,20 +16,31 @@ import type {
   UserPresence,
 } from '../types/chat.types';
 
-// ===== Helper functions =====
-
 const isMessageDuplicate = (
   pages: MessagesInfiniteData['pages'],
   message: MessageResponse
 ): boolean => {
   return pages.some(page => 
-    page.content.some(m => 
-      m.id === message.id || 
-      (m.id.startsWith('temp-') && 
-       m.content === message.content && 
-       m.senderId === message.senderId &&
-       Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 5000)
-    )
+    page.content.some(m => {
+      // Точное совпадение по ID
+      if (m.id === message.id) return true;
+      
+      // Проверка только оптимистичных сообщений
+      if (!m.id.startsWith('temp-')) return false;
+      if (m.senderId !== message.senderId) return false;
+
+      if (message.type === 'IMAGE' && message.imageId) {
+        return m.imageId === message.imageId;
+      }
+      
+      // Для TEXT проверяем по content и времени
+      if (message.type === 'TEXT') {
+        return m.content === message.content &&
+          Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 10000;
+      }
+      
+      return false;
+    })
   );
 };
 
@@ -40,13 +51,22 @@ const replaceOptimisticMessage = (
   return pages.map(page => ({
     ...page,
     content: page.content.map(m => {
+      // Точное совпадение по ID
       if (m.id === message.id) return message;
-      // Заменяем временное сообщение на реальное
-      if (m.id.startsWith('temp-') && 
-          m.content === message.content && 
-          m.senderId === message.senderId) {
+      
+      // Проверка только оптимистичных сообщений
+      if (!m.id.startsWith('temp-')) return m;
+      if (m.senderId !== message.senderId) return m;
+      
+      if (message.type === 'IMAGE' && message.imageId && m.imageId === message.imageId) {
         return message;
       }
+      
+      // Для TEXT проверяем по content
+      if (message.type === 'TEXT' && m.content === message.content) {
+        return message;
+      }
+      
       return m;
     }),
   }));

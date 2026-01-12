@@ -78,7 +78,6 @@ export interface ChatWithRecipient extends ChatResponse {
     username: string;
     imageId: string | null;
   };
-  isOnline?: boolean;
 }
 
 export interface MessageWithSender extends MessageResponse {

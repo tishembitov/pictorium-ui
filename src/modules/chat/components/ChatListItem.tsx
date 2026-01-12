@@ -4,6 +4,7 @@ import React from 'react';
 import { Box, Flex, Text, TapArea, Icon } from 'gestalt';
 import { UserAvatar } from '@/modules/user';
 import { useImageUrl } from '@/modules/storage';
+import { useUserPresence } from '../hooks/usePresence'; // 👈 Добавить импорт
 import { OnlineIndicator } from './OnlineIndicator';
 import { ChatBadge } from './ChatBadge';
 import { formatShortRelativeTime } from '@/shared/utils/formatters';
@@ -125,6 +126,8 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
   isSelected,
   onClick,
 }) => {
+  // 👇 Используем useUserPresence вместо chat.isOnline
+  const { isOnline } = useUserPresence(chat.recipientId);
 
   const displayName = chat.recipient?.username || 'Loading...';
   const avatarImageId = chat.recipient?.imageId ?? null;
@@ -150,7 +153,8 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
               name={displayName}
               size="md"
             />
-            {chat.isOnline && (
+            {/* 👇 Используем isOnline из хука */}
+            {isOnline && (
               <Box
                 position="absolute"
                 dangerouslySetInlineStyle={{
@@ -166,14 +170,12 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
           <Box flex="grow" minWidth={0}>
             {/* Header: name and time */}
             <Flex alignItems="center" gap={2}>
-              {/* Username - занимает доступное место, обрезается */}
               <Box flex="grow" minWidth={0}>
                 <Text weight="bold" size="200" lineClamp={1}>
                   {displayName}
                 </Text>
               </Box>
               
-              {/* Time - фиксированная ширина, не сжимается */}
               {chat.lastMessageTime && (
                 <Box dangerouslySetInlineStyle={{ __style: { flexShrink: 0 } }}>
                   <Text
@@ -189,12 +191,10 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
             {/* Footer: message preview and unread badge */}
             <Box marginTop={1}>
               <Flex alignItems="center" gap={2}>
-                {/* Message preview - занимает доступное место */}
                 <Box flex="grow" minWidth={0}>
                   <LastMessagePreview chat={chat} />
                 </Box>
                 
-                {/* Unread badge - фиксированная ширина */}
                 {chat.unreadCount > 0 && (
                   <Box dangerouslySetInlineStyle={{ __style: { flexShrink: 0 } }}>
                     <ChatBadge count={chat.unreadCount} />

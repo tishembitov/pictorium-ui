@@ -325,38 +325,22 @@ export const useChatWebSocket = () => {
     };
   }, []);
     
-  // ===== PRESENCE HANDLER =====
-  const handlePresence = useCallback((wsMessage: WsOutgoingMessage) => {
-    const { userId: presenceUserId, type } = wsMessage;
-    if (!presenceUserId) return;
-    
-    const isOnline = type === 'USER_ONLINE';
-    
-    queryClient.setQueryData<UserPresence>(
-      queryKeys.presence.byUser(presenceUserId),
-      (): UserPresence => ({
-        status: isOnline ? 'ONLINE' : 'RECENTLY',
-        isOnline,
-        lastSeen: isOnline ? null : new Date().toISOString(),
-      })
-    );
-
-    queryClient.setQueryData<ChatResponse[]>(
-      queryKeys.chats.lists(),
-      (old) => {
-        if (!old) return old;
-        
-        return old.map((chat) => {
-          if (chat.recipientId !== presenceUserId) return chat;
-          
-          return {
-            ...chat,
-            isOnline,
-          };
-        });
-      }
-    );
-  }, [queryClient]);
+// ===== PRESENCE HANDLER =====
+const handlePresence = useCallback((wsMessage: WsOutgoingMessage) => {
+  const { userId: presenceUserId, type } = wsMessage;
+  if (!presenceUserId) return;
+  
+  const isOnline = type === 'USER_ONLINE';
+  
+  queryClient.setQueryData<UserPresence>(
+    queryKeys.presence.byUser(presenceUserId),
+    (): UserPresence => ({
+      status: isOnline ? 'ONLINE' : 'RECENTLY',
+      isOnline,
+      lastSeen: isOnline ? null : new Date().toISOString(),
+    })
+  );
+}, [queryClient]);
 
   // ===== MAIN MESSAGE HANDLER =====
   const handleMessage = useCallback((wsMessage: WsOutgoingMessage) => {

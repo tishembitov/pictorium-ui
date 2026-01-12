@@ -46,6 +46,7 @@ export type {
   export { usePresence, useUserPresence, useUsersPresence } from './hooks/usePresence';
   export { useChatWebSocket } from './hooks/useChatWebSocket';
   export { useTotalUnread } from './hooks/useTotalUnread';
+  export { useStartChat } from './hooks/useStartChat';  
   
   // Components
   export { OnlineIndicator } from './components/OnlineIndicator';

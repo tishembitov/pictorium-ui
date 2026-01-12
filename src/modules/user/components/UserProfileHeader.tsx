@@ -11,17 +11,19 @@ import {
   TapArea, 
   IconButton, 
   Layer, 
-  Spinner 
+  Spinner,
 } from 'gestalt';
 import { buildPath, ROUTES } from '@/app/router/routes';
+import { useStartChat } from '@/modules/chat';
 import { UserAvatar } from './UserAvatar';
 import { FollowButton } from './FollowButton';
 import { ProfileShareButton } from './ProfileShareButton';
 import { useAuth } from '@/modules/auth';
 import { useImageUrl } from '@/modules/storage';
-import { useUserPins } from '@/modules/pin'; // ✅ Добавлен импорт
+import { useUserPins } from '@/modules/pin';
 import { useFollowers } from '../hooks/useFollowers';
 import { useFollowing } from '../hooks/useFollowing';
+import { useFollowCheck } from '../hooks/useFollowCheck';
 import { formatCompactNumber } from '@/shared/utils/formatters';
 import { 
   formatUsername, 
@@ -151,8 +153,13 @@ export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
   user,
 }) => {
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isAuthenticated } = useAuth();
   const isCurrentUser = currentUser?.id === user.id;
+  
+  // ✅ Check if current user follows this user - будет обновляться через optimistic update
+  const { isFollowing, isLoading: isFollowCheckLoading } = useFollowCheck(user.id, {
+    enabled: !isCurrentUser && isAuthenticated,
+  });
   
   // Image states
   const [bannerError, setBannerError] = useState(false);
@@ -190,10 +197,21 @@ export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
   const socialUrls = getSocialUrls(user);
   const showSocialLinks = hasSocialLinks(user);
 
+  const { startChat, isLoading: isStartingChat } = useStartChat();
+
+  // ✅ Show message button only if following (and not loading)
+  const showMessageButton = isAuthenticated && !isCurrentUser && !isFollowCheckLoading && isFollowing;
+
   // Handlers
   const handleEditProfile = useCallback(() => {
     navigate(ROUTES.SETTINGS);
   }, [navigate]);
+
+  const handleMessage = useCallback(() => {
+    if (!isStartingChat) {
+      startChat(user.id);
+    }
+  }, [startChat, user.id, isStartingChat]);
 
   const handleFollowersClick = useCallback(() => {
     navigate(buildPath.followers(user.username));
@@ -380,16 +398,21 @@ export const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
                 </>
               ) : (
                 <>
-                    <FollowButton 
-                      userId={user.id} 
-                      username={user.username}
-                      size="lg" 
-                    />
+                  <FollowButton 
+                    userId={user.id} 
+                    username={user.username}
+                    size="lg" 
+                  />
+                  {/* ✅ Message button - показывается только если подписан */}
+                  {showMessageButton && (
                     <Button
-                      text="Message"
+                      text={isStartingChat ? '' : 'Message'}
                       size="lg"
                       color="gray"
+                      onClick={handleMessage}
+                      disabled={isStartingChat}
                     />
+                  )}
                   <ProfileShareButton user={user} size="lg" />
                 </>
               )}

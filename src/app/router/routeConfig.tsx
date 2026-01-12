@@ -1,3 +1,5 @@
+// src/app/router/routeConfig.tsx
+
 import React from 'react';
 import { Navigate, type RouteObject } from 'react-router-dom';
 import { MainLayout } from '@/shared/components';
@@ -18,8 +20,6 @@ import {
   NotFoundPage,
   ErrorPage,
 } from './LazyRoutes';
-
-// НЕ реэкспортируем ROUTES здесь - импортируйте напрямую из './routes'
 
 export const routes: RouteObject[] = [
   {
@@ -51,14 +51,17 @@ export const routes: RouteObject[] = [
         element: <ProtectedRoute><SettingsPage /></ProtectedRoute> 
       },
       { path: 'board/:boardId', element: <BoardDetailPage /> },
+      
+      // ✅ Messages - единый маршрут для существующих и новых чатов
       { 
         path: 'messages', 
         element: <ProtectedRoute><MessagesPage /></ProtectedRoute> 
       },
       { 
-        path: 'messages/:chatId', 
+        path: 'messages/:chatId',  // chatId = recipientUserId для новых чатов
         element: <ProtectedRoute><MessagesPage /></ProtectedRoute> 
       },
+      
       { path: '404', element: <NotFoundPage /> },
       { path: '*', element: <Navigate to="/404" replace /> },
     ],

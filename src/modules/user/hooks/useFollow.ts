@@ -5,6 +5,7 @@ import { queryKeys } from '@/app/config/queryClient';
 import { subscriptionApi } from '../api/subscriptionApi';
 import { useToast } from '@/shared/hooks/useToast';
 import { useAuthStore } from '@/modules/auth';
+import type { FollowCheckResponse } from '../types/subscription.types';
 
 interface UseFollowOptions {
   onSuccess?: (userId: string, username?: string) => void;
@@ -26,21 +27,36 @@ export const useFollow = (options: UseFollowOptions = {}) => {
   const mutation = useMutation({
     mutationFn: ({ userId }: FollowParams) => subscriptionApi.follow(userId),
     
-    onSuccess: (_, { userId, username }) => {
-      void queryClient.invalidateQueries({
+    // ✅ Optimistic update
+    onMutate: async ({ userId }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({
         queryKey: queryKeys.subscriptions.check(userId),
-        refetchType: 'none',
       });
-      
+
+      // Snapshot previous value
+      const previousCheck = queryClient.getQueryData<FollowCheckResponse>(
+        queryKeys.subscriptions.check(userId)
+      );
+
+      // Optimistically update
+      queryClient.setQueryData<FollowCheckResponse>(
+        queryKeys.subscriptions.check(userId),
+        { isFollowing: true }
+      );
+
+      return { previousCheck, userId };
+    },
+    
+    onSuccess: (_, { userId, username }) => {
+      // Invalidate related queries (will refetch in background)
       void queryClient.invalidateQueries({
         queryKey: queryKeys.subscriptions.followers(userId),
-        refetchType: 'none',
       });
       
       if (currentUserId) {
         void queryClient.invalidateQueries({
           queryKey: queryKeys.subscriptions.following(currentUserId),
-          refetchType: 'none',
         });
       }
 
@@ -51,7 +67,15 @@ export const useFollow = (options: UseFollowOptions = {}) => {
       onSuccess?.(userId, username);
     },
     
-    onError: (error: Error) => {
+    onError: (error: Error, { userId }, context) => {
+      // Rollback on error
+      if (context?.previousCheck !== undefined) {
+        queryClient.setQueryData(
+          queryKeys.subscriptions.check(userId),
+          context.previousCheck
+        );
+      }
+
       if (showToast) {
         toast.error(error.message || 'Failed to follow user');
       }
@@ -60,7 +84,6 @@ export const useFollow = (options: UseFollowOptions = {}) => {
   });
 
   return {
-    // ✅ Удобная обёртка для вызова с двумя параметрами
     follow: (userId: string, username?: string) => 
       mutation.mutate({ userId, username }),
     followAsync: (userId: string, username?: string) => 

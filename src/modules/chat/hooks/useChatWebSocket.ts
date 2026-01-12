@@ -257,14 +257,47 @@ export const useChatWebSocket = () => {
     );
   }, [queryClient]);
 
-  // Обработчик TYPING
+  // Добавляем Map для tracking typing timeouts
+  const typingTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
   const handleTyping = useCallback((wsMessage: WsOutgoingMessage, isTyping: boolean) => {
     const { chatId, userId: typingUserId } = wsMessage;
+    
     if (!chatId || !typingUserId) return;
     
-    setTypingUser(chatId, typingUserId, isTyping);
+    const timeoutKey = `${chatId}:${typingUserId}`;
+    
+    // Очищаем предыдущий timeout
+    const existingTimeout = typingTimeoutsRef.current.get(timeoutKey);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      typingTimeoutsRef.current.delete(timeoutKey);
+    }
+    
+    if (isTyping) {
+      setTypingUser(chatId, typingUserId, true);
+      
+      const timeout = setTimeout(() => {
+        setTypingUser(chatId, typingUserId, false);
+        typingTimeoutsRef.current.delete(timeoutKey);
+      }, 3000);
+      
+      typingTimeoutsRef.current.set(timeoutKey, timeout);
+    } else {
+      setTypingUser(chatId, typingUserId, false);
+    }
   }, [setTypingUser]);
 
+    // Очистка при размонтировании
+  useEffect(() => {
+    const timeouts = typingTimeoutsRef.current;
+    
+    return () => {
+      timeouts.forEach((timeout) => clearTimeout(timeout));
+      timeouts.clear();
+    };
+  }, []);
+    
   // Обработчик PRESENCE
   const handlePresence = useCallback((wsMessage: WsOutgoingMessage) => {
     const { userId: presenceUserId, type } = wsMessage;
@@ -273,11 +306,10 @@ export const useChatWebSocket = () => {
     const isOnline = type === 'USER_ONLINE';
     console.log('[WS] PRESENCE:', { userId: presenceUserId, isOnline });
     
-    // Обновляем кэш presence с правильной типизацией
     queryClient.setQueryData<UserPresence>(
       queryKeys.presence.byUser(presenceUserId),
-      (old): UserPresence => ({
-        status: isOnline ? 'ONLINE' : (old?.status ?? 'RECENTLY'),
+      (): UserPresence => ({
+        status: isOnline ? 'ONLINE' : 'RECENTLY',
         isOnline,
         lastSeen: isOnline ? null : new Date().toISOString(),
       })

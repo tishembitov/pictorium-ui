@@ -1,6 +1,6 @@
 // src/modules/chat/components/MessageInput.tsx
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Box, Flex, IconButton, TextArea } from 'gestalt';
 import { EmojiPicker, AttachmentButton } from '@/shared/components';
 import { useImageUpload } from '@/modules/storage';
@@ -15,41 +15,78 @@ interface MessageInputProps {
 export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) => {
   const [content, setContent] = useState('');
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
+  const isTypingRef = useRef(false); 
   const { sendMessage, sendImage, isLoading } = useSendMessage();
   const { sendTyping } = useChatWebSocket();
   const { upload, isUploading } = useImageUpload();
 
-  // Handle text change with typing indicator
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      // Отправляем stop typing при выходе из компонента
+      if (isTypingRef.current) {
+        sendTyping(chatId, false);
+      }
+    };
+  }, [chatId, sendTyping]);
+
   const handleChange = useCallback(
     ({ value }: { value: string }) => {
       setContent(value);
 
-      // Send typing indicator
-      sendTyping(chatId, true);
+      // Если текст пустой — сразу останавливаем typing
+      if (!value.trim()) {
+        if (isTypingRef.current) {
+          sendTyping(chatId, false);
+          isTypingRef.current = false;
+        }
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = null;
+        }
+        return;
+      }
 
-      // Clear previous timeout
+      // Отправляем typing start только если ещё не typing
+      if (!isTypingRef.current) {
+        sendTyping(chatId, true);
+        isTypingRef.current = true;
+      }
+
+      // Сбрасываем предыдущий timeout
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
 
-      // Stop typing after 2 seconds of inactivity
+      // Останавливаем typing после 2 секунд неактивности
       typingTimeoutRef.current = setTimeout(() => {
         sendTyping(chatId, false);
+        isTypingRef.current = false;
+        typingTimeoutRef.current = null;
       }, 2000);
     },
     [chatId, sendTyping]
   );
 
-  // Handle send message
   const handleSend = useCallback(async () => {
     const trimmed = content.trim();
     if (!trimmed || isLoading) return;
 
+    // ✅ Останавливаем typing при отправке
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    if (isTypingRef.current) {
+      sendTyping(chatId, false);
+      isTypingRef.current = false;
+    }
+
     try {
       sendMessage(chatId, trimmed);
       setContent('');
-      sendTyping(chatId, false);
       onSend?.();
     } catch (error) {
       console.error('Failed to send message:', error);

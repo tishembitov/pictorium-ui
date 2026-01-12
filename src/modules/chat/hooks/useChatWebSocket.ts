@@ -12,6 +12,7 @@ import type {
   ChatResponse,
   MessagesInfiniteData,
   MessageState,
+  MessageType,
 } from '../types/chat.types';
 
 // ===== Helper functions =====
@@ -46,19 +47,29 @@ const createPagesWithUpdatedState = (
   }));
 };
 
+interface UpdateChatParams {
+  chatId: string;
+  content: string | null;
+  timestamp: string;
+  messageType: MessageType;
+  imageId: string | null;
+  isCurrentChat: boolean;
+}
+
 const createChatsWithNewMessage = (
   chats: ChatResponse[],
-  chatId: string,
-  content: string | undefined,
-  timestamp: string,
-  isCurrentChat: boolean
+  params: UpdateChatParams
 ): ChatResponse[] => {
+  const { chatId, content, timestamp, messageType, imageId, isCurrentChat } = params;
+  
   return chats.map((chat) => {
     if (chat.id === chatId) {
       return {
         ...chat,
-        lastMessage: content || 'Attachment',
+        lastMessage: messageType === 'TEXT' ? content : null,
         lastMessageTime: timestamp,
+        lastMessageType: messageType,
+        lastMessageImageId: imageId,
         unreadCount: isCurrentChat 
           ? chat.unreadCount 
           : (chat.unreadCount || 0) + 1,
@@ -74,7 +85,7 @@ export const useChatWebSocket = () => {
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
   
-  // ✅ Отдельные селекторы
+  // Отдельные селекторы
   const setConnected = useChatStore((state) => state.setConnected);
   const setConnecting = useChatStore((state) => state.setConnecting);
   const setTypingUser = useChatStore((state) => state.setTypingUser);
@@ -94,13 +105,14 @@ export const useChatWebSocket = () => {
     isConnectedRef.current = isConnected;
   }, [isConnected]);
 
-  // ✅ Обработчик NEW_MESSAGE
+  // Обработчик NEW_MESSAGE
   const handleNewMessage = useCallback((wsMessage: WsOutgoingMessage) => {
     const message = wsMessage.message;
     if (!message) return;
 
     const chatId = message.chatId;
 
+    // Обновляем сообщения
     queryClient.setQueryData<MessagesInfiniteData>(
       queryKeys.chats.messagesInfinite(chatId),
       (old) => {
@@ -114,17 +126,19 @@ export const useChatWebSocket = () => {
 
     const isCurrentChat = selectedChatIdRef.current === chatId;
     
+    // Обновляем список чатов с новыми полями
     queryClient.setQueryData<ChatResponse[]>(
       queryKeys.chats.lists(),
       (old) => {
         if (!old) return old;
-        return createChatsWithNewMessage(
-          old,
+        return createChatsWithNewMessage(old, {
           chatId,
-          message.content ?? undefined,
-          message.createdAt,
-          isCurrentChat
-        );
+          content: message.content,
+          timestamp: message.createdAt,
+          messageType: message.type,
+          imageId: message.imageId,
+          isCurrentChat,
+        });
       }
     );
 
@@ -133,7 +147,7 @@ export const useChatWebSocket = () => {
     }
   }, [queryClient, incrementTotalUnread]);
 
-  // ✅ Обработчик MESSAGES_READ
+  // Обработчик MESSAGES_READ
   const handleMessagesRead = useCallback((wsMessage: WsOutgoingMessage) => {
     if (!wsMessage.chatId) return;
 
@@ -149,13 +163,13 @@ export const useChatWebSocket = () => {
     );
   }, [queryClient]);
 
-  // ✅ Обработчик TYPING
+  // Обработчик TYPING
   const handleTyping = useCallback((wsMessage: WsOutgoingMessage, isTyping: boolean) => {
     if (!wsMessage.chatId || !wsMessage.userId) return;
     setTypingUser(wsMessage.chatId, wsMessage.userId, isTyping);
   }, [setTypingUser]);
 
-  // ✅ Обработчик PRESENCE
+  // Обработчик PRESENCE
   const handlePresence = useCallback((wsMessage: WsOutgoingMessage) => {
     if (!wsMessage.userId) return;
     
@@ -232,7 +246,7 @@ export const useChatWebSocket = () => {
     }
   }, [isAuthenticated, setConnected]);
 
-  // ✅ Join/Leave chat ТОЛЬКО когда connected
+  // Join/Leave chat
   useEffect(() => {
     if (!selectedChatId || !isConnected) {
       return;
@@ -241,14 +255,13 @@ export const useChatWebSocket = () => {
     websocketService.joinChat(selectedChatId);
     
     return () => {
-      // Проверяем актуальное состояние через ref
       if (isConnectedRef.current) {
         websocketService.leaveChat(selectedChatId);
       }
     };
   }, [selectedChatId, isConnected]);
 
-  // ✅ Возвращаем безопасные функции
+  // Возвращаем безопасные функции
   const sendTyping = useCallback((chatId: string, typing: boolean) => {
     if (websocketService.isConnected) {
       websocketService.sendTyping(chatId, typing);

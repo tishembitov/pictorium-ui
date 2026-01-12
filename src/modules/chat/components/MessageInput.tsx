@@ -47,7 +47,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) =>
     if (!trimmed || isLoading) return;
 
     try {
-      await sendMessage(chatId, trimmed);
+      sendMessage(chatId, trimmed);
       setContent('');
       sendTyping(chatId, false);
       onSend?.();
@@ -56,7 +56,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) =>
     }
   }, [content, chatId, isLoading, sendMessage, sendTyping, onSend]);
 
-  // Handle key press - Gestalt TextArea signature
+  // Handle key press
   const handleKeyDown = useCallback(
     ({ event }: { event: React.KeyboardEvent<HTMLTextAreaElement>; value: string }) => {
       if (event.key === 'Enter' && !event.shiftKey) {
@@ -79,8 +79,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) =>
       if (!file) return;
 
       try {
-        const result = await upload(file, { category: 'comments' });
-        await sendImage(chatId, result.imageId);
+        const result = await upload(file, { category: 'chat' });
+        sendImage(chatId, result.imageId);
         onSend?.();
       } catch (error) {
         console.error('Failed to upload image:', error);

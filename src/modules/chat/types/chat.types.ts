@@ -33,6 +33,10 @@ export interface ChatResponse {
   unreadCount: number;
   createdAt: string;
   updatedAt: string;
+  
+  // Новые поля для медиа
+  lastMessageType: MessageType | null;
+  lastMessageImageId: string | null;
 }
 
 export interface MessageResponse {

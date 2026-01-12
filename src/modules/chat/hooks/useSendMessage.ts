@@ -10,8 +10,41 @@ import type {
   MessageResponse, 
   MessagesInfiniteData,
   ChatResponse,
+  MessageType,
 } from '../types/chat.types';
 import { generateId } from '@/shared/utils/helpers';
+
+// ===== Helper functions =====
+
+interface UpdateChatWithMessageParams {
+  chatId: string;
+  content: string | null;
+  timestamp: string;
+  messageType: MessageType;
+  imageId: string | null;
+}
+
+const updateChatWithMessage = (
+  chats: ChatResponse[],
+  params: UpdateChatWithMessageParams
+): ChatResponse[] => {
+  const { chatId, content, timestamp, messageType, imageId } = params;
+  
+  return chats.map((chat) => {
+    if (chat.id === chatId) {
+      return {
+        ...chat,
+        lastMessage: messageType === 'TEXT' ? content : null,
+        lastMessageTime: timestamp,
+        lastMessageType: messageType,
+        lastMessageImageId: imageId,
+      };
+    }
+    return chat;
+  });
+};
+
+// ===== Main Hook =====
 
 export const useSendMessage = () => {
   const queryClient = useQueryClient();
@@ -38,21 +71,17 @@ export const useSendMessage = () => {
       }
     );
 
-    // Update chats list with last message
+    // Update chats list with all media fields
     queryClient.setQueryData<ChatResponse[]>(
       queryKeys.chats.lists(),
       (old) => {
         if (!old) return old;
-        
-        return old.map((chat) => {
-          if (chat.id === chatId) {
-            return {
-              ...chat,
-              lastMessage: message.content || 'Attachment',
-              lastMessageTime: message.createdAt,
-            };
-          }
-          return chat;
+        return updateChatWithMessage(old, {
+          chatId,
+          content: message.content,
+          timestamp: message.createdAt,
+          messageType: message.type,
+          imageId: message.imageId,
         });
       }
     );
@@ -106,14 +135,14 @@ export const useSendMessage = () => {
     // Add to cache optimistically
     addOptimisticMessage(chatId, optimisticMessage);
 
-    // ✅ Исправлено: передаём пустую строку вместо undefined
+    // Send via WebSocket
     websocketService.sendMessage(chatId, '', 'IMAGE', imageId);
   }, [userId, addOptimisticMessage, toast]);
 
   return {
     sendMessage,
     sendImage,
-    isLoading: false, // WebSocket is instant
+    isLoading: false,
   };
 };
 

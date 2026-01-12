@@ -146,7 +146,7 @@ export interface UploadResult {
   thumbnailHeight: number;
 }
 
-export type ImageCategory = 'pins' | 'avatars' | 'banners' | 'comments';
+export type ImageCategory = 'pins' | 'avatars' | 'banners' | 'comments' | 'chat';
 
 export interface ThumbnailOptions {
   width: number;

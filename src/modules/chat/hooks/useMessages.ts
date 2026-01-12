@@ -1,5 +1,6 @@
 // src/modules/chat/hooks/useMessages.ts
 
+import { useMemo } from 'react';
 import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { messageApi } from '../api/messageApi';
@@ -23,25 +24,33 @@ export const useMessages = (chatId: string | null | undefined, options: UseMessa
 
   const query = useInfiniteQuery({
     queryKey: queryKeys.chats.messagesInfinite(chatId || ''),
-    queryFn: ({ pageParam = 0 }) =>
-      messageApi.getMessages(chatId!, { 
+    queryFn: async ({ pageParam = 0 }) => {
+      const result = await messageApi.getMessages(chatId!, { 
         page: pageParam, 
         size: pageSize,
         sort: ['createdAt,desc'],
-      }),
+      });
+      return result;
+    },
     initialPageParam: 0,
     getNextPageParam: (lastPage) => 
       lastPage.last ? undefined : lastPage.number + 1,
     enabled: enabled && !!chatId,
     staleTime: 1000 * 30,
+    refetchOnMount: true,
   });
 
   // Flatten pages and reverse to show oldest first
-  const messages: MessageResponse[] = query.data?.pages
-    .flatMap((page) => page.content)
-    .reverse() || [];
+  const pages = query.data?.pages;
+  const messages: MessageResponse[] = useMemo(() => {
+    if (!pages) return [];
+    
+    return pages
+      .flatMap((page) => page.content)
+      .reverse();
+  }, [pages]);
 
-  const totalElements = query.data?.pages[0]?.totalElements ?? 0;
+  const totalElements = pages?.[0]?.totalElements ?? 0;
 
   return {
     messages,
@@ -104,7 +113,7 @@ export const useAddMessageToCache = () => {
       }
     );
 
-    // Update chats list with last message
+    // Update chats list with all media fields
     queryClient.setQueryData<ChatResponse[]>(
       queryKeys.chats.lists(),
       (old) => {
@@ -114,8 +123,10 @@ export const useAddMessageToCache = () => {
           if (chat.id === chatId) {
             return {
               ...chat,
-              lastMessage: message.content || 'Attachment',
+              lastMessage: message.type === 'TEXT' ? message.content : null,
               lastMessageTime: message.createdAt,
+              lastMessageType: message.type,
+              lastMessageImageId: message.imageId,
             };
           }
           return chat;

@@ -4,7 +4,12 @@ import React, { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box } from 'gestalt';
 import { useIsMobile } from '@/shared/hooks';
-import { ChatList, ChatWindow, NewChatModal , useChatWebSocket, useTotalUnread } from '@/modules/chat';
+import { 
+  ChatList, 
+  ChatWindow, 
+  NewChatModal, 
+  useTotalUnread 
+} from '@/modules/chat';
 import { EmptyState } from '@/shared/components';
 
 export const MessagesPage: React.FC = () => {
@@ -14,10 +19,7 @@ export const MessagesPage: React.FC = () => {
   
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
 
-  // Initialize WebSocket connection
-  useChatWebSocket();
-  
-  // Sync total unread count
+  // Sync total unread count on mount
   useTotalUnread();
 
   const handleChatSelect = useCallback((selectedChatId: string) => {

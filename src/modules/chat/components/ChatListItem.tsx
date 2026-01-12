@@ -4,7 +4,7 @@ import React from 'react';
 import { Box, Flex, Text, TapArea, Icon } from 'gestalt';
 import { UserAvatar } from '@/modules/user';
 import { useImageUrl } from '@/modules/storage';
-import { useUserPresence } from '../hooks/usePresence'; // 👈 Добавить импорт
+import { useUserPresence } from '../hooks/usePresence';
 import { OnlineIndicator } from './OnlineIndicator';
 import { ChatBadge } from './ChatBadge';
 import { formatShortRelativeTime } from '@/shared/utils/formatters';
@@ -14,9 +14,101 @@ interface ChatListItemProps {
   chat: ChatWithRecipient;
   isSelected: boolean;
   onClick: () => void;
+  searchQuery?: string;
 }
 
 type GestaltIconName = React.ComponentProps<typeof Icon>['icon'];
+
+// ==================== Highlight Component ====================
+
+interface HighlightTextProps {
+  text: string;
+  query: string;
+  color?: 'default' | 'subtle';
+}
+
+// Helper to escape regex special characters
+function escapeRegex(str: string): string {
+  return str.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+// Pre-compute parts with their positions
+interface TextPart {
+  text: string;
+  isMatch: boolean;
+  position: number;
+}
+
+function splitTextWithPositions(text: string, query: string): TextPart[] {
+  if (!query.trim()) {
+    return [{ text, isMatch: false, position: 0 }];
+  }
+
+  const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+  const rawParts = text.split(regex);
+  
+  const parts: TextPart[] = [];
+  let currentPosition = 0;
+  
+  for (const part of rawParts) {
+    if (part) {
+      parts.push({
+        text: part,
+        isMatch: part.toLowerCase() === query.toLowerCase(),
+        position: currentPosition,
+      });
+      currentPosition += part.length;
+    }
+  }
+  
+  return parts;
+}
+
+const HighlightText: React.FC<HighlightTextProps> = ({ 
+  text, 
+  query, 
+  color = 'default' 
+}) => {
+  // Compute parts with positions before render (no mutation during map)
+  const parts = splitTextWithPositions(text, query);
+
+  if (parts.length === 1 && !parts[0]?.isMatch) {
+    return (
+      <Text size="200" color={color} lineClamp={1}>
+        {text}
+      </Text>
+    );
+  }
+
+  return (
+    <Text size="200" color={color} lineClamp={1}>
+      {parts.map((part) => {
+        const key = `${part.isMatch ? 'match' : 'text'}-${part.position}-${part.text.slice(0, 10)}`;
+
+        if (part.isMatch) {
+          return (
+            <Box 
+              key={key}
+              display="inlineBlock"
+              dangerouslySetInlineStyle={{
+                __style: {
+                  backgroundColor: '#fff3cd',
+                  borderRadius: 2,
+                  padding: '0 2px',
+                },
+              }}
+            >
+              <Text size="200" weight="bold" color="dark">
+                {part.text}
+              </Text>
+            </Box>
+          );
+        }
+        return <React.Fragment key={key}>{part.text}</React.Fragment>;
+      })}
+    </Text>
+  );
+};
 
 // ==================== Sub-components ====================
 
@@ -90,9 +182,13 @@ const MediaPreview: React.FC<MediaPreviewProps> = ({ type, imageId }) => {
 
 interface LastMessagePreviewProps {
   chat: ChatWithRecipient;
+  searchQuery?: string;
 }
 
-const LastMessagePreview: React.FC<LastMessagePreviewProps> = ({ chat }) => {
+const LastMessagePreview: React.FC<LastMessagePreviewProps> = ({ 
+  chat, 
+  searchQuery = '' 
+}) => {
   const { lastMessage, lastMessageType, lastMessageImageId } = chat;
 
   if (lastMessageType && lastMessageType !== 'TEXT') {
@@ -105,6 +201,17 @@ const LastMessagePreview: React.FC<LastMessagePreviewProps> = ({ chat }) => {
   }
 
   if (lastMessage) {
+    // Use highlight if search query matches message
+    if (searchQuery.trim() && lastMessage.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return (
+        <HighlightText 
+          text={lastMessage} 
+          query={searchQuery} 
+          color="subtle" 
+        />
+      );
+    }
+
     return (
       <Text size="200" color="subtle" lineClamp={1}>
         {lastMessage}
@@ -125,12 +232,16 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
   chat,
   isSelected,
   onClick,
+  searchQuery = '',
 }) => {
-  // 👇 Используем useUserPresence вместо chat.isOnline
   const { isOnline } = useUserPresence(chat.recipientId);
 
   const displayName = chat.recipient?.username || 'Loading...';
   const avatarImageId = chat.recipient?.imageId ?? null;
+
+  // Check if username matches search
+  const usernameMatches = searchQuery.trim() && 
+    displayName.toLowerCase().includes(searchQuery.toLowerCase());
 
   return (
     <TapArea onTap={onClick} rounding={2}>
@@ -153,7 +264,6 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
               name={displayName}
               size="md"
             />
-            {/* 👇 Используем isOnline из хука */}
             {isOnline && (
               <Box
                 position="absolute"
@@ -171,9 +281,16 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
             {/* Header: name and time */}
             <Flex alignItems="center" gap={2}>
               <Box flex="grow" minWidth={0}>
-                <Text weight="bold" size="200" lineClamp={1}>
-                  {displayName}
-                </Text>
+                {usernameMatches ? (
+                  <HighlightText 
+                    text={displayName} 
+                    query={searchQuery} 
+                  />
+                ) : (
+                  <Text weight="bold" size="200" lineClamp={1}>
+                    {displayName}
+                  </Text>
+                )}
               </Box>
               
               {chat.lastMessageTime && (
@@ -192,7 +309,10 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
             <Box marginTop={1}>
               <Flex alignItems="center" gap={2}>
                 <Box flex="grow" minWidth={0}>
-                  <LastMessagePreview chat={chat} />
+                  <LastMessagePreview 
+                    chat={chat} 
+                    searchQuery={searchQuery} 
+                  />
                 </Box>
                 
                 {chat.unreadCount > 0 && (

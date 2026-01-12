@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Box, Flex, Text, SearchField, IconButton, Spinner, TapArea } from 'gestalt';
 import { useChats } from '../hooks/useChats';
 import { useChatStore } from '../stores/chatStore';
+import { useDebounceWithPending } from '@/shared/hooks/useDebounce';
 import { ChatListItem } from './ChatListItem';
 import { EmptyState } from '@/shared/components';
 
@@ -79,6 +80,10 @@ export const ChatList: React.FC<ChatListProps> = ({ onChatSelect, onNewChat }) =
   
   const { chats, isLoading } = useChats();
 
+  // Debounced search with pending state
+  const { debouncedValue: debouncedSearchQuery, isPending: isSearching } = 
+    useDebounceWithPending(searchQuery, 300);
+
   // Count unread chats
   const unreadCount = useMemo(() => {
     return chats.filter((chat) => chat.unreadCount > 0).length;
@@ -93,16 +98,28 @@ export const ChatList: React.FC<ChatListProps> = ({ onChatSelect, onNewChat }) =
       result = result.filter((chat) => chat.unreadCount > 0);
     }
 
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter((chat) =>
-        chat.recipient?.username?.toLowerCase().includes(query)
-      );
+    // Apply search filter with debounced value
+    const query = debouncedSearchQuery.trim().toLowerCase();
+    if (query) {
+      result = result.filter((chat) => {
+        // Search by username
+        const username = chat.recipient?.username?.toLowerCase() ?? '';
+        if (username.includes(query)) {
+          return true;
+        }
+        
+        // Search by last message content
+        const lastMessage = chat.lastMessage?.toLowerCase() ?? '';
+        if (lastMessage.includes(query)) {
+          return true;
+        }
+        
+        return false;
+      });
     }
 
     return result;
-  }, [chats, filter, searchQuery]);
+  }, [chats, filter, debouncedSearchQuery]);
 
   // Render content based on state
   const renderContent = () => {
@@ -128,6 +145,15 @@ export const ChatList: React.FC<ChatListProps> = ({ onChatSelect, onNewChat }) =
       );
     }
 
+    // Show searching indicator
+    if (isSearching && searchQuery.trim()) {
+      return (
+        <Box display="flex" justifyContent="center" padding={4}>
+          <Spinner accessibilityLabel="Searching" show size="sm" />
+        </Box>
+      );
+    }
+
     if (filteredChats.length === 0) {
       if (filter === 'unread') {
         return (
@@ -135,6 +161,16 @@ export const ChatList: React.FC<ChatListProps> = ({ onChatSelect, onNewChat }) =
             title="No unread messages"
             description="You're all caught up!"
             icon="check-circle"
+          />
+        );
+      }
+
+      if (debouncedSearchQuery.trim()) {
+        return (
+          <EmptyState
+            title="No chats found"
+            description={`No results for "${debouncedSearchQuery}"`}
+            icon="search"
           />
         );
       }
@@ -154,6 +190,7 @@ export const ChatList: React.FC<ChatListProps> = ({ onChatSelect, onNewChat }) =
         chat={chat}
         isSelected={chat.id === selectedChatId}
         onClick={() => onChatSelect(chat.id)}
+        searchQuery={debouncedSearchQuery}
       />
     ));
   };
@@ -182,14 +219,14 @@ export const ChatList: React.FC<ChatListProps> = ({ onChatSelect, onNewChat }) =
           id="chat-search"
           accessibilityLabel="Search chats"
           accessibilityClearButtonLabel="Clear search"
-          placeholder="Search chats..."
+          placeholder="Search by name or message..."
           value={searchQuery}
           onChange={({ value }) => setSearchQuery(value)}
         />
 
         {/* Filters */}
         <Box marginTop={2}>
-          <Flex gap={2}>
+          <Flex gap={2} alignItems="center">
             <FilterButton
               label="All"
               isActive={filter === 'all'}
@@ -201,6 +238,15 @@ export const ChatList: React.FC<ChatListProps> = ({ onChatSelect, onNewChat }) =
               onClick={() => setFilter('unread')}
               count={unreadCount}
             />
+            
+            {/* Show results count when searching */}
+            {debouncedSearchQuery.trim() && !isSearching && (
+              <Box marginStart={2}>
+                <Text size="100" color="subtle">
+                  {filteredChats.length} found
+                </Text>
+              </Box>
+            )}
           </Flex>
         </Box>
       </Box>

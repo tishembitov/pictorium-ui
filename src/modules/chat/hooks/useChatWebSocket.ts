@@ -18,9 +18,6 @@ import type {
 
 // ===== Helper Functions =====
 
-/**
- * Проверяет, является ли сообщение совпадением (по ID или содержимому для temp)
- */
 const isMessageMatch = (existing: MessageResponse, incoming: MessageResponse): boolean => {
   if (existing.id === incoming.id) return true;
   
@@ -40,10 +37,6 @@ const isMessageMatch = (existing: MessageResponse, incoming: MessageResponse): b
   return false;
 };
 
-/**
- * Ищет и заменяет существующее сообщение
- * @returns обновлённые страницы или null если сообщение не найдено
- */
 const tryReplaceMessage = (
   pages: MessagesInfiniteData['pages'],
   message: MessageResponse
@@ -55,7 +48,6 @@ const tryReplaceMessage = (
     const existingIndex = page.content.findIndex(m => isMessageMatch(m, message));
     
     if (existingIndex !== -1) {
-      // Создаём новый массив страниц с заменённым сообщением
       const newPages = pages.map((p, idx) => {
         if (idx !== i) return p;
         return {
@@ -72,9 +64,6 @@ const tryReplaceMessage = (
   return null;
 };
 
-/**
- * Добавляет новое сообщение в начало первой страницы
- */
 const addNewMessage = (
   pages: MessagesInfiniteData['pages'],
   message: MessageResponse
@@ -92,20 +81,15 @@ const addNewMessage = (
   ];
 };
 
-/**
- * Добавляет или заменяет сообщение в кэше (upsert)
- */
 const upsertMessage = (
   pages: MessagesInfiniteData['pages'],
   message: MessageResponse
 ): MessagesInfiniteData['pages'] => {
-  // Пытаемся заменить существующее сообщение
   const replacedPages = tryReplaceMessage(pages, message);
   if (replacedPages) {
     return replacedPages;
   }
   
-  // Сообщение не найдено - добавляем новое
   return addNewMessage(pages, message);
 };
 
@@ -136,7 +120,6 @@ const createInitialMessagesData = (message: MessageResponse): MessagesInfiniteDa
   pageParams: [0],
 });
 
-// Глобальный Set для дедупликации
 const processedMessageIds = new Set<string>();
 
 const markMessageAsProcessed = (messageId: string): boolean => {
@@ -164,6 +147,8 @@ export const useChatWebSocket = () => {
   const setConnecting = useChatStore((state) => state.setConnecting);
   const setTypingUser = useChatStore((state) => state.setTypingUser);
   const incrementTotalUnread = useChatStore((state) => state.incrementTotalUnread);
+  const decrementTotalUnread = useChatStore((state) => state.decrementTotalUnread);
+  const setTotalUnread = useChatStore((state) => state.setTotalUnread);
   const selectedChatId = useChatStore((state) => state.selectedChatId);
   const isConnected = useChatStore((state) => state.isConnected);
   const isConnecting = useChatStore((state) => state.isConnecting);
@@ -172,6 +157,7 @@ export const useChatWebSocket = () => {
   const isConnectedRef = useRef(isConnected);
   const userIdRef = useRef(userId);
   const isPageVisibleRef = useRef(document.visibilityState === 'visible');
+  const pendingMarkAsReadRef = useRef(false);
   
   useEffect(() => {
     selectedChatIdRef.current = selectedChatId;
@@ -185,6 +171,64 @@ export const useChatWebSocket = () => {
     userIdRef.current = userId;
   }, [userId]);
 
+  // ===== MARK CHAT AS READ (helper) =====
+  const markChatAsReadLocally = useCallback((chatId: string) => {
+    const chats = queryClient.getQueryData<ChatResponse[]>(queryKeys.chats.lists());
+    const chat = chats?.find(c => c.id === chatId);
+    const unreadCount = chat?.unreadCount || 0;
+
+    if (unreadCount === 0) return;
+
+    queryClient.setQueryData<ChatResponse[]>(
+      queryKeys.chats.lists(),
+      (old) => {
+        if (!old) return old;
+        return old.map((c) => 
+          c.id === chatId ? { ...c, unreadCount: 0 } : c
+        );
+      }
+    );
+
+    decrementTotalUnread(unreadCount);
+
+    if (websocketService.isConnected) {
+      websocketService.markAsRead(chatId);
+    }
+  }, [queryClient, decrementTotalUnread]);
+
+  // ===== USER ACTIVITY HANDLER =====
+  useEffect(() => {
+    const handleUserActivity = () => {
+      // Проверяем: есть ли выбранный чат и ожидается ли markAsRead
+      if (!pendingMarkAsReadRef.current || !selectedChatIdRef.current) {
+        return;
+      }
+
+      // Страница должна быть видимой
+      if (!isPageVisibleRef.current) {
+        return;
+      }
+
+      // Сбрасываем флаг и помечаем прочитанным
+      pendingMarkAsReadRef.current = false;
+      markChatAsReadLocally(selectedChatIdRef.current);
+    };
+
+    // Слушаем различные события активности
+    const events = ['click', 'keydown', 'scroll', 'mousemove'];
+    
+    events.forEach(event => {
+      document.addEventListener(event, handleUserActivity, { passive: true });
+    });
+
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, handleUserActivity);
+      });
+    };
+  }, [markChatAsReadLocally]);
+
+  // ===== VISIBILITY CHANGE HANDLER =====
   useEffect(() => {
     const handleVisibilityChange = () => {
       isPageVisibleRef.current = document.visibilityState === 'visible';
@@ -212,7 +256,8 @@ export const useChatWebSocket = () => {
       return;
     }
 
-    const isChatActiveAndVisible = selectedChat === chatId && isPageVisible;
+    const isChatSelected = selectedChat === chatId;
+    const isChatActiveAndVisible = isChatSelected && isPageVisible;
 
     queryClient.setQueryData<MessagesInfiniteData>(
       queryKeys.chats.messagesInfinite(chatId),
@@ -244,15 +289,22 @@ export const useChatWebSocket = () => {
         return old.map((chat) => {
           if (chat.id !== chatId) return chat;
           
+          let newUnreadCount: number;
+          if (isChatActiveAndVisible) {
+            newUnreadCount = 0;
+          } else if (shouldIncrementUnread) {
+            newUnreadCount = (chat.unreadCount || 0) + 1;
+          } else {
+            newUnreadCount = chat.unreadCount;
+          }
+          
           return {
             ...chat,
             lastMessage: message.type === 'TEXT' ? message.content : null,
             lastMessageTime: message.createdAt,
             lastMessageType: message.type,
             lastMessageImageId: message.imageId,
-            unreadCount: shouldIncrementUnread 
-              ? (chat.unreadCount || 0) + 1 
-              : chat.unreadCount,
+            unreadCount: newUnreadCount,
           };
         });
       }
@@ -260,6 +312,11 @@ export const useChatWebSocket = () => {
 
     if (shouldIncrementUnread) {
       incrementTotalUnread();
+      
+      // Если чат выбран, но страница не видна - ставим флаг для последующего сброса
+      if (isChatSelected && !isPageVisible) {
+        pendingMarkAsReadRef.current = true;
+      }
     }
     
     if (isChatActiveAndVisible && !isOwnMessage) {
@@ -325,22 +382,22 @@ export const useChatWebSocket = () => {
     };
   }, []);
     
-// ===== PRESENCE HANDLER =====
-const handlePresence = useCallback((wsMessage: WsOutgoingMessage) => {
-  const { userId: presenceUserId, type } = wsMessage;
-  if (!presenceUserId) return;
-  
-  const isOnline = type === 'USER_ONLINE';
-  
-  queryClient.setQueryData<UserPresence>(
-    queryKeys.presence.byUser(presenceUserId),
-    (): UserPresence => ({
-      status: isOnline ? 'ONLINE' : 'RECENTLY',
-      isOnline,
-      lastSeen: isOnline ? null : new Date().toISOString(),
-    })
-  );
-}, [queryClient]);
+  // ===== PRESENCE HANDLER =====
+  const handlePresence = useCallback((wsMessage: WsOutgoingMessage) => {
+    const { userId: presenceUserId, type } = wsMessage;
+    if (!presenceUserId) return;
+    
+    const isOnline = type === 'USER_ONLINE';
+    
+    queryClient.setQueryData<UserPresence>(
+      queryKeys.presence.byUser(presenceUserId),
+      (): UserPresence => ({
+        status: isOnline ? 'ONLINE' : 'RECENTLY',
+        isOnline,
+        lastSeen: isOnline ? null : new Date().toISOString(),
+      })
+    );
+  }, [queryClient]);
 
   // ===== MAIN MESSAGE HANDLER =====
   const handleMessage = useCallback((wsMessage: WsOutgoingMessage) => {
@@ -408,9 +465,11 @@ const handlePresence = useCallback((wsMessage: WsOutgoingMessage) => {
     if (!isAuthenticated) {
       websocketService.disconnect();
       setConnected(false);
+      setTotalUnread(0);
       processedMessageIds.clear();
+      pendingMarkAsReadRef.current = false;
     }
-  }, [isAuthenticated, setConnected]);
+  }, [isAuthenticated, setConnected, setTotalUnread]);
 
   // ===== JOIN/LEAVE CHAT =====
   useEffect(() => {

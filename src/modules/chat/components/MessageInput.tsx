@@ -5,7 +5,7 @@ import { Box, Flex, IconButton, TextArea } from 'gestalt';
 import { EmojiPicker, AttachmentButton } from '@/shared/components';
 import { useImageUpload } from '@/modules/storage';
 import { useSendMessage } from '../hooks/useSendMessage';
-import { useChatWebSocket } from '../hooks/useChatWebSocket';
+import { useChatContext } from '@/app/providers'; // 👈 Изменено
 
 interface MessageInputProps {
   chatId: string;
@@ -17,7 +17,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ chatId, onSend }) =>
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isTypingRef = useRef(false); 
   const { sendMessage, sendImage, isLoading } = useSendMessage();
-  const { sendTyping } = useChatWebSocket();
+  const { sendTyping } = useChatContext(); // 👈 Изменено
   const { upload, isUploading } = useImageUpload();
 
   useEffect(() => {

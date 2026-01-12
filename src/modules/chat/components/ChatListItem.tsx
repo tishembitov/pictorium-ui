@@ -125,6 +125,7 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
   isSelected,
   onClick,
 }) => {
+
   const displayName = chat.recipient?.username || 'Loading...';
   const avatarImageId = chat.recipient?.imageId ?? null;
 

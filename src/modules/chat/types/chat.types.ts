@@ -2,7 +2,7 @@
 
 // ===== Message Types =====
 export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE';
-export type MessageState = 'SENT' | 'DELIVERED' | 'READ';
+export type MessageState = 'SENT' | 'READ';
 
 // ===== WebSocket Message Types (соответствуют бэкенду) =====
 export type WsMessageType =

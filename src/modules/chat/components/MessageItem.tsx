@@ -19,17 +19,6 @@ const MessageStateIcon: React.FC<{ state: MessageState }> = ({ state }) => {
     return <Icon accessibilityLabel="Sent" icon="check" size={12} color="subtle" />;
   }
 
-  if (state === 'DELIVERED') {
-    return (
-      <Flex gap={0}>
-        <Icon accessibilityLabel="Delivered" icon="check" size={12} color="subtle" />
-        <Box marginStart={-1}>
-          <Icon accessibilityLabel="" icon="check" size={12} color="subtle" />
-        </Box>
-      </Flex>
-    );
-  }
-
   // READ
   return (
     <Flex gap={0}>

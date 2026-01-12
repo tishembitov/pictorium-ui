@@ -13,87 +13,100 @@ import type {
   MessagesInfiniteData,
   MessageState,
   UserPresence,
+  PageMessageResponse,
 } from '../types/chat.types';
 
 // ===== Helper Functions =====
 
-const isMessageDuplicate = (
-  pages: MessagesInfiniteData['pages'],
-  message: MessageResponse
-): boolean => {
-  return pages.some(page => 
-    page.content.some(m => {
-      if (m.id === message.id) return true;
-      
-      if (!m.id.startsWith('temp-')) return false;
-      if (m.senderId !== message.senderId) return false;
-
-      if (message.type === 'IMAGE' && message.imageId) {
-        return m.imageId === message.imageId;
-      }
-      
-      if (message.type === 'TEXT') {
-        return m.content === message.content &&
-          Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 10000;
-      }
-      
-      return false;
-    })
-  );
-};
-
-const replaceOptimisticMessage = (
-  pages: MessagesInfiniteData['pages'],
-  message: MessageResponse
-): MessagesInfiniteData['pages'] => {
-  return pages.map(page => ({
-    ...page,
-    content: page.content.map(m => {
-      if (m.id === message.id) return message;
-      
-      if (!m.id.startsWith('temp-')) return m;
-      if (m.senderId !== message.senderId) return m;
-      
-      if (message.type === 'IMAGE' && message.imageId && m.imageId === message.imageId) {
-        return message;
-      }
-      
-      if (message.type === 'TEXT' && m.content === message.content) {
-        return message;
-      }
-      
-      return m;
-    }),
-  }));
-};
-
-const addMessageToPages = (
-  pages: MessagesInfiniteData['pages'],
-  message: MessageResponse
-): MessagesInfiniteData['pages'] => {
-  const newPages = [...pages];
-  const firstPage = newPages[0];
+/**
+ * Проверяет, является ли сообщение совпадением (по ID или содержимому для temp)
+ */
+const isMessageMatch = (existing: MessageResponse, incoming: MessageResponse): boolean => {
+  if (existing.id === incoming.id) return true;
   
-  if (firstPage) {
-    newPages[0] = {
+  if (existing.id.startsWith('temp-') && existing.senderId === incoming.senderId) {
+    if (incoming.type === 'IMAGE' && incoming.imageId) {
+      return existing.imageId === incoming.imageId;
+    }
+    
+    if (incoming.type === 'TEXT' && existing.content === incoming.content) {
+      const timeDiff = Math.abs(
+        new Date(existing.createdAt).getTime() - new Date(incoming.createdAt).getTime()
+      );
+      return timeDiff < 30000;
+    }
+  }
+  
+  return false;
+};
+
+/**
+ * Ищет и заменяет существующее сообщение
+ * @returns обновлённые страницы или null если сообщение не найдено
+ */
+const tryReplaceMessage = (
+  pages: MessagesInfiniteData['pages'],
+  message: MessageResponse
+): MessagesInfiniteData['pages'] | null => {
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i];
+    if (!page) continue;
+    
+    const existingIndex = page.content.findIndex(m => isMessageMatch(m, message));
+    
+    if (existingIndex !== -1) {
+      // Создаём новый массив страниц с заменённым сообщением
+      const newPages = pages.map((p, idx) => {
+        if (idx !== i) return p;
+        return {
+          ...p,
+          content: p.content.map((m, mIdx) => 
+            mIdx === existingIndex ? message : m
+          ),
+        };
+      });
+      return newPages;
+    }
+  }
+  
+  return null;
+};
+
+/**
+ * Добавляет новое сообщение в начало первой страницы
+ */
+const addNewMessage = (
+  pages: MessagesInfiniteData['pages'],
+  message: MessageResponse
+): MessagesInfiniteData['pages'] => {
+  const firstPage = pages[0];
+  if (!firstPage) return pages;
+  
+  return [
+    {
       ...firstPage,
       content: [message, ...firstPage.content],
       totalElements: firstPage.totalElements + 1,
-    };
-  }
-  
-  return newPages;
+    },
+    ...pages.slice(1),
+  ];
 };
 
-const createPagesWithNewMessage = (
+/**
+ * Добавляет или заменяет сообщение в кэше (upsert)
+ */
+const upsertMessage = (
   pages: MessagesInfiniteData['pages'],
   message: MessageResponse
 ): MessagesInfiniteData['pages'] => {
-  if (isMessageDuplicate(pages, message)) {
-    return replaceOptimisticMessage(pages, message);
+  // Пытаемся заменить существующее сообщение
+  const replacedPages = tryReplaceMessage(pages, message);
+  if (replacedPages) {
+    return replacedPages;
   }
   
-  return addMessageToPages(pages, message);
+  // Сообщение не найдено - добавляем новое
+  return addNewMessage(pages, message);
 };
 
 const createPagesWithUpdatedState = (
@@ -119,9 +132,27 @@ const createInitialMessagesData = (message: MessageResponse): MessagesInfiniteDa
     first: true,
     last: true,
     empty: false,
-  }],
+  } as PageMessageResponse],
   pageParams: [0],
 });
+
+// Глобальный Set для дедупликации
+const processedMessageIds = new Set<string>();
+
+const markMessageAsProcessed = (messageId: string): boolean => {
+  if (processedMessageIds.has(messageId)) {
+    return false;
+  }
+  processedMessageIds.add(messageId);
+  
+  if (processedMessageIds.size > 200) {
+    const idsArray = Array.from(processedMessageIds);
+    const toRemove = idsArray.slice(0, -200);
+    toRemove.forEach(id => processedMessageIds.delete(id));
+  }
+  
+  return true;
+};
 
 // ===== Main Hook =====
 
@@ -140,6 +171,7 @@ export const useChatWebSocket = () => {
   const selectedChatIdRef = useRef(selectedChatId);
   const isConnectedRef = useRef(isConnected);
   const userIdRef = useRef(userId);
+  const isPageVisibleRef = useRef(document.visibilityState === 'visible');
   
   useEffect(() => {
     selectedChatIdRef.current = selectedChatId;
@@ -153,17 +185,35 @@ export const useChatWebSocket = () => {
     userIdRef.current = userId;
   }, [userId]);
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      isPageVisibleRef.current = document.visibilityState === 'visible';
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   // ===== NEW MESSAGE HANDLER =====
   const handleNewMessage = useCallback((wsMessage: WsOutgoingMessage) => {
     const message = wsMessage.message;
     if (!message) return;
 
     const chatId = message.chatId;
+    const messageId = message.id;
     const currentUserId = userIdRef.current;
     const isOwnMessage = message.senderId === currentUserId;
-    const isCurrentChat = selectedChatIdRef.current === chatId;
+    const selectedChat = selectedChatIdRef.current;
+    const isPageVisible = isPageVisibleRef.current;
 
-    // 1. Обновляем сообщения в кэше
+    if (!markMessageAsProcessed(messageId)) {
+      return;
+    }
+
+    const isChatActiveAndVisible = selectedChat === chatId && isPageVisible;
+
     queryClient.setQueryData<MessagesInfiniteData>(
       queryKeys.chats.messagesInfinite(chatId),
       (old) => {
@@ -172,53 +222,50 @@ export const useChatWebSocket = () => {
         }
         return {
           ...old,
-          pages: createPagesWithNewMessage(old.pages, message),
+          pages: upsertMessage(old.pages, message),
         };
       }
     );
 
-    // 2. Проверяем, существует ли чат в списке
-    const existingChats = queryClient.getQueryData<ChatResponse[]>(queryKeys.chats.lists());
-    const existingChat = existingChats?.find(chat => chat.id === chatId);
-    
-    // 3. Определяем, нужно ли увеличивать счётчик
-    const shouldIncrementUnread = !isOwnMessage && !isCurrentChat;
+    const shouldIncrementUnread = !isOwnMessage && !isChatActiveAndVisible;
 
-    if (existingChat) {
-      // Чат существует - обновляем локально
-      queryClient.setQueryData<ChatResponse[]>(
-        queryKeys.chats.lists(),
-        (old) => {
-          if (!old) return old;
-          
-          return old.map((chat) => {
-            if (chat.id !== chatId) return chat;
-            
-            return {
-              ...chat,
-              lastMessage: message.type === 'TEXT' ? message.content : null,
-              lastMessageTime: message.createdAt,
-              lastMessageType: message.type,
-              lastMessageImageId: message.imageId,
-              unreadCount: shouldIncrementUnread 
-                ? (chat.unreadCount || 0) + 1 
-                : chat.unreadCount,
-            };
-          });
+    queryClient.setQueryData<ChatResponse[]>(
+      queryKeys.chats.lists(),
+      (old) => {
+        if (!old) return old;
+        
+        const chatExists = old.some(chat => chat.id === chatId);
+        
+        if (!chatExists) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.chats.lists() });
+          return old;
         }
-      );
-
-      // Увеличиваем общий счётчик только если обновили локально
-      if (shouldIncrementUnread) {
-        incrementTotalUnread();
+        
+        return old.map((chat) => {
+          if (chat.id !== chatId) return chat;
+          
+          return {
+            ...chat,
+            lastMessage: message.type === 'TEXT' ? message.content : null,
+            lastMessageTime: message.createdAt,
+            lastMessageType: message.type,
+            lastMessageImageId: message.imageId,
+            unreadCount: shouldIncrementUnread 
+              ? (chat.unreadCount || 0) + 1 
+              : chat.unreadCount,
+          };
+        });
       }
-    } else {
-      // Чат не существует в кэше - это новый чат!
-      // Инвалидируем список - сервер вернёт с правильным unreadCount
-      queryClient.invalidateQueries({ queryKey: queryKeys.chats.lists() });
-      
-      // НЕ вызываем incrementTotalUnread здесь - 
-      // useTotalUnread пересчитает из нового списка
+    );
+
+    if (shouldIncrementUnread) {
+      incrementTotalUnread();
+    }
+    
+    if (isChatActiveAndVisible && !isOwnMessage) {
+      setTimeout(() => {
+        websocketService.markAsRead(chatId);
+      }, 500);
     }
   }, [queryClient, incrementTotalUnread]);
 
@@ -227,7 +274,6 @@ export const useChatWebSocket = () => {
     const chatId = wsMessage.chatId;
     if (!chatId) return;
 
-    // Обновляем статус сообщений на READ
     queryClient.setQueryData<MessagesInfiniteData>(
       queryKeys.chats.messagesInfinite(chatId),
       (old) => {
@@ -295,7 +341,6 @@ export const useChatWebSocket = () => {
       })
     );
 
-    // Также обновляем isOnline в списке чатов
     queryClient.setQueryData<ChatResponse[]>(
       queryKeys.chats.lists(),
       (old) => {
@@ -350,8 +395,8 @@ export const useChatWebSocket = () => {
     setConnected(connected);
     setConnecting(false);
     
-    // При переподключении обновляем список чатов
     if (connected) {
+      processedMessageIds.clear();
       queryClient.invalidateQueries({ queryKey: queryKeys.chats.lists() });
     }
   }, [setConnected, setConnecting, queryClient]);
@@ -379,6 +424,7 @@ export const useChatWebSocket = () => {
     if (!isAuthenticated) {
       websocketService.disconnect();
       setConnected(false);
+      processedMessageIds.clear();
     }
   }, [isAuthenticated, setConnected]);
 

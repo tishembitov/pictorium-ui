@@ -2,7 +2,7 @@
 
 import { keycloak, TOKEN_MIN_VALIDITY } from '@/app/config/keycloak';
 import { env } from '@/app/config/env';
-import type { NotificationResponse, SSENotificationEvent } from '../types/notification.types';
+import type { NotificationResponse } from '../types/notification.types';
 
 type NotificationHandler = (notification: NotificationResponse) => void;
 type ConnectionHandler = (connected: boolean) => void;
@@ -15,10 +15,19 @@ interface SSEServiceConfig {
 }
 
 const DEFAULT_CONFIG: SSEServiceConfig = {
-  reconnectDelay: 3000,
+  reconnectDelay: 5000,
   maxReconnectAttempts: 10,
-  heartbeatTimeout: 45000,
+  heartbeatTimeout: 60000,
 };
+
+// Типы SSE событий от сервера (lowercase, как отправляет сервер)
+type SSEEventType = 'notification' | 'heartbeat' | 'connected' | 'unread_update';
+
+interface SSEEventData {
+  type: SSEEventType;
+  data?: NotificationResponse | Record<string, unknown>;
+  timestamp: string;
+}
 
 class NotificationSSEService {
   private eventSource: EventSource | null = null;
@@ -26,22 +35,24 @@ class NotificationSSEService {
   private readonly connectionHandlers: Set<ConnectionHandler> = new Set();
   private readonly errorHandlers: Set<ErrorHandler> = new Set();
   private reconnectAttempts = 0;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
-  private heartbeatTimeout: NodeJS.Timeout | null = null;
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly config: SSEServiceConfig;
   private isManualDisconnect = false;
+  private isConnecting = false;
 
   constructor(config: SSEServiceConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
-  /**
-   * Connect to SSE endpoint
-   * Refreshes token if needed before connecting
-   */
   async connect(): Promise<void> {
-    if (this.eventSource) {
+    if (this.eventSource?.readyState === EventSource.OPEN) {
       console.debug('[SSE] Already connected');
+      return;
+    }
+
+    if (this.isConnecting) {
+      console.debug('[SSE] Connection already in progress');
       return;
     }
 
@@ -51,36 +62,39 @@ class NotificationSSEService {
     }
 
     this.isManualDisconnect = false;
+    this.isConnecting = true;
 
     try {
-      // ✅ Refresh token if needed before connecting
       const token = await this.getValidToken();
       
       if (!token) {
         console.error('[SSE] Failed to get valid token');
+        this.isConnecting = false;
         return;
       }
 
-      // ✅ Build SSE URL with encoded token
+      if (this.eventSource) {
+        this.eventSource.close();
+        this.eventSource = null;
+      }
+
       const sseUrl = this.buildSseUrl(token);
-      
-      console.debug('[SSE] Connecting to:', sseUrl.toString().substring(0, 100) + '...');
+      console.debug('[SSE] Connecting to:', sseUrl.toString().substring(0, 80) + '...');
 
       this.eventSource = new EventSource(sseUrl.toString());
 
       this.eventSource.onopen = () => {
-        console.debug('[SSE] Connected successfully');
+        console.debug('[SSE] ✅ Connected successfully');
+        this.isConnecting = false;
         this.reconnectAttempts = 0;
         this.notifyConnectionHandlers(true);
         this.startHeartbeatCheck();
       };
 
-      // Generic message handler
       this.eventSource.onmessage = (event) => {
         this.handleMessage(event);
       };
 
-      // Specific event listeners
       this.eventSource.addEventListener('notification', (event) => {
         this.handleNotificationEvent(event);
       });
@@ -95,53 +109,46 @@ class NotificationSSEService {
         this.resetHeartbeatCheck();
       });
 
-      this.eventSource.onerror = (event) => {
-        console.error('[SSE] Connection error:', event);
+      this.eventSource.addEventListener('unread_update', () => {
+        console.debug('[SSE] Unread update received');
+        this.resetHeartbeatCheck();
+      });
+
+      this.eventSource.onerror = () => {
+        console.error('[SSE] Connection error');
+        this.isConnecting = false;
         this.handleConnectionError();
       };
 
     } catch (error) {
       console.error('[SSE] Failed to connect:', error);
+      this.isConnecting = false;
       this.handleError(error instanceof Error ? error : new Error('Connection failed'));
     }
   }
 
-  /**
-   * Disconnect from SSE
-   */
   disconnect(): void {
     console.debug('[SSE] Disconnecting...');
     this.isManualDisconnect = true;
+    this.isConnecting = false;
     this.cleanup();
     this.notifyConnectionHandlers(false);
   }
 
-  /**
-   * Check if connected
-   */
   get isConnected(): boolean {
     return this.eventSource?.readyState === EventSource.OPEN;
   }
 
-  /**
-   * Subscribe to notifications
-   */
   onNotification(handler: NotificationHandler): () => void {
     this.notificationHandlers.add(handler);
     return () => this.notificationHandlers.delete(handler);
   }
 
-  /**
-   * Subscribe to connection changes
-   */
   onConnectionChange(handler: ConnectionHandler): () => void {
     this.connectionHandlers.add(handler);
     return () => this.connectionHandlers.delete(handler);
   }
 
-  /**
-   * Subscribe to errors
-   */
   onError(handler: ErrorHandler): () => void {
     this.errorHandlers.add(handler);
     return () => this.errorHandlers.delete(handler);
@@ -149,22 +156,12 @@ class NotificationSSEService {
 
   // ===== Private Methods =====
 
-  /**
-   * Get valid token, refreshing if necessary
-   */
   private async getValidToken(): Promise<string | null> {
     try {
-      // Check if token needs refresh
       if (keycloak.isTokenExpired(TOKEN_MIN_VALIDITY)) {
-        console.debug('[SSE] Token expired or expiring soon, refreshing...');
-        
-        const refreshed = await keycloak.updateToken(TOKEN_MIN_VALIDITY);
-        
-        if (refreshed) {
-          console.debug('[SSE] Token refreshed successfully');
-        }
+        console.debug('[SSE] Token expired, refreshing...');
+        await keycloak.updateToken(TOKEN_MIN_VALIDITY);
       }
-
       return keycloak.token || null;
     } catch (error) {
       console.error('[SSE] Failed to refresh token:', error);
@@ -172,23 +169,13 @@ class NotificationSSEService {
     }
   }
 
-  /**
-   * Build SSE URL with properly encoded token
-   */
   private buildSseUrl(token: string): URL {
     const sseUrl = new URL('/api/v1/sse/connect', env.apiGatewayUrl);
-    
-    // ✅ encodeURIComponent ensures the token is properly URL-encoded
-    // searchParams.set also does encoding, but we're being explicit
     sseUrl.searchParams.set('token', token);
-    
     return sseUrl;
   }
 
-  /**
-   * Handle connection error - may be 401 or network issue
-   */
-  private async handleConnectionError(): Promise<void> {
+  private handleConnectionError(): void {
     this.cleanup();
     this.notifyConnectionHandlers(false);
 
@@ -196,30 +183,15 @@ class NotificationSSEService {
       return;
     }
 
-    // Try to refresh token and reconnect
-    if (keycloak.authenticated) {
-      try {
-        const refreshed = await keycloak.updateToken(-1); // Force refresh
-        
-        if (refreshed) {
-          console.debug('[SSE] Token refreshed after error, reconnecting...');
-          this.scheduleReconnect();
-          return;
-        }
-      } catch {
-        console.error('[SSE] Token refresh failed, may need to re-authenticate');
-      }
-    }
-
     this.scheduleReconnect();
   }
 
   private handleMessage(event: MessageEvent): void {
     try {
-      const data = JSON.parse(event.data) as SSENotificationEvent;
+      const data = JSON.parse(event.data) as SSEEventData;
       
-      if (data.type === 'NOTIFICATION' && data.data) {
-        this.notifyNotificationHandlers(data.data);
+      if (data.type === 'notification' && data.data) {
+        this.notifyNotificationHandlers(data.data as NotificationResponse);
       }
       
       this.resetHeartbeatCheck();
@@ -230,12 +202,14 @@ class NotificationSSEService {
 
   private handleNotificationEvent(event: MessageEvent): void {
     try {
-      const notification = JSON.parse(event.data) as NotificationResponse;
-      console.debug('[SSE] Received notification:', notification.type);
-      this.notifyNotificationHandlers(notification);
+      const eventData = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+      const notification = eventData.data || eventData;
+      
+      console.debug('[SSE] Received notification:', notification.type || notification);
+      this.notifyNotificationHandlers(notification as NotificationResponse);
       this.resetHeartbeatCheck();
     } catch (error) {
-      console.error('[SSE] Failed to parse notification:', error);
+      console.error('[SSE] Failed to parse notification:', error, event.data);
     }
   }
 
@@ -250,18 +224,22 @@ class NotificationSSEService {
   }
 
   private scheduleReconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
     if (this.reconnectAttempts >= (this.config.maxReconnectAttempts ?? 10)) {
       console.error('[SSE] Max reconnect attempts reached');
       return;
     }
 
-    // Don't reconnect if not authenticated
     if (!keycloak.authenticated) {
       console.debug('[SSE] Not authenticated, skipping reconnect');
       return;
     }
 
-    const delay = this.config.reconnectDelay ?? 3000;
+    const delay = this.config.reconnectDelay ?? 5000;
     const backoffDelay = Math.min(delay * Math.pow(1.5, this.reconnectAttempts), 30000);
     
     console.debug(`[SSE] Reconnecting in ${backoffDelay}ms (attempt ${this.reconnectAttempts + 1})`);

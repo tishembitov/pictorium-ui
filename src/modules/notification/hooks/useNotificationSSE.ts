@@ -1,6 +1,6 @@
 // src/modules/notification/hooks/useNotificationSSE.ts
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/modules/auth';
 import { queryKeys } from '@/app/config/queryClient';
@@ -9,7 +9,6 @@ import { useNotificationStore } from '../stores/notificationStore';
 import type { NotificationResponse, PageNotificationResponse } from '../types/notification.types';
 import type { InfiniteData } from '@tanstack/react-query';
 
-// Helper to add notification to cache
 const addNotificationToCache = (
   old: InfiniteData<PageNotificationResponse> | undefined,
   notification: NotificationResponse
@@ -19,7 +18,6 @@ const addNotificationToCache = (
   const firstPage = old.pages[0];
   if (!firstPage) return old;
 
-  // Check if notification already exists
   const exists = old.pages.some((page) =>
     page.content.some((n: NotificationResponse) => n.id === notification.id)
   );
@@ -42,6 +40,7 @@ const addNotificationToCache = (
 export const useNotificationSSE = () => {
   const queryClient = useQueryClient();
   const { isAuthenticated, isInitialized } = useAuth();
+  const isConnectedRef = useRef(false); // ✅ Добавили ref для отслеживания
 
   const setConnected = useNotificationStore((state) => state.setConnected);
   const setConnecting = useNotificationStore((state) => state.setConnecting);
@@ -70,35 +69,34 @@ export const useNotificationSSE = () => {
   const handleConnectionChange = useCallback((connected: boolean) => {
     setConnected(connected);
     setConnecting(false);
+    isConnectedRef.current = connected;
 
     if (connected) {
-      // Refetch notifications on reconnect
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
     }
   }, [setConnected, setConnecting, queryClient]);
 
-  // Connect when authenticated
   useEffect(() => {
-    // Wait for auth to be initialized
     if (!isInitialized) {
       return;
     }
 
     if (!isAuthenticated) {
-      // Disconnect if not authenticated
       notificationSSEService.disconnect();
       setConnected(false);
+      isConnectedRef.current = false;
       return;
     }
 
-    // Connect
-    setConnecting(true);
-    
-    // ✅ connect() is now async
-    notificationSSEService.connect().catch((error) => {
-      console.error('[useNotificationSSE] Failed to connect:', error);
-      setConnecting(false);
-    });
+    // ✅ Подключаемся только если ещё не подключены
+    if (!isConnectedRef.current && !notificationSSEService.isConnected) {
+      setConnecting(true);
+      
+      notificationSSEService.connect().catch((error) => {
+        console.error('[useNotificationSSE] Failed to connect:', error);
+        setConnecting(false);
+      });
+    }
 
     const unsubNotification = notificationSSEService.onNotification(handleNotification);
     const unsubConnection = notificationSSEService.onConnectionChange(handleConnectionChange);
@@ -106,6 +104,7 @@ export const useNotificationSSE = () => {
     return () => {
       unsubNotification();
       unsubConnection();
+      // ✅ НЕ отключаемся при unmount - только при logout
     };
   }, [isAuthenticated, isInitialized, handleNotification, handleConnectionChange, setConnecting, setConnected]);
 

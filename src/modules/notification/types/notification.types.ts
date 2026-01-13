@@ -44,14 +44,6 @@ export interface NotificationWithActor extends NotificationResponse {
   };
 }
 
-// ===== SSE Types =====
-
-export interface SSENotificationEvent {
-  type: 'NOTIFICATION' | 'HEARTBEAT' | 'CONNECTED';
-  data?: NotificationResponse;
-  timestamp: string;
-}
-
 // ===== Store Types =====
 
 export interface NotificationState {
@@ -74,7 +66,7 @@ export interface NotificationActions {
 // ===== API Response Types =====
 
 export interface MarkAsReadResponse {
-  count: number;
+  updated: number;
 }
 
 export interface UnreadCountResponse {

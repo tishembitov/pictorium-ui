@@ -1,15 +1,15 @@
 // src/modules/chat/components/MessageItem.tsx
 
-import React, { useMemo, useState } from 'react';
-import { Box, Flex, Text, Icon, Mask, TapArea } from 'gestalt';
-import { useImageUrl } from '@/modules/storage';
+import React, { useMemo, useState, useCallback } from 'react';
+import { Box, Flex, Text, Icon, Mask, TapArea, Layer } from 'gestalt';
+import { useImageUrl, useDownloadImage } from '@/modules/storage';
+import { useToast } from '@/shared/hooks/useToast';
 import { formatShortRelativeTime } from '@/shared/utils/formatters';
 import type { MessageResponse, MessageState } from '../types/chat.types';
 
 interface MessageItemProps {
   message: MessageResponse;
   isSelf: boolean;
-  onImageClick?: (imageUrl: string) => void;
 }
 
 // ==================== Sub-components ====================
@@ -123,14 +123,109 @@ const ChatImage: React.FC<ChatImageProps> = ({
   );
 };
 
+// ==================== Fullscreen Modal ====================
+
+interface ImageFullscreenProps {
+  imageUrl: string;
+  imageId: string | null;
+  onClose: () => void;
+}
+
+const ImageFullscreen: React.FC<ImageFullscreenProps> = ({ 
+  imageUrl, 
+  imageId,
+  onClose,
+}) => {
+  const { toast } = useToast();
+  const { download, isDownloading } = useDownloadImage();
+
+  const handleDownload = useCallback(async () => {
+    if (!imageId) return;
+    
+    try {
+      await download(imageId, {
+        fileName: `chat-image-${Date.now()}`,
+        onSuccess: () => {
+          toast.download.success();
+        },
+      });
+    } catch {
+      toast.download.error('Failed to download image');
+    }
+  }, [download, imageId, toast]);
+
+  // Handle Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <Layer>
+      <div className="message-fullscreen">
+        {/* Backdrop - accessible button for closing */}
+        <button
+          type="button"
+          className="message-fullscreen__backdrop"
+          onClick={onClose}
+          aria-label="Close fullscreen image"
+        />
+        
+        <div className="message-fullscreen__content">
+          <img
+            src={imageUrl}
+            alt="Full size"
+            className="message-fullscreen__image"
+          />
+        </div>
+
+        {/* Controls */}
+        <div className="message-fullscreen__controls">
+          {imageId && (
+            <button 
+              type="button"
+              className="message-fullscreen__btn"
+              onClick={handleDownload}
+              disabled={isDownloading}
+              aria-label="Download image"
+            >
+              <Icon 
+                accessibilityLabel="" 
+                icon={isDownloading ? 'clock' : 'download'} 
+                size={24} 
+                color="inverse" 
+              />
+            </button>
+          )}
+          
+          <button 
+            type="button"
+            className="message-fullscreen__btn message-fullscreen__btn--close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <Icon accessibilityLabel="" icon="cancel" size={24} color="inverse" />
+          </button>
+        </div>
+      </div>
+    </Layer>
+  );
+};
+
 // ==================== Main Component ====================
 
 export const MessageItem: React.FC<MessageItemProps> = ({
   message,
   isSelf,
-  onImageClick,
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const isImageMessage = message.type === 'IMAGE' && !!message.imageId;
   const hasTextContent = !!message.content && message.content.trim().length > 0;
@@ -144,99 +239,125 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     [message.createdAt]
   );
 
-  const handleImageClick = () => {
-    if (imageData?.url && onImageClick) {
-      onImageClick(imageData.url);
+  const handleImageClick = useCallback(() => {
+    if (imageData?.url) {
+      setIsFullscreen(true);
     }
-  };
+  }, [imageData?.url]);
 
-  const handleImageError = () => {
+  const handleCloseFullscreen = useCallback(() => {
+    setIsFullscreen(false);
+  }, []);
+
+  const handleImageError = useCallback(() => {
     setImageError(true);
-  };
+  }, []);
 
   // Image-only message (no background bubble)
   if (isImageMessage && !hasTextContent) {
     return (
-      <Box
-        display="flex"
-        justifyContent={isSelf ? 'end' : 'start'}
-        marginBottom={2}
-        paddingX={2}
-      >
-        <Box maxWidth={320}>
-          <Mask rounding={3}>
-            <ChatImage
-              imageUrl={imageData?.url}
-              isLoading={isImageLoading}
-              hasError={imageError}
-              onError={handleImageError}
-              onClick={handleImageClick}
-              maxWidth={320}
-              maxHeight={400}
-              placeholderWidth={280}
-              placeholderHeight={200}
-            />
-          </Mask>
-
-          <Box marginTop={1} display="flex" justifyContent={isSelf ? 'end' : 'start'}>
-            <MessageTime time={formattedTime} isSelf={isSelf} state={message.state} />
-          </Box>
-        </Box>
-      </Box>
-    );
-  }
-
-  // Text message or image with caption
-  return (
-    <Box
-      display="flex"
-      justifyContent={isSelf ? 'end' : 'start'}
-      marginBottom={2}
-      paddingX={2}
-    >
-      <Box
-        maxWidth="70%"
-        padding={3}
-        rounding={3}
-        dangerouslySetInlineStyle={{
-          __style: {
-            backgroundColor: isSelf ? '#d9fdd3' : '#ffffff',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-          },
-        }}
-      >
-        <Flex direction="column" gap={2}>
-          {/* Image with caption */}
-          {isImageMessage && (
-            <Mask rounding={2}>
+      <>
+        <Box
+          display="flex"
+          justifyContent={isSelf ? 'end' : 'start'}
+          marginBottom={2}
+          paddingX={2}
+        >
+          <Box maxWidth={320}>
+            <Mask rounding={3}>
               <ChatImage
                 imageUrl={imageData?.url}
                 isLoading={isImageLoading}
                 hasError={imageError}
                 onError={handleImageError}
                 onClick={handleImageClick}
-                maxWidth={280}
-                maxHeight={360}
-                placeholderWidth={260}
-                placeholderHeight={180}
+                maxWidth={320}
+                maxHeight={400}
+                placeholderWidth={280}
+                placeholderHeight={200}
               />
             </Mask>
-          )}
 
-          {/* Text content */}
-          {hasTextContent && (
-            <Text size="200" overflow="breakWord">
-              {message.content}
-            </Text>
-          )}
+            <Box marginTop={1} display="flex" justifyContent={isSelf ? 'end' : 'start'}>
+              <MessageTime time={formattedTime} isSelf={isSelf} state={message.state} />
+            </Box>
+          </Box>
+        </Box>
 
-          {/* Time and status */}
-          <Flex justifyContent="end">
-            <MessageTime time={formattedTime} isSelf={isSelf} state={message.state} />
+        {/* Fullscreen Modal */}
+        {isFullscreen && imageData?.url && (
+          <ImageFullscreen
+            imageUrl={imageData.url}
+            imageId={message.imageId}
+            onClose={handleCloseFullscreen}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Text message or image with caption
+  return (
+    <>
+      <Box
+        display="flex"
+        justifyContent={isSelf ? 'end' : 'start'}
+        marginBottom={2}
+        paddingX={2}
+      >
+        <Box
+          maxWidth="70%"
+          padding={3}
+          rounding={3}
+          dangerouslySetInlineStyle={{
+            __style: {
+              backgroundColor: isSelf ? '#d9fdd3' : '#ffffff',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+            },
+          }}
+        >
+          <Flex direction="column" gap={2}>
+            {/* Image with caption */}
+            {isImageMessage && (
+              <Mask rounding={2}>
+                <ChatImage
+                  imageUrl={imageData?.url}
+                  isLoading={isImageLoading}
+                  hasError={imageError}
+                  onError={handleImageError}
+                  onClick={handleImageClick}
+                  maxWidth={280}
+                  maxHeight={360}
+                  placeholderWidth={260}
+                  placeholderHeight={180}
+                />
+              </Mask>
+            )}
+
+            {/* Text content */}
+            {hasTextContent && (
+              <Text size="200" overflow="breakWord">
+                {message.content}
+              </Text>
+            )}
+
+            {/* Time and status */}
+            <Flex justifyContent="end">
+              <MessageTime time={formattedTime} isSelf={isSelf} state={message.state} />
+            </Flex>
           </Flex>
-        </Flex>
+        </Box>
       </Box>
-    </Box>
+
+      {/* Fullscreen Modal */}
+      {isFullscreen && imageData?.url && (
+        <ImageFullscreen
+          imageUrl={imageData.url}
+          imageId={message.imageId}
+          onClose={handleCloseFullscreen}
+        />
+      )}
+    </>
   );
 };
 

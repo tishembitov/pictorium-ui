@@ -15,6 +15,8 @@ export const API_PREFIXES = {
   tags: '/api/v1/tags',
   images: '/api/v1/images',
   chats: '/api/v1/chats',
+  notifications: '/api/v1/notifications', // ✅ Добавлено
+  sse: '/api/v1/sse', // ✅ Добавлено
 } as const;
 
 // User Service Endpoints
@@ -142,6 +144,21 @@ export const PRESENCE_ENDPOINTS = {
 } as const;
 
 
+// ✅ Notification Service Endpoints
+export const NOTIFICATION_ENDPOINTS = {
+  list: () => `${API_PREFIXES.notifications}`,
+  unread: () => `${API_PREFIXES.notifications}/unread`,
+  unreadCount: () => `${API_PREFIXES.notifications}/unread/count`,
+  markAsRead: () => `${API_PREFIXES.notifications}/read`,
+  markAllAsRead: () => `${API_PREFIXES.notifications}/read-all`,
+  delete: (id: string) => `${API_PREFIXES.notifications}/${id}`,
+} as const;
+
+// ✅ SSE Endpoints
+export const SSE_ENDPOINTS = {
+  connect: () => `${API_PREFIXES.sse}/connect`,
+} as const;
+
 // All endpoints combined
 export const API_ENDPOINTS = {
   users: USER_ENDPOINTS,
@@ -151,6 +168,7 @@ export const API_ENDPOINTS = {
   comments: COMMENT_ENDPOINTS,
   tags: TAG_ENDPOINTS,
   images: IMAGE_ENDPOINTS,
+  chats: CHAT_ENDPOINTS,
+  notifications: NOTIFICATION_ENDPOINTS, // ✅ Добавлено
+  sse: SSE_ENDPOINTS, // ✅ Добавлено
 } as const;
-
-export default API_ENDPOINTS;

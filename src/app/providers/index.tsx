@@ -6,6 +6,7 @@ import { QueryProvider } from './QueryProvider';
 import { GestaltProvider } from './GestaltProvider';
 import { RouterProvider } from './RouterProvider';
 import { ChatProvider } from './ChatProvider';
+import { NotificationProvider } from './NotificationProvider'; // ✅ Добавлено
 import { FullPageLoader } from '@/shared/components/feedback/FullPageLoader';
 import { ErrorBoundary } from '@/shared/components/feedback/ErrorBoundary';
 
@@ -21,7 +22,9 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
           <QueryProvider>
             <RouterProvider>
               <ChatProvider>
-                {children}
+                <NotificationProvider> {/* ✅ Добавлено */}
+                  {children}
+                </NotificationProvider>
               </ChatProvider>
             </RouterProvider>
           </QueryProvider>
@@ -31,12 +34,13 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
   );
 };
 
-// Экспорты провайдеров
+// Exports
 export { AuthProvider } from './AuthProvider';
 export { QueryProvider } from './QueryProvider';
 export { GestaltProvider } from './GestaltProvider';
 export { RouterProvider } from './RouterProvider';
 export { ChatProvider } from './ChatProvider';
+export { NotificationProvider } from './NotificationProvider'; // ✅ Добавлено
 
 // eslint-disable-next-line react-refresh/only-export-components
 export { useChatContext } from './chatContext';

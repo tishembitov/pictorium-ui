@@ -16,7 +16,8 @@ export const ROUTES = {
   FOLLOWERS: '/profile/:username/followers',
   FOLLOWING: '/profile/:username/following',
   MESSAGES: '/messages',
-  MESSAGES_CHAT: '/messages/:chatId',  // chatId может быть recipientUserId для нового чата
+  MESSAGES_CHAT: '/messages/:chatId', // chatId может быть recipientUserId для нового чата
+  NOTIFICATIONS: '/notifications',  
   NOT_FOUND: '/404',
   ERROR: '/error',
 } as const;
@@ -34,6 +35,7 @@ export const buildPath = {
   search: (query?: string) => query ? `/search?q=${encodeURIComponent(query)}` : '/search',
   messages: (chatId?: string) => chatId ? `/messages/${chatId}` : '/messages',
   chat: (recipientId: string) => `/messages/${recipientId}`,
+  notifications: () => '/notifications'
 } as const;
 
 export type RoutePath = typeof ROUTES[keyof typeof ROUTES];

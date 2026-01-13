@@ -19,6 +19,7 @@ import {
   MessagesPage,
   NotFoundPage,
   ErrorPage,
+  NotificationsPage,
 } from './LazyRoutes';
 
 export const routes: RouteObject[] = [
@@ -60,6 +61,11 @@ export const routes: RouteObject[] = [
       { 
         path: 'messages/:chatId',  // chatId = recipientUserId для новых чатов
         element: <ProtectedRoute><MessagesPage /></ProtectedRoute> 
+      },
+
+      { 
+        path: 'notifications', 
+        element: <ProtectedRoute><NotificationsPage /></ProtectedRoute> 
       },
       
       { path: '404', element: <NotFoundPage /> },

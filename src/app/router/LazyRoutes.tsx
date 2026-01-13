@@ -28,5 +28,6 @@ export const BoardDetailPage = lazyLoad(() => import('@/pages/BoardDetailPage'))
 export const FollowersPage = lazyLoad(() => import('@/pages/FollowersPage'));
 export const FollowingPage = lazyLoad(() => import('@/pages/FollowingPage'));
 export const MessagesPage = lazyLoad(() => import('@/pages/MessagesPage'));
+export const NotificationsPage = lazyLoad(() => import('@/pages/NotificationsPage'));
 export const NotFoundPage = lazyLoad(() => import('@/pages/NotFoundPage'));
 export const ErrorPage = lazyLoad(() => import('@/pages/ErrorPage'));

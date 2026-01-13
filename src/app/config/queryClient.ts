@@ -141,8 +141,18 @@ export const queryKeys = {
       ...[...userIds].sort((a, b) => a.localeCompare(b))
     ] as const,
   },
+
+  notifications: {
+    all: ['notifications'] as const,
+    lists: () => [...queryKeys.notifications.all, 'list'] as const,
+    list: (filters?: Record<string, unknown>) => [...queryKeys.notifications.lists(), filters] as const,
+    unread: () => [...queryKeys.notifications.all, 'unread'] as const,
+    unreadCount: () => [...queryKeys.notifications.all, 'unreadCount'] as const,
+    byId: (id: string) => [...queryKeys.notifications.all, 'byId', id] as const,
+  },
   
 } as const;
+
 
 
 export default queryClient;

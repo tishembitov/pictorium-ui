@@ -18,5 +18,7 @@ export { default as SettingsPage } from './SettingsPage';
 export { default as BoardDetailPage } from './BoardDetailPage';
 export { default as FollowersPage } from './FollowersPage';
 export { default as FollowingPage } from './FollowingPage';
+export { default as NotificationsPage } from './NotificationsPage';
+export { default as MessagesPage }  from './MessagesPage';
 export { default as NotFoundPage } from './NotFoundPage';
 export { default as ErrorPage } from './ErrorPage';

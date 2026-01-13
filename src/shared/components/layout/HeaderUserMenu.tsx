@@ -14,8 +14,9 @@ import {
 } from 'gestalt';
 import { useAuth, useCurrentUser } from '@/modules/auth';
 import { UserAvatar } from '@/modules/user';
-import { buildPath, ROUTES } from '@/app/router/routes';
 import { ChatBadge, useTotalUnread } from '@/modules/chat';
+import { NotificationBell } from '@/modules/notification'; // ✅ Добавлено
+import { buildPath, ROUTES } from '@/app/router/routes';
 
 export const HeaderUserMenu: React.FC = () => {
   const navigate = useNavigate();
@@ -47,7 +48,6 @@ export const HeaderUserMenu: React.FC = () => {
     setIsOpen(false);
   }, [navigate]);
 
-  // Callback ref для установки anchor element
   const setAnchorRef = useCallback((node: HTMLDivElement | null) => {
     if (node !== null) {
       setAnchorElement(node);
@@ -78,15 +78,10 @@ export const HeaderUserMenu: React.FC = () => {
         bgColor="transparent"
       />
       
-      {/* Notifications - placeholder */}
-      <IconButton
-        accessibilityLabel="Notifications"
-        icon="bell"
-        onClick={() => {}}
-        size="md"
-        bgColor="transparent"
-      />
+      {/* ✅ Notifications - заменяем placeholder на NotificationBell */}
+      <NotificationBell size="md" />
 
+      {/* Messages */}
       <Box position="relative">
         <IconButton
           accessibilityLabel="Messages"
@@ -128,7 +123,7 @@ export const HeaderUserMenu: React.FC = () => {
           color="white"
         >
           <Box padding={4} width={280}>
-            {/* User Info with Avatar */}
+            {/* User Info */}
             <Box marginBottom={3}>
               <Flex alignItems="center" gap={3}>
                 <UserAvatar

@@ -3,12 +3,18 @@
 import React, { type ReactNode } from 'react';
 import { useAuthStore } from '@/modules/auth';
 import { useNotificationSSE, useUnreadCount } from '@/modules/notification';
+import { NotificationPopupManager } from '@/modules/notification/components/NotificationPopupManager';
 
 const NotificationProviderInner: React.FC<{ children: ReactNode }> = ({ children }) => {
   useNotificationSSE();
   useUnreadCount();
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <NotificationPopupManager />
+    </>
+  );
 };
 
 interface NotificationProviderProps {

@@ -21,7 +21,9 @@ export type ToastVariant =
   | 'upload'
   | 'download'
   | 'copy'
-  | 'auth';
+  | 'auth'
+  | 'notification'  
+  | 'message';      
 
 export interface ToastAction {
   label: string;
@@ -255,6 +257,44 @@ export const TOAST_PRESETS = {
     message: 'Chat deleted',
     variant: 'delete' as const,
   }),
+
+  // ============ Notification presets ============
+  NOTIFICATION_PIN_LIKED: (actorName?: string) => ({
+    message: actorName ? `${actorName} liked your pin` : 'Someone liked your pin',
+    variant: 'notification' as const,
+    duration: 5000,
+  }),
+  NOTIFICATION_PIN_COMMENTED: (actorName?: string) => ({
+    message: actorName ? `${actorName} commented on your pin` : 'New comment on your pin',
+    variant: 'notification' as const,
+    duration: 5000,
+  }),
+  NOTIFICATION_PIN_SAVED: (actorName?: string) => ({
+    message: actorName ? `${actorName} saved your pin` : 'Someone saved your pin',
+    variant: 'notification' as const,
+    duration: 5000,
+  }),
+  NOTIFICATION_COMMENT_LIKED: (actorName?: string) => ({
+    message: actorName ? `${actorName} liked your comment` : 'Someone liked your comment',
+    variant: 'notification' as const,
+    duration: 5000,
+  }),
+  NOTIFICATION_COMMENT_REPLIED: (actorName?: string) => ({
+    message: actorName ? `${actorName} replied to your comment` : 'New reply to your comment',
+    variant: 'notification' as const,
+    duration: 5000,
+  }),
+  NOTIFICATION_USER_FOLLOWED: (actorName?: string) => ({
+    message: actorName ? `${actorName} started following you` : 'You have a new follower',
+    variant: 'notification' as const,
+    duration: 5000,
+  }),
+  NOTIFICATION_NEW_MESSAGE: (actorName?: string) => ({
+    message: actorName ? `${actorName} sent you a message` : 'You have a new message',
+    variant: 'message' as const,
+    duration: 4000,
+  }),
+  
 
   // ============ Error presets ============
   NETWORK_ERROR: () => ({

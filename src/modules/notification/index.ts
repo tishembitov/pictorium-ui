@@ -40,3 +40,5 @@ export type {
   export { NotificationItem } from './components/NotificationItem';
   export { NotificationList } from './components/NotificationList';
   export { NotificationDropdown } from './components/NotificationDropdown';
+  export { NotificationPopup } from './components/NotificationPopup';
+  export { NotificationPopupManager } from './components/NotificationPopupManager';

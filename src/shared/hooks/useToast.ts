@@ -317,6 +317,64 @@ export function useToast() {
     [addToast]
   );
 
+    // ============ Notification Operations ============
+    const notificationPinLiked = useCallback(
+      (actorName?: string, options?: ToastOptions) => {
+        const preset = TOAST_PRESETS.NOTIFICATION_PIN_LIKED(actorName);
+        return addToast({ type: 'info', ...preset, ...options });
+      },
+      [addToast]
+    );
+  
+    const notificationPinCommented = useCallback(
+      (actorName?: string, options?: ToastOptions) => {
+        const preset = TOAST_PRESETS.NOTIFICATION_PIN_COMMENTED(actorName);
+        return addToast({ type: 'info', ...preset, ...options });
+      },
+      [addToast]
+    );
+  
+    const notificationPinSaved = useCallback(
+      (actorName?: string, options?: ToastOptions) => {
+        const preset = TOAST_PRESETS.NOTIFICATION_PIN_SAVED(actorName);
+        return addToast({ type: 'info', ...preset, ...options });
+      },
+      [addToast]
+    );
+  
+    const notificationCommentLiked = useCallback(
+      (actorName?: string, options?: ToastOptions) => {
+        const preset = TOAST_PRESETS.NOTIFICATION_COMMENT_LIKED(actorName);
+        return addToast({ type: 'info', ...preset, ...options });
+      },
+      [addToast]
+    );
+  
+    const notificationCommentReplied = useCallback(
+      (actorName?: string, options?: ToastOptions) => {
+        const preset = TOAST_PRESETS.NOTIFICATION_COMMENT_REPLIED(actorName);
+        return addToast({ type: 'info', ...preset, ...options });
+      },
+      [addToast]
+    );
+  
+    const notificationUserFollowed = useCallback(
+      (actorName?: string, options?: ToastOptions) => {
+        const preset = TOAST_PRESETS.NOTIFICATION_USER_FOLLOWED(actorName);
+        return addToast({ type: 'info', ...preset, ...options });
+      },
+      [addToast]
+    );
+  
+    const notificationNewMessage = useCallback(
+      (actorName?: string, options?: ToastOptions) => {
+        const preset = TOAST_PRESETS.NOTIFICATION_NEW_MESSAGE(actorName);
+        return addToast({ type: 'info', ...preset, ...options });
+      },
+      [addToast]
+    );
+  
+
   // ============ Error Presets ============
   const networkError = useCallback(
     (options?: ToastOptions) => {
@@ -456,6 +514,16 @@ export function useToast() {
         loggedOut,
         sessionExpired,
       },
+
+      notification: {
+        pinLiked: notificationPinLiked,
+        pinCommented: notificationPinCommented,
+        pinSaved: notificationPinSaved,
+        commentLiked: notificationCommentLiked,
+        commentReplied: notificationCommentReplied,
+        userFollowed: notificationUserFollowed,
+        newMessage: notificationNewMessage,
+      },
       
       // Errors
       errors: {
@@ -470,7 +538,9 @@ export function useToast() {
       pinSaved, pinRemoved, pinCreated, pinUpdated, pinDeleted, pinLiked, pinUnliked, pinsSaved,
       boardCreated, boardUpdated, boardDeleted, boardSelected, followed, unfollowed,
       commentAdded, commentUpdated, commentDeleted, replyAdded, copiedLink, copiedText,
-      uploadStarted, uploadSuccess, uploadError, 
+      uploadStarted, uploadSuccess, uploadError, notificationPinLiked, notificationPinCommented, notificationPinSaved,
+      notificationCommentLiked, notificationCommentReplied, 
+      notificationUserFollowed, notificationNewMessage,
       downloadStarted, downloadSuccess, downloadError, 
       profileUpdated, loggedIn, loggedOut, sessionExpired, 
       networkError, serverError, permissionDenied,

@@ -9,38 +9,94 @@ import { useNotificationStore } from '../stores/notificationStore';
 import type { NotificationResponse, PageNotificationResponse } from '../types/notification.types';
 import type { InfiniteData } from '@tanstack/react-query';
 
-const addNotificationToCache = (
+// ===== Helper Functions =====
+
+const notificationExists = (
+  pages: InfiniteData<PageNotificationResponse>['pages'],
+  notificationId: string
+): boolean => {
+  return pages.some((page) =>
+    page.content.some((n) => n.id === notificationId)
+  );
+};
+
+const addNotificationToFirstPage = (
+  pages: InfiniteData<PageNotificationResponse>['pages'],
+  notification: NotificationResponse
+): InfiniteData<PageNotificationResponse>['pages'] => {
+  const firstPage = pages[0];
+  if (!firstPage) return pages;
+
+  return [
+    {
+      ...firstPage,
+      content: [notification, ...firstPage.content],
+      totalElements: firstPage.totalElements + 1,
+    },
+    ...pages.slice(1),
+  ];
+};
+
+const createInitialNotificationsData = (
+  notification: NotificationResponse
+): InfiniteData<PageNotificationResponse> => ({
+  pages: [{
+    content: [notification],
+    totalElements: 1,
+    totalPages: 1,
+    size: 20,
+    number: 0,
+    first: true,
+    last: true,
+    empty: false,
+  } as PageNotificationResponse],
+  pageParams: [0],
+});
+
+const upsertNotification = (
   old: InfiniteData<PageNotificationResponse> | undefined,
   notification: NotificationResponse
-): InfiniteData<PageNotificationResponse> | undefined => {
-  if (!old) return old;
+): InfiniteData<PageNotificationResponse> => {
+  if (!old) {
+    return createInitialNotificationsData(notification);
+  }
 
-  const firstPage = old.pages[0];
-  if (!firstPage) return old;
-
-  const exists = old.pages.some((page) =>
-    page.content.some((n: NotificationResponse) => n.id === notification.id)
-  );
-
-  if (exists) return old;
+  if (notificationExists(old.pages, notification.id)) {
+    return old;
+  }
 
   return {
     ...old,
-    pages: [
-      {
-        ...firstPage,
-        content: [notification, ...firstPage.content],
-        totalElements: firstPage.totalElements + 1,
-      },
-      ...old.pages.slice(1),
-    ],
+    pages: addNotificationToFirstPage(old.pages, notification),
   };
 };
+
+// ===== Deduplication =====
+
+const processedNotificationIds = new Set<string>();
+
+const markAsProcessed = (notificationId: string): boolean => {
+  if (processedNotificationIds.has(notificationId)) {
+    return false;
+  }
+  
+  processedNotificationIds.add(notificationId);
+  
+  if (processedNotificationIds.size > 200) {
+    const idsArray = Array.from(processedNotificationIds);
+    const toRemove = idsArray.slice(0, -200);
+    toRemove.forEach(id => processedNotificationIds.delete(id));
+  }
+  
+  return true;
+};
+
+// ===== Main Hook =====
 
 export const useNotificationSSE = () => {
   const queryClient = useQueryClient();
   const { isAuthenticated, isInitialized } = useAuth();
-  const isConnectedRef = useRef(false); // ✅ Добавили ref для отслеживания
+  const isConnectedRef = useRef(false);
 
   const setConnected = useNotificationStore((state) => state.setConnected);
   const setConnecting = useNotificationStore((state) => state.setConnecting);
@@ -49,15 +105,27 @@ export const useNotificationSSE = () => {
   const isConnected = useNotificationStore((state) => state.isConnected);
   const isConnecting = useNotificationStore((state) => state.isConnecting);
 
+  // ===== Notification Handler =====
   const handleNotification = useCallback((notification: NotificationResponse) => {
+    if (!markAsProcessed(notification.id)) {
+      return;
+    }
+
     setLastEventTime(Date.now());
 
+    // Update all notifications list
     queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
       queryKeys.notifications.lists(),
-      (old) => addNotificationToCache(old, notification)
+      (old) => upsertNotification(old, notification)
     );
 
+    // Update unread list and counter
     if (notification.status === 'UNREAD') {
+      queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
+        queryKeys.notifications.unread(),
+        (old) => upsertNotification(old, notification)
+      );
+
       incrementUnread();
     }
 
@@ -66,16 +134,19 @@ export const useNotificationSSE = () => {
     });
   }, [queryClient, incrementUnread, setLastEventTime]);
 
+  // ===== Connection Change Handler =====
   const handleConnectionChange = useCallback((connected: boolean) => {
     setConnected(connected);
     setConnecting(false);
     isConnectedRef.current = connected;
 
     if (connected) {
+      processedNotificationIds.clear();
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
     }
   }, [setConnected, setConnecting, queryClient]);
 
+  // ===== Connect/Disconnect Effect =====
   useEffect(() => {
     if (!isInitialized) {
       return;
@@ -85,10 +156,10 @@ export const useNotificationSSE = () => {
       notificationSSEService.disconnect();
       setConnected(false);
       isConnectedRef.current = false;
+      processedNotificationIds.clear();
       return;
     }
 
-    // ✅ Подключаемся только если ещё не подключены
     if (!isConnectedRef.current && !notificationSSEService.isConnected) {
       setConnecting(true);
       
@@ -104,7 +175,6 @@ export const useNotificationSSE = () => {
     return () => {
       unsubNotification();
       unsubConnection();
-      // ✅ НЕ отключаемся при unmount - только при logout
     };
   }, [isAuthenticated, isInitialized, handleNotification, handleConnectionChange, setConnecting, setConnected]);
 

@@ -44,8 +44,12 @@ const getNotificationConfig = (type: NotificationType): NotificationConfig => {
   }
 };
 
-const getNotificationLink = (notification: NotificationResponse): string | null => {
-  const { type, referenceId, actorId } = notification;
+// ✅ Исправлено: принимает username для USER_FOLLOWED
+const getNotificationLink = (
+  notification: NotificationResponse,
+  actorUsername?: string
+): string | null => {
+  const { type, referenceId } = notification;
 
   switch (type) {
     case 'PIN_LIKED':
@@ -55,7 +59,8 @@ const getNotificationLink = (notification: NotificationResponse): string | null 
     case 'COMMENT_REPLIED':
       return referenceId ? buildPath.pin(referenceId) : null;
     case 'USER_FOLLOWED':
-      return actorId ? `/profile/${actorId}` : null;
+      // ✅ Используем username вместо actorId
+      return actorUsername ? buildPath.profile(actorUsername) : null;
     case 'NEW_MESSAGE':
       return referenceId ? buildPath.messages(referenceId) : null;
     default:
@@ -90,7 +95,13 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
   const { deleteNotification, isLoading: isDeleting } = useDeleteNotification();
 
   const config = useMemo(() => getNotificationConfig(notification.type), [notification.type]);
-  const link = useMemo(() => getNotificationLink(notification), [notification]);
+  
+  // ✅ Передаём username в getNotificationLink
+  const link = useMemo(
+    () => getNotificationLink(notification, actor?.username),
+    [notification, actor?.username]
+  );
+  
   const isUnread = notification.status === 'UNREAD';
 
   const handleClick = useCallback(() => {

@@ -97,6 +97,8 @@ const VARIANT_CONFIG: Record<ToastVariant, Partial<ToastConfig>> = {
   download: { icon: 'arrow-down' },
   copy: { icon: 'link' },
   auth: { icon: 'person' },
+  notification: { icon: 'bell' },     
+  message: { icon: 'speech' },         
 };
 
 const TYPE_CONFIG: Record<ToastType, ToastConfig> = {

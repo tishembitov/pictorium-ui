@@ -11,10 +11,10 @@ export type NotificationType =
   | 'PIN_SAVED'
   | 'COMMENT_LIKED'
   | 'COMMENT_REPLIED'
-  | 'USER_FOLLOWED'
-  | 'USER_MENTIONED';
+  | 'USER_FOLLOWED';
 
-export type NotificationStatus = 'UNREAD' | 'READ' | 'ARCHIVED';
+export type NotificationStatus = 'UNREAD' | 'READ';
+// 'ARCHIVED' - УДАЛЕНО
 
 // ===== API Response Types =====
 

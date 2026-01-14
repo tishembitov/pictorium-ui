@@ -37,8 +37,6 @@ const getNotificationConfig = (type: NotificationType): NotificationConfig => {
       return { icon: 'speech', verb: 'replied to your comment' };
     case 'USER_FOLLOWED':
       return { icon: 'person-add', verb: 'started following you' };
-    case 'USER_MENTIONED':
-      return { icon: 'tag', verb: 'mentioned you' };
     case 'NEW_MESSAGE':
       return { icon: 'speech', verb: 'sent you a message' };
     default:

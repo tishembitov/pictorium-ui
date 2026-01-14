@@ -7,7 +7,6 @@ export type {
     NotificationResponse,
     PageNotificationResponse,
     NotificationWithActor,
-    SSENotificationEvent,
     NotificationState,
     NotificationActions,
     MarkAsReadResponse,

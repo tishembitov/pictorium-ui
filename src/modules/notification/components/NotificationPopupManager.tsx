@@ -5,6 +5,7 @@ import { NotificationPopup } from './NotificationPopup';
 import { notificationSSEService } from '../services/sseService';
 import { useAuth } from '@/modules/auth';
 import { userApi } from '@/modules/user';
+import { useChatStore } from '@/modules/chat'; // ✅ Добавлен импорт
 import type { NotificationResponse } from '../types/notification.types';
 
 interface PopupItem {
@@ -19,8 +20,8 @@ const MAX_POPUPS = 3;
 const POPUP_DURATION = 5000;
 
 // Actor cache to avoid repeated requests
-const actorCache = new Map<string, { 
-  username: string; 
+const actorCache = new Map<string, {
+  username: string;
   imageId: string | null;
   timestamp: number;
 }>();
@@ -35,8 +36,8 @@ const getCachedActor = (actorId: string) => {
 };
 
 const setCachedActor = (
-  actorId: string, 
-  username: string, 
+  actorId: string,
+  username: string,
   imageId: string | null
 ): void => {
   actorCache.set(actorId, { username, imageId, timestamp: Date.now() });
@@ -45,15 +46,24 @@ const setCachedActor = (
 export const NotificationPopupManager: React.FC = () => {
   const [popups, setPopups] = useState<PopupItem[]>([]);
   const { isAuthenticated } = useAuth();
+  
+  // ✅ Получаем ID выбранного чата
+  const selectedChatId = useChatStore((state) => state.selectedChatId);
 
   const removePopup = useCallback((id: string) => {
     setPopups((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
   const addPopup = useCallback(async (notification: NotificationResponse) => {
-    // Skip NEW_MESSAGE - handled by chat module
+    // ✅ Для NEW_MESSAGE - показываем только если этот чат НЕ открыт
     if (notification.type === 'NEW_MESSAGE') {
-      return;
+      // referenceId для NEW_MESSAGE - это chatId
+      const chatId = notification.referenceId;
+      
+      // Если этот чат сейчас открыт - не показываем popup
+      if (chatId && chatId === selectedChatId) {
+        return;
+      }
     }
 
     let actorName = 'Someone';
@@ -97,7 +107,7 @@ export const NotificationPopupManager: React.FC = () => {
       // Limit max popups, add new one at the beginning
       return [popupItem, ...prev].slice(0, MAX_POPUPS);
     });
-  }, []);
+  }, [selectedChatId]); // ✅ Добавлена зависимость
 
   // Subscribe to SSE notifications + cleanup on logout
   useEffect(() => {

@@ -17,29 +17,53 @@ export const useLikePin = (options: UseLikePinOptions = {}) => {
   const mutation = useMutation({
     mutationFn: (pinId: string) => pinLikeApi.like(pinId),
 
-    onSuccess: (updatedPin, pinId) => {
-      // Обновляем кэш конкретного пина данными от сервера
-      queryClient.setQueryData(
-        queryKeys.pins.byId(pinId), 
-        updatedPin
+    // ✅ Добавлен optimistic update в кэше
+    onMutate: async (pinId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.pins.byId(pinId) });
+
+      const previousPin = queryClient.getQueryData<PinResponse>(
+        queryKeys.pins.byId(pinId)
       );
-      
-      // Инвалидация списка лайков пина
-      void queryClient.invalidateQueries({ 
+
+      // Optimistic update
+      if (previousPin) {
+        queryClient.setQueryData<PinResponse>(
+          queryKeys.pins.byId(pinId),
+          {
+            ...previousPin,
+            isLiked: true,
+            likeCount: previousPin.likeCount + 1,
+          }
+        );
+      }
+
+      return { previousPin };
+    },
+
+    onSuccess: (updatedPin, pinId) => {
+      // Обновляем кэш данными от сервера (источник истины)
+      queryClient.setQueryData(queryKeys.pins.byId(pinId), updatedPin);
+
+      // Фоновая инвалидация
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.pins.likes(pinId),
         refetchType: 'none',
       });
 
-      // ✅ Инвалидируем списки (для обновления likeCount в гридах)
-      void queryClient.invalidateQueries({ 
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.pins.lists(),
         refetchType: 'none',
       });
-      
+
       onSuccess?.(updatedPin);
     },
 
-    onError: (error: Error) => {
+    onError: (error: Error, pinId, context) => {
+      // Rollback кэша
+      if (context?.previousPin) {
+        queryClient.setQueryData(queryKeys.pins.byId(pinId), context.previousPin);
+      }
+
       onError?.(error);
     },
   });

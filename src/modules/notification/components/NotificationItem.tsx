@@ -9,6 +9,7 @@ import { buildPath } from '@/app/router/routes';
 import { formatShortRelativeTime } from '@/shared/utils/formatters';
 import { useMarkAsRead } from '../hooks/useMarkAsRead';
 import { useDeleteNotification } from '../hooks/useDeleteNotification';
+import { useNotificationItemLocalState } from '../hooks/useNotificationItemLocalState';
 import type { NotificationResponse, NotificationType } from '../types/notification.types';
 
 interface NotificationItemProps {
@@ -44,7 +45,6 @@ const getNotificationConfig = (type: NotificationType): NotificationConfig => {
   }
 };
 
-// ✅ Исправлено: принимает username для USER_FOLLOWED
 const getNotificationLink = (
   notification: NotificationResponse,
   actorUsername?: string
@@ -59,7 +59,6 @@ const getNotificationLink = (
     case 'COMMENT_REPLIED':
       return referenceId ? buildPath.pin(referenceId) : null;
     case 'USER_FOLLOWED':
-      // ✅ Используем username вместо actorId
       return actorUsername ? buildPath.profile(actorUsername) : null;
     case 'NEW_MESSAGE':
       return referenceId ? buildPath.messages(referenceId) : null;
@@ -68,7 +67,6 @@ const getNotificationLink = (
   }
 };
 
-// Helper to get background color
 const getBackgroundColor = (isUnread: boolean, isHovered: boolean): string => {
   if (isUnread) {
     return 'var(--color-primary-light)';
@@ -85,27 +83,45 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
 }) => {
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
-  
+
   const { user: actor } = useUser(notification.actorId);
   const { data: previewImage } = useImageUrl(notification.previewImageId, {
     enabled: !!notification.previewImageId,
   });
 
-  const { markAsRead } = useMarkAsRead();
-  const { deleteNotification, isLoading: isDeleting } = useDeleteNotification();
+  // ✅ Используем локальное состояние
+  const { 
+    state: localState, 
+    markAsRead: localMarkAsRead,
+    markAsDeleted: localMarkAsDeleted,
+    resetOverride,
+  } = useNotificationItemLocalState(notification);
 
-  const config = useMemo(() => getNotificationConfig(notification.type), [notification.type]);
-  
-  // ✅ Передаём username в getNotificationLink
+  const { markAsRead } = useMarkAsRead({
+    onError: () => resetOverride(),
+  });
+
+  const { deleteNotification, isLoading: isDeleting } = useDeleteNotification({
+    onError: () => resetOverride(),
+  });
+
+  const config = useMemo(
+    () => getNotificationConfig(notification.type),
+    [notification.type]
+  );
+
   const link = useMemo(
     () => getNotificationLink(notification, actor?.username),
     [notification, actor?.username]
   );
-  
-  const isUnread = notification.status === 'UNREAD';
+
+  const isUnread = localState.status === 'UNREAD';
 
   const handleClick = useCallback(() => {
     if (isUnread) {
+      // 1. Immediate UI update
+      localMarkAsRead();
+      // 2. Background mutation
       markAsRead([notification.id]);
     }
 
@@ -113,15 +129,26 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
       navigate(link);
       onClose?.();
     }
-  }, [isUnread, markAsRead, notification.id, link, navigate, onClose]);
+  }, [isUnread, localMarkAsRead, markAsRead, notification.id, link, navigate, onClose]);
 
-  const handleDelete = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    deleteNotification(notification.id);
-  }, [deleteNotification, notification.id]);
+  const handleDelete = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      // 1. Immediate UI update
+      localMarkAsDeleted();
+      // 2. Background mutation
+      deleteNotification(notification.id);
+    },
+    [localMarkAsDeleted, deleteNotification, notification.id]
+  );
 
   const handleMouseEnter = useCallback(() => setIsHovered(true), []);
   const handleMouseLeave = useCallback(() => setIsHovered(false), []);
+
+  // ✅ Скрываем удалённые элементы
+  if (localState.isDeleted) {
+    return null;
+  }
 
   const actorName = actor?.username || 'Someone';
   const backgroundColor = getBackgroundColor(isUnread, isHovered);
@@ -137,17 +164,17 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
           __style: {
             backgroundColor,
             transition: 'background-color 0.15s ease',
+            opacity: isDeleting ? 0.5 : 1,
           },
         }}
       >
         <Flex gap={3} alignItems="start">
           {/* Actor Avatar with type icon */}
-          <Box position="relative" dangerouslySetInlineStyle={{ __style: { flexShrink: 0 } }}>
-            <UserAvatar
-              imageId={actor?.imageId}
-              name={actorName}
-              size="md"
-            />
+          <Box
+            position="relative"
+            dangerouslySetInlineStyle={{ __style: { flexShrink: 0 } }}
+          >
+            <UserAvatar imageId={actor?.imageId} name={actorName} size="md" />
             <Box
               position="absolute"
               dangerouslySetInlineStyle={{
@@ -174,8 +201,9 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
           <Box flex="grow" minWidth={0}>
             <Flex direction="column" gap={1}>
               <Text size="200" overflow="breakWord">
-                <Text weight="bold" inline>{actorName}</Text>
-                {' '}
+                <Text weight="bold" inline>
+                  {actorName}
+                </Text>{' '}
                 {config.verb}
               </Text>
 
@@ -219,7 +247,9 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
                 accessibilityLabel="Delete notification"
                 icon="trash-can"
                 size="xs"
-                onClick={(e) => handleDelete(e.event as unknown as React.MouseEvent)}
+                onClick={(e) =>
+                  handleDelete(e.event as unknown as React.MouseEvent)
+                }
                 bgColor="transparent"
                 disabled={isDeleting}
               />

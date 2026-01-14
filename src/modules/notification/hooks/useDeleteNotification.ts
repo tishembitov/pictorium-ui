@@ -5,50 +5,28 @@ import { queryKeys } from '@/app/config/queryClient';
 import { notificationApi } from '../api/notificationApi';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useToast } from '@/shared/hooks/useToast';
-import type { PageNotificationResponse, NotificationResponse } from '../types/notification.types';
+import {
+  findNotificationStatus,
+  removeNotificationFromCache,
+} from '../utils/cacheHelpers';
+import type { PageNotificationResponse } from '../types/notification.types';
 import type { InfiniteData } from '@tanstack/react-query';
 
-// Helper to find notification and check if unread
-const findNotificationStatus = (
-  data: InfiniteData<PageNotificationResponse> | undefined,
-  id: string
-): boolean => {
-  if (!data) return false;
-  
-  for (const page of data.pages) {
-    const notification = page.content.find((n: NotificationResponse) => n.id === id);
-    if (notification) {
-      return notification.status === 'UNREAD';
-    }
-  }
-  return false;
-};
+interface UseDeleteNotificationOptions {
+  onSuccess?: () => void;
+  onError?: (error: Error) => void;
+  showToast?: boolean;
+}
 
-// Helper to remove notification from cache
-const removeNotificationFromCache = (
-  old: InfiniteData<PageNotificationResponse> | undefined,
-  id: string
-): InfiniteData<PageNotificationResponse> | undefined => {
-  if (!old) return old;
-  
-  return {
-    ...old,
-    pages: old.pages.map((page) => ({
-      ...page,
-      content: page.content.filter((n: NotificationResponse) => n.id !== id),
-      totalElements: page.totalElements - 1,
-    })),
-  };
-};
-
-export const useDeleteNotification = () => {
+export const useDeleteNotification = (options: UseDeleteNotificationOptions = {}) => {
+  const { onSuccess, onError, showToast = true } = options;
   const queryClient = useQueryClient();
   const decrementUnread = useNotificationStore((state) => state.decrementUnread);
   const { toast } = useToast();
 
   const mutation = useMutation({
     mutationFn: (id: string) => notificationApi.deleteNotification(id),
-    
+
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.notifications.all });
 
@@ -58,6 +36,7 @@ export const useDeleteNotification = () => {
 
       const wasUnread = findNotificationStatus(previousNotifications, id);
 
+      // Optimistic update
       queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
         queryKeys.notifications.lists(),
         (old) => removeNotificationFromCache(old, id)
@@ -70,19 +49,33 @@ export const useDeleteNotification = () => {
       return { previousNotifications, wasUnread };
     },
 
-    onError: (_error, _id, context) => {
+    onSuccess: () => {
+      onSuccess?.();
+    },
+
+    onError: (error: Error, _id, context) => {
+      // Rollback
       if (context?.previousNotifications) {
         queryClient.setQueryData(
           queryKeys.notifications.lists(),
           context.previousNotifications
         );
       }
+
+      // Refetch to sync
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
-      toast.error('Failed to delete notification');
+
+      if (showToast) {
+        toast.error('Failed to delete notification');
+      }
+      onError?.(error);
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCount() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.unreadCount(),
+        refetchType: 'none',
+      });
     },
   });
 

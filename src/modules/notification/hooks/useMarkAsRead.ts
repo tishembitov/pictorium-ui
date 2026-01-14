@@ -5,59 +5,27 @@ import { queryKeys } from '@/app/config/queryClient';
 import { notificationApi } from '../api/notificationApi';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useToast } from '@/shared/hooks/useToast';
-import type { PageNotificationResponse, NotificationResponse } from '../types/notification.types';
+import {
+  markNotificationsAsRead,
+  markAllNotificationsAsRead,
+} from '../utils/cacheHelpers';
+import type { PageNotificationResponse } from '../types/notification.types';
 import type { InfiniteData } from '@tanstack/react-query';
 
-// Helper to mark notifications as read in cache
-const markNotificationsAsRead = (
-  old: InfiniteData<PageNotificationResponse> | undefined,
-  ids: string[]
-): InfiniteData<PageNotificationResponse> | undefined => {
-  if (!old) return old;
-  
-  const now = new Date().toISOString();
-  
-  return {
-    ...old,
-    pages: old.pages.map((page) => ({
-      ...page,
-      content: page.content.map((notification: NotificationResponse) =>
-        ids.includes(notification.id)
-          ? { ...notification, status: 'READ' as const, readAt: now }
-          : notification
-      ),
-    })),
-  };
-};
+interface UseMarkAsReadOptions {
+  onSuccess?: () => void;
+  onError?: (error: Error) => void;
+  showToast?: boolean;
+}
 
-// Helper to mark all notifications as read
-const markAllNotificationsAsRead = (
-  old: InfiniteData<PageNotificationResponse> | undefined
-): InfiniteData<PageNotificationResponse> | undefined => {
-  if (!old) return old;
-  
-  const now = new Date().toISOString();
-  
-  return {
-    ...old,
-    pages: old.pages.map((page) => ({
-      ...page,
-      content: page.content.map((notification: NotificationResponse) => ({
-        ...notification,
-        status: 'READ' as const,
-        readAt: notification.readAt || now,
-      })),
-    })),
-  };
-};
-
-export const useMarkAsRead = () => {
+export const useMarkAsRead = (options: UseMarkAsReadOptions = {}) => {
+  const { onSuccess, onError } = options;
   const queryClient = useQueryClient();
   const decrementUnread = useNotificationStore((state) => state.decrementUnread);
 
   const mutation = useMutation({
     mutationFn: (ids: string[]) => notificationApi.markAsRead(ids),
-    
+
     onMutate: async (ids) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.notifications.all });
 
@@ -65,6 +33,7 @@ export const useMarkAsRead = () => {
         InfiniteData<PageNotificationResponse>
       >(queryKeys.notifications.lists());
 
+      // Optimistic update
       queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
         queryKeys.notifications.lists(),
         (old) => markNotificationsAsRead(old, ids)
@@ -75,18 +44,32 @@ export const useMarkAsRead = () => {
       return { previousNotifications };
     },
 
-    onError: (_error, _ids, context) => {
+    onSuccess: () => {
+      onSuccess?.();
+    },
+
+    onError: (error: Error, _ids, context) => {
+      // Rollback
       if (context?.previousNotifications) {
         queryClient.setQueryData(
           queryKeys.notifications.lists(),
           context.previousNotifications
         );
       }
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCount() });
+
+      // Refetch to sync
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.unreadCount(),
+      });
+
+      onError?.(error);
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCount() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.unreadCount(),
+        refetchType: 'none',
+      });
     },
   });
 
@@ -97,14 +80,15 @@ export const useMarkAsRead = () => {
   };
 };
 
-export const useMarkAllAsRead = () => {
+export const useMarkAllAsRead = (options: UseMarkAsReadOptions = {}) => {
+  const { onSuccess, onError, showToast = true } = options;
   const queryClient = useQueryClient();
   const setUnreadCount = useNotificationStore((state) => state.setUnreadCount);
   const { toast } = useToast();
 
   const mutation = useMutation({
     mutationFn: () => notificationApi.markAllAsRead(),
-    
+
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: queryKeys.notifications.all });
 
@@ -112,6 +96,7 @@ export const useMarkAllAsRead = () => {
         InfiniteData<PageNotificationResponse>
       >(queryKeys.notifications.lists());
 
+      // Optimistic update
       queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
         queryKeys.notifications.lists(),
         (old) => markAllNotificationsAsRead(old)
@@ -123,22 +108,35 @@ export const useMarkAllAsRead = () => {
     },
 
     onSuccess: () => {
-      toast.success('All notifications marked as read');
+      if (showToast) {
+        toast.success('All notifications marked as read');
+      }
+      onSuccess?.();
     },
 
-    onError: (_error, _vars, context) => {
+    onError: (error: Error, _vars, context) => {
+      // Rollback
       if (context?.previousNotifications) {
         queryClient.setQueryData(
           queryKeys.notifications.lists(),
           context.previousNotifications
         );
       }
+
+      // Refetch to sync
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
-      toast.error('Failed to mark notifications as read');
+
+      if (showToast) {
+        toast.error('Failed to mark notifications as read');
+      }
+      onError?.(error);
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCount() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.unreadCount(),
+        refetchType: 'none',
+      });
     },
   });
 

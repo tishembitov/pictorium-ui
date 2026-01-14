@@ -33,6 +33,8 @@ export type {
   export { useMarkAsRead, useMarkAllAsRead } from './hooks/useMarkAsRead';
   export { useDeleteNotification } from './hooks/useDeleteNotification';
   export { useNotificationSSE } from './hooks/useNotificationSSE';
+  export { useNotificationItemLocalState } from './hooks/useNotificationItemLocalState';
+  export type { NotificationItemLocalState } from './hooks/useNotificationItemLocalState';
   
   // Components
   export { NotificationBadge } from './components/NotificationBadge';
@@ -42,3 +44,14 @@ export type {
   export { NotificationDropdown } from './components/NotificationDropdown';
   export { NotificationPopup } from './components/NotificationPopup';
   export { NotificationPopupManager } from './components/NotificationPopupManager';
+
+    // Utils
+  export {
+    upsertNotification,
+    markNotificationsAsRead,
+    markAllNotificationsAsRead,
+    removeNotificationFromCache,
+    findNotificationStatus,
+    markAsProcessed,
+    clearProcessedIds,
+  } from './utils/cacheHelpers';

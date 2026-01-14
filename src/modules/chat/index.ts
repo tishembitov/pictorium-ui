@@ -60,3 +60,14 @@ export type {
   export { ChatWindow } from './components/ChatWindow';
   export { NewChatModal } from './components/NewChatModal';
   export { PresenceIndicator } from './components/PresenceIndicator';
+
+  export {
+    isMessageMatch,
+    messageExistsInPages,
+    upsertMessage,
+    updateChatInList,
+    updateChatUnreadCount,
+    incrementChatUnread,
+    markAsProcessed,
+    clearProcessedIds,
+  } from './utils/cacheHelpers';

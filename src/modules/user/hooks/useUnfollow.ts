@@ -5,7 +5,6 @@ import { queryKeys } from '@/app/config/queryClient';
 import { subscriptionApi } from '../api/subscriptionApi';
 import { useToast } from '@/shared/hooks/useToast';
 import { useAuthStore } from '@/modules/auth';
-import type { FollowCheckResponse } from '../types/subscription.types';
 
 interface UseUnfollowOptions {
   onSuccess?: (userId: string, username?: string) => void;
@@ -26,39 +25,33 @@ export const useUnfollow = (options: UseUnfollowOptions = {}) => {
 
   const mutation = useMutation({
     mutationFn: ({ userId }: UnfollowParams) => subscriptionApi.unfollow(userId),
-    
-    // ✅ Optimistic update
-    onMutate: async ({ userId }) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({
+
+    onSuccess: (_, { userId, username }) => {
+      // Инвалидируем проверку подписки
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.subscriptions.check(userId),
+        refetchType: 'none',
       });
 
-      // Snapshot previous value
-      const previousCheck = queryClient.getQueryData<FollowCheckResponse>(
-        queryKeys.subscriptions.check(userId)
-      );
-
-      // Optimistically update
-      queryClient.setQueryData<FollowCheckResponse>(
-        queryKeys.subscriptions.check(userId),
-        { isFollowing: false }
-      );
-
-      return { previousCheck, userId };
-    },
-    
-    onSuccess: (_, { userId, username }) => {
-      // Invalidate related queries
+      // Инвалидируем список подписчиков целевого пользователя
       void queryClient.invalidateQueries({
         queryKey: queryKeys.subscriptions.followers(userId),
+        refetchType: 'none',
       });
-      
+
+      // Инвалидируем список подписок текущего пользователя
       if (currentUserId) {
         void queryClient.invalidateQueries({
           queryKey: queryKeys.subscriptions.following(currentUserId),
+          refetchType: 'none',
         });
       }
+
+      // Опционально: инвалидируем все subscriptions для полной синхронизации
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.subscriptions.all,
+        refetchType: 'none',
+      });
 
       if (showToast) {
         toast.follow.unfollowed(username);
@@ -66,16 +59,8 @@ export const useUnfollow = (options: UseUnfollowOptions = {}) => {
 
       onSuccess?.(userId, username);
     },
-    
-    onError: (error: Error, { userId }, context) => {
-      // Rollback on error
-      if (context?.previousCheck !== undefined) {
-        queryClient.setQueryData(
-          queryKeys.subscriptions.check(userId),
-          context.previousCheck
-        );
-      }
 
+    onError: (error: Error) => {
       if (showToast) {
         toast.error(error.message || 'Failed to unfollow user');
       }
@@ -84,9 +69,9 @@ export const useUnfollow = (options: UseUnfollowOptions = {}) => {
   });
 
   return {
-    unfollow: (userId: string, username?: string) => 
+    unfollow: (userId: string, username?: string) =>
       mutation.mutate({ userId, username }),
-    unfollowAsync: (userId: string, username?: string) => 
+    unfollowAsync: (userId: string, username?: string) =>
       mutation.mutateAsync({ userId, username }),
     isLoading: mutation.isPending,
     isError: mutation.isError,

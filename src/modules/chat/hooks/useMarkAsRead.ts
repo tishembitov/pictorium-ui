@@ -4,9 +4,16 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { messageApi } from '../api/messageApi';
 import { useChatStore } from '../stores/chatStore';
+import { updateChatUnreadCount } from '../utils/cacheHelpers';
 import type { ChatResponse } from '../types/chat.types';
 
-export const useMarkAsRead = () => {
+interface UseMarkAsReadOptions {
+  onSuccess?: () => void;
+  onError?: (error: Error) => void;
+}
+
+export const useMarkAsRead = (options: UseMarkAsReadOptions = {}) => {
+  const { onSuccess, onError } = options;
   const queryClient = useQueryClient();
   const decrementTotalUnread = useChatStore((state) => state.decrementTotalUnread);
 
@@ -14,35 +21,39 @@ export const useMarkAsRead = () => {
     mutationFn: (chatId: string) => messageApi.markAsRead(chatId),
 
     onMutate: async (chatId) => {
-      // Get current unread count for this chat
-      const chats = queryClient.getQueryData<ChatResponse[]>(queryKeys.chats.lists());
-      const chat = chats?.find((c) => c.id === chatId);
-      const previousUnread = chat?.unreadCount || 0;
+      await queryClient.cancelQueries({ queryKey: queryKeys.chats.lists() });
 
-      // Optimistically update unread count
-      queryClient.setQueryData<ChatResponse[]>(
-        queryKeys.chats.lists(),
-        (old) => {
-          if (!old) return old;
-          return old.map((c) => 
-            c.id === chatId ? { ...c, unreadCount: 0 } : c
-          );
-        }
+      const previousChats = queryClient.getQueryData<ChatResponse[]>(
+        queryKeys.chats.lists()
       );
 
-      // Update total unread
+      const chat = previousChats?.find((c) => c.id === chatId);
+      const previousUnread = chat?.unreadCount || 0;
+
+      // Optimistic update
+      queryClient.setQueryData<ChatResponse[]>(
+        queryKeys.chats.lists(),
+        (old) => (old ? updateChatUnreadCount(old, chatId, 0) : old)
+      );
+
       if (previousUnread > 0) {
         decrementTotalUnread(previousUnread);
       }
 
-      return { previousUnread };
+      return { previousChats, previousUnread };
     },
 
-    onError: (_error, _chatId, context) => {
-      // Rollback on error
-      if (context?.previousUnread) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.chats.lists() });
+    onSuccess: () => {
+      onSuccess?.();
+    },
+
+    onError: (error: Error, _chatId, context) => {
+      // Rollback
+      if (context?.previousChats) {
+        queryClient.setQueryData(queryKeys.chats.lists(), context.previousChats);
       }
+
+      onError?.(error);
     },
   });
 

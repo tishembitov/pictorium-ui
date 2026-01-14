@@ -1,148 +1,159 @@
 // src/modules/chat/hooks/useSendMessage.ts
 
 import { useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/app/config/queryClient';
 import { useAuthStore } from '@/modules/auth';
 import { useToast } from '@/shared/hooks';
 import { websocketService } from '../services/websocketService';
-import type { 
-  MessageResponse, 
+import {
+  createInitialMessagesData,
+  upsertMessage,
+  updateChatInList,
+} from '../utils/cacheHelpers';
+import { generateId } from '@/shared/utils/helpers';
+import type {
+  MessageResponse,
   MessagesInfiniteData,
   ChatResponse,
-  MessageType,
 } from '../types/chat.types';
-import { generateId } from '@/shared/utils/helpers';
 
-// ===== Helper functions =====
+// Типы сообщений, поддерживаемые для отправки через WebSocket
+type SendableMessageType = 'TEXT' | 'IMAGE';
 
-interface UpdateChatWithMessageParams {
+interface SendMessageParams {
   chatId: string;
-  content: string | null;
-  timestamp: string;
-  messageType: MessageType;
-  imageId: string | null;
+  content: string;
+  type: SendableMessageType;
+  imageId?: string;
 }
 
-const updateChatWithMessage = (
-  chats: ChatResponse[],
-  params: UpdateChatWithMessageParams
-): ChatResponse[] => {
-  const { chatId, content, timestamp, messageType, imageId } = params;
-  
-  return chats.map((chat) => {
-    if (chat.id === chatId) {
-      return {
-        ...chat,
-        lastMessage: messageType === 'TEXT' ? content : null,
-        lastMessageTime: timestamp,
-        lastMessageType: messageType,
-        lastMessageImageId: imageId,
-      };
-    }
-    return chat;
-  });
-};
+interface UseSendMessageOptions {
+  onSuccess?: () => void;
+  onError?: (error: Error) => void;
+}
 
-// ===== Main Hook =====
-
-export const useSendMessage = () => {
+export const useSendMessage = (options: UseSendMessageOptions = {}) => {
+  const { onSuccess, onError } = options;
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const userId = useAuthStore((state) => state.user?.id);
 
-  const addOptimisticMessage = useCallback((chatId: string, message: MessageResponse) => {
-    // Update infinite query
-    queryClient.setQueryData<MessagesInfiniteData>(
-      queryKeys.chats.messagesInfinite(chatId),
-      (old) => {
-        if (!old) return old;
-        
-        const newPages = [...old.pages];
-        const firstPage = newPages[0];
-        if (firstPage) {
-          newPages[0] = {
-            ...firstPage,
-            content: [message, ...firstPage.content],
+  const mutation = useMutation({
+    mutationFn: async (params: SendMessageParams) => {
+      if (!userId) {
+        throw new Error('Not authenticated');
+      }
+
+      if (!websocketService.isConnected) {
+        throw new Error('Not connected to chat');
+      }
+
+      return params;
+    },
+
+    onMutate: async (params) => {
+      if (!userId) return;
+
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.chats.messagesInfinite(params.chatId),
+      });
+
+      const previousMessages = queryClient.getQueryData<MessagesInfiniteData>(
+        queryKeys.chats.messagesInfinite(params.chatId)
+      );
+
+      // Create optimistic message
+      const optimisticMessage: MessageResponse = {
+        id: `temp-${generateId()}`,
+        chatId: params.chatId,
+        senderId: userId,
+        receiverId: '',
+        content: params.type === 'TEXT' ? params.content : null,
+        type: params.type,
+        state: 'SENT',
+        imageId: params.imageId || null,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Update messages cache
+      queryClient.setQueryData<MessagesInfiniteData>(
+        queryKeys.chats.messagesInfinite(params.chatId),
+        (old) => {
+          if (!old) {
+            return createInitialMessagesData(optimisticMessage);
+          }
+          return {
+            ...old,
+            pages: upsertMessage(old.pages, optimisticMessage),
           };
         }
-        
-        return { ...old, pages: newPages };
+      );
+
+      // Update chats list
+      queryClient.setQueryData<ChatResponse[]>(
+        queryKeys.chats.lists(),
+        (old) => {
+          if (!old) return old;
+          return updateChatInList(old, {
+            chatId: params.chatId,
+            lastMessage: params.type === 'TEXT' ? params.content : null,
+            lastMessageTime: optimisticMessage.createdAt,
+            lastMessageType: params.type,
+            lastMessageImageId: params.imageId || null,
+          });
+        }
+      );
+
+      return { previousMessages };
+    },
+
+    onSuccess: (params) => {
+      // Send via WebSocket
+      websocketService.sendMessage(
+        params.chatId,
+        params.content,
+        params.type,
+        params.imageId
+      );
+
+      onSuccess?.();
+    },
+
+    onError: (error: Error, params, context) => {
+      // Rollback on error
+      if (context?.previousMessages) {
+        queryClient.setQueryData(
+          queryKeys.chats.messagesInfinite(params.chatId),
+          context.previousMessages
+        );
       }
-    );
 
-    // Update chats list with all media fields
-    queryClient.setQueryData<ChatResponse[]>(
-      queryKeys.chats.lists(),
-      (old) => {
-        if (!old) return old;
-        return updateChatWithMessage(old, {
-          chatId,
-          content: message.content,
-          timestamp: message.createdAt,
-          messageType: message.type,
-          imageId: message.imageId,
-        });
-      }
-    );
-  }, [queryClient]);
+      toast.error(error.message || 'Failed to send message');
+      onError?.(error);
+    },
+  });
 
-  const sendMessage = useCallback((chatId: string, content: string) => {
-    if (!userId) {
-      toast.error('Not authenticated');
-      return;
-    }
+  const sendMessage = useCallback(
+    (chatId: string, content: string) => {
+      mutation.mutate({ chatId, content, type: 'TEXT' });
+    },
+    [mutation]
+  );
 
-    // Create optimistic message
-    const optimisticMessage: MessageResponse = {
-      id: `temp-${generateId()}`,
-      chatId,
-      senderId: userId,
-      receiverId: '',
-      content,
-      type: 'TEXT',
-      state: 'SENT',
-      imageId: null,
-      createdAt: new Date().toISOString(),
-    };
-
-    // Add to cache optimistically
-    addOptimisticMessage(chatId, optimisticMessage);
-
-    // Send via WebSocket
-    websocketService.sendMessage(chatId, content, 'TEXT');
-  }, [userId, addOptimisticMessage, toast]);
-
-  const sendImage = useCallback((chatId: string, imageId: string) => {
-    if (!userId) {
-      toast.error('Not authenticated');
-      return;
-    }
-
-    // Create optimistic message
-    const optimisticMessage: MessageResponse = {
-      id: `temp-${generateId()}`,
-      chatId,
-      senderId: userId,
-      receiverId: '',
-      content: null,
-      type: 'IMAGE',
-      state: 'SENT',
-      imageId,
-      createdAt: new Date().toISOString(),
-    };
-
-    // Add to cache optimistically
-    addOptimisticMessage(chatId, optimisticMessage);
-
-    // Send via WebSocket
-    websocketService.sendMessage(chatId, '', 'IMAGE', imageId);
-  }, [userId, addOptimisticMessage, toast]);
+  const sendImage = useCallback(
+    (chatId: string, imageId: string) => {
+      mutation.mutate({ chatId, content: '', type: 'IMAGE', imageId });
+    },
+    [mutation]
+  );
 
   return {
     sendMessage,
     sendImage,
-    isLoading: false,
+    isLoading: mutation.isPending,
+    isError: mutation.isError,
+    error: mutation.error,
   };
 };
 

@@ -14,6 +14,7 @@ interface PopupItem {
   actorName: string;
   actorUsername?: string;
   actorImageId?: string | null;
+  isUpdate: boolean; // Для анимации обновления
 }
 
 const MAX_POPUPS = 3;
@@ -52,7 +53,6 @@ export const NotificationPopupManager: React.FC = () => {
   const selectedChatId = useChatStore((state) => state.selectedChatId);
   const selectedChatIdRef = useRef(selectedChatId);
 
-  // Обновляем ref при изменении
   useEffect(() => {
     selectedChatIdRef.current = selectedChatId;
   }, [selectedChatId]);
@@ -61,69 +61,73 @@ export const NotificationPopupManager: React.FC = () => {
     setPopups((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
-  const addPopup = useCallback(async (notification: NotificationResponse) => {
-    // Для NEW_MESSAGE - показываем только если чат НЕ открыт
-    if (notification.type === 'NEW_MESSAGE') {
-      const chatId = notification.referenceId;
-      if (chatId && chatId === selectedChatIdRef.current) {
-        return;
-      }
-    }
-
-    let actorName = 'Someone';
-    let actorUsername: string | undefined;
-    let actorImageId: string | null = null;
-
-    if (notification.actorId) {
-      const cached = getCachedActor(notification.actorId);
-      if (cached) {
-        actorName = cached.username;
-        actorUsername = cached.username;
-        actorImageId = cached.imageId;
-      } else {
-        try {
-          const actor = await userApi.getById(notification.actorId);
-          actorName = actor.username || 'Someone';
-          actorUsername = actor.username;
-          actorImageId = actor.imageId || null;
-          setCachedActor(notification.actorId, actorName, actorImageId);
-        } catch {
-          // Use default
+  const addOrUpdatePopup = useCallback(
+    async (notification: NotificationResponse, isUpdate: boolean) => {
+      // Для NEW_MESSAGE - показываем только если чат НЕ открыт
+      if (notification.type === 'NEW_MESSAGE') {
+        const chatId = notification.referenceId;
+        if (chatId && chatId === selectedChatIdRef.current) {
+          return;
         }
       }
-    }
 
-    // Форматируем имя с учётом агрегации
-    let displayName = actorName;
-    if (notification.uniqueActorCount > 1) {
-      const othersCount = notification.uniqueActorCount - 1;
-      displayName =
-        othersCount === 1
-          ? `${actorName} and 1 other`
-          : `${actorName} and ${othersCount} others`;
-    }
+      let actorName = 'Someone';
+      let actorUsername: string | undefined;
+      let actorImageId: string | null = null;
 
-    const popupItem: PopupItem = {
-      id: notification.id,
-      notification,
-      actorName: displayName,
-      actorUsername,
-      actorImageId,
-    };
-
-    setPopups((prev) => {
-      // Для обновлений - заменяем существующий popup
-      const existingIndex = prev.findIndex((p) => p.id === notification.id);
-      if (existingIndex !== -1) {
-        const updated = [...prev];
-        updated[existingIndex] = popupItem;
-        return updated;
+      if (notification.actorId) {
+        const cached = getCachedActor(notification.actorId);
+        if (cached) {
+          actorName = cached.username;
+          actorUsername = cached.username;
+          actorImageId = cached.imageId;
+        } else {
+          try {
+            const actor = await userApi.getById(notification.actorId);
+            actorName = actor.username || 'Someone';
+            actorUsername = actor.username;
+            actorImageId = actor.imageId || null;
+            setCachedActor(notification.actorId, actorName, actorImageId);
+          } catch {
+            // Use default
+          }
+        }
       }
 
-      // Новый popup
-      return [popupItem, ...prev].slice(0, MAX_POPUPS);
-    });
-  }, []);
+      // Форматируем имя с учётом агрегации
+      let displayName = actorName;
+      if (notification.uniqueActorCount > 1) {
+        const othersCount = notification.uniqueActorCount - 1;
+        displayName =
+          othersCount === 1
+            ? `${actorName} and 1 other`
+            : `${actorName} and ${othersCount} others`;
+      }
+
+      const popupItem: PopupItem = {
+        id: notification.id,
+        notification,
+        actorName: displayName,
+        actorUsername,
+        actorImageId,
+        isUpdate,
+      };
+
+      setPopups((prev) => {
+        // Для обновлений - заменяем существующий popup
+        const existingIndex = prev.findIndex((p) => p.id === notification.id);
+        if (existingIndex !== -1) {
+          const updated = [...prev];
+          updated[existingIndex] = popupItem;
+          return updated;
+        }
+
+        // Новый popup - добавляем в начало
+        return [popupItem, ...prev].slice(0, MAX_POPUPS);
+      });
+    },
+    []
+  );
 
   // Subscribe to SSE notifications
   useEffect(() => {
@@ -133,10 +137,10 @@ export const NotificationPopupManager: React.FC = () => {
     }
 
     const unsubscribe = notificationSSEService.onNotification(
-      (notification) => {
-        // Показываем popup и для новых, и для обновлённых UNREAD уведомлений
+      (notification, isUpdate) => {
+        // Показываем popup для UNREAD уведомлений
         if (notification.status === 'UNREAD') {
-          addPopup(notification);
+          addOrUpdatePopup(notification, isUpdate);
         }
       }
     );
@@ -144,7 +148,7 @@ export const NotificationPopupManager: React.FC = () => {
     return () => {
       unsubscribe();
     };
-  }, [isAuthenticated, addPopup]);
+  }, [isAuthenticated, addOrUpdatePopup]);
 
   if (!isAuthenticated || popups.length === 0) {
     return null;
@@ -154,7 +158,7 @@ export const NotificationPopupManager: React.FC = () => {
     <>
       {popups.map((popup, index) => (
         <NotificationPopup
-          key={popup.id}
+          key={`${popup.id}-${popup.notification.aggregatedCount}`}
           notification={popup.notification}
           actorName={popup.actorName}
           actorUsername={popup.actorUsername}

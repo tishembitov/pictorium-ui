@@ -18,6 +18,38 @@ import type {
 } from '../types/notification.types';
 import type { InfiniteData } from '@tanstack/react-query';
 
+type NotificationsInfiniteData = InfiniteData<PageNotificationResponse>;
+
+// ===== Helper Functions (module level to reduce nesting) =====
+
+const removeNotificationById = (
+  data: NotificationsInfiniteData | undefined,
+  notificationId: NotificationResponse['id']
+): NotificationsInfiniteData | undefined => {
+  if (!data) return data;
+
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      content: page.content.filter((n) => n.id !== notificationId),
+    })),
+  };
+};
+
+const upsertOrUpdateNotification = (
+  data: NotificationsInfiniteData | undefined,
+  notification: NotificationResponse,
+  isUpdate: boolean
+): NotificationsInfiniteData | undefined => {
+  if (isUpdate) {
+    return updateNotification(data, notification);
+  }
+  return upsertNotification(data, notification);
+};
+
+// ===== Hook =====
+
 export const useNotificationSSE = () => {
   const queryClient = useQueryClient();
   const { isAuthenticated, isInitialized } = useAuth();
@@ -33,58 +65,74 @@ export const useNotificationSSE = () => {
   const isConnected = useNotificationStore((state) => state.isConnected);
   const isConnecting = useNotificationStore((state) => state.isConnecting);
 
+  // ===== Cache Updaters =====
+
+  const updateMainList = useCallback(
+    (notification: NotificationResponse, isUpdate: boolean) => {
+      const queryKey = queryKeys.notifications.lists();
+
+      queryClient.setQueryData<NotificationsInfiniteData>(queryKey, (old) =>
+        upsertOrUpdateNotification(old, notification, isUpdate)
+      );
+    },
+    [queryClient]
+  );
+
+  const updateUnreadList = useCallback(
+    (notification: NotificationResponse, isUpdate: boolean) => {
+      const unreadQueryKey = queryKeys.notifications.unread();
+
+      if (notification.status === 'UNREAD') {
+        queryClient.setQueryData<NotificationsInfiniteData>(unreadQueryKey, (old) =>
+          upsertOrUpdateNotification(old, notification, isUpdate)
+        );
+      } else {
+        // Удаляем из unread списка если прочитано
+        queryClient.setQueryData<NotificationsInfiniteData>(unreadQueryKey, (old) =>
+          removeNotificationById(old, notification.id)
+        );
+      }
+    },
+    [queryClient]
+  );
+
   // ===== Notification Handler =====
 
   const handleNotification = useCallback(
     (notification: NotificationResponse, isUpdate: boolean) => {
       // Дедупликация с учётом updatedAt
       if (!markAsProcessed(notification.id, notification.updatedAt)) {
+        console.debug('[SSE] Duplicate notification skipped:', notification.id);
         return;
       }
 
       setLastEventTime(Date.now());
 
-      if (isUpdate) {
-        // Обновление существующего уведомления (агрегация)
-        queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
-          queryKeys.notifications.lists(),
-          (old) => updateNotification(old, notification)
-        );
+      console.debug('[SSE] Processing notification:', {
+        id: notification.id,
+        type: notification.type,
+        isUpdate,
+        aggregatedCount: notification.aggregatedCount,
+        status: notification.status,
+      });
 
-        // Обновляем в unread списке если ещё не прочитано
-        if (notification.status === 'UNREAD') {
-          queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
-            queryKeys.notifications.unread(),
-            (old) => updateNotification(old, notification)
-          );
-        }
+      // Обновляем кэши
+      updateMainList(notification, isUpdate);
+      updateUnreadList(notification, isUpdate);
 
-        // При агрегации НЕ увеличиваем счётчик - это обновление существующего
-      } else {
-        // Новое уведомление
-        queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
-          queryKeys.notifications.lists(),
-          (old) => upsertNotification(old, notification)
-        );
-
-        if (notification.status === 'UNREAD') {
-          queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
-            queryKeys.notifications.unread(),
-            (old) => upsertNotification(old, notification)
-          );
-
-          // Увеличиваем счётчик только для новых уведомлений
-          incrementUnread();
-        }
+      // Увеличиваем счётчик только для НОВЫХ UNREAD уведомлений
+      if (!isUpdate && notification.status === 'UNREAD') {
+        incrementUnread();
+        console.debug('[SSE] Incremented unread count');
       }
 
-      // Background invalidation
+      // Фоновая инвалидация счётчика
       queryClient.invalidateQueries({
         queryKey: queryKeys.notifications.unreadCount(),
         refetchType: 'none',
       });
     },
-    [queryClient, incrementUnread, setLastEventTime]
+    [queryClient, incrementUnread, setLastEventTime, updateMainList, updateUnreadList]
   );
 
   // ===== Connection Handler =====
@@ -97,16 +145,19 @@ export const useNotificationSSE = () => {
 
       if (connected) {
         clearProcessedIds();
+
         queryClient.invalidateQueries({
           queryKey: queryKeys.notifications.all,
           refetchType: 'none',
         });
+
+        console.debug('[SSE] Connected, cleared processed IDs');
       }
     },
     [setConnected, setConnecting, queryClient]
   );
 
-  // ===== Connect/Disconnect Effect =====
+  // ===== Connect Effect =====
 
   useEffect(() => {
     if (!isInitialized) {

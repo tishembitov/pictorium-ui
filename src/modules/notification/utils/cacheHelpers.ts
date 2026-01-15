@@ -8,7 +8,7 @@ import type { InfiniteData } from '@tanstack/react-query';
 
 type NotificationsInfiniteData = InfiniteData<PageNotificationResponse>;
 
-// ===== Notification Helpers =====
+// ===== Find Helpers =====
 
 /**
  * Находит уведомление по ID в страницах
@@ -35,6 +35,40 @@ export const notificationExistsInPages = (
 };
 
 /**
+ * Находит индексы страницы и элемента для уведомления
+ */
+export const findNotificationIndices = (
+  pages: NotificationsInfiniteData['pages'],
+  notificationId: string
+): { pageIndex: number; itemIndex: number } | null => {
+  for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+    const page = pages[pageIndex];
+    if (!page) continue;
+    
+    const itemIndex = page.content.findIndex((n) => n.id === notificationId);
+    if (itemIndex !== -1) {
+      return { pageIndex, itemIndex };
+    }
+  }
+  return null;
+};
+
+// ===== Modification Helpers =====
+
+/**
+ * Удаляет уведомление из страниц (без изменения totalElements)
+ */
+const removeNotificationFromPages = (
+  pages: NotificationsInfiniteData['pages'],
+  notificationId: string
+): NotificationsInfiniteData['pages'] => {
+  return pages.map((page) => ({
+    ...page,
+    content: page.content.filter((n) => n.id !== notificationId),
+  }));
+};
+
+/**
  * Добавляет уведомление в начало первой страницы
  */
 export const addNotificationToFirstPage = (
@@ -55,9 +89,9 @@ export const addNotificationToFirstPage = (
 };
 
 /**
- * Обновляет существующее уведомление в страницах
+ * Заменяет уведомление на месте (без перемещения)
  */
-export const updateNotificationInPages = (
+const replaceNotificationInPlace = (
   pages: NotificationsInfiniteData['pages'],
   notification: NotificationResponse
 ): NotificationsInfiniteData['pages'] => {
@@ -70,20 +104,27 @@ export const updateNotificationInPages = (
 };
 
 /**
- * Перемещает уведомление в начало (при обновлении агрегации)
+ * Перемещает уведомление в начало (для обновлённых уведомлений)
  */
 export const moveNotificationToTop = (
   pages: NotificationsInfiniteData['pages'],
   notification: NotificationResponse
 ): NotificationsInfiniteData['pages'] => {
   // Удаляем из текущей позиции
-  const pagesWithoutNotification = pages.map((page) => ({
-    ...page,
-    content: page.content.filter((n) => n.id !== notification.id),
-  }));
+  const pagesWithoutNotification = removeNotificationFromPages(pages, notification.id);
+  
+  // Добавляем в начало первой страницы (без увеличения totalElements, т.к. это перемещение)
+  const firstPage = pagesWithoutNotification[0];
+  if (!firstPage) return pagesWithoutNotification;
 
-  // Добавляем в начало
-  return addNotificationToFirstPage(pagesWithoutNotification, notification);
+  return [
+    {
+      ...firstPage,
+      content: [notification, ...firstPage.content],
+      // totalElements НЕ увеличиваем - это перемещение, а не добавление
+    },
+    ...pagesWithoutNotification.slice(1),
+  ];
 };
 
 /**
@@ -107,8 +148,11 @@ export const createInitialNotificationsData = (
   pageParams: [0],
 });
 
+// ===== Main Cache Operations =====
+
 /**
- * Добавляет новое уведомление (upsert)
+ * Добавляет НОВОЕ уведомление в кэш
+ * Используется для события 'notification'
  */
 export const upsertNotification = (
   old: NotificationsInfiniteData | undefined,
@@ -118,11 +162,16 @@ export const upsertNotification = (
     return createInitialNotificationsData(notification);
   }
 
+  // Проверяем дубль
   if (notificationExistsInPages(old.pages, notification.id)) {
-    // Уведомление существует - это не должно происходить для 'notification' события
-    return old;
+    // Если уже есть - заменяем на месте (на случай если пришло раньше чем мы обработали)
+    return {
+      ...old,
+      pages: replaceNotificationInPlace(old.pages, notification),
+    };
   }
 
+  // Добавляем в начало
   return {
     ...old,
     pages: addNotificationToFirstPage(old.pages, notification),
@@ -130,18 +179,23 @@ export const upsertNotification = (
 };
 
 /**
- * Обновляет существующее уведомление (для агрегации)
+ * Обновляет СУЩЕСТВУЮЩЕЕ уведомление (агрегация)
+ * Используется для события 'notification_updated'
  */
 export const updateNotification = (
   old: NotificationsInfiniteData | undefined,
   notification: NotificationResponse
 ): NotificationsInfiniteData => {
   if (!old) {
+    // Если нет данных - создаём как новое
     return createInitialNotificationsData(notification);
   }
 
-  if (!notificationExistsInPages(old.pages, notification.id)) {
+  const exists = notificationExistsInPages(old.pages, notification.id);
+
+  if (!exists) {
     // Уведомление не найдено - добавляем как новое
+    // (может быть если кэш устарел)
     return {
       ...old,
       pages: addNotificationToFirstPage(old.pages, notification),
@@ -165,13 +219,14 @@ export const markNotificationsAsRead = (
   if (!old) return old;
 
   const now = new Date().toISOString();
+  const idSet = new Set(ids);
 
   return {
     ...old,
     pages: old.pages.map((page) => ({
       ...page,
       content: page.content.map((notification) =>
-        ids.includes(notification.id)
+        idSet.has(notification.id)
           ? { ...notification, status: 'READ' as const, readAt: now }
           : notification
       ),
@@ -216,13 +271,15 @@ export const removeNotificationFromCache = (
     pages: old.pages.map((page) => ({
       ...page,
       content: page.content.filter((n) => n.id !== id),
-      totalElements: page.totalElements - 1,
+      totalElements: page.content.some((n) => n.id === id)
+        ? page.totalElements - 1
+        : page.totalElements,
     })),
   };
 };
 
 /**
- * Находит уведомление и проверяет, непрочитано ли оно
+ * Находит уведомление и возвращает его статус
  */
 export const findNotificationStatus = (
   data: NotificationsInfiniteData | undefined,
@@ -234,33 +291,78 @@ export const findNotificationStatus = (
   return notification?.status === 'UNREAD';
 };
 
+/**
+ * Получает количество UNREAD уведомлений, которые будут затронуты
+ */
+export const countUnreadInIds = (
+  data: NotificationsInfiniteData | undefined,
+  ids: string[]
+): number => {
+  if (!data) return 0;
+
+  const idSet = new Set(ids);
+  let count = 0;
+
+  for (const page of data.pages) {
+    for (const notification of page.content) {
+      if (idSet.has(notification.id) && notification.status === 'UNREAD') {
+        count++;
+      }
+    }
+  }
+
+  return count;
+};
+
 // ===== Deduplication =====
 
-const processedIds = new Map<string, number>(); // id -> updatedAt timestamp
+interface ProcessedEntry {
+  updatedAt: number;
+  processedAt: number;
+}
+
+const processedIds = new Map<string, ProcessedEntry>();
 const MAX_PROCESSED_IDS = 200;
+const STALE_THRESHOLD = 1000; // 1 секунда - если пришло раньше, чем мы обработали
 
 /**
- * Помечает ID как обработанный, возвращает false если уже был обработан с той же версией
+ * Помечает ID как обработанный, возвращает false если уже был обработан с той же или более новой версией
  */
 export const markAsProcessed = (id: string, updatedAt?: string): boolean => {
-  const timestamp = updatedAt ? new Date(updatedAt).getTime() : Date.now();
-  const existingTimestamp = processedIds.get(id);
+  const now = Date.now();
+  const timestamp = updatedAt ? new Date(updatedAt).getTime() : now;
+  
+  const existing = processedIds.get(id);
 
-  // Если уже обработан с той же или более новой версией - пропускаем
-  if (existingTimestamp !== undefined && existingTimestamp >= timestamp) {
-    return false;
+  // Если уже обработан с той же или более новой версией
+  if (existing) {
+    // Если updatedAt такой же или старее - пропускаем
+    if (existing.updatedAt >= timestamp) {
+      return false;
+    }
+    
+    // Если обработали недавно и updatedAt немного новее - тоже пропускаем
+    // (защита от дубликатов при быстрых обновлениях)
+    if (now - existing.processedAt < STALE_THRESHOLD && 
+        timestamp - existing.updatedAt < STALE_THRESHOLD) {
+      return false;
+    }
   }
 
-  processedIds.set(id, timestamp);
+  processedIds.set(id, { updatedAt: timestamp, processedAt: now });
 
-  // Очистка старых записей
-  if (processedIds.size > MAX_PROCESSED_IDS) {
-    const entries = Array.from(processedIds.entries());
-    entries
-      .sort((a, b) => a[1] - b[1])
-      .slice(0, processedIds.size - MAX_PROCESSED_IDS)
-      .forEach(([oldId]) => processedIds.delete(oldId));
-  }
+      // Очистка старых записей
+    // Очистка старых записей
+    if (processedIds.size > MAX_PROCESSED_IDS) {
+      const entries = Array.from(processedIds.entries());
+      
+      // Сортировка в отдельном выражении
+      entries.sort((a, b) => a[1].processedAt - b[1].processedAt);
+      
+      entries
+        .slice(0, processedIds.size - MAX_PROCESSED_IDS)
+        .forEach(([oldId]) => processedIds.delete(oldId));
+    }
 
   return true;
 };
@@ -270,4 +372,17 @@ export const markAsProcessed = (id: string, updatedAt?: string): boolean => {
  */
 export const clearProcessedIds = (): void => {
   processedIds.clear();
+};
+
+/**
+ * Проверяет, обработан ли ID (без добавления)
+ */
+export const isProcessed = (id: string, updatedAt?: string): boolean => {
+  const existing = processedIds.get(id);
+  if (!existing) return false;
+  
+  if (!updatedAt) return true;
+  
+  const timestamp = new Date(updatedAt).getTime();
+  return existing.updatedAt >= timestamp;
 };

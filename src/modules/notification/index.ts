@@ -56,8 +56,12 @@ export {
   markAllNotificationsAsRead,
   removeNotificationFromCache,
   findNotificationStatus,
+  findNotificationInPages,
+  notificationExistsInPages,
+  countUnreadInIds,
   markAsProcessed,
   clearProcessedIds,
+  isProcessed,
 } from './utils/cacheHelpers';
 
 export {

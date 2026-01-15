@@ -1,11 +1,11 @@
 // src/modules/notification/components/NotificationPopupManager.tsx
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { NotificationPopup } from './NotificationPopup';
 import { notificationSSEService } from '../services/sseService';
 import { useAuth } from '@/modules/auth';
 import { userApi } from '@/modules/user';
-import { useChatStore } from '@/modules/chat'; // ✅ Добавлен импорт
+import { useChatStore } from '@/modules/chat';
 import type { NotificationResponse } from '../types/notification.types';
 
 interface PopupItem {
@@ -19,13 +19,16 @@ interface PopupItem {
 const MAX_POPUPS = 3;
 const POPUP_DURATION = 5000;
 
-// Actor cache to avoid repeated requests
-const actorCache = new Map<string, {
-  username: string;
-  imageId: string | null;
-  timestamp: number;
-}>();
-const ACTOR_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// Actor cache
+const actorCache = new Map<
+  string,
+  {
+    username: string;
+    imageId: string | null;
+    timestamp: number;
+  }
+>();
+const ACTOR_CACHE_TTL = 5 * 60 * 1000;
 
 const getCachedActor = (actorId: string) => {
   const cached = actorCache.get(actorId);
@@ -46,22 +49,23 @@ const setCachedActor = (
 export const NotificationPopupManager: React.FC = () => {
   const [popups, setPopups] = useState<PopupItem[]>([]);
   const { isAuthenticated } = useAuth();
-  
-  // ✅ Получаем ID выбранного чата
   const selectedChatId = useChatStore((state) => state.selectedChatId);
+  const selectedChatIdRef = useRef(selectedChatId);
+
+  // Обновляем ref при изменении
+  useEffect(() => {
+    selectedChatIdRef.current = selectedChatId;
+  }, [selectedChatId]);
 
   const removePopup = useCallback((id: string) => {
     setPopups((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
   const addPopup = useCallback(async (notification: NotificationResponse) => {
-    // ✅ Для NEW_MESSAGE - показываем только если этот чат НЕ открыт
+    // Для NEW_MESSAGE - показываем только если чат НЕ открыт
     if (notification.type === 'NEW_MESSAGE') {
-      // referenceId для NEW_MESSAGE - это chatId
       const chatId = notification.referenceId;
-      
-      // Если этот чат сейчас открыт - не показываем popup
-      if (chatId && chatId === selectedChatId) {
+      if (chatId && chatId === selectedChatIdRef.current) {
         return;
       }
     }
@@ -71,14 +75,12 @@ export const NotificationPopupManager: React.FC = () => {
     let actorImageId: string | null = null;
 
     if (notification.actorId) {
-      // Check cache first
       const cached = getCachedActor(notification.actorId);
       if (cached) {
         actorName = cached.username;
         actorUsername = cached.username;
         actorImageId = cached.imageId;
       } else {
-        // Fetch actor info
         try {
           const actor = await userApi.getById(notification.actorId);
           actorName = actor.username || 'Someone';
@@ -91,44 +93,59 @@ export const NotificationPopupManager: React.FC = () => {
       }
     }
 
+    // Форматируем имя с учётом агрегации
+    let displayName = actorName;
+    if (notification.uniqueActorCount > 1) {
+      const othersCount = notification.uniqueActorCount - 1;
+      displayName =
+        othersCount === 1
+          ? `${actorName} and 1 other`
+          : `${actorName} and ${othersCount} others`;
+    }
+
     const popupItem: PopupItem = {
       id: notification.id,
       notification,
-      actorName,
+      actorName: displayName,
       actorUsername,
       actorImageId,
     };
 
     setPopups((prev) => {
-      // Check for duplicates
-      if (prev.some((p) => p.id === notification.id)) {
-        return prev;
+      // Для обновлений - заменяем существующий popup
+      const existingIndex = prev.findIndex((p) => p.id === notification.id);
+      if (existingIndex !== -1) {
+        const updated = [...prev];
+        updated[existingIndex] = popupItem;
+        return updated;
       }
-      // Limit max popups, add new one at the beginning
+
+      // Новый popup
       return [popupItem, ...prev].slice(0, MAX_POPUPS);
     });
-  }, [selectedChatId]); // ✅ Добавлена зависимость
+  }, []);
 
-  // Subscribe to SSE notifications + cleanup on logout
+  // Subscribe to SSE notifications
   useEffect(() => {
     if (!isAuthenticated) {
-      // Clear cache when not authenticated
       actorCache.clear();
       return;
     }
 
-    const unsubscribe = notificationSSEService.onNotification((notification) => {
-      if (notification.status === 'UNREAD') {
-        addPopup(notification);
+    const unsubscribe = notificationSSEService.onNotification(
+      (notification) => {
+        // Показываем popup и для новых, и для обновлённых UNREAD уведомлений
+        if (notification.status === 'UNREAD') {
+          addPopup(notification);
+        }
       }
-    });
+    );
 
     return () => {
       unsubscribe();
     };
   }, [isAuthenticated, addPopup]);
 
-  // Don't render if not authenticated or no popups
   if (!isAuthenticated || popups.length === 0) {
     return null;
   }

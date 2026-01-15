@@ -8,6 +8,7 @@ import { notificationSSEService } from '../services/sseService';
 import { useNotificationStore } from '../stores/notificationStore';
 import {
   upsertNotification,
+  updateNotification,
   markAsProcessed,
   clearProcessedIds,
 } from '../utils/cacheHelpers';
@@ -35,27 +36,46 @@ export const useNotificationSSE = () => {
   // ===== Notification Handler =====
 
   const handleNotification = useCallback(
-    (notification: NotificationResponse) => {
-      if (!markAsProcessed(notification.id)) {
+    (notification: NotificationResponse, isUpdate: boolean) => {
+      // Дедупликация с учётом updatedAt
+      if (!markAsProcessed(notification.id, notification.updatedAt)) {
         return;
       }
 
       setLastEventTime(Date.now());
 
-      // Update all notifications list
-      queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
-        queryKeys.notifications.lists(),
-        (old) => upsertNotification(old, notification)
-      );
-
-      // Update unread list and counter
-      if (notification.status === 'UNREAD') {
+      if (isUpdate) {
+        // Обновление существующего уведомления (агрегация)
         queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
-          queryKeys.notifications.unread(),
+          queryKeys.notifications.lists(),
+          (old) => updateNotification(old, notification)
+        );
+
+        // Обновляем в unread списке если ещё не прочитано
+        if (notification.status === 'UNREAD') {
+          queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
+            queryKeys.notifications.unread(),
+            (old) => updateNotification(old, notification)
+          );
+        }
+
+        // При агрегации НЕ увеличиваем счётчик - это обновление существующего
+      } else {
+        // Новое уведомление
+        queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
+          queryKeys.notifications.lists(),
           (old) => upsertNotification(old, notification)
         );
 
-        incrementUnread();
+        if (notification.status === 'UNREAD') {
+          queryClient.setQueryData<InfiniteData<PageNotificationResponse>>(
+            queryKeys.notifications.unread(),
+            (old) => upsertNotification(old, notification)
+          );
+
+          // Увеличиваем счётчик только для новых уведомлений
+          incrementUnread();
+        }
       }
 
       // Background invalidation

@@ -14,7 +14,6 @@ export type NotificationType =
   | 'USER_FOLLOWED';
 
 export type NotificationStatus = 'UNREAD' | 'READ';
-// 'ARCHIVED' - УДАЛЕНО
 
 // ===== API Response Types =====
 
@@ -22,26 +21,48 @@ export interface NotificationResponse {
   id: string;
   recipientId: string;
   actorId: string;
+  /** Список последних акторов (до 3) для отображения */
+  recentActorIds: string[];
   type: NotificationType;
   status: NotificationStatus;
+  /** Количество агрегированных событий */
+  aggregatedCount: number;
+  /** Количество уникальных акторов */
+  uniqueActorCount: number;
   referenceId: string | null;
   secondaryRefId: string | null;
   previewText: string | null;
   previewImageId: string | null;
   createdAt: string;
+  updatedAt: string;
   readAt: string | null;
 }
 
 export type PageNotificationResponse = PageResponse<NotificationResponse>;
 
+// ===== SSE Event Types =====
+
+export type SSEEventType = 
+  | 'notification' 
+  | 'notification_updated' 
+  | 'heartbeat' 
+  | 'connected' 
+  | 'unread_update';
+
+export interface SSEEvent {
+  type: SSEEventType;
+  data?: NotificationResponse | Record<string, unknown>;
+  timestamp: string;
+}
+
 // ===== Extended Types =====
 
-export interface NotificationWithActor extends NotificationResponse {
-  actor?: {
+export interface NotificationWithActors extends NotificationResponse {
+  actors?: Array<{
     id: string;
     username: string;
     imageId: string | null;
-  };
+  }>;
 }
 
 // ===== Store Types =====

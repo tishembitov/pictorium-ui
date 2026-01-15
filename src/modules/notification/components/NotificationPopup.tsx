@@ -8,7 +8,8 @@ import { useImageUrl } from '@/modules/storage';
 import { buildPath } from '@/app/router/routes';
 import { formatShortRelativeTime } from '@/shared/utils/formatters';
 import { useMarkAsRead } from '../hooks/useMarkAsRead';
-import type { NotificationResponse, NotificationType } from '../types/notification.types';
+import { getNotificationConfig } from '../utils/formatNotification';
+import type { NotificationResponse } from '../types/notification.types';
 
 interface NotificationPopupProps {
   notification: NotificationResponse;
@@ -21,33 +22,6 @@ interface NotificationPopupProps {
 }
 
 type GestaltIconName = React.ComponentProps<typeof Icon>['icon'];
-
-interface NotificationConfig {
-  icon: GestaltIconName;
-  verb: string;
-  iconColor: string;
-}
-
-const getNotificationConfig = (type: NotificationType): NotificationConfig => {
-  switch (type) {
-    case 'PIN_LIKED':
-      return { icon: 'heart', verb: 'liked your pin', iconColor: '#e60023' };
-    case 'PIN_COMMENTED':
-      return { icon: 'speech', verb: 'commented on your pin', iconColor: '#0074e8' };
-    case 'PIN_SAVED':
-      return { icon: 'pin', verb: 'saved your pin', iconColor: '#0a7c42' };
-    case 'COMMENT_LIKED':
-      return { icon: 'heart', verb: 'liked your comment', iconColor: '#e60023' };
-    case 'COMMENT_REPLIED':
-      return { icon: 'speech', verb: 'replied to your comment', iconColor: '#0074e8' };
-    case 'USER_FOLLOWED':
-      return { icon: 'person-add', verb: 'started following you', iconColor: '#8e44ad' };
-    case 'NEW_MESSAGE':
-      return { icon: 'speech', verb: 'sent you a message', iconColor: '#0074e8' };
-    default:
-      return { icon: 'bell', verb: 'sent you a notification', iconColor: '#111111' };
-  }
-};
 
 const getNotificationLink = (
   notification: NotificationResponse,
@@ -71,6 +45,29 @@ const getNotificationLink = (
   }
 };
 
+/**
+ * Форматирует глагол для popup с учётом агрегации
+ */
+const getPopupVerb = (notification: NotificationResponse): string => {
+  const { type, aggregatedCount } = notification;
+  const config = getNotificationConfig(type);
+
+  // Для repeatable actions показываем количество
+  if (aggregatedCount > 1) {
+    switch (type) {
+      case 'NEW_MESSAGE':
+        return `sent you ${aggregatedCount} messages`;
+      case 'PIN_COMMENTED':
+        return `left ${aggregatedCount} comments`;
+      case 'COMMENT_REPLIED':
+        return `left ${aggregatedCount} replies`;
+    }
+  }
+
+  // Для single actions - просто глагол, имена уже в actorName
+  return config.verb;
+};
+
 export const NotificationPopup: React.FC<NotificationPopupProps> = ({
   notification,
   actorName,
@@ -92,13 +89,18 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
     enabled: !!notification.previewImageId,
   });
 
-  const config = useMemo(() => getNotificationConfig(notification.type), [notification.type]);
+  const config = useMemo(
+    () => getNotificationConfig(notification.type),
+    [notification.type]
+  );
+
+  const verb = useMemo(() => getPopupVerb(notification), [notification]);
+
   const link = useMemo(
     () => getNotificationLink(notification, actorUsername),
     [notification, actorUsername]
   );
 
-  // Close handler
   const closePopup = useCallback(() => {
     setIsLeaving(true);
     setTimeout(() => {
@@ -114,13 +116,11 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
 
   // Auto-close (pause on hover)
   useEffect(() => {
-    // Clear existing timer
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
 
-    // Don't start timer if hovered
     if (isHovered) {
       return;
     }
@@ -138,7 +138,6 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
   }, [duration, isHovered, closePopup]);
 
   const handleClick = useCallback(() => {
-    // Mark as read
     if (notification.status === 'UNREAD') {
       markAsRead([notification.id]);
     }
@@ -149,10 +148,13 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
     closePopup();
   }, [notification, markAsRead, link, navigate, closePopup]);
 
-  const handleCloseClick = useCallback((event: { event: React.SyntheticEvent }) => {
-    event.event.stopPropagation();
-    closePopup();
-  }, [closePopup]);
+  const handleCloseClick = useCallback(
+    (event: { event: React.SyntheticEvent }) => {
+      event.event.stopPropagation();
+      closePopup();
+    },
+    [closePopup]
+  );
 
   const handleMouseEnter = useCallback(() => setIsHovered(true), []);
   const handleMouseLeave = useCallback(() => setIsHovered(false), []);
@@ -168,9 +170,10 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
             top: topOffset,
             right: 20,
             zIndex: 1000 - index,
-            transform: isVisible && !isLeaving 
-              ? 'translateX(0) scale(1)' 
-              : 'translateX(120%) scale(0.95)',
+            transform:
+              isVisible && !isLeaving
+                ? 'translateX(0) scale(1)'
+                : 'translateX(120%) scale(0.95)',
             opacity: isVisible && !isLeaving ? 1 : 0,
             transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
           },
@@ -186,19 +189,49 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
             color="default"
             dangerouslySetInlineStyle={{
               __style: {
-                boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.1)',
+                boxShadow:
+                  '0 4px 24px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.1)',
                 borderLeft: `4px solid ${config.iconColor}`,
               },
             }}
           >
             <Flex gap={3} alignItems="start">
-              {/* Actor Avatar with type icon */}
-              <Box position="relative" dangerouslySetInlineStyle={{ __style: { flexShrink: 0 } }}>
-                <UserAvatar
-                  imageId={actorImageId}
-                  name={actorName}
-                  size="md"
-                />
+              {/* Actor Avatar with badges */}
+              <Box
+                position="relative"
+                dangerouslySetInlineStyle={{ __style: { flexShrink: 0 } }}
+              >
+                <UserAvatar imageId={actorImageId} name={actorName} size="md" />
+
+                {/* Badge for multiple actors */}
+                {notification.uniqueActorCount > 1 && (
+                  <Box
+                    position="absolute"
+                    dangerouslySetInlineStyle={{
+                      __style: {
+                        top: -4,
+                        right: -4,
+                        backgroundColor: '#e60023',
+                        borderRadius: '50%',
+                        minWidth: 18,
+                        height: 18,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0 4px',
+                        border: '2px solid white',
+                      },
+                    }}
+                  >
+                    <Text size="100" color="inverse" weight="bold">
+                      {notification.uniqueActorCount > 9
+                        ? '9+'
+                        : notification.uniqueActorCount}
+                    </Text>
+                  </Box>
+                )}
+
+                {/* Type icon */}
                 <Box
                   position="absolute"
                   dangerouslySetInlineStyle={{
@@ -214,7 +247,7 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
                 >
                   <Icon
                     accessibilityLabel=""
-                    icon={config.icon}
+                    icon={config.icon as GestaltIconName}
                     size={12}
                     color="inverse"
                   />
@@ -225,9 +258,10 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
               <Box flex="grow" minWidth={0}>
                 <Flex direction="column" gap={1}>
                   <Text size="200" overflow="breakWord">
-                    <Text weight="bold" inline>{actorName}</Text>
-                    {' '}
-                    {config.verb}
+                    <Text weight="bold" inline>
+                      {actorName}
+                    </Text>{' '}
+                    {verb}
                   </Text>
 
                   {notification.previewText && (
@@ -237,7 +271,7 @@ export const NotificationPopup: React.FC<NotificationPopupProps> = ({
                   )}
 
                   <Text size="100" color="subtle">
-                    {formatShortRelativeTime(notification.createdAt)}
+                    {formatShortRelativeTime(notification.updatedAt)}
                   </Text>
                 </Flex>
               </Box>

@@ -2,9 +2,9 @@
 
 import { keycloak, TOKEN_MIN_VALIDITY } from '@/app/config/keycloak';
 import { env } from '@/app/config/env';
-import type { NotificationResponse } from '../types/notification.types';
+import type { NotificationResponse, SSEEventType } from '../types/notification.types';
 
-type NotificationHandler = (notification: NotificationResponse) => void;
+type NotificationHandler = (notification: NotificationResponse, isUpdate: boolean) => void;
 type ConnectionHandler = (connected: boolean) => void;
 type ErrorHandler = (error: Error) => void;
 
@@ -19,9 +19,6 @@ const DEFAULT_CONFIG: SSEServiceConfig = {
   maxReconnectAttempts: 10,
   heartbeatTimeout: 60000,
 };
-
-// Типы SSE событий от сервера (lowercase, как отправляет сервер)
-type SSEEventType = 'notification' | 'heartbeat' | 'connected' | 'unread_update';
 
 interface SSEEventData {
   type: SSEEventType;
@@ -66,7 +63,7 @@ class NotificationSSEService {
 
     try {
       const token = await this.getValidToken();
-      
+
       if (!token) {
         console.error('[SSE] Failed to get valid token');
         this.isConnecting = false;
@@ -95,8 +92,14 @@ class NotificationSSEService {
         this.handleMessage(event);
       };
 
+      // Новое уведомление
       this.eventSource.addEventListener('notification', (event) => {
-        this.handleNotificationEvent(event);
+        this.handleNotificationEvent(event, false);
+      });
+
+      // Обновление существующего уведомления (агрегация)
+      this.eventSource.addEventListener('notification_updated', (event) => {
+        this.handleNotificationEvent(event, true);
       });
 
       this.eventSource.addEventListener('heartbeat', () => {
@@ -109,8 +112,9 @@ class NotificationSSEService {
         this.resetHeartbeatCheck();
       });
 
-      this.eventSource.addEventListener('unread_update', () => {
+      this.eventSource.addEventListener('unread_update', (event) => {
         console.debug('[SSE] Unread update received');
+        this.handleUnreadUpdate(event);
         this.resetHeartbeatCheck();
       });
 
@@ -119,7 +123,6 @@ class NotificationSSEService {
         this.isConnecting = false;
         this.handleConnectionError();
       };
-
     } catch (error) {
       console.error('[SSE] Failed to connect:', error);
       this.isConnecting = false;
@@ -139,6 +142,10 @@ class NotificationSSEService {
     return this.eventSource?.readyState === EventSource.OPEN;
   }
 
+  /**
+   * @param handler - callback с (notification, isUpdate) 
+   *   isUpdate=true означает что это обновление существующего уведомления (агрегация)
+   */
   onNotification(handler: NotificationHandler): () => void {
     this.notificationHandlers.add(handler);
     return () => this.notificationHandlers.delete(handler);
@@ -189,27 +196,43 @@ class NotificationSSEService {
   private handleMessage(event: MessageEvent): void {
     try {
       const data = JSON.parse(event.data) as SSEEventData;
-      
+
       if (data.type === 'notification' && data.data) {
-        this.notifyNotificationHandlers(data.data as NotificationResponse);
+        this.notifyNotificationHandlers(data.data as NotificationResponse, false);
+      } else if (data.type === 'notification_updated' && data.data) {
+        this.notifyNotificationHandlers(data.data as NotificationResponse, true);
       }
-      
+
       this.resetHeartbeatCheck();
     } catch (error) {
       console.error('[SSE] Failed to parse message:', error);
     }
   }
 
-  private handleNotificationEvent(event: MessageEvent): void {
+  private handleNotificationEvent(event: MessageEvent, isUpdate: boolean): void {
     try {
       const eventData = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
       const notification = eventData.data || eventData;
-      
-      console.debug('[SSE] Received notification:', notification.type || notification);
-      this.notifyNotificationHandlers(notification as NotificationResponse);
+
+      console.debug('[SSE] Received %s:', isUpdate ? 'notification_updated' : 'notification', {
+        id: notification.id,
+        type: notification.type,
+        aggregatedCount: notification.aggregatedCount,
+      });
+
+      this.notifyNotificationHandlers(notification as NotificationResponse, isUpdate);
       this.resetHeartbeatCheck();
     } catch (error) {
       console.error('[SSE] Failed to parse notification:', error, event.data);
+    }
+  }
+
+  private handleUnreadUpdate(event: MessageEvent): void {
+    try {
+      const eventData = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+      console.debug('[SSE] Unread count update:', eventData.data?.count);
+    } catch (error) {
+      console.error('[SSE] Failed to parse unread update:', error);
     }
   }
 
@@ -241,7 +264,7 @@ class NotificationSSEService {
 
     const delay = this.config.reconnectDelay ?? 5000;
     const backoffDelay = Math.min(delay * Math.pow(1.5, this.reconnectAttempts), 30000);
-    
+
     console.debug(`[SSE] Reconnecting in ${backoffDelay}ms (attempt ${this.reconnectAttempts + 1})`);
 
     this.reconnectTimeout = setTimeout(() => {
@@ -282,10 +305,10 @@ class NotificationSSEService {
     }
   }
 
-  private notifyNotificationHandlers(notification: NotificationResponse): void {
+  private notifyNotificationHandlers(notification: NotificationResponse, isUpdate: boolean): void {
     this.notificationHandlers.forEach((handler) => {
       try {
-        handler(notification);
+        handler(notification, isUpdate);
       } catch (error) {
         console.error('[SSE] Notification handler error:', error);
       }

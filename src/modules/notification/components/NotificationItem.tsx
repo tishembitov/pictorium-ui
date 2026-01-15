@@ -3,14 +3,16 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Flex, Text, TapArea, Icon, IconButton } from 'gestalt';
-import { UserAvatar, useUser } from '@/modules/user';
+import { UserAvatar } from '@/modules/user';
 import { useImageUrl } from '@/modules/storage';
 import { buildPath } from '@/app/router/routes';
 import { formatShortRelativeTime } from '@/shared/utils/formatters';
 import { useMarkAsRead } from '../hooks/useMarkAsRead';
 import { useDeleteNotification } from '../hooks/useDeleteNotification';
 import { useNotificationItemLocalState } from '../hooks/useNotificationItemLocalState';
-import type { NotificationResponse, NotificationType } from '../types/notification.types';
+import { useNotificationActors } from '../hooks/useNotificationActors';
+import { getNotificationConfig, formatNotificationText } from '../utils/formatNotification';
+import type { NotificationResponse } from '../types/notification.types';
 
 interface NotificationItemProps {
   notification: NotificationResponse;
@@ -18,32 +20,6 @@ interface NotificationItemProps {
 }
 
 type GestaltIconName = React.ComponentProps<typeof Icon>['icon'];
-
-interface NotificationConfig {
-  icon: GestaltIconName;
-  verb: string;
-}
-
-const getNotificationConfig = (type: NotificationType): NotificationConfig => {
-  switch (type) {
-    case 'PIN_LIKED':
-      return { icon: 'heart', verb: 'liked your pin' };
-    case 'PIN_COMMENTED':
-      return { icon: 'speech', verb: 'commented on your pin' };
-    case 'PIN_SAVED':
-      return { icon: 'pin', verb: 'saved your pin' };
-    case 'COMMENT_LIKED':
-      return { icon: 'heart', verb: 'liked your comment' };
-    case 'COMMENT_REPLIED':
-      return { icon: 'speech', verb: 'replied to your comment' };
-    case 'USER_FOLLOWED':
-      return { icon: 'person-add', verb: 'started following you' };
-    case 'NEW_MESSAGE':
-      return { icon: 'speech', verb: 'sent you a message' };
-    default:
-      return { icon: 'bell', verb: 'sent you a notification' };
-  }
-};
 
 const getNotificationLink = (
   notification: NotificationResponse,
@@ -84,14 +60,15 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
 
-  const { user: actor } = useUser(notification.actorId);
+  // Загружаем всех акторов
+  const { actors, primaryActor } = useNotificationActors(notification);
+
   const { data: previewImage } = useImageUrl(notification.previewImageId, {
     enabled: !!notification.previewImageId,
   });
 
-  // ✅ Используем локальное состояние
-  const { 
-    state: localState, 
+  const {
+    state: localState,
     markAsRead: localMarkAsRead,
     markAsDeleted: localMarkAsDeleted,
     resetOverride,
@@ -110,18 +87,24 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
     [notification.type]
   );
 
+  const primaryActorName = primaryActor?.username || 'Someone';
+
+  // Форматируем текст с учётом агрегации
+  const { names, verb } = useMemo(
+    () => formatNotificationText(notification, actors, primaryActorName),
+    [notification, actors, primaryActorName]
+  );
+
   const link = useMemo(
-    () => getNotificationLink(notification, actor?.username),
-    [notification, actor?.username]
+    () => getNotificationLink(notification, primaryActor?.username),
+    [notification, primaryActor?.username]
   );
 
   const isUnread = localState.status === 'UNREAD';
 
   const handleClick = useCallback(() => {
     if (isUnread) {
-      // 1. Immediate UI update
       localMarkAsRead();
-      // 2. Background mutation
       markAsRead([notification.id]);
     }
 
@@ -134,9 +117,7 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
   const handleDelete = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      // 1. Immediate UI update
       localMarkAsDeleted();
-      // 2. Background mutation
       deleteNotification(notification.id);
     },
     [localMarkAsDeleted, deleteNotification, notification.id]
@@ -145,13 +126,16 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
   const handleMouseEnter = useCallback(() => setIsHovered(true), []);
   const handleMouseLeave = useCallback(() => setIsHovered(false), []);
 
-  // ✅ Скрываем удалённые элементы
   if (localState.isDeleted) {
     return null;
   }
 
-  const actorName = actor?.username || 'Someone';
   const backgroundColor = getBackgroundColor(isUnread, isHovered);
+
+  // Показываем время updatedAt для агрегированных уведомлений
+  const displayTime = notification.aggregatedCount > 1 
+    ? notification.updatedAt 
+    : notification.createdAt;
 
   return (
     <TapArea onTap={handleClick} rounding={2}>
@@ -174,14 +158,46 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
             position="relative"
             dangerouslySetInlineStyle={{ __style: { flexShrink: 0 } }}
           >
-            <UserAvatar imageId={actor?.imageId} name={actorName} size="md" />
+            <UserAvatar 
+              imageId={primaryActor?.imageId} 
+              name={primaryActorName} 
+              size="md" 
+            />
+            
+            {/* Badge for multiple actors */}
+            {notification.uniqueActorCount > 1 && (
+              <Box
+                position="absolute"
+                dangerouslySetInlineStyle={{
+                  __style: {
+                    top: -4,
+                    right: -4,
+                    backgroundColor: '#e60023',
+                    borderRadius: '50%',
+                    minWidth: 18,
+                    height: 18,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 4px',
+                    border: '2px solid white',
+                  },
+                }}
+              >
+                <Text size="100" color="inverse" weight="bold">
+                  {notification.uniqueActorCount > 9 ? '9+' : notification.uniqueActorCount}
+                </Text>
+              </Box>
+            )}
+
+            {/* Type icon */}
             <Box
               position="absolute"
               dangerouslySetInlineStyle={{
                 __style: {
                   bottom: -2,
                   right: -2,
-                  backgroundColor: 'white',
+                  backgroundColor: config.iconColor,
                   borderRadius: '50%',
                   padding: 2,
                   boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
@@ -190,9 +206,9 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
             >
               <Icon
                 accessibilityLabel=""
-                icon={config.icon}
+                icon={config.icon as GestaltIconName}
                 size={12}
-                color="default"
+                color="inverse"
               />
             </Box>
           </Box>
@@ -202,9 +218,9 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
             <Flex direction="column" gap={1}>
               <Text size="200" overflow="breakWord">
                 <Text weight="bold" inline>
-                  {actorName}
+                  {names}
                 </Text>{' '}
-                {config.verb}
+                {verb}
               </Text>
 
               {notification.previewText && (
@@ -214,7 +230,7 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
               )}
 
               <Text size="100" color="subtle">
-                {formatShortRelativeTime(notification.createdAt)}
+                {formatShortRelativeTime(displayTime)}
               </Text>
             </Flex>
           </Box>

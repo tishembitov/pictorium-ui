@@ -68,12 +68,12 @@ const StatItem: React.FC<StatItemProps> = ({
 export const PinDetailStats: React.FC<PinDetailStatsProps> = ({
   localState,
   commentCount,
-  viewCount,
+  // viewCount,
   onCommentsClick,
 }) => {
   const likeLabel = localState.likeCount === 1 ? 'like' : 'likes';
   const commentLabel = commentCount === 1 ? 'comment' : 'comments';
-  const viewLabel = viewCount === 1 ? 'view' : 'views';
+  // const viewLabel = viewCount === 1 ? 'view' : 'views';
 
   return (
     <div className="pin-stats">
@@ -91,12 +91,12 @@ export const PinDetailStats: React.FC<PinDetailStatsProps> = ({
         onClick={onCommentsClick}
         tooltip="View comments"
       />
-      <div className="pin-stats__divider" />
+      {/* <div className="pin-stats__divider" />
       <StatItem 
         icon="eye" 
         count={viewCount} 
         label={viewLabel} 
-      />
+      /> */}
     </div>
   );
 };

@@ -7,7 +7,7 @@ import { boardApi } from '../api/boardApi';
 import { useToast } from '@/shared/hooks/useToast';
 import { buildPath } from '@/app/router/routes';
 import { useSelectedBoardStore } from '../stores/selectedBoardStore';
-import { useAuthStore } from '@/modules/auth';
+import { useCurrentUsername } from '@/modules/auth';
 import type { BoardResponse } from '../types/board.types';
 
 interface UseDeleteBoardOptions {
@@ -27,7 +27,7 @@ export const useDeleteBoard = (options: UseDeleteBoardOptions = {}) => {
   const { toast } = useToast();
   const selectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
   const clearSelectedBoard = useSelectedBoardStore((state) => state.clearSelectedBoard);
-  const currentUser = useAuthStore((state) => state.user);
+  const username = useCurrentUsername();
 
   const mutation = useMutation({
     mutationFn: (boardId: string) => boardApi.delete(boardId),
@@ -78,8 +78,8 @@ export const useDeleteBoard = (options: UseDeleteBoardOptions = {}) => {
       // ✅ Передаём название доски в тост
       toast.board.deleted(context?.deletedBoardTitle);
 
-      if (navigateOnSuccess && currentUser?.username) {
-        navigate(`${buildPath.profile(currentUser.username)}#boards`);
+      if (navigateOnSuccess && username) {
+        navigate(`${buildPath.profile(username)}#boards`);
       }
 
       onSuccess?.();

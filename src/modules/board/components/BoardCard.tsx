@@ -17,6 +17,14 @@ interface BoardCardProps {
   showMeta?: boolean;
   size?: 'sm' | 'md' | 'lg';
   showSelectIndicator?: boolean;
+  /** Override pin count (for search results) */
+  pinCount?: number;
+  /** Preview image ID (for search results) */
+  previewImageId?: string | null;
+  /** Highlighted title HTML (from search) */
+  highlightedTitle?: string;
+  /** Owner username (for search results) */
+  ownerUsername?: string;
 }
 
 // Pinterest-style коллаж из изображений
@@ -81,7 +89,7 @@ const BoardCoverCollage: React.FC<{
     );
   }
 
-  // Pinterest-style коллаж: большое слева, 2 маленьких справа
+  // Pinterest-style коллаж
   return (
     <Box 
       height={height} 
@@ -95,7 +103,6 @@ const BoardCoverCollage: React.FC<{
         },
       }}
     >
-      {/* Main large image */}
       <Box 
         width="66%" 
         height="100%"
@@ -109,8 +116,6 @@ const BoardCoverCollage: React.FC<{
           },
         }}
       />
-
-      {/* Right column with 2 smaller images */}
       <Box 
         width="34%"
         display="flex"
@@ -155,24 +160,34 @@ export const BoardCard: React.FC<BoardCardProps> = ({
   showMeta = true,
   size = 'md',
   showSelectIndicator = true,
+  pinCount: externalPinCount,
+  previewImageId,
+  highlightedTitle,
+  ownerUsername,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const isOwner = useIsOwner(board.userId);
   const selectedBoard = useSelectedBoardStore((state) => state.selectedBoard);
   
-  // ✅ Показываем индикатор "Active" только для своих досок
   const isSelected = isOwner && selectedBoard?.id === board.id;
 
-  // Получаем первые 3 пина для коллажа
-  const { pins, totalElements: pinCount } = useBoardPins(board.id, {
+  // Use external pin count if provided, otherwise fetch
+  const shouldFetchPins = externalPinCount === undefined && !previewImageId;
+  
+  const { pins, totalElements: fetchedPinCount } = useBoardPins(board.id, {
     pageable: { page: 0, size: 3 },
+    enabled: shouldFetchPins,
   });
 
-  // Получаем URL для каждого изображения
-  const imageIds = useMemo(() => 
-    pins.slice(0, 3).map(pin => pin.thumbnailId || pin.imageId),
-    [pins]
-  );
+  const displayPinCount = externalPinCount ?? fetchedPinCount;
+
+  // Get image URLs
+  const imageIds = useMemo(() => {
+    if (previewImageId) {
+      return [previewImageId];
+    }
+    return pins.slice(0, 3).map(pin => pin.thumbnailId || pin.imageId);
+  }, [pins, previewImageId]);
 
   const { data: img1Data } = useImageUrl(imageIds[0], { enabled: !!imageIds[0] });
   const { data: img2Data } = useImageUrl(imageIds[1], { enabled: !!imageIds[1] });
@@ -191,7 +206,6 @@ export const BoardCard: React.FC<BoardCardProps> = ({
     onEdit?.();
   }, [onEdit]);
 
-  // Размеры в зависимости от size
   const dimensions = useMemo(() => {
     switch (size) {
       case 'sm': return { height: 120, titleSize: '200' as const };
@@ -199,6 +213,14 @@ export const BoardCard: React.FC<BoardCardProps> = ({
       default: return { height: 160, titleSize: '300' as const };
     }
   }, [size]);
+
+  // Render title with optional highlights
+  const renderTitle = () => {
+    if (highlightedTitle) {
+      return <span dangerouslySetInnerHTML={{ __html: highlightedTitle }} />;
+    }
+    return board.title;
+  };
 
   const content = (
     <Box
@@ -212,7 +234,6 @@ export const BoardCard: React.FC<BoardCardProps> = ({
         },
       }}
     >
-      {/* Cover Collage */}
       <Mask rounding={4}>
         <Box
           dangerouslySetInlineStyle={{
@@ -230,14 +251,9 @@ export const BoardCard: React.FC<BoardCardProps> = ({
         </Box>
       </Mask>
 
-      {/* Selected Badge - только для своих досок */}
+      {/* Selected Badge */}
       {showSelectIndicator && isSelected && (
-        <Box
-          position="absolute"
-          top
-          left
-          padding={2}
-        >
+        <Box position="absolute" top left padding={2}>
           <Box
             color="primary"
             rounding="pill"
@@ -256,7 +272,7 @@ export const BoardCard: React.FC<BoardCardProps> = ({
         </Box>
       )}
 
-      {/* Hover Overlay with Edit Button - только для владельца */}
+      {/* Hover Overlay */}
       {isHovered && isOwner && onEdit && (
         <Box
           position="absolute"
@@ -288,13 +304,21 @@ export const BoardCard: React.FC<BoardCardProps> = ({
       <Box paddingY={2}>
         <Flex direction="column" gap={1}>
           <Text weight="bold" size={dimensions.titleSize} lineClamp={1}>
-            {board.title}
+            {renderTitle()}
           </Text>
           {showMeta && (
             <Flex alignItems="center" gap={2}>
               <Text color="subtle" size="100">
-                {pinCount} {pinCount === 1 ? 'Pin' : 'Pins'}
+                {displayPinCount} {displayPinCount === 1 ? 'Pin' : 'Pins'}
               </Text>
+              {ownerUsername && (
+                <>
+                  <Text color="subtle" size="100">•</Text>
+                  <Text color="subtle" size="100">
+                    @{ownerUsername}
+                  </Text>
+                </>
+              )}
               {isSelected && !showSelectIndicator && (
                 <>
                   <Text color="subtle" size="100">•</Text>

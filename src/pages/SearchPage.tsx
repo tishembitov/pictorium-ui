@@ -1,281 +1,226 @@
 // src/pages/SearchPage.tsx
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Box, Heading, Text, Tabs, Divider, Flex, Button, SearchField } from 'gestalt';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
-  PinGrid, 
-  PinSortSelect,
-  usePins,
-} from '@/modules/pin';
-import { usePinPreferencesStore } from '@/modules/pin/stores/pinPreferencesStore';
-import type { PinFilter } from '@/modules/pin';
+  Box, 
+  Heading, 
+  Text, 
+  Tabs, 
+  Divider, 
+  Flex, 
+  Button, 
+  SearchField,
+  Spinner,
+} from 'gestalt';
 import { 
-  TagInput, 
-  TagList, 
-  TagChip,
-  useSearchTags,
-} from '@/modules/tag';
-import { 
-  UserCard, 
-  useUserByUsername,
-} from '@/modules/user';
+  useSearchPins,
+  useSearchUsers,
+  useSearchBoards,
+  useUniversalSearch,
+  useSearchHistory,
+  useClearSearchHistory,
+  SearchFilters,
+  SearchResultsHeader,
+  SearchAggregations,
+  SearchPinGrid,
+  SearchUserCard,
+  SearchBoardCard,
+  UniversalSearchResults,
+  useSearchPreferencesStore,
+} from '@/modules/search';
+import type { SearchSortBy } from '@/modules/search';
+import { TagChip } from '@/modules/tag';
+import { EmptyState, LoadingSpinner, ErrorMessage } from '@/shared/components';
+import { useAuth } from '@/modules/auth';
+import { parseSearchUrl } from '@/modules/search';
 
-import { 
-  EmptyState, 
-  LoadingSpinner, 
-  ErrorMessage,
-} from '@/shared/components';
-import { useSearchHistoryStore } from '@/shared/stores/searchHistoryStore';
-import { useDebounce } from '@/shared/hooks/useDebounce';
-
-type SearchTab = 'pins' | 'users' | 'tags';
-
-// ============================================
-// Sub-components
-// ============================================
-
-interface PinsTabContentProps {
-  query: string;
-  selectedTags: string[];
-  onTagsChange: (tags: string[]) => void;
-}
-
-const PinsTabContent: React.FC<PinsTabContentProps> = ({
-  query,
-  selectedTags,
-  onTagsChange,
-}) => {
-  const sort = usePinPreferencesStore((s) => s.sort);
-
-  // Build filter
-  const filter = useMemo((): PinFilter => ({
-    q: query || undefined,
-    tags: selectedTags.length > 0 ? selectedTags : undefined,
-  }), [query, selectedTags]);
-
-  const {
-    pins,
-    isLoading,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-    isError,
-    refetch,
-  } = usePins(filter, { sort, enabled: !!query });
-
-  const handleFetchNextPage = useCallback(() => {
-    fetchNextPage();
-  }, [fetchNextPage]);
-
-  const handleRetry = useCallback(() => {
-    refetch();
-  }, [refetch]);
-
-  if (isError) {
-    return (
-      <ErrorMessage
-        title="Failed to search pins"
-        message="Please try again"
-        onRetry={handleRetry}
-      />
-    );
-  }
-
-  return (
-    <Box>
-      {/* Filters */}
-      <Box marginBottom={4}>
-        <Flex gap={4} alignItems="end" wrap>
-          <PinSortSelect />
-          <Box flex="grow" maxWidth={300}>
-            <TagInput
-              id="search-tags"
-              label="Filter by tags"
-              selectedTags={selectedTags}
-              onChange={onTagsChange}
-              placeholder="Add tags..."
-              maxTags={5}
-            />
-          </Box>
-        </Flex>
-      </Box>
-
-      <PinGrid
-        pins={pins}
-        isLoading={isLoading}
-        isFetchingNextPage={isFetchingNextPage}
-        hasNextPage={hasNextPage}
-        fetchNextPage={handleFetchNextPage}
-        emptyMessage={`No pins found for "${query}"`}
-      />
-    </Box>
-  );
-};
-
-interface UsersTabContentProps {
-  query: string;
-}
-
-const UsersTabContent: React.FC<UsersTabContentProps> = ({ query }) => {
-  const { user, isLoading, isError } = useUserByUsername(query, {
-    enabled: !!query,
-  });
-
-  if (isLoading) {
-    return <LoadingSpinner size="lg" />;
-  }
-
-  if (isError) {
-    return (
-      <ErrorMessage
-        title="Failed to search users"
-        message="Please try again"
-      />
-    );
-  }
-
-  if (user) {
-    return (
-      <Box maxWidth={500}>
-        {/* Исправлено: убран несуществующий проп size */}
-        <UserCard 
-          user={user} 
-          showFollowButton 
-          showDescription
-          showStats
-        />
-      </Box>
-    );
-  }
-
-  return (
-    <EmptyState
-      title="No users found"
-      description={`No users matching "${query}". Try searching by exact username.`}
-      icon="person"
-    />
-  );
-};
-
-interface TagsTabContentProps {
-  query: string;
-  onTagClick: (tagName: string) => void;
-}
-
-const TagsTabContent: React.FC<TagsTabContentProps> = ({ query, onTagClick }) => {
-  const { data: tags, isLoading, isError } = useSearchTags(query, {
-    limit: 30,
-    enabled: !!query,
-  });
-
-  if (isLoading) {
-    return <LoadingSpinner size="lg" />;
-  }
-
-  if (isError) {
-    return (
-      <ErrorMessage
-        title="Failed to search tags"
-        message="Please try again"
-      />
-    );
-  }
-
-  if (tags && tags.length > 0) {
-    return (
-      <Box>
-        <TagList 
-          tags={tags} 
-          size="lg" 
-          onClick={onTagClick}
-          wrap
-          gap={3}
-        />
-      </Box>
-    );
-  }
-
-  return (
-    <EmptyState
-      title="No tags found"
-      description={`No tags matching "${query}"`}
-      icon="tag"
-    />
-  );
-};
-
-// ============================================
-// Main Component
-// ============================================
+type SearchTab = 'all' | 'pins' | 'users' | 'boards';
 
 const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const query = searchParams.get('q') || '';
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   
-  // Local state - инициализируем из URL
-  const [activeTab, setActiveTab] = useState<SearchTab>('pins');
-  const [localQuery, setLocalQuery] = useState(query);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  // Parse URL params
+  const urlParams = useMemo(() => parseSearchUrl(searchParams), [searchParams]);
   
-  const debouncedQuery = useDebounce(localQuery, 300);
-
-  // Search history
-  const addSearch = useSearchHistoryStore((state) => state.addSearch);
-  const history = useSearchHistoryStore((state) => state.history);
-  const clearHistory = useSearchHistoryStore((state) => state.clearHistory);
-
-  // Синхронизация URL -> localQuery (когда пользователь переходит по ссылке или нажимает назад)
+  // Local state
+  const [localQuery, setLocalQuery] = useState(urlParams.query);
+  const [activeTab, setActiveTab] = useState<SearchTab>(urlParams.type || 'all');
+  const [selectedTags, setSelectedTags] = useState<string[]>(urlParams.tags || []);
+  const [sortBy, setSortBy] = useState<SearchSortBy>(urlParams.sortBy || 'RELEVANCE');
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
+  const [fuzzy, setFuzzy] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Store
+  const addRecentSearch = useSearchPreferencesStore((s) => s.addRecentSearch);
+  const recentSearches = useSearchPreferencesStore((s) => s.recentSearches);
+  
+  // Server-side history
+  const { data: serverHistory } = useSearchHistory({ enabled: isAuthenticated && !urlParams.query });
+  const clearHistoryMutation = useClearSearchHistory();
+  
+  // Sync URL → state when URL changes
   useEffect(() => {
-    // Обновляем локальный стейт только если URL изменился извне
-    if (query !== localQuery && query !== debouncedQuery) {
-      setLocalQuery(query);
+    const params = parseSearchUrl(searchParams);
+    if (params.query !== localQuery) {
+      setLocalQuery(params.query);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
-  // Намеренно исключаем localQuery и debouncedQuery, чтобы избежать циклических обновлений
+    if (params.type && params.type !== activeTab) {
+      setActiveTab(params.type);
+    }
+    if (params.tags) {
+      setSelectedTags(params.tags);
+    }
+    if (params.sortBy) {
+      setSortBy(params.sortBy);
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Синхронизация localQuery -> URL (когда пользователь печатает)
-  useEffect(() => {
-    // Обновляем URL только после debounce и если значение изменилось
-    if (debouncedQuery !== query) {
-      if (debouncedQuery) {
-        setSearchParams({ q: debouncedQuery }, { replace: true });
-        addSearch(debouncedQuery);
-      } else if (query) {
-        // Очищаем URL если запрос пустой
-        setSearchParams({}, { replace: true });
-      }
-    }
-  }, [debouncedQuery, query, setSearchParams, addSearch]);
+  // Universal search (for "all" tab)
+  const {
+    data: universalData,
+    isLoading: isUniversalLoading,
+  } = useUniversalSearch(urlParams.query, {
+    enabled: !!urlParams.query && activeTab === 'all',
+  });
+
+  // Pins search
+  const {
+    pins,
+    totalHits: pinsTotalHits,
+    took: pinsTook,
+    aggregations: pinsAggregations,
+    isLoading: isPinsLoading,
+    isFetchingNextPage: isPinsFetchingNext,
+    hasNextPage: pinsHasNext,
+    fetchNextPage: pinsFetchNext,
+    isError: isPinsError,
+    refetch: pinsRefetch,
+  } = useSearchPins({
+    q: urlParams.query,
+    tags: selectedTags.length > 0 ? selectedTags : undefined,
+    sortBy,
+    createdFrom: dateFrom?.toISOString(),
+    createdTo: dateTo?.toISOString(),
+    fuzzy,
+    enabled: !!urlParams.query && activeTab === 'pins',
+  });
+
+  // Users search
+  const {
+    users,
+    totalHits: usersTotalHits,
+    took: usersTook,
+    isLoading: isUsersLoading,
+    isFetchingNextPage: isUsersFetchingNext,
+    hasNextPage: usersHasNext,
+    fetchNextPage: usersFetchNext,
+    isError: isUsersError,
+    refetch: usersRefetch,
+  } = useSearchUsers({
+    q: urlParams.query,
+    sortBy,
+    fuzzy,
+    enabled: !!urlParams.query && activeTab === 'users',
+  });
+
+  // Boards search
+  const {
+    boards,
+    totalHits: boardsTotalHits,
+    took: boardsTook,
+    isLoading: isBoardsLoading,
+    isFetchingNextPage: isBoardsFetchingNext,
+    hasNextPage: boardsHasNext,
+    fetchNextPage: boardsFetchNext,
+    isError: isBoardsError,
+    refetch: boardsRefetch,
+  } = useSearchBoards({
+    q: urlParams.query,
+    sortBy,
+    fuzzy,
+    enabled: !!urlParams.query && activeTab === 'boards',
+  });
 
   // Handlers
-  const handleTabChange = useCallback(({ activeTabIndex }: { activeTabIndex: number }) => {
-    const tabs: SearchTab[] = ['pins', 'users', 'tags'];
-    setActiveTab(tabs[activeTabIndex] || 'pins');
-  }, []);
-
-  const getTabIndex = useCallback((): number => {
-    const tabs: SearchTab[] = ['pins', 'users', 'tags'];
-    return tabs.indexOf(activeTab);
-  }, [activeTab]);
+  const handleSearch = useCallback((query: string) => {
+    const trimmed = query.trim();
+    if (trimmed) {
+      addRecentSearch(trimmed);
+      setSearchParams({ q: trimmed }, { replace: true });
+    }
+  }, [setSearchParams, addRecentSearch]);
 
   const handleSearchChange = useCallback(({ value }: { value: string }) => {
     setLocalQuery(value);
   }, []);
 
-  const handleHistoryClick = useCallback((searchQuery: string) => {
-    setLocalQuery(searchQuery);
-    setSearchParams({ q: searchQuery });
-  }, [setSearchParams]);
+  const handleSearchKeyDown = useCallback(({ event }: { event: React.KeyboardEvent<HTMLInputElement> }) => {
+    if (event.key === 'Enter') {
+      handleSearch(localQuery);
+    }
+  }, [localQuery, handleSearch]);
 
-  const handleTagClick = useCallback((tagName: string) => {
-    setLocalQuery(tagName);
-    setSearchParams({ q: tagName });
-  }, [setSearchParams]);
+  const handleTabChange = useCallback(({ activeTabIndex }: { activeTabIndex: number }) => {
+    const tabs: SearchTab[] = ['all', 'pins', 'users', 'boards'];
+    const newTab = tabs[activeTabIndex] || 'all';
+    setActiveTab(newTab);
+    
+    // Update URL
+    const params = new URLSearchParams(searchParams);
+    if (newTab === 'all') {
+      params.delete('type');
+    } else {
+      params.set('type', newTab);
+    }
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const getTabIndex = useCallback((): number => {
+    const tabs: SearchTab[] = ['all', 'pins', 'users', 'boards'];
+    return tabs.indexOf(activeTab);
+  }, [activeTab]);
+
+  const handleClearFilters = useCallback(() => {
+    setSelectedTags([]);
+    setSortBy('RELEVANCE');
+    setDateFrom(null);
+    setDateTo(null);
+    setFuzzy(true);
+  }, []);
+
+  const handleHistoryClick = useCallback((query: string) => {
+    setLocalQuery(query);
+    handleSearch(query);
+  }, [handleSearch]);
+
+  const handleClearHistory = useCallback(() => {
+    clearHistoryMutation.mutate();
+  }, [clearHistoryMutation]);
+
+  const handleTagFromAggregations = useCallback((tag: string) => {
+    if (!selectedTags.includes(tag)) {
+      setSelectedTags(prev => [...prev, tag]);
+      setActiveTab('pins'); // Switch to pins to show filtered results
+    }
+  }, [selectedTags]);
+
+  const hasFilters = selectedTags.length > 0 || dateFrom || dateTo || sortBy !== 'RELEVANCE';
+
+  // Combine histories
+  const history = useMemo(() => {
+    if (isAuthenticated && serverHistory) {
+      return serverHistory.map(h => h.query);
+    }
+    return recentSearches;
+  }, [isAuthenticated, serverHistory, recentSearches]);
 
   // Empty state - no query
-  if (!query) {
+  if (!urlParams.query) {
     return (
       <Box paddingY={4}>
         <Box marginBottom={6}>
@@ -290,9 +235,10 @@ const SearchPage: React.FC = () => {
             id="search-main"
             accessibilityLabel="Search"
             accessibilityClearButtonLabel="Clear"
-            placeholder="Search for pins, users, or tags..."
+            placeholder="Search for pins, users, or boards..."
             value={localQuery}
             onChange={handleSearchChange}
+            onKeyDown={handleSearchKeyDown}
           />
         </Box>
 
@@ -304,19 +250,19 @@ const SearchPage: React.FC = () => {
                 <Text weight="bold" size="300">Recent Searches</Text>
                 <Button
                   text="Clear all"
-                  onClick={clearHistory}
+                  onClick={handleClearHistory}
                   size="sm"
                   color="gray"
                 />
               </Flex>
             </Box>
             <Flex wrap gap={2}>
-              {history.slice(0, 10).map((item) => (
+              {history.slice(0, 10).map((query) => (
                 <TagChip
-                  key={item.query}
-                  tag={item.query}
+                  key={query}
+                  tag={query}
                   size="md"
-                  onClick={() => handleHistoryClick(item.query)}
+                  onClick={() => handleHistoryClick(query)}
                 />
               ))}
             </Flex>
@@ -326,7 +272,7 @@ const SearchPage: React.FC = () => {
         {history.length === 0 && (
           <EmptyState
             title="Search for something"
-            description="Enter a search term to find pins, users, or tags"
+            description="Enter a search term to find pins, users, or boards"
             icon="search"
           />
         )}
@@ -339,21 +285,51 @@ const SearchPage: React.FC = () => {
       {/* Header */}
       <Box marginBottom={4}>
         <Heading size="400" accessibilityLevel={1}>
-          Search results for &quot;{query}&quot;
+          Search results for &quot;{urlParams.query}&quot;
         </Heading>
       </Box>
 
       {/* Search Bar */}
-      <Box maxWidth={600} marginBottom={4}>
-        <SearchField
-          id="search-results"
-          accessibilityLabel="Search"
-          accessibilityClearButtonLabel="Clear"
-          placeholder="Search..."
-          value={localQuery}
-          onChange={handleSearchChange}
+      <Flex gap={3} marginBottom={4} wrap>
+        <Box flex="grow" maxWidth={600}>
+          <SearchField
+            id="search-results"
+            accessibilityLabel="Search"
+            accessibilityClearButtonLabel="Clear"
+            placeholder="Search..."
+            value={localQuery}
+            onChange={handleSearchChange}
+            onKeyDown={handleSearchKeyDown}
+          />
+        </Box>
+        
+        <Button
+          text={showFilters ? 'Hide Filters' : 'Filters'}
+          onClick={() => setShowFilters(!showFilters)}
+          color={hasFilters ? 'red' : 'gray'}
+          size="lg"
+          iconEnd="filter"
         />
-      </Box>
+      </Flex>
+
+      {/* Filters */}
+      {showFilters && (
+        <Box marginBottom={4}>
+          <SearchFilters
+            selectedTags={selectedTags}
+            onTagsChange={setSelectedTags}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+            fuzzy={fuzzy}
+            onFuzzyChange={setFuzzy}
+            onClear={handleClearFilters}
+          />
+        </Box>
+      )}
 
       {/* Tabs */}
       <Box marginBottom={4}>
@@ -361,9 +337,10 @@ const SearchPage: React.FC = () => {
           activeTabIndex={getTabIndex()}
           onChange={handleTabChange}
           tabs={[
-            { href: '#pins', text: 'Pins' },
-            { href: '#users', text: 'Users' },
-            { href: '#tags', text: 'Tags' },
+            { href: '#all', text: 'All' },
+            { href: '#pins', text: `Pins${pinsTotalHits ? ` (${pinsTotalHits})` : ''}` },
+            { href: '#users', text: `Users${usersTotalHits ? ` (${usersTotalHits})` : ''}` },
+            { href: '#boards', text: `Boards${boardsTotalHits ? ` (${boardsTotalHits})` : ''}` },
           ]}
         />
       </Box>
@@ -372,20 +349,162 @@ const SearchPage: React.FC = () => {
 
       {/* Tab Content */}
       <Box marginTop={4}>
-        {activeTab === 'pins' && (
-          <PinsTabContent
-            query={query}
-            selectedTags={selectedTags}
-            onTagsChange={setSelectedTags}
+        {/* All Tab - Universal Search */}
+        {activeTab === 'all' && (
+          <UniversalSearchResults
+            data={universalData}
+            isLoading={isUniversalLoading}
+            query={urlParams.query}
           />
         )}
 
-        {activeTab === 'users' && (
-          <UsersTabContent query={query} />
+        {/* Pins Tab */}
+        {activeTab === 'pins' && (
+          <Box>
+            <SearchResultsHeader
+              query={urlParams.query}
+              totalHits={pinsTotalHits}
+              took={pinsTook}
+              type="pins"
+              isLoading={isPinsLoading}
+            />
+            
+            {pinsAggregations && (
+              <Box marginBottom={4}>
+                <SearchAggregations
+                  aggregations={pinsAggregations}
+                  onTagClick={handleTagFromAggregations}
+                />
+              </Box>
+            )}
+            
+            {isPinsError ? (
+              <ErrorMessage
+                title="Failed to search pins"
+                message="Please try again"
+                onRetry={() => pinsRefetch()}
+              />
+            ) : (
+              <SearchPinGrid
+                pins={pins}
+                isLoading={isPinsLoading}
+                isFetchingNextPage={isPinsFetchingNext}
+                hasNextPage={pinsHasNext}
+                fetchNextPage={pinsFetchNext}
+                emptyMessage={`No pins found for "${urlParams.query}"`}
+              />
+            )}
+          </Box>
         )}
 
-        {activeTab === 'tags' && (
-          <TagsTabContent query={query} onTagClick={handleTagClick} />
+        {/* Users Tab */}
+        {activeTab === 'users' && (
+          <Box>
+            <SearchResultsHeader
+              query={urlParams.query}
+              totalHits={usersTotalHits}
+              took={usersTook}
+              type="users"
+              isLoading={isUsersLoading}
+            />
+            
+            {isUsersError ? (
+              <ErrorMessage
+                title="Failed to search users"
+                message="Please try again"
+                onRetry={() => usersRefetch()}
+              />
+            ) : isUsersLoading ? (
+              <LoadingSpinner size="lg" />
+            ) : users.length === 0 ? (
+              <EmptyState
+                title="No users found"
+                description={`No users matching "${urlParams.query}"`}
+                icon="person"
+              />
+            ) : (
+              <Box>
+                <Flex direction="column" gap={2}>
+                  {users.map((user) => (
+                    <SearchUserCard key={user.id} user={user} />
+                  ))}
+                </Flex>
+                
+                {isUsersFetchingNext && (
+                  <Box display="flex" justifyContent="center" padding={4}>
+                    <Spinner accessibilityLabel="Loading more users" show />
+                  </Box>
+                )}
+                
+                {usersHasNext && !isUsersFetchingNext && (
+                  <Box display="flex" justifyContent="center" padding={4}>
+                    <Button
+                      text="Load more"
+                      onClick={() => usersFetchNext()}
+                      size="lg"
+                      color="gray"
+                    />
+                  </Box>
+                )}
+              </Box>
+            )}
+          </Box>
+        )}
+
+        {/* Boards Tab */}
+        {activeTab === 'boards' && (
+          <Box>
+            <SearchResultsHeader
+              query={urlParams.query}
+              totalHits={boardsTotalHits}
+              took={boardsTook}
+              type="boards"
+              isLoading={isBoardsLoading}
+            />
+            
+            {isBoardsError ? (
+              <ErrorMessage
+                title="Failed to search boards"
+                message="Please try again"
+                onRetry={() => boardsRefetch()}
+              />
+            ) : isBoardsLoading ? (
+              <LoadingSpinner size="lg" />
+            ) : boards.length === 0 ? (
+              <EmptyState
+                title="No boards found"
+                description={`No boards matching "${urlParams.query}"`}
+                icon="board"
+              />
+            ) : (
+              <Box>
+                <Flex gap={4} wrap>
+                  {boards.map((board) => (
+                    <Box key={board.id} width={236}>
+                      <SearchBoardCard board={board} />
+                    </Box>
+                  ))}
+                </Flex>
+                
+                {isBoardsFetchingNext && (
+                  <Box display="flex" justifyContent="center" padding={4}>
+                    <Spinner accessibilityLabel="Loading more boards" show />
+                  </Box>
+                )}
+                
+                {boardsHasNext && !isBoardsFetchingNext && (
+                  <Box display="flex" justifyContent="center" padding={4}>
+                    <Button
+                      text="Load more"
+                      onClick={() => boardsFetchNext()}
+                      size="lg"
+                      color="gray"
+                    />
+                  </Box>
+                )}
+              </Box>
+            )}
+          </Box>
         )}
       </Box>
     </Box>

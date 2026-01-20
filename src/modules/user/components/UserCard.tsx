@@ -19,6 +19,10 @@ interface UserCardProps {
   followersCount?: number;
   onClick?: () => void;
   variant?: 'default' | 'compact' | 'horizontal';
+  /** Highlighted username HTML (from search) */
+  highlightedUsername?: string;
+  /** Highlighted description HTML (from search) */
+  highlightedDescription?: string;
 }
 
 export const UserCard: React.FC<UserCardProps> = ({
@@ -29,6 +33,8 @@ export const UserCard: React.FC<UserCardProps> = ({
   followersCount,
   onClick,
   variant = 'default',
+  highlightedUsername,
+  highlightedDescription,
 }) => {
   const { user: currentUser } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
@@ -39,6 +45,25 @@ export const UserCard: React.FC<UserCardProps> = ({
 
   const handleMouseEnter = () => setIsHovered(true);
   const handleMouseLeave = () => setIsHovered(false);
+
+  // Render username with optional highlights
+  const renderUsername = () => {
+    if (highlightedUsername) {
+      return <span dangerouslySetInnerHTML={{ __html: highlightedUsername }} />;
+    }
+    return displayName;
+  };
+
+  // Render description with optional highlights
+  const renderDescription = () => {
+    const desc = highlightedDescription || user.description;
+    if (!desc) return null;
+    
+    if (highlightedDescription) {
+      return <span dangerouslySetInnerHTML={{ __html: highlightedDescription }} />;
+    }
+    return desc;
+  };
 
   // Compact variant
   if (variant === 'compact') {
@@ -59,7 +84,7 @@ export const UserCard: React.FC<UserCardProps> = ({
                 size="sm"
               />
               <Text weight="bold" size="200" lineClamp={1}>
-                {displayName}
+                {renderUsername()}
               </Text>
             </Flex>
           </Box>
@@ -94,7 +119,7 @@ export const UserCard: React.FC<UserCardProps> = ({
               
               <Box flex="grow" minWidth={0}>
                 <Text weight="bold" size="300" lineClamp={1}>
-                  {displayName}
+                  {renderUsername()}
                 </Text>
                 <Text color="subtle" size="200">
                   {formattedUsername}
@@ -107,12 +132,13 @@ export const UserCard: React.FC<UserCardProps> = ({
               </Box>
               
               {showFollowButton && !isCurrentUser && (
-                // ✅ Передаём username
-                <FollowButton 
-                  userId={user.id} 
-                  username={user.username}
-                  size="sm" 
-                />
+                <Box onClick={(e) => e.preventDefault()}>
+                  <FollowButton 
+                    userId={user.id} 
+                    username={user.username}
+                    size="sm" 
+                  />
+                </Box>
               )}
             </Flex>
           </Box>
@@ -148,16 +174,16 @@ export const UserCard: React.FC<UserCardProps> = ({
         
         <Box width="100%">
           <Text align="center" weight="bold" size="300" lineClamp={1}>
-            {displayName}
+            {renderUsername()}
           </Text>
           <Text align="center" color="subtle" size="200">
             {formattedUsername}
           </Text>
         </Box>
         
-        {showDescription && user.description && (
+        {showDescription && (
           <Text align="center" color="subtle" size="200" lineClamp={2}>
-            {user.description}
+            {renderDescription()}
           </Text>
         )}
         
@@ -168,8 +194,7 @@ export const UserCard: React.FC<UserCardProps> = ({
         )}
         
         {showFollowButton && !isCurrentUser && (
-          <Box width="100%">
-            {/* ✅ Передаём username */}
+          <Box width="100%" onClick={(e) => e.preventDefault()}>
             <FollowButton 
               userId={user.id} 
               username={user.username}

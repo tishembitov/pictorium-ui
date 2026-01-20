@@ -16,12 +16,20 @@ interface PinCardProps {
   pin: PinResponse;
   showActions?: boolean;
   onDelete?: () => void;
+  /** Highlighted title HTML (from search) */
+  highlightedTitle?: string;
+  /** Show author info on hover */
+  showAuthor?: boolean;
+  authorUsername?: string;
 }
 
 export const PinCard: React.FC<PinCardProps> = ({
   pin,
   showActions = true,
   onDelete,
+  highlightedTitle,
+  showAuthor = false,
+  authorUsername,
 }) => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -49,6 +57,9 @@ export const PinCard: React.FC<PinCardProps> = ({
     width: pin.thumbnailWidth || 236,
     height: pin.thumbnailHeight || 300,
   }), [pin.thumbnailWidth, pin.thumbnailHeight]);
+
+  // Display title - use highlighted if provided
+  const displayTitle = highlightedTitle || pin.title;
 
   return (
     <Box
@@ -136,8 +147,17 @@ export const PinCard: React.FC<PinCardProps> = ({
             </Box>
           </Box>
 
-          {/* Bottom Actions - Share & Menu */}
-          <Box padding={2} display="flex" justifyContent="end">
+          {/* Bottom Actions - Author (if search) + Share & Menu */}
+          <Box padding={2} display="flex" justifyContent="between" alignItems="end">
+            {/* Author info (for search results) */}
+            {showAuthor && authorUsername && (
+              <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
+                <Text color="inverse" size="100">
+                  by @{authorUsername}
+                </Text>
+              </Box>
+            )}
+            
             <Box dangerouslySetInlineStyle={{ __style: { pointerEvents: 'auto' } }}>
               <Flex gap={2} alignItems="center">
                 <PinShareButton pin={pin} size="sm" variant="overlay" />
@@ -149,10 +169,14 @@ export const PinCard: React.FC<PinCardProps> = ({
       )}
 
       {/* Title below image */}
-      {pin.title && (
+      {displayTitle && (
         <Box paddingX={1} paddingY={2}>
           <Text size="100" weight="bold" lineClamp={2}>
-            {pin.title}
+            {highlightedTitle ? (
+              <span dangerouslySetInnerHTML={{ __html: highlightedTitle }} />
+            ) : (
+              pin.title
+            )}
           </Text>
         </Box>
       )}

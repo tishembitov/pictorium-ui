@@ -8,7 +8,6 @@ import {
   PinDetailContent,
   RelatedPinsSection,
   usePin, 
-  useRelatedPins,
 } from '@/modules/pin';
 import { ROUTES } from '@/app/router/routes';
 
@@ -17,14 +16,6 @@ const PinDetailPage: React.FC = () => {
   const navigate = useNavigate();
 
   const { pin, isLoading, isError, error, refetch } = usePin(pinId);
-
-  const {
-    pins: relatedPins,
-    isLoading: isLoadingRelated,
-    isFetchingNextPage: isFetchingMoreRelated,
-    hasNextPage: hasMoreRelated,
-    fetchNextPage: fetchMoreRelated,
-  } = useRelatedPins(pinId, { enabled: !!pin });
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -36,10 +27,6 @@ const PinDetailPage: React.FC = () => {
 
   const handleRetry = () => {
     void refetch();
-  };
-
-  const handleFetchMoreRelated = () => {
-    fetchMoreRelated();
   };
 
   if (!pinId) {
@@ -107,14 +94,11 @@ const PinDetailPage: React.FC = () => {
         </div>
       </article>
 
-      {/* Related Pins - только карточки */}
+      {/* Related Pins - now uses search API */}
       <RelatedPinsSection
-        pins={relatedPins}
-        isLoading={isLoadingRelated}
-        isFetchingNextPage={isFetchingMoreRelated}
-        hasNextPage={hasMoreRelated}
-        fetchNextPage={handleFetchMoreRelated}
+        pinId={pinId}
         pinTitle={pin.title}
+        limit={20}
       />
     </div>
   );

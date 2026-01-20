@@ -1,23 +1,25 @@
 // src/pages/ExplorePage.tsx
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { Box, Heading, Tabs, Divider, Flex, Button, Text } from 'gestalt';
+import { Box, Heading, Tabs, Divider, Flex, Button, Text, Spinner } from 'gestalt';
 import { 
   CategoryGrid, 
   TagSearch, 
   TagList, 
   TagInput,
-  useSearchTags,
-  useCategories,
 } from '@/modules/tag';
 import type { CategoryResponse, TagResponse } from '@/modules/tag';
 import { 
   PinGrid, 
-  PinSortSelect,
-  usePins,
 } from '@/modules/pin';
-import { usePinPreferencesStore } from '@/modules/pin/stores/pinPreferencesStore';
-import type { PinFilter } from '@/modules/pin';
+import {
+  useSearchPins,
+  useTrending,
+  SearchSortSelect,
+  SearchAggregations,
+  SearchResultsHeader,
+} from '@/modules/search';
+import type { SearchSortBy } from '@/modules/search';
 import { EmptyState, LoadingSpinner } from '@/shared/components';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useIsMobile } from '@/shared/hooks/useMediaQuery';
@@ -30,44 +32,34 @@ const ExplorePage: React.FC = () => {
   // Local state
   const [activeTab, setActiveTab] = useState<TabIndex>(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [tagSearchQuery] = useState('');
+  const [tagSearchQuery, setTagSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SearchSortBy>('RELEVANCE');
   
   const debouncedQuery = useDebounce(tagSearchQuery, 300);
 
-  // Global sort preference
-  const sort = usePinPreferencesStore((s) => s.sort);
+  // Trending queries
+  const { data: trending, isLoading: isTrendingLoading } = useTrending({ limit: 12 });
 
-  // Categories
-  const { isLoading: isCategoriesLoading } = useCategories({ limit: 12 });
-
-  // Tag search (only for Tags tab)
-  const { data: searchedTags, isLoading: isTagsLoading } = useSearchTags(debouncedQuery, {
-    limit: 20,
-    enabled: activeTab === 2 && debouncedQuery.length > 0,
-  });
-
-  // Build filter for pins
-  const pinsFilter = useMemo((): PinFilter => ({
-    tags: selectedTags.length > 0 ? selectedTags : undefined,
-  }), [selectedTags]);
-
-  // Fetch pins (only when Pins tab is active)
+  // Pin search (for Pins tab)
   const {
     pins,
-    totalElements,
+    totalHits,
+    took,
+    aggregations,
     isLoading: isPinsLoading,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = usePins(pinsFilter, { 
-    sort,
+  } = useSearchPins({
+    tags: selectedTags.length > 0 ? selectedTags : undefined,
+    sortBy,
     enabled: activeTab === 1,
   });
 
   // Handlers
   const handleCategoryClick = useCallback((category: CategoryResponse) => {
     setSelectedTags([category.tagName]);
-    setActiveTab(1); // Switch to Pins tab
+    setActiveTab(1);
   }, []);
 
   const handleTagSelect = useCallback((tag: TagResponse) => {
@@ -75,7 +67,7 @@ const ExplorePage: React.FC = () => {
       if (prev.includes(tag.name)) return prev;
       return [...prev, tag.name];
     });
-    setActiveTab(1); // Switch to Pins tab
+    setActiveTab(1);
   }, []);
 
   const handleTagRemove = useCallback((tagName: string) => {
@@ -98,9 +90,20 @@ const ExplorePage: React.FC = () => {
     handleTagSelect({ id: tagName, name: tagName });
   }, [handleTagSelect]);
 
+  const handleTrendingClick = useCallback((query: string) => {
+    setSelectedTags([query]);
+    setActiveTab(1);
+  }, []);
+
+  const handleTagFromAggregations = useCallback((tag: string) => {
+    if (!selectedTags.includes(tag)) {
+      setSelectedTags(prev => [...prev, tag]);
+    }
+  }, [selectedTags]);
+
   // Tab labels
   const pinsTabLabel = selectedTags.length > 0 
-    ? `Pins (${totalElements})` 
+    ? `Pins (${totalHits})` 
     : 'All Pins';
 
   return (
@@ -125,6 +128,28 @@ const ExplorePage: React.FC = () => {
           />
         </Box>
       </Flex>
+
+      {/* Trending */}
+      {!selectedTags.length && trending && trending.length > 0 && (
+        <Box marginTop={4}>
+          <Text weight="bold" size="200" color="subtle">
+            Trending Searches
+          </Text>
+          <Box marginTop={2}>
+            <Flex gap={2} wrap>
+              {trending.map((item) => (
+                <Button
+                  key={item.query}
+                  text={item.query}
+                  onClick={() => handleTrendingClick(item.query)}
+                  size="sm"
+                  color="gray"
+                />
+              ))}
+            </Flex>
+          </Box>
+        </Box>
+      )}
 
       {/* Selected Tags */}
       {selectedTags.length > 0 && (
@@ -155,7 +180,7 @@ const ExplorePage: React.FC = () => {
           tabs={[
             { href: '#categories', text: 'Categories' },
             { href: '#pins', text: pinsTabLabel },
-            { href: '#tags', text: 'Browse Tags' },
+            { href: '#trending', text: 'Trending' },
           ]}
         />
       </Box>
@@ -167,16 +192,12 @@ const ExplorePage: React.FC = () => {
         {/* Categories Tab */}
         {activeTab === 0 && (
           <Box>
-            {isCategoriesLoading ? (
-              <LoadingSpinner size="lg" />
-            ) : (
-              <CategoryGrid
-                limit={12}
-                size="lg"
-                onCategoryClick={handleCategoryClick}
-                showTitle={false}
-              />
-            )}
+            <CategoryGrid
+              limit={12}
+              size="lg"
+              onCategoryClick={handleCategoryClick}
+              showTitle={false}
+            />
           </Box>
         )}
 
@@ -187,7 +208,7 @@ const ExplorePage: React.FC = () => {
             <Box marginBottom={4}>
               <Flex gap={4} alignItems="end" wrap>
                 {/* Sort */}
-                <PinSortSelect />
+                <SearchSortSelect value={sortBy} onChange={setSortBy} />
                 
                 {/* Tag Input */}
                 <Box flex="grow" maxWidth={400}>
@@ -213,6 +234,28 @@ const ExplorePage: React.FC = () => {
               </Flex>
             </Box>
 
+            {/* Aggregations */}
+            {aggregations && (
+              <Box marginBottom={4}>
+                <SearchAggregations
+                  aggregations={aggregations}
+                  onTagClick={handleTagFromAggregations}
+                  compact
+                />
+              </Box>
+            )}
+
+            {/* Results Header */}
+            {selectedTags.length > 0 && (
+              <SearchResultsHeader
+                query={selectedTags.join(', ')}
+                totalHits={totalHits}
+                took={took}
+                type="pins"
+                isLoading={isPinsLoading}
+              />
+            )}
+
             {/* Pins Grid */}
             <PinGrid
               pins={pins}
@@ -220,6 +263,7 @@ const ExplorePage: React.FC = () => {
               isFetchingNextPage={isFetchingNextPage}
               hasNextPage={hasNextPage}
               fetchNextPage={handleFetchNextPage}
+              showHighlights
               emptyMessage={
                 selectedTags.length > 0
                   ? 'No pins found for selected tags'
@@ -234,61 +278,55 @@ const ExplorePage: React.FC = () => {
           </Box>
         )}
 
-        {/* Tags Tab */}
+        {/* Trending Tab */}
         {activeTab === 2 && (
           <Box>
-            <Box marginBottom={4}>
-              <TagSearch
-                placeholder="Search for tags..."
-                onTagSelect={handleTagSelect}
-                navigateOnSelect={false}
-                maxSuggestions={10}
-              />
-            </Box>
-
-            {/* Manual search input for tracking query */}
-            <Box marginBottom={4}>
-              <TagInput
-                id="tag-search-input"
-                label="Search tags"
-                selectedTags={[]}
-                onChange={() => {}}
-                placeholder="Type to search..."
-                maxTags={0}
-              />
-            </Box>
-
-            {isTagsLoading && <LoadingSpinner />}
-
-            {searchedTags && searchedTags.length > 0 && (
+            {isTrendingLoading && <LoadingSpinner />}
+            
+            {!isTrendingLoading && trending && trending.length > 0 && (
               <Box>
                 <Text weight="bold" size="300">
-                  Results for &quot;{debouncedQuery}&quot;
+                  Popular Searches
                 </Text>
-                <Box marginTop={3}>
-                  <TagList
-                    tags={searchedTags}
-                    size="lg"
-                    onClick={handleTagFromSearchClick}
-                  />
+                <Box marginTop={4}>
+                  <Flex direction="column" gap={2}>
+                    {trending.map((item, index) => (
+                      <Box
+                        key={item.query}
+                        padding={3}
+                        rounding={3}
+                        color="secondary"
+                        dangerouslySetInlineStyle={{
+                          __style: { cursor: 'pointer' },
+                        }}
+                        onClick={() => handleTrendingClick(item.query)}
+                      >
+                        <Flex alignItems="center" gap={3}>
+                          <Text weight="bold" size="400" color="subtle">
+                            {index + 1}
+                          </Text>
+                          <Box flex="grow">
+                            <Text weight="bold" size="300">
+                              {item.query}
+                            </Text>
+                          </Box>
+                          <Text size="200" color="subtle">
+                            {item.searchCount.toLocaleString()} searches
+                          </Text>
+                        </Flex>
+                      </Box>
+                    ))}
+                  </Flex>
                 </Box>
               </Box>
             )}
 
-            {!isTagsLoading && debouncedQuery && (!searchedTags || searchedTags.length === 0) && (
+            {!isTrendingLoading && (!trending || trending.length === 0) && (
               <EmptyState
-                title="No tags found"
-                description={`No tags matching "${debouncedQuery}"`}
-                icon="tag"
+                title="No trending searches"
+                description="Check back later for popular searches"
+                icon="trending"
               />
-            )}
-
-            {!debouncedQuery && (
-              <Box>
-                <Text color="subtle" align="center">
-                  Start typing to search for tags
-                </Text>
-              </Box>
             )}
           </Box>
         )}

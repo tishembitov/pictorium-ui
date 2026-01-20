@@ -154,6 +154,34 @@ export const NOTIFICATION_ENDPOINTS = {
   delete: (id: string) => `${API_PREFIXES.notifications}/${id}`,
 } as const;
 
+// Добавить в src/shared/api/apiEndpoints.ts
+
+// Search Service Endpoints
+export const SEARCH_ENDPOINTS = {
+  // Universal
+  searchAll: () => '/api/v1/search',
+  
+  // Pins
+  searchPins: () => '/api/v1/search/pins',
+  similarPins: (pinId: string) => `/api/v1/search/pins/${pinId}/similar`,
+  
+  // Users
+  searchUsers: () => '/api/v1/search/users',
+  
+  // Boards
+  searchBoards: () => '/api/v1/search/boards',
+  
+  // Suggestions
+  suggest: () => '/api/v1/search/suggest',
+  
+  // Trending
+  trending: () => '/api/v1/search/trending',
+  
+  // History
+  history: () => '/api/v1/search/history',
+} as const;
+
+
 // ✅ SSE Endpoints
 export const SSE_ENDPOINTS = {
   connect: () => `${API_PREFIXES.sse}/connect`,
@@ -171,4 +199,5 @@ export const API_ENDPOINTS = {
   chats: CHAT_ENDPOINTS,
   notifications: NOTIFICATION_ENDPOINTS, // ✅ Добавлено
   sse: SSE_ENDPOINTS, // ✅ Добавлено
+  search: SEARCH_ENDPOINTS
 } as const;

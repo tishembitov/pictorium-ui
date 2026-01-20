@@ -150,6 +150,38 @@ export const queryKeys = {
     unreadCount: () => [...queryKeys.notifications.all, 'unreadCount'] as const,
     byId: (id: string) => [...queryKeys.notifications.all, 'byId', id] as const,
   },
+
+  // ==================== Search ====================
+  search: {
+    all: ['search'] as const,
+    
+    // Universal search
+    universal: (query: string) => [...queryKeys.search.all, 'universal', query] as const,
+    
+    // Pins search
+    pins: (params: Record<string, unknown>) => [...queryKeys.search.all, 'pins', params] as const,
+    pinsInfinite: (params: Record<string, unknown>) => [...queryKeys.search.all, 'pins', 'infinite', params] as const,
+    
+    // Users search
+    users: (params: Record<string, unknown>) => [...queryKeys.search.all, 'users', params] as const,
+    usersInfinite: (params: Record<string, unknown>) => [...queryKeys.search.all, 'users', 'infinite', params] as const,
+    
+    // Boards search
+    boards: (params: Record<string, unknown>) => [...queryKeys.search.all, 'boards', params] as const,
+    boardsInfinite: (params: Record<string, unknown>) => [...queryKeys.search.all, 'boards', 'infinite', params] as const,
+    
+    // Similar pins
+    similar: (pinId: string) => [...queryKeys.search.all, 'similar', pinId] as const,
+    
+    // Suggestions
+    suggest: (query: string) => [...queryKeys.search.all, 'suggest', query] as const,
+    
+    // Trending
+    trending: (limit?: number) => [...queryKeys.search.all, 'trending', limit] as const,
+    
+    // History
+    history: () => [...queryKeys.search.all, 'history'] as const,
+  },
   
 } as const;
 

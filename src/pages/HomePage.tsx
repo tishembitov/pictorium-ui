@@ -1,3 +1,5 @@
+// src/pages/HomePage.tsx
+
 import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -13,11 +15,17 @@ import {
 import { 
   PinGrid, 
   usePins,
-  PinSortSelect,
 } from '@/modules/pin';
-import { usePinPreferencesStore } from '@/modules/pin/stores/pinPreferencesStore';
-import type { PinFilter } from '@/modules/pin';
-import { TagInput , CategoryGrid } from '@/modules/tag';
+import { 
+  useSearchPins,
+  SearchSortSelect,
+  SearchFilters,
+  SearchResultsHeader,
+  SearchAggregations,
+  useTrending,
+} from '@/modules/search';
+import type { SearchSortBy } from '@/modules/search';
+import { TagInput, CategoryGrid, TagChip } from '@/modules/tag';
 import { useAuth } from '@/modules/auth';
 import { EmptyState } from '@/shared/components';
 import { useIsMobile } from '@/shared/hooks/useMediaQuery';
@@ -33,33 +41,68 @@ const HomePage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<SearchSortBy>('RELEVANCE');
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
+  const [fuzzy, setFuzzy] = useState(true);
   
   // Debounced search
   const debouncedSearch = useDebounce(searchInput, 300);
   
-  // Global sort preference
-  const sort = usePinPreferencesStore((s) => s.sort);
+  // Check if we're in search mode
+  const isSearchMode = !!(debouncedSearch || selectedTags.length > 0);
+  
+  // Trending queries for non-search state
+  const { data: trending } = useTrending({ 
+    limit: 8, 
+    enabled: !isSearchMode 
+  });
 
-  // Build filter from local state
-  const filter = useMemo((): PinFilter => ({
+  // Use search API when filtering
+  const {
+    pins: searchPins,
+    totalHits,
+    took,
+    aggregations,
+    isLoading: isSearchLoading,
+    isFetchingNextPage: isSearchFetchingNext,
+    hasNextPage: searchHasNext,
+    fetchNextPage: searchFetchNext,
+    isError: isSearchError,
+    refetch: searchRefetch,
+  } = useSearchPins({
     q: debouncedSearch || undefined,
     tags: selectedTags.length > 0 ? selectedTags : undefined,
-  }), [debouncedSearch, selectedTags]);
+    sortBy,
+    createdFrom: dateFrom?.toISOString(),
+    createdTo: dateTo?.toISOString(),
+    fuzzy,
+    enabled: isSearchMode,
+  });
 
-  // Check if any filters are active
-  const hasFilters = !!(debouncedSearch || selectedTags.length > 0);
-
-  // Fetch pins
+  // Use regular pins API for home feed
   const {
-    pins,
-    totalElements,
-    isLoading,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-    isError,
-    refetch,
-  } = usePins(filter, { sort });
+    pins: feedPins,
+    isLoading: isFeedLoading,
+    isFetchingNextPage: isFeedFetchingNext,
+    hasNextPage: feedHasNext,
+    fetchNextPage: feedFetchNext,
+    isError: isFeedError,
+    refetch: feedRefetch,
+  } = usePins({}, { 
+    enabled: !isSearchMode,
+  });
+
+  // Select which data to show
+  const pins = isSearchMode ? searchPins : feedPins;
+  const isLoading = isSearchMode ? isSearchLoading : isFeedLoading;
+  const isFetchingNextPage = isSearchMode ? isSearchFetchingNext : isFeedFetchingNext;
+  const hasNextPage = isSearchMode ? searchHasNext : feedHasNext;
+  const fetchNextPage = isSearchMode ? searchFetchNext : feedFetchNext;
+  const isError = isSearchMode ? isSearchError : isFeedError;
+  const refetch = isSearchMode ? searchRefetch : feedRefetch;
+
+  const hasFilters = selectedTags.length > 0 || dateFrom || dateTo || sortBy !== 'RELEVANCE';
 
   // Handlers
   const handleCreatePin = useCallback(() => {
@@ -85,6 +128,9 @@ const HomePage: React.FC = () => {
   const handleClearFilters = useCallback(() => {
     setSearchInput('');
     setSelectedTags([]);
+    setSortBy('RELEVANCE');
+    setDateFrom(null);
+    setDateTo(null);
   }, []);
 
   const handleSearchChange = useCallback(({ value }: { value: string }) => {
@@ -96,6 +142,16 @@ const HomePage: React.FC = () => {
       navigate(`/search?q=${encodeURIComponent(searchInput.trim())}`);
     }
   }, [searchInput, navigate]);
+
+  const handleTrendingClick = useCallback((query: string) => {
+    setSearchInput(query);
+  }, []);
+
+  const handleTagFromAggregations = useCallback((tag: string) => {
+    if (!selectedTags.includes(tag)) {
+      setSelectedTags(prev => [...prev, tag]);
+    }
+  }, [selectedTags]);
 
   return (
     <Box paddingY={4}>
@@ -110,10 +166,10 @@ const HomePage: React.FC = () => {
           <Heading size="400" accessibilityLevel={1}>
             {isAuthenticated ? 'Home Feed' : 'Discover Ideas'}
           </Heading>
-          {totalElements > 0 && (
+          {isSearchMode && totalHits > 0 && (
             <Box marginTop={1}>
               <Text size="200" color="subtle">
-                {totalElements.toLocaleString()} pins to explore
+                {totalHits.toLocaleString()} pins found
               </Text>
             </Box>
           )}
@@ -159,42 +215,70 @@ const HomePage: React.FC = () => {
         </Flex>
       </Flex>
 
+      {/* Trending (when not searching) */}
+      {!isSearchMode && trending && trending.length > 0 && (
+        <Box marginTop={4}>
+          <Flex gap={2} alignItems="center" wrap>
+            <Text size="200" color="subtle" weight="bold">
+              Trending:
+            </Text>
+            {trending.slice(0, 6).map((item) => (
+              <TagChip
+                key={item.query}
+                tag={item.query}
+                size="sm"
+                onClick={() => handleTrendingClick(item.query)}
+              />
+            ))}
+          </Flex>
+        </Box>
+      )}
+
       {/* Filters Section */}
       {showFilters && (
-        <Box marginTop={4} marginBottom={4}>
-          <Box padding={4} color="secondary" rounding={4}>
-            <Flex gap={4} alignItems="end" wrap>
-              {/* Sort */}
-              <PinSortSelect />
-              
-              {/* Tags */}
-              <Box flex="grow" maxWidth={400}>
-                <TagInput
-                  id="home-tags"
-                  label="Filter by tags"
-                  selectedTags={selectedTags}
-                  onChange={setSelectedTags}
-                  placeholder="Add tags..."
-                  maxTags={5}
-                />
-              </Box>
+        <Box marginTop={4}>
+          <SearchFilters
+            selectedTags={selectedTags}
+            onTagsChange={setSelectedTags}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+            fuzzy={fuzzy}
+            onFuzzyChange={setFuzzy}
+            onClear={handleClearFilters}
+          />
+        </Box>
+      )}
 
-              {/* Clear */}
-              {hasFilters && (
-                <Button
-                  text="Clear filters"
-                  onClick={handleClearFilters}
-                  size="lg"
-                  color="gray"
-                />
-              )}
-            </Flex>
-          </Box>
+      {/* Search Results Header */}
+      {isSearchMode && debouncedSearch && (
+        <Box marginTop={4}>
+          <SearchResultsHeader
+            query={debouncedSearch}
+            totalHits={totalHits}
+            took={took}
+            type="pins"
+            isLoading={isLoading}
+          />
+        </Box>
+      )}
+
+      {/* Aggregations (when searching) */}
+      {isSearchMode && aggregations && (
+        <Box marginTop={4}>
+          <SearchAggregations
+            aggregations={aggregations}
+            onTagClick={handleTagFromAggregations}
+            compact
+          />
         </Box>
       )}
 
       {/* Categories for Non-Authenticated Users */}
-      {!isAuthenticated && pins.length === 0 && !isLoading && !hasFilters && (
+      {!isAuthenticated && !isSearchMode && pins.length === 0 && !isLoading && (
         <Box marginTop={6} marginBottom={6}>
           <CategoryGrid 
             limit={8} 
@@ -228,13 +312,14 @@ const HomePage: React.FC = () => {
           isFetchingNextPage={isFetchingNextPage}
           hasNextPage={hasNextPage}
           fetchNextPage={handleFetchNextPage}
+          showHighlights={isSearchMode}
           emptyMessage={
-            hasFilters 
-              ? 'No pins match your filters' 
+            isSearchMode
+              ? 'No pins match your search'
               : 'No pins to show yet'
           }
           emptyAction={
-            hasFilters
+            isSearchMode
               ? { text: 'Clear filters', onClick: handleClearFilters }
               : { text: 'Explore', onClick: handleExplore }
           }

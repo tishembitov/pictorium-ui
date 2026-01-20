@@ -64,22 +64,24 @@ export const UniversalSearchResults: React.FC<UniversalSearchResultsProps> = ({
       {/* Pins Section */}
       {pins.length > 0 && (
         <Box marginBottom={6}>
-          <Flex justifyContent="between" alignItems="center" marginBottom={3}>
-            <Heading size="400" accessibilityLevel={2}>
-              Pins
-              <Text inline color="subtle" size="200"> ({totalPins})</Text>
-            </Heading>
-            {data.hasMorePins && (
-              <TapArea onTap={handleSeeAllPins}>
-                <Flex alignItems="center" gap={1}>
-                  <Text color="default" weight="bold" size="200">
-                    See all
-                  </Text>
-                  <Icon accessibilityLabel="" icon="arrow-forward" size={12} />
-                </Flex>
-              </TapArea>
-            )}
-          </Flex>
+          <Box marginBottom={3}>
+            <Flex justifyContent="between" alignItems="center">
+              <Heading size="400" accessibilityLevel={2}>
+                Pins
+                <Text inline color="subtle" size="200"> ({totalPins})</Text>
+              </Heading>
+              {data.hasMorePins && (
+                <TapArea onTap={handleSeeAllPins}>
+                  <Flex alignItems="center" gap={1}>
+                    <Text color="default" weight="bold" size="200">
+                      See all
+                    </Text>
+                    <Icon accessibilityLabel="" icon="arrow-forward" size={12} />
+                  </Flex>
+                </TapArea>
+              )}
+            </Flex>
+          </Box>
           
           <Flex gap={4} wrap>
             {pins.slice(0, 4).map((pin) => (
@@ -95,23 +97,25 @@ export const UniversalSearchResults: React.FC<UniversalSearchResultsProps> = ({
 
       {/* Users Section */}
       {users.length > 0 && (
-        <Box marginY={6}>
-          <Flex justifyContent="between" alignItems="center" marginBottom={3}>
-            <Heading size="400" accessibilityLevel={2}>
-              People
-              <Text inline color="subtle" size="200"> ({totalUsers})</Text>
-            </Heading>
-            {data.hasMoreUsers && (
-              <TapArea onTap={handleSeeAllUsers}>
-                <Flex alignItems="center" gap={1}>
-                  <Text color="default" weight="bold" size="200">
-                    See all
-                  </Text>
-                  <Icon accessibilityLabel="" icon="arrow-forward" size={12} />
-                </Flex>
-              </TapArea>
-            )}
-          </Flex>
+        <Box marginTop={6} marginBottom={6}>
+          <Box marginBottom={3}>
+            <Flex justifyContent="between" alignItems="center">
+              <Heading size="400" accessibilityLevel={2}>
+                People
+                <Text inline color="subtle" size="200"> ({totalUsers})</Text>
+              </Heading>
+              {data.hasMoreUsers && (
+                <TapArea onTap={handleSeeAllUsers}>
+                  <Flex alignItems="center" gap={1}>
+                    <Text color="default" weight="bold" size="200">
+                      See all
+                    </Text>
+                    <Icon accessibilityLabel="" icon="arrow-forward" size={12} />
+                  </Flex>
+                </TapArea>
+              )}
+            </Flex>
+          </Box>
           
           <Flex direction="column" gap={2}>
             {users.slice(0, 3).map((user) => (
@@ -125,23 +129,25 @@ export const UniversalSearchResults: React.FC<UniversalSearchResultsProps> = ({
 
       {/* Boards Section */}
       {boards.length > 0 && (
-        <Box marginY={6}>
-          <Flex justifyContent="between" alignItems="center" marginBottom={3}>
-            <Heading size="400" accessibilityLevel={2}>
-              Boards
-              <Text inline color="subtle" size="200"> ({totalBoards})</Text>
-            </Heading>
-            {data.hasMoreBoards && (
-              <TapArea onTap={handleSeeAllBoards}>
-                <Flex alignItems="center" gap={1}>
-                  <Text color="default" weight="bold" size="200">
-                    See all
-                  </Text>
-                  <Icon accessibilityLabel="" icon="arrow-forward" size={12} />
-                </Flex>
-              </TapArea>
-            )}
-          </Flex>
+        <Box marginTop={6} marginBottom={6}>
+          <Box marginBottom={3}>
+            <Flex justifyContent="between" alignItems="center">
+              <Heading size="400" accessibilityLevel={2}>
+                Boards
+                <Text inline color="subtle" size="200"> ({totalBoards})</Text>
+              </Heading>
+              {data.hasMoreBoards && (
+                <TapArea onTap={handleSeeAllBoards}>
+                  <Flex alignItems="center" gap={1}>
+                    <Text color="default" weight="bold" size="200">
+                      See all
+                    </Text>
+                    <Icon accessibilityLabel="" icon="arrow-forward" size={12} />
+                  </Flex>
+                </TapArea>
+              )}
+            </Flex>
+          </Box>
           
           <Flex gap={4} wrap>
             {boards.slice(0, 4).map((board) => (

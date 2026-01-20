@@ -20,8 +20,13 @@ const COLUMN_WIDTH = 236;
 const GUTTER_WIDTH = 16;
 const MIN_COLUMNS = 2;
 
-const GridItem = ({ data, showHighlights }: { data: PinSearchResult; showHighlights: boolean }) => {
-  return <SearchPinCard pin={data} showHighlights={showHighlights} />;
+interface GridItemProps {
+  pin: PinSearchResult;
+  showHighlights: boolean;
+}
+
+const GridItem: React.FC<GridItemProps> = ({ pin, showHighlights }) => {
+  return <SearchPinCard pin={pin} showHighlights={showHighlights} />;
 };
 
 export const SearchPinGrid: React.FC<SearchPinGridProps> = ({
@@ -33,7 +38,7 @@ export const SearchPinGrid: React.FC<SearchPinGridProps> = ({
   emptyMessage = 'No pins found',
   showHighlights = true,
 }) => {
-  const getScrollContainer = useCallback((): HTMLElement | Window => window, []);
+  const getScrollContainer = useCallback((): HTMLElement | Window => globalThis.window, []);
 
   const handleLoadMore = useCallback(() => {
     if (!isFetchingNextPage && hasNextPage && fetchNextPage) {
@@ -41,9 +46,10 @@ export const SearchPinGrid: React.FC<SearchPinGridProps> = ({
     }
   }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
+  // Fixed: access props.data instead of destructuring to avoid unused variable warning
   const renderItem = useCallback(
-    ({ data }: { data: PinSearchResult }) => (
-      <GridItem data={data} showHighlights={showHighlights} />
+    (props: { data: PinSearchResult }) => (
+      <GridItem pin={props.data} showHighlights={showHighlights} />
     ),
     [showHighlights]
   );

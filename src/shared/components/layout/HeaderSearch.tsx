@@ -1,6 +1,6 @@
 // src/shared/components/layout/HeaderSearch.tsx
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   SearchField, 
@@ -17,8 +17,9 @@ import {
   useTrending,
   SuggestionDropdown,
   useSearchPreferencesStore,
+  useSearchHistory,
 } from '@/modules/search';
-import { useSearchHistory } from '@/modules/search';
+import type { SearchHistoryItem } from '@/modules/search';
 import { useAuth } from '@/modules/auth';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 
@@ -57,13 +58,24 @@ export const HeaderSearch: React.FC = () => {
     enabled: isAuthenticated && !debouncedQuery && isOpen,
   });
 
-  const suggestions = suggestionsData?.suggestions ?? [];
+  const suggestions = useMemo(
+    () => suggestionsData?.suggestions ?? [],
+    [suggestionsData?.suggestions]
+  );
   const trending = trendingData ?? [];
   
-  // Combine local and server history
-  const history = isAuthenticated 
-    ? (serverHistory ?? []).map(h => ({ query: h.query, timestamp: Date.now() }))
-    : recentSearches.map(q => ({ query: q, timestamp: Date.now() }));
+  // Combine local and server history - convert to SearchHistoryItem format
+  const history: SearchHistoryItem[] = useMemo(() => {
+    if (isAuthenticated && serverHistory) {
+      return serverHistory;
+    }
+    return recentSearches.map((q) => ({
+      query: q,
+      searchType: 'ALL' as const,
+      searchCount: 1,
+      lastSearchedAt: new Date().toISOString(),
+    }));
+  }, [isAuthenticated, serverHistory, recentSearches]);
 
   // Callback ref for anchor element
   const setAnchorRef = useCallback((node: HTMLDivElement | null) => {

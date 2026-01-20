@@ -1,7 +1,7 @@
 // src/modules/search/components/SearchDateRangePicker.tsx
 
-import React, { useState, useRef, useCallback } from 'react';
-import { Box, Flex, TextField, IconButton, Popover, Text, Button } from 'gestalt';
+import React, { useState, useCallback } from 'react';
+import { Box, Flex, TextField, IconButton, Popover, Text, Button, TapArea } from 'gestalt';
 import { format, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 
 interface SearchDateRangePickerProps {
@@ -12,6 +12,15 @@ interface SearchDateRangePickerProps {
   onClear?: () => void;
 }
 
+const formatDateDisplay = (from: Date | null, to: Date | null): string => {
+  if (!from && !to) {
+    return 'Any date';
+  }
+  const fromStr = from ? format(from, 'MMM d') : '...';
+  const toStr = to ? format(to, 'MMM d') : '...';
+  return `${fromStr} - ${toStr}`;
+};
+
 export const SearchDateRangePicker: React.FC<SearchDateRangePickerProps> = ({
   fromDate,
   toDate,
@@ -20,7 +29,7 @@ export const SearchDateRangePicker: React.FC<SearchDateRangePickerProps> = ({
   onClear,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const anchorRef = useRef<HTMLDivElement>(null);
+  const [anchorElement, setAnchorElement] = useState<HTMLDivElement | null>(null);
   
   const [fromInput, setFromInput] = useState(
     fromDate ? format(fromDate, 'yyyy-MM-dd') : ''
@@ -62,47 +71,54 @@ export const SearchDateRangePicker: React.FC<SearchDateRangePickerProps> = ({
     setIsOpen(false);
   }, [onFromChange, onToChange, onClear]);
 
+  const handleOpen = useCallback(() => {
+    setIsOpen(true);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+  }, []);
+
   const hasValue = fromDate || toDate;
-  const displayValue = hasValue
-    ? `${fromDate ? format(fromDate, 'MMM d') : '...'} - ${toDate ? format(toDate, 'MMM d') : '...'}`
-    : 'Any date';
+  const displayValue = formatDateDisplay(fromDate, toDate);
 
   return (
     <Box position="relative">
-      <div ref={anchorRef}>
-        <Box
-          display="flex"
-          alignItems="center"
-          padding={2}
-          rounding={2}
-          color={hasValue ? 'selected' : 'transparent'}
-          dangerouslySetInlineStyle={{
-            __style: {
-              border: '1px solid var(--border-default)',
-              cursor: 'pointer',
-            },
-          }}
-          onClick={() => setIsOpen(true)}
-        >
-          <Flex alignItems="center" gap={2}>
-            <IconButton
-              accessibilityLabel="Date range"
-              icon="calendar"
-              size="sm"
-              bgColor="transparent"
-              onClick={() => setIsOpen(true)}
-            />
-            <Text size="200" weight={hasValue ? 'bold' : 'normal'}>
-              {displayValue}
-            </Text>
-          </Flex>
-        </Box>
+      <div ref={setAnchorElement}>
+        <TapArea onTap={handleOpen} rounding={2}>
+          <Box
+            display="flex"
+            alignItems="center"
+            padding={2}
+            rounding={2}
+            color={hasValue ? 'selected' : 'transparent'}
+            dangerouslySetInlineStyle={{
+              __style: {
+                border: '1px solid var(--border-default)',
+                cursor: 'pointer',
+              },
+            }}
+          >
+            <Flex alignItems="center" gap={2}>
+              <IconButton
+                accessibilityLabel="Date range"
+                icon="calendar"
+                size="sm"
+                bgColor="transparent"
+                onClick={handleOpen}
+              />
+              <Text size="200" weight={hasValue ? 'bold' : 'normal'}>
+                {displayValue}
+              </Text>
+            </Flex>
+          </Box>
+        </TapArea>
       </div>
 
-      {isOpen && anchorRef.current && (
+      {isOpen && anchorElement && (
         <Popover
-          anchor={anchorRef.current}
-          onDismiss={() => setIsOpen(false)}
+          anchor={anchorElement}
+          onDismiss={handleClose}
           idealDirection="down"
           positionRelativeToAnchor={false}
           size="flexible"
@@ -137,7 +153,7 @@ export const SearchDateRangePicker: React.FC<SearchDateRangePickerProps> = ({
                 />
                 <Button
                   text="Apply"
-                  onClick={() => setIsOpen(false)}
+                  onClick={handleClose}
                   size="sm"
                   color="red"
                 />

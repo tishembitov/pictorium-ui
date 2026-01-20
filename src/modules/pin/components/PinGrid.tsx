@@ -7,15 +7,12 @@ import { PinCard } from './PinCard';
 import type { PinResponse } from '../types/pin.types';
 import type { PinSearchResult } from '@/modules/search';
 
-// Union type for both pin types
 type PinItem = PinResponse | PinSearchResult;
 
-// Type guard to check if item is PinSearchResult
 const isSearchResult = (pin: PinItem): pin is PinSearchResult => {
   return 'authorUsername' in pin && 'score' in pin;
 };
 
-// Convert PinSearchResult to PinResponse-like object for PinCard
 const normalizePinForCard = (pin: PinItem): PinResponse => {
   if (isSearchResult(pin)) {
     return {
@@ -58,7 +55,6 @@ interface PinGridProps {
     text: string;
     onClick: () => void;
   };
-  /** Show highlights for search results */
   showHighlights?: boolean;
 }
 
@@ -67,23 +63,24 @@ const GUTTER_WIDTH = 16;
 const MIN_COLUMNS = 2;
 
 interface GridItemProps {
-  data: PinItem;
+  pin: PinItem;
   showHighlights: boolean;
 }
 
-const GridItem: React.FC<GridItemProps> = ({ data, showHighlights }) => {
-  const normalizedPin = normalizePinForCard(data);
-  const isSearch = isSearchResult(data);
+const GridItem: React.FC<GridItemProps> = ({ pin, showHighlights }) => {
+  const normalizedPin = normalizePinForCard(pin);
+  const isSearch = isSearchResult(pin);
   
-  // Get highlighted title if search result
-  const highlightedTitle = showHighlights && isSearch && data.highlights?.title?.[0];
+  const highlightedTitle = showHighlights && isSearch && pin.highlights?.title?.[0] 
+    ? pin.highlights.title[0] 
+    : undefined;
   
   return (
     <PinCard 
       pin={normalizedPin}
       highlightedTitle={highlightedTitle}
       showAuthor={isSearch}
-      authorUsername={isSearch ? data.authorUsername : undefined}
+      authorUsername={isSearch ? pin.authorUsername : undefined}
     />
   );
 };
@@ -99,7 +96,7 @@ export const PinGrid: React.FC<PinGridProps> = ({
   showHighlights = false,
 }) => {
   const getScrollContainer = useCallback((): HTMLElement | Window => {
-    return window;
+    return globalThis.window;
   }, []);
 
   const handleLoadMore = useCallback(() => {
@@ -108,9 +105,10 @@ export const PinGrid: React.FC<PinGridProps> = ({
     }
   }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
+  // Fixed: renamed 'data' to 'pin' to avoid confusion with Masonry's internal naming
   const renderMasonryItem = useCallback(
-    ({ data }: { data: PinItem }) => {
-      return <GridItem data={data} showHighlights={showHighlights} />;
+    (props: { data: PinItem }) => {
+      return <GridItem pin={props.data} showHighlights={showHighlights} />;
     },
     [showHighlights]
   );

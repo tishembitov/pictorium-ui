@@ -1,6 +1,6 @@
 // src/modules/user/components/UserCard.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Box, Flex, Text, TapArea } from 'gestalt';
 import { buildPath } from '@/app/router/routes';
@@ -19,9 +19,7 @@ interface UserCardProps {
   followersCount?: number;
   onClick?: () => void;
   variant?: 'default' | 'compact' | 'horizontal';
-  /** Highlighted username HTML (from search) */
   highlightedUsername?: string;
-  /** Highlighted description HTML (from search) */
   highlightedDescription?: string;
 }
 
@@ -46,7 +44,11 @@ export const UserCard: React.FC<UserCardProps> = ({
   const handleMouseEnter = () => setIsHovered(true);
   const handleMouseLeave = () => setIsHovered(false);
 
-  // Render username with optional highlights
+  // Fixed: Use TapArea handler instead of div onClick
+  const handleFollowAreaTap = useCallback(() => {
+    // Empty handler - FollowButton handles its own click
+  }, []);
+
   const renderUsername = () => {
     if (highlightedUsername) {
       return <span dangerouslySetInnerHTML={{ __html: highlightedUsername }} />;
@@ -54,7 +56,6 @@ export const UserCard: React.FC<UserCardProps> = ({
     return displayName;
   };
 
-  // Render description with optional highlights
   const renderDescription = () => {
     const desc = highlightedDescription || user.description;
     if (!desc) return null;
@@ -132,13 +133,13 @@ export const UserCard: React.FC<UserCardProps> = ({
               </Box>
               
               {showFollowButton && !isCurrentUser && (
-                <Box onClick={(e) => e.preventDefault()}>
+                <TapArea onTap={handleFollowAreaTap} tapStyle="none">
                   <FollowButton 
                     userId={user.id} 
                     username={user.username}
                     size="sm" 
                   />
-                </Box>
+                </TapArea>
               )}
             </Flex>
           </Box>
@@ -194,13 +195,15 @@ export const UserCard: React.FC<UserCardProps> = ({
         )}
         
         {showFollowButton && !isCurrentUser && (
-          <Box width="100%" onClick={(e) => e.preventDefault()}>
-            <FollowButton 
-              userId={user.id} 
-              username={user.username}
-              size="md" 
-              fullWidth 
-            />
+          <Box width="100%">
+            <TapArea onTap={handleFollowAreaTap} tapStyle="none" fullWidth>
+              <FollowButton 
+                userId={user.id} 
+                username={user.username}
+                size="md" 
+                fullWidth 
+              />
+            </TapArea>
           </Box>
         )}
       </Flex>

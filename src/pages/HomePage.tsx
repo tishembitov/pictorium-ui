@@ -1,6 +1,6 @@
 // src/pages/HomePage.tsx
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
@@ -12,20 +12,16 @@ import {
   Button,
   SearchField,
 } from 'gestalt';
-import { 
-  PinGrid, 
-  usePins,
-} from '@/modules/pin';
+import { PinGrid, usePins } from '@/modules/pin';
 import { 
   useSearchPins,
-  SearchSortSelect,
   SearchFilters,
   SearchResultsHeader,
   SearchAggregations,
   useTrending,
 } from '@/modules/search';
 import type { SearchSortBy } from '@/modules/search';
-import { TagInput, CategoryGrid, TagChip } from '@/modules/tag';
+import { CategoryGrid, TagChip } from '@/modules/tag';
 import { useAuth } from '@/modules/auth';
 import { EmptyState } from '@/shared/components';
 import { useIsMobile } from '@/shared/hooks/useMediaQuery';
@@ -102,7 +98,8 @@ const HomePage: React.FC = () => {
   const isError = isSearchMode ? isSearchError : isFeedError;
   const refetch = isSearchMode ? searchRefetch : feedRefetch;
 
-  const hasFilters = selectedTags.length > 0 || dateFrom || dateTo || sortBy !== 'RELEVANCE';
+  // Fixed: explicitly convert to boolean
+  const hasFilters = selectedTags.length > 0 || !!dateFrom || !!dateTo || sortBy !== 'RELEVANCE';
 
   // Handlers
   const handleCreatePin = useCallback(() => {
@@ -156,64 +153,19 @@ const HomePage: React.FC = () => {
   return (
     <Box paddingY={4}>
       {/* Header Section */}
-      <Flex 
-        direction={isMobile ? 'column' : 'row'} 
-        justifyContent="between" 
-        alignItems={isMobile ? 'start' : 'center'}
-        gap={3}
-      >
-        <Box>
-          <Heading size="400" accessibilityLevel={1}>
-            {isAuthenticated ? 'Home Feed' : 'Discover Ideas'}
-          </Heading>
-          {isSearchMode && totalHits > 0 && (
-            <Box marginTop={1}>
-              <Text size="200" color="subtle">
-                {totalHits.toLocaleString()} pins found
-              </Text>
-            </Box>
-          )}
-        </Box>
-
-        {/* Action Buttons */}
-        <Flex gap={3} alignItems="center" wrap>
-          {/* Search Bar */}
-          <Box width={isMobile ? '100%' : 280}>
-            <SearchField
-              id="home-search"
-              accessibilityLabel="Search pins"
-              accessibilityClearButtonLabel="Clear"
-              placeholder="Search pins..."
-              value={searchInput}
-              onChange={handleSearchChange}
-              onKeyDown={handleSearchKeyDown}
-            />
-          </Box>
-
-          {/* Filter Toggle */}
-          <Tooltip text={showFilters ? 'Hide filters' : 'Show filters'}>
-            <IconButton
-              accessibilityLabel="Toggle filters"
-              icon="filter"
-              onClick={toggleFilters}
-              size="md"
-              bgColor={hasFilters ? 'red' : 'gray'}
-              iconColor={hasFilters ? 'white' : 'darkGray'}
-            />
-          </Tooltip>
-
-          {/* Create Pin */}
-          {isAuthenticated && (
-            <Button
-              text="Create"
-              onClick={handleCreatePin}
-              color="red"
-              size="lg"
-              iconEnd="add"
-            />
-          )}
-        </Flex>
-      </Flex>
+      <HomeHeader
+        isAuthenticated={isAuthenticated}
+        isSearchMode={isSearchMode}
+        totalHits={totalHits}
+        isMobile={isMobile}
+        searchInput={searchInput}
+        hasFilters={hasFilters}
+        showFilters={showFilters}
+        onSearchChange={handleSearchChange}
+        onSearchKeyDown={handleSearchKeyDown}
+        onToggleFilters={toggleFilters}
+        onCreatePin={handleCreatePin}
+      />
 
       {/* Trending (when not searching) */}
       {!isSearchMode && trending && trending.length > 0 && (
@@ -328,5 +280,93 @@ const HomePage: React.FC = () => {
     </Box>
   );
 };
+
+// Extracted header component to reduce complexity
+interface HomeHeaderProps {
+  isAuthenticated: boolean;
+  isSearchMode: boolean;
+  totalHits: number;
+  isMobile: boolean;
+  searchInput: string;
+  hasFilters: boolean;
+  showFilters: boolean;
+  onSearchChange: (args: { value: string }) => void;
+  onSearchKeyDown: (args: { event: React.KeyboardEvent<HTMLInputElement> }) => void;
+  onToggleFilters: () => void;
+  onCreatePin: () => void;
+}
+
+const HomeHeader: React.FC<HomeHeaderProps> = ({
+  isAuthenticated,
+  isSearchMode,
+  totalHits,
+  isMobile,
+  searchInput,
+  hasFilters,
+  showFilters,
+  onSearchChange,
+  onSearchKeyDown,
+  onToggleFilters,
+  onCreatePin,
+}) => (
+  <Flex 
+    direction={isMobile ? 'column' : 'row'} 
+    justifyContent="between" 
+    alignItems={isMobile ? 'start' : 'center'}
+    gap={3}
+  >
+    <Box>
+      <Heading size="400" accessibilityLevel={1}>
+        {isAuthenticated ? 'Home Feed' : 'Discover Ideas'}
+      </Heading>
+      {isSearchMode && totalHits > 0 && (
+        <Box marginTop={1}>
+          <Text size="200" color="subtle">
+            {totalHits.toLocaleString()} pins found
+          </Text>
+        </Box>
+      )}
+    </Box>
+
+    {/* Action Buttons */}
+    <Flex gap={3} alignItems="center" wrap>
+      {/* Search Bar */}
+      <Box width={isMobile ? '100%' : 280}>
+        <SearchField
+          id="home-search"
+          accessibilityLabel="Search pins"
+          accessibilityClearButtonLabel="Clear"
+          placeholder="Search pins..."
+          value={searchInput}
+          onChange={onSearchChange}
+          onKeyDown={onSearchKeyDown}
+        />
+      </Box>
+
+      {/* Filter Toggle */}
+      <Tooltip text={showFilters ? 'Hide filters' : 'Show filters'}>
+        <IconButton
+          accessibilityLabel="Toggle filters"
+          icon="filter"
+          onClick={onToggleFilters}
+          size="md"
+          bgColor={hasFilters ? 'red' : 'gray'}
+          iconColor={hasFilters ? 'white' : 'darkGray'}
+        />
+      </Tooltip>
+
+      {/* Create Pin */}
+      {isAuthenticated && (
+        <Button
+          text="Create"
+          onClick={onCreatePin}
+          color="red"
+          size="lg"
+          iconEnd="add"
+        />
+      )}
+    </Flex>
+  </Flex>
+);
 
 export default HomePage;

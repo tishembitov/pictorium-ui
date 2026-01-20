@@ -1,7 +1,7 @@
 // src/pages/ExplorePage.tsx
 
-import React, { useState, useCallback, useMemo } from 'react';
-import { Box, Heading, Tabs, Divider, Flex, Button, Text, Spinner } from 'gestalt';
+import React, { useState, useCallback } from 'react';
+import { Box, Heading, Tabs, Divider, Flex, Button, Text, TapArea } from 'gestalt';
 import { 
   CategoryGrid, 
   TagSearch, 
@@ -9,9 +9,7 @@ import {
   TagInput,
 } from '@/modules/tag';
 import type { CategoryResponse, TagResponse } from '@/modules/tag';
-import { 
-  PinGrid, 
-} from '@/modules/pin';
+import { PinGrid } from '@/modules/pin';
 import {
   useSearchPins,
   useTrending,
@@ -21,7 +19,6 @@ import {
 } from '@/modules/search';
 import type { SearchSortBy } from '@/modules/search';
 import { EmptyState, LoadingSpinner } from '@/shared/components';
-import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useIsMobile } from '@/shared/hooks/useMediaQuery';
 
 type TabIndex = 0 | 1 | 2;
@@ -32,10 +29,7 @@ const ExplorePage: React.FC = () => {
   // Local state
   const [activeTab, setActiveTab] = useState<TabIndex>(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [tagSearchQuery, setTagSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SearchSortBy>('RELEVANCE');
-  
-  const debouncedQuery = useDebounce(tagSearchQuery, 300);
 
   // Trending queries
   const { data: trending, isLoading: isTrendingLoading } = useTrending({ limit: 12 });
@@ -85,10 +79,6 @@ const ExplorePage: React.FC = () => {
   const handleFetchNextPage = useCallback(() => {
     fetchNextPage();
   }, [fetchNextPage]);
-
-  const handleTagFromSearchClick = useCallback((tagName: string) => {
-    handleTagSelect({ id: tagName, name: tagName });
-  }, [handleTagSelect]);
 
   const handleTrendingClick = useCallback((query: string) => {
     setSelectedTags([query]);
@@ -280,56 +270,78 @@ const ExplorePage: React.FC = () => {
 
         {/* Trending Tab */}
         {activeTab === 2 && (
-          <Box>
-            {isTrendingLoading && <LoadingSpinner />}
-            
-            {!isTrendingLoading && trending && trending.length > 0 && (
-              <Box>
-                <Text weight="bold" size="300">
-                  Popular Searches
-                </Text>
-                <Box marginTop={4}>
-                  <Flex direction="column" gap={2}>
-                    {trending.map((item, index) => (
-                      <Box
-                        key={item.query}
-                        padding={3}
-                        rounding={3}
-                        color="secondary"
-                        dangerouslySetInlineStyle={{
-                          __style: { cursor: 'pointer' },
-                        }}
-                        onClick={() => handleTrendingClick(item.query)}
-                      >
-                        <Flex alignItems="center" gap={3}>
-                          <Text weight="bold" size="400" color="subtle">
-                            {index + 1}
-                          </Text>
-                          <Box flex="grow">
-                            <Text weight="bold" size="300">
-                              {item.query}
-                            </Text>
-                          </Box>
-                          <Text size="200" color="subtle">
-                            {item.searchCount.toLocaleString()} searches
-                          </Text>
-                        </Flex>
-                      </Box>
-                    ))}
-                  </Flex>
-                </Box>
-              </Box>
-            )}
-
-            {!isTrendingLoading && (!trending || trending.length === 0) && (
-              <EmptyState
-                title="No trending searches"
-                description="Check back later for popular searches"
-                icon="trending"
-              />
-            )}
-          </Box>
+          <TrendingTabContent
+            trending={trending}
+            isLoading={isTrendingLoading}
+            onTrendingClick={handleTrendingClick}
+          />
         )}
+      </Box>
+    </Box>
+  );
+};
+
+// Extracted component for Trending tab to reduce complexity
+interface TrendingTabContentProps {
+  trending: Array<{ query: string; searchCount: number }> | undefined;
+  isLoading: boolean;
+  onTrendingClick: (query: string) => void;
+}
+
+const TrendingTabContent: React.FC<TrendingTabContentProps> = ({
+  trending,
+  isLoading,
+  onTrendingClick,
+}) => {
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  if (!trending || trending.length === 0) {
+    return (
+      <EmptyState
+        title="No trending searches"
+        description="Check back later for popular searches"
+        icon="trending"
+      />
+    );
+  }
+
+  return (
+    <Box>
+      <Text weight="bold" size="300">
+        Popular Searches
+      </Text>
+      <Box marginTop={4}>
+        <Flex direction="column" gap={2}>
+          {trending.map((item, index) => (
+            <TapArea
+              key={item.query}
+              onTap={() => onTrendingClick(item.query)}
+              rounding={3}
+            >
+              <Box
+                padding={3}
+                rounding={3}
+                color="secondary"
+              >
+                <Flex alignItems="center" gap={3}>
+                  <Text weight="bold" size="400" color="subtle">
+                    {index + 1}
+                  </Text>
+                  <Box flex="grow">
+                    <Text weight="bold" size="300">
+                      {item.query}
+                    </Text>
+                  </Box>
+                  <Text size="200" color="subtle">
+                    {item.searchCount.toLocaleString()} searches
+                  </Text>
+                </Flex>
+              </Box>
+            </TapArea>
+          ))}
+        </Flex>
       </Box>
     </Box>
   );

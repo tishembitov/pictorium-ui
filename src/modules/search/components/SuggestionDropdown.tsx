@@ -11,6 +11,28 @@ interface SuggestionItemProps {
   isFocused?: boolean;
 }
 
+const getIconForType = (type: Suggestion['type']): 'tag' | 'person' | 'pin' => {
+  switch (type) {
+    case 'TAG':
+      return 'tag';
+    case 'USERNAME':
+      return 'person';
+    default:
+      return 'pin';
+  }
+};
+
+const getTypeLabel = (type: Suggestion['type']): string => {
+  switch (type) {
+    case 'TAG':
+      return 'Tag';
+    case 'USERNAME':
+      return 'User';
+    default:
+      return 'Pin';
+  }
+};
+
 const SuggestionItem: React.FC<SuggestionItemProps> = ({
   suggestion,
   onClick,
@@ -20,13 +42,8 @@ const SuggestionItem: React.FC<SuggestionItemProps> = ({
     enabled: !!suggestion.imageId,
   });
 
-  const getIcon = () => {
-    switch (suggestion.type) {
-      case 'TAG': return 'tag';
-      case 'USERNAME': return 'person';
-      default: return 'pin';
-    }
-  };
+  const icon = getIconForType(suggestion.type);
+  const typeLabel = getTypeLabel(suggestion.type);
 
   return (
     <TapArea onTap={() => onClick(suggestion.text)} rounding={2}>
@@ -54,7 +71,7 @@ const SuggestionItem: React.FC<SuggestionItemProps> = ({
               alignItems="center"
               justifyContent="center"
             >
-              <Icon accessibilityLabel="" icon={getIcon()} size={16} color="subtle" />
+              <Icon accessibilityLabel="" icon={icon} size={16} color="subtle" />
             </Box>
           )}
           
@@ -63,8 +80,7 @@ const SuggestionItem: React.FC<SuggestionItemProps> = ({
               {suggestion.text}
             </Text>
             <Text size="100" color="subtle">
-              {suggestion.type === 'TAG' ? 'Tag' : 
-               suggestion.type === 'USERNAME' ? 'User' : 'Pin'}
+              {typeLabel}
             </Text>
           </Box>
         </Flex>

@@ -1,11 +1,10 @@
 // src/modules/search/components/SearchUserCard.tsx
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Box, Flex, Text, TapArea } from 'gestalt';
 import { buildPath } from '@/app/router/routes';
-import { UserAvatar } from '@/modules/user';
-import { FollowButton } from '@/modules/user';
+import { UserAvatar, FollowButton } from '@/modules/user';
 import { useAuth } from '@/modules/auth';
 import { formatCompactNumber } from '@/shared/utils/formatters';
 import { getHighlightedText } from '../utils/searchUtils';
@@ -32,6 +31,11 @@ export const SearchUserCard: React.FC<SearchUserCardProps> = ({
   const displayDescription = showHighlights && user.highlights
     ? getHighlightedText(user.highlights, 'description', user.description)
     : user.description;
+
+  // Fixed: proper event handler for stopping propagation
+  const handleFollowAreaTap = useCallback(() => {
+    // TapArea handles the click, FollowButton will handle its own click
+  }, []);
 
   return (
     <Link to={buildPath.profile(user.username)} style={{ textDecoration: 'none' }}>
@@ -63,24 +67,26 @@ export const SearchUserCard: React.FC<SearchUserCardProps> = ({
                 </Text>
               )}
               
-              <Flex gap={3} marginTop={1}>
-                <Text size="100" color="subtle">
-                  {formatCompactNumber(user.followerCount)} followers
-                </Text>
-                <Text size="100" color="subtle">
-                  {formatCompactNumber(user.pinCount)} pins
-                </Text>
-              </Flex>
+              <Box marginTop={1}>
+                <Flex gap={3}>
+                  <Text size="100" color="subtle">
+                    {formatCompactNumber(user.followerCount)} followers
+                  </Text>
+                  <Text size="100" color="subtle">
+                    {formatCompactNumber(user.pinCount)} pins
+                  </Text>
+                </Flex>
+              </Box>
             </Box>
             
             {showFollowButton && !isCurrentUser && (
-              <Box onClick={(e) => e.preventDefault()}>
+              <TapArea onTap={handleFollowAreaTap} tapStyle="none">
                 <FollowButton 
                   userId={user.id} 
                   username={user.username}
                   size="sm" 
                 />
-              </Box>
+              </TapArea>
             )}
           </Flex>
         </Box>

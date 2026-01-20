@@ -1,9 +1,7 @@
 // src/modules/explore/types/explore.types.ts
 
-import type { PinResponse } from '@/modules/pin';
+import type { PinSearchResult, Aggregations, TrendingQuery } from '@/modules/search';
 import type { CategoryResponse } from '@/modules/tag';
-import type { TrendingQuery } from '@/modules/search';
-
 /**
  * Explore page tabs
  */
@@ -57,14 +55,16 @@ export interface ExploreSectionConfig {
 }
 
 /**
- * Explore data aggregation
+ * Explore data aggregation - updated to use search types
  */
 export interface ExploreData {
   categories: CategoryResponse[];
   trending: TrendingQuery[];
-  featuredPins: PinResponse[];
+  featuredPins: PinSearchResult[];  // ✅ Changed from PinResponse
+  aggregations?: Aggregations;       // ✅ Added
   isLoading: boolean;
   isError: boolean;
+  isPersonalized: boolean;           // ✅ Added
 }
 
 /**

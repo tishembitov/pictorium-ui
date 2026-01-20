@@ -1,10 +1,10 @@
 // src/modules/explore/hooks/useExploreData.ts
 
-import { useMemo, useState} from 'react';
+import { useMemo, useState } from 'react';
 import { useCategories } from '@/modules/tag';
-import { useTrending } from '@/modules/search';
-import { usePins } from '@/modules/pin';
 import type { ExploreTab, FeaturedCollection } from '../types/explore.types';
+import { useTrending } from '@/modules/search';
+import usePersonalizedFeed from './usePersonalizedFeed';
 
 interface UseExploreDataOptions {
   activeTab: ExploreTab;
@@ -39,8 +39,15 @@ const FEATURED_COLLECTIONS: FeaturedCollection[] = [
   },
 ];
 
+const getTodayStartMs = (): string => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.getTime().toString();
+};
+
+
 export const useExploreData = (options: UseExploreDataOptions) => {
-  const { selectedCategory } = options;
+  const { activeTab, selectedCategory } = options;
 
   // State for featured collection index (determined once on mount)
   const [featuredIndex] = useState(() => {
@@ -60,23 +67,50 @@ export const useExploreData = (options: UseExploreDataOptions) => {
     isLoading: isTrendingLoading,
   } = useTrending({ limit: 10 });
 
-  // Build filter for pins based on tab and category
-  const pinFilter = useMemo(() => {
-    if (selectedCategory) {
-      return { tags: [selectedCategory] };
+  // ============================================
+  // PERSONALIZED FEED CONFIGURATION
+  // ============================================
+  
+  // Determine sort based on active tab
+  const sortBy = useMemo(() => {
+    switch (activeTab) {
+      case 'trending':
+        return 'POPULAR' as const;
+      case 'today':
+        return 'RECENT' as const;
+      case 'foryou':
+      default:
+        // For "For You" - let the hook decide based on auth status
+        // Authenticated: RELEVANCE (personalized)
+        // Anonymous: POPULAR (fallback)
+        return undefined;
     }
-    return {};
+  }, [activeTab]);
+
+  // Tags filter based on selected category
+  const tags = useMemo(() => {
+    return selectedCategory ? [selectedCategory] : undefined;
   }, [selectedCategory]);
 
-  // Pins using usePins hook (supports PinResponse)
+  // Date filter for "Today" tab
+  const createdFrom = useMemo(() => {
+    return activeTab === 'today' ? getTodayStartMs() : undefined;
+  }, [activeTab]);
+
+  // ✅ Use personalized feed from search service
   const {
     pins: feedPins,
     isLoading: isPinsLoading,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-    totalElements,
-  } = usePins(pinFilter, {
+    totalHits: totalElements,
+    aggregations,
+    isPersonalized,
+  } = usePersonalizedFeed({
+    tags,
+    sortBy,
+    createdFrom,
     enabled: true,
     pageSize: 25,
   });
@@ -87,7 +121,7 @@ export const useExploreData = (options: UseExploreDataOptions) => {
     return collection;
   }, [featuredIndex]);
 
-  // Get first pin image for hero if no static image
+  // Get first category image for hero if no static image
   const heroImageId = useMemo(() => {
     if (categories && categories.length > 0) {
       return categories[0]?.pin?.imageId || categories[0]?.pin?.thumbnailId;
@@ -105,13 +139,16 @@ export const useExploreData = (options: UseExploreDataOptions) => {
     trending: trending || [],
     isTrendingLoading,
     
-    // Pins
+    // Pins (now from search service with personalization!)
     pins: feedPins,
     isPinsLoading,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
     totalHits: totalElements,
+    
+    // Aggregations from search (related tags, top authors)
+    aggregations,
     
     // Featured
     featuredCollection: {
@@ -121,6 +158,9 @@ export const useExploreData = (options: UseExploreDataOptions) => {
     
     // Overall loading state
     isLoading: isCategoriesLoading || isPinsLoading,
+    
+    // ✅ New: indicate if feed is personalized
+    isPersonalized,
   };
 };
 

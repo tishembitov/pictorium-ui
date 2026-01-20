@@ -1,8 +1,8 @@
 // src/pages/ExplorePage.tsx
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Divider, Flex } from 'gestalt';
+import { Box, Divider, Flex, Text, Icon } from 'gestalt';
 import {
   ExploreHeader,
   ExploreTabs,
@@ -25,7 +25,7 @@ const ExplorePage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
   const [searchValue, setSearchValue] = useState('');
 
-  // Fetch explore data
+  // Fetch explore data with personalization
   const {
     categories,
     isCategoriesLoading,
@@ -37,6 +37,8 @@ const ExplorePage: React.FC = () => {
     fetchNextPage,
     totalHits,
     featuredCollection,
+    aggregations,
+    isPersonalized,
   } = useExploreData({
     activeTab,
     selectedCategory,
@@ -74,9 +76,64 @@ const ExplorePage: React.FC = () => {
     navigate(buildPath.search(query));
   }, [navigate]);
 
+  const handleTagClick = useCallback((tag: string) => {
+    setSelectedCategory(tag);
+  }, []);
+
   const handleFetchNextPage = useCallback(() => {
     fetchNextPage();
   }, [fetchNextPage]);
+
+  // Get tab description - extracted to avoid nested ternary
+  const tabDescription = useMemo(() => {
+    switch (activeTab) {
+      case 'foryou':
+        if (isPersonalized) {
+          return 'Curated picks based on your interests';
+        }
+        return 'Popular pins from the community';
+      case 'trending':
+        return "What's popular right now";
+      case 'today':
+        return 'Fresh ideas from today';
+      default:
+        return '';
+    }
+  }, [activeTab, isPersonalized]);
+
+  // Get carousel section title
+  const carouselTitle = useMemo(() => {
+    return isPersonalized ? 'Picked for you' : 'Popular right now';
+  }, [isPersonalized]);
+
+  // Get empty message for feed
+  const emptyMessage = useMemo(() => {
+    if (selectedCategory) {
+      return `No pins found for "${selectedCategory}"`;
+    }
+    if (activeTab === 'today') {
+      return 'No new pins today yet';
+    }
+    return 'Discover new ideas';
+  }, [selectedCategory, activeTab]);
+
+  // Determine if we should show personalization indicator
+  const showPersonalizationIndicator = isPersonalized && activeTab === 'foryou';
+
+  // Determine which pins to show in carousel vs feed
+  const carouselPins = pins.slice(0, 10);
+  const feedPins = selectedCategory || activeTab !== 'foryou' 
+    ? pins 
+    : pins.slice(10);
+
+  // Should show hero section
+  const showHero = activeTab === 'foryou' && !selectedCategory;
+
+  // Should show trending section
+  const showTrending = activeTab === 'trending' && trending.length > 0;
+
+  // Should show carousel
+  const showCarousel = activeTab === 'foryou' && !selectedCategory && pins.length > 0;
 
   return (
     <Box paddingY={4}>
@@ -93,8 +150,25 @@ const ExplorePage: React.FC = () => {
         onTabChange={handleTabChange}
       />
 
-      {/* Hero Section (only on "For You" tab without category) */}
-      {activeTab === 'foryou' && !selectedCategory && (
+      {/* Tab description */}
+      <Box marginBottom={4}>
+        <Flex alignItems="center" justifyContent="center" gap={2}>
+          {showPersonalizationIndicator && (
+            <Icon 
+              accessibilityLabel="Personalized" 
+              icon="sparkle" 
+              size={16} 
+              color="subtle"
+            />
+          )}
+          <Text align="center" color="subtle" size="200">
+            {tabDescription}
+          </Text>
+        </Flex>
+      </Box>
+
+      {/* Hero Section */}
+      {showHero && (
         <ExploreHero
           collection={featuredCollection}
           onExplore={handleExploreCollection}
@@ -111,8 +185,8 @@ const ExplorePage: React.FC = () => {
 
       <Divider />
 
-      {/* Trending Section (only on "Trending" tab) */}
-      {activeTab === 'trending' && trending.length > 0 && (
+      {/* Trending Section */}
+      {showTrending && (
         <ExploreSection
           title="Trending Searches"
           subtitle="What people are searching for right now"
@@ -130,15 +204,15 @@ const ExplorePage: React.FC = () => {
         </ExploreSection>
       )}
 
-      {/* Popular Pins Carousel (on "For You" tab without category) */}
-      {activeTab === 'foryou' && !selectedCategory && pins.length > 0 && (
+      {/* Popular Pins Carousel */}
+      {showCarousel && (
         <ExploreSection
-          title="Popular right now"
+          title={carouselTitle}
           showSeeAll
           onSeeAllClick={() => setActiveTab('trending')}
         >
           <HorizontalPinCarousel
-            pins={pins.slice(0, 10)}
+            pins={carouselPins}
             isLoading={isPinsLoading}
           />
         </ExploreSection>
@@ -146,7 +220,7 @@ const ExplorePage: React.FC = () => {
 
       {/* Main Feed */}
       <ExploreFeed
-        pins={selectedCategory || activeTab !== 'foryou' ? pins : pins.slice(10)}
+        pins={feedPins}
         isLoading={isPinsLoading}
         isFetchingNextPage={isFetchingNextPage}
         hasNextPage={hasNextPage}
@@ -154,11 +228,10 @@ const ExplorePage: React.FC = () => {
         totalHits={totalHits}
         selectedCategory={selectedCategory}
         onClearCategory={handleClearCategory}
-        emptyMessage={
-          selectedCategory
-            ? `No pins found for "${selectedCategory}"`
-            : 'Discover new ideas'
-        }
+        aggregations={aggregations}
+        isPersonalized={showPersonalizationIndicator}
+        onTagClick={handleTagClick}
+        emptyMessage={emptyMessage}
       />
     </Box>
   );

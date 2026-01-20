@@ -2,11 +2,11 @@
 
 import React, { useRef, useState, useCallback } from 'react';
 import { Box, IconButton } from 'gestalt';
-import { PinCard, PinCardSkeleton } from '@/modules/pin';
-import type { PinResponse } from '@/modules/pin';
+import { SearchPinCard, type PinSearchResult } from '@/modules/search';
+import { PinCardSkeleton } from '@/modules/pin';
 
 interface HorizontalPinCarouselProps {
-  pins: PinResponse[];
+  pins: PinSearchResult[];
   isLoading?: boolean;
   skeletonCount?: number;
 }
@@ -99,9 +99,9 @@ export const HorizontalPinCarousel: React.FC<HorizontalPinCarouselProps> = ({
             minWidth={236}
             maxWidth={236}
           >
-            <PinCard
+            <SearchPinCard
               pin={pin}
-              showActions={true}
+              showHighlights={false}
             />
           </Box>
         ))}

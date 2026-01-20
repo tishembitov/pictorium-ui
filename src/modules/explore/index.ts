@@ -18,6 +18,7 @@ export type {
   
   // Hooks
   export { useExploreData } from './hooks/useExploreData';
+  export { usePersonalizedFeed } from './hooks/usePersonalizedFeed'; 
   
   // Components
   export { ExploreHeader } from './components/ExploreHeader';

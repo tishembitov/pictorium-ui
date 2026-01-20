@@ -29,9 +29,10 @@ export const ExploreHero: React.FC<ExploreHeroProps> = ({
     }
   };
 
-  const backgroundStyle = imageData?.url
-    ? `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.5)), url(${imageData.url})`
-    : collection.gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+  // Separate background properties to avoid shorthand conflicts
+  const hasImage = !!imageData?.url;
+  const gradientOverlay = 'linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.5))';
+  const fallbackGradient = collection.gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
 
   return (
     <Box
@@ -41,9 +42,13 @@ export const ExploreHero: React.FC<ExploreHeroProps> = ({
       marginBottom={6}
       dangerouslySetInlineStyle={{
         __style: {
-          background: backgroundStyle,
+          // Use separate properties instead of shorthand 'background'
+          backgroundImage: hasImage 
+            ? `${gradientOverlay}, url(${imageData.url})`
+            : fallbackGradient,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
           minHeight: 280,
         },
       }}

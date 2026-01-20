@@ -35,7 +35,7 @@ export const ExploreFeed: React.FC<ExploreFeedProps> = ({
       {totalHits !== undefined && totalHits > 0 && selectedCategory && (
         <Box marginBottom={4}>
           <Text color="subtle" size="200">
-            {totalHits.toLocaleString()} pins in &quot;{selectedCategory}&quot;
+            {totalHits.toLocaleString()} pins in "{selectedCategory}"
           </Text>
         </Box>
       )}

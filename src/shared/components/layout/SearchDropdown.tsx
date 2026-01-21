@@ -1,158 +1,313 @@
 // src/shared/components/layout/SearchDropdown.tsx
 
-import React, { useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { Box, Flex, Text, TapArea, Icon, Spinner, Mask } from 'gestalt';
 import { useImageUrl } from '@/modules/storage';
+import { useSearchPins } from '@/modules/search';
 import type { Suggestion, TrendingQuery } from '@/modules/search';
 import type { CategoryResponse } from '@/modules/tag';
 
-// ============ Types ============
-interface RecentSearch {
-  query: string;
-  timestamp?: number;
-}
+// ============ Gradient Palettes ============
+const GRADIENTS = [
+  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+  'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+  'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
+  'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+  'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+  'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
+  'linear-gradient(135deg, #d299c2 0%, #fef9d7 100%)',
+  'linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%)',
+  'linear-gradient(135deg, #cd9cf2 0%, #f6f3ff 100%)',
+];
+
+const getGradient = (index: number) => GRADIENTS[index % GRADIENTS.length];
+
+// ============ Constants ============
+const CARDS_PER_ROW = 6;
+const MAX_ROWS = 3;
+const MAX_CARDS_PER_SECTION = CARDS_PER_ROW * MAX_ROWS; // 18 карточек
+const CARD_GAP = 16;
 
 // ============ Styles ============
 const dropdownStyles = {
   container: {
+    position: 'absolute' as const,
+    top: '100%',
+    left: '-10%',
+    right: '-10%',
+    marginTop: '8px',
     backgroundColor: 'white',
-    borderRadius: '16px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.1)',
-    maxHeight: '70vh',
+    borderRadius: '24px',
+    boxShadow: '0 8px 40px rgba(0,0,0,0.2), 0 0 1px rgba(0,0,0,0.1)',
+    maxHeight: '85vh',
     overflowY: 'auto' as const,
+    overflowX: 'hidden' as const,
+    animation: 'slideDown 0.25s ease-out',
+  },
+  cardsGrid: {
+    display: 'grid',
+    gridTemplateColumns: `repeat(${CARDS_PER_ROW}, 1fr)`,
+    gap: `${CARD_GAP}px`,
+  },
+  divider: {
+    borderTop: '1px solid #efefef',
   },
 };
 
-// ============ Recent Search Item ============
-interface RecentItemProps {
+// ============ Helper function for icon selection ============
+const getIconForSuggestionType = (
+  isUser: boolean,
+  isTag: boolean
+): 'person' | 'tag' | 'search' => {
+  if (isUser) return 'person';
+  if (isTag) return 'tag';
+  return 'search';
+};
+
+// ============ Section Header ============
+interface SectionHeaderProps {
+  title: string;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+}
+
+const SectionHeader: React.FC<SectionHeaderProps> = ({ title, action }) => (
+  <Flex justifyContent="between" alignItems="center">
+    <Text size="400" weight="bold">
+      {title}
+    </Text>
+    {action && (
+      <TapArea onTap={action.onClick} rounding={2}>
+        <Box padding={2}>
+          <Text size="200" color="subtle">
+            {action.label}
+          </Text>
+        </Box>
+      </TapArea>
+    )}
+  </Flex>
+);
+
+// ============ Search Card Component ============
+interface SearchCardProps {
+  title: string;
+  imageUrl?: string | null;
+  gradient?: string;
+  icon?: 'clock' | 'trending' | 'search' | 'tag';
+  onClick: () => void;
+  onRemove?: () => void;
+}
+
+const SearchCard: React.FC<SearchCardProps> = ({
+  title,
+  imageUrl,
+  gradient,
+  icon,
+  onClick,
+  onRemove,
+}) => {
+  return (
+    <Box position="relative">
+      <TapArea onTap={onClick} rounding={4}>
+        <Box
+          position="relative"
+          rounding={4}
+          overflow="hidden"
+          dangerouslySetInlineStyle={{
+            __style: {
+              aspectRatio: '1',
+              background: imageUrl ? undefined : gradient,
+            },
+          }}
+        >
+          {/* Background Image */}
+          {imageUrl && (
+            <Mask rounding={4}>
+              <img
+                src={imageUrl}
+                alt={title}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+                loading="lazy"
+              />
+            </Mask>
+          )}
+
+          {/* Gradient Overlay */}
+          <Box
+            position="absolute"
+            top
+            left
+            right
+            bottom
+            dangerouslySetInlineStyle={{
+              __style: {
+                background: imageUrl
+                  ? 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)'
+                  : 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%)',
+                borderRadius: '16px',
+              },
+            }}
+          />
+
+          {/* Icon Badge */}
+          {icon && (
+            <Box
+              position="absolute"
+              dangerouslySetInlineStyle={{
+                __style: { top: '10px', left: '10px' },
+              }}
+            >
+              <Box
+                width={30}
+                height={30}
+                rounding="circle"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                dangerouslySetInlineStyle={{
+                  __style: {
+                    backgroundColor: 'rgba(255,255,255,0.95)',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                  },
+                }}
+              >
+                <Icon accessibilityLabel="" icon={icon} size={14} color="dark" />
+              </Box>
+            </Box>
+          )}
+
+          {/* Title */}
+          <Box position="absolute" bottom left right padding={3}>
+            <Text color="inverse" weight="bold" size="200" lineClamp={2} align="center">
+              {title}
+            </Text>
+          </Box>
+        </Box>
+      </TapArea>
+
+      {/* Remove button */}
+      {onRemove && (
+        <Box
+          position="absolute"
+          dangerouslySetInlineStyle={{
+            __style: { top: '8px', right: '8px', zIndex: 10 },
+          }}
+        >
+          <TapArea
+            onTap={(e) => {
+              e.event.stopPropagation();
+              onRemove();
+            }}
+            rounding="circle"
+            tapStyle="compress"
+          >
+            <Box
+              width={26}
+              height={26}
+              rounding="circle"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              dangerouslySetInlineStyle={{
+                __style: { backgroundColor: 'rgba(0,0,0,0.6)' },
+              }}
+            >
+              <Icon accessibilityLabel="Remove" icon="cancel" size={12} color="inverse" />
+            </Box>
+          </TapArea>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+// ============ Recent Card with Image Fetch ============
+interface RecentCardProps {
   query: string;
-  isFocused: boolean;
+  index: number;
   onSelect: (query: string) => void;
   onRemove: (query: string) => void;
 }
 
-const RecentItem: React.FC<RecentItemProps> = ({
-  query,
-  isFocused,
-  onSelect,
-  onRemove,
-}) => {
-  const handleRemove = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onRemove(query);
-  }, [query, onRemove]);
+const RecentCard: React.FC<RecentCardProps> = ({ query, index, onSelect, onRemove }) => {
+  const { pins } = useSearchPins({
+    q: query,
+    pageSize: 1,
+    enabled: true,
+  });
+
+  const pin = pins[0];
+  const imageId = pin?.thumbnailId || pin?.imageId;
+  const { data: imageData } = useImageUrl(imageId, { enabled: !!imageId });
 
   return (
-    <TapArea onTap={() => onSelect(query)} rounding={2}>
-      <Box
-        padding={2}
-        rounding={2}
-        color={isFocused ? 'secondary' : 'transparent'}
-        display="flex"
-        alignItems="center"
-      >
-        <Flex gap={3} alignItems="center" flex="grow">
-          <Box
-            width={32}
-            height={32}
-            rounding="circle"
-            color="secondary"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Icon accessibilityLabel="" icon="clock" size={16} color="subtle" />
-          </Box>
-          <Text size="200">{query}</Text>
-        </Flex>
-        <TapArea onTap={handleRemove as () => void} rounding="circle" tapStyle="compress">
-          <Box
-            padding={1}
-            rounding="circle"
-            dangerouslySetInlineStyle={{
-              __style: { opacity: 0.6 },
-            }}
-          >
-            <Icon accessibilityLabel="Remove" icon="cancel" size={12} color="subtle" />
-          </Box>
-        </TapArea>
-      </Box>
-    </TapArea>
+    <SearchCard
+      title={query}
+      imageUrl={imageData?.url}
+      gradient={getGradient(index)}
+      icon="clock"
+      onClick={() => onSelect(query)}
+      onRemove={() => onRemove(query)}
+    />
   );
 };
 
-// ============ Trending Tag ============
-interface TrendingTagProps {
+// ============ Trending Card with Image Fetch ============
+interface TrendingCardProps {
   query: string;
-  emoji?: string;
+  index: number;
   onSelect: (query: string) => void;
 }
 
-const TrendingTag: React.FC<TrendingTagProps> = ({ query, emoji = '🔥', onSelect }) => (
-  <TapArea onTap={() => onSelect(query)} rounding="pill">
-    <Box
-      paddingX={3}
-      paddingY={2}
-      rounding="pill"
-      color="secondary"
-      display="flex"
-      alignItems="center"
-    >
-      <Flex gap={1} alignItems="center">
-        <Text size="100">{emoji}</Text>
-        <Text size="200" weight="bold">{query}</Text>
-      </Flex>
-    </Box>
-  </TapArea>
-);
+const TrendingCard: React.FC<TrendingCardProps> = ({ query, index, onSelect }) => {
+  const { pins } = useSearchPins({
+    q: query,
+    pageSize: 1,
+    enabled: true,
+  });
+
+  const pin = pins[0];
+  const imageId = pin?.thumbnailId || pin?.imageId;
+  const { data: imageData } = useImageUrl(imageId, { enabled: !!imageId });
+
+  return (
+    <SearchCard
+      title={query}
+      imageUrl={imageData?.url}
+      gradient={getGradient(index + 4)}
+      icon="trending"
+      onClick={() => onSelect(query)}
+    />
+  );
+};
 
 // ============ Category Card ============
 interface CategoryCardProps {
   category: CategoryResponse;
+  index: number;
   onSelect: (query: string) => void;
 }
 
-const CategoryCard: React.FC<CategoryCardProps> = ({ category, onSelect }) => {
+const CategoryCard: React.FC<CategoryCardProps> = ({ category, index, onSelect }) => {
   const imageId = category.pin?.thumbnailId || category.pin?.imageId;
   const { data: imageData } = useImageUrl(imageId, { enabled: !!imageId });
 
   return (
-    <TapArea onTap={() => onSelect(category.tagName)} rounding={3}>
-      <Box position="relative" rounding={3} overflow="hidden">
-        <Mask rounding={3}>
-          <Box
-            width="100%"
-            dangerouslySetInlineStyle={{ __style: { aspectRatio: '1' } }}
-            color="secondary"
-          >
-            {imageData?.url && (
-              <img
-                src={imageData.url}
-                alt={category.tagName}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                loading="lazy"
-              />
-            )}
-          </Box>
-        </Mask>
-        <Box
-          position="absolute"
-          bottom
-          left
-          right
-          padding={2}
-          dangerouslySetInlineStyle={{
-            __style: {
-              background: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.6) 100%)',
-            },
-          }}
-        >
-          <Text color="inverse" weight="bold" size="100">
-            {category.tagName}
-          </Text>
-        </Box>
-      </Box>
-    </TapArea>
+    <SearchCard
+      title={category.tagName}
+      imageUrl={imageData?.url}
+      gradient={getGradient(index + 2)}
+      onClick={() => onSelect(category.tagName)}
+    />
   );
 };
 
@@ -174,62 +329,67 @@ const SuggestionItem: React.FC<SuggestionItemProps> = ({
     enabled: !!suggestion.imageId,
   });
 
-  // Highlight matching text
   const getHighlightedText = () => {
     if (!query) return suggestion.text;
     const regex = new RegExp(`(${query})`, 'gi');
     const parts = suggestion.text.split(regex);
-    return parts.map((part) => 
-      regex.test(part) ? <strong key={`highlight-${part}-${suggestion.text}`}>{part}</strong> : part
+    return parts.map((part, i) =>
+      regex.test(part) ? <strong key={`${suggestion.text}-${part}-${i}`}>{part}</strong> : part
     );
   };
 
   const isUser = suggestion.type === 'USERNAME';
-  const getIconName = (): 'person' | 'tag' | 'search' => {
-    if (isUser) return 'person';
-    if (suggestion.type === 'TAG') return 'tag';
-    return 'search';
-  };
+  const isTag = suggestion.type === 'TAG';
+  const suggestionIcon = getIconForSuggestionType(isUser, isTag);
 
   return (
     <TapArea onTap={() => onSelect(suggestion.text)} rounding={2}>
       <Box
-        padding={2}
+        padding={4}
         rounding={2}
         color={isFocused ? 'secondary' : 'transparent'}
         display="flex"
         alignItems="center"
       >
-        <Flex gap={3} alignItems="center" flex="grow">
-          <Box
-            width={40}
-            height={40}
-            rounding={isUser ? 'circle' : 2}
-            color="secondary"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            overflow="hidden"
-          >
-            {imageData?.url ? (
-              <img
-                src={imageData.url}
-                alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              <Icon accessibilityLabel="" icon={getIconName()} size={18} color="subtle" />
-            )}
-          </Box>
-          <Flex direction="column">
-            <Text size="200">{getHighlightedText()}</Text>
-            {suggestion.type !== 'PIN_TITLE' && (
-              <Text size="100" color="subtle">
-                {suggestion.type === 'USERNAME' ? 'User' : 'Tag'}
-              </Text>
-            )}
-          </Flex>
-        </Flex>
+        <Box
+          width={52}
+          height={52}
+          rounding={isUser ? 'circle' : 3}
+          color="secondary"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          overflow="hidden"
+          marginEnd={4}
+        >
+          {imageData?.url ? (
+            <img
+              src={imageData.url}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <Icon
+              accessibilityLabel=""
+              icon={suggestionIcon}
+              size={24}
+              color="subtle"
+            />
+          )}
+        </Box>
+
+        <Box flex="grow">
+          <Text size="300" weight="bold">
+            {getHighlightedText()}
+          </Text>
+          {(isUser || isTag) && (
+            <Text size="200" color="subtle">
+              {isUser ? 'User' : 'Tag'}
+            </Text>
+          )}
+        </Box>
+
+        <Icon accessibilityLabel="" icon="arrow-up-right" size={20} color="subtle" />
       </Box>
     </TapArea>
   );
@@ -245,49 +405,48 @@ interface SearchForItemProps {
 const SearchForItem: React.FC<SearchForItemProps> = ({ query, isFocused, onSelect }) => (
   <TapArea onTap={() => onSelect(query)} rounding={2}>
     <Box
-      padding={2}
+      padding={4}
       rounding={2}
       color={isFocused ? 'secondary' : 'transparent'}
       display="flex"
       alignItems="center"
     >
-      <Flex gap={3} alignItems="center">
-        <Box
-          width={40}
-          height={40}
-          rounding={2}
-          color="secondary"
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Icon accessibilityLabel="" icon="search" size={18} color="default" />
-        </Box>
-        <Text size="200">
-          Search for &quot;<Text inline weight="bold">{query}</Text>&quot;
+      <Box
+        width={52}
+        height={52}
+        rounding={3}
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+        marginEnd={4}
+        dangerouslySetInlineStyle={{
+          __style: { backgroundColor: '#e60023' },
+        }}
+      >
+        <Icon accessibilityLabel="" icon="search" size={24} color="inverse" />
+      </Box>
+
+      <Box flex="grow">
+        <Text size="300">
+          Search for "<Text inline weight="bold">{query}</Text>"
         </Text>
-      </Flex>
+      </Box>
+
+      <Icon accessibilityLabel="" icon="arrow-forward" size={20} color="default" />
     </Box>
   </TapArea>
 );
 
 // ============ Main Dropdown Component ============
 export interface SearchDropdownProps {
-  // State
   isOpen: boolean;
   query: string;
   focusedIndex: number;
-  
-  // Data
-  recentSearches: RecentSearch[] | string[];
+  recentSearches: string[];
   trending: TrendingQuery[];
   categories: CategoryResponse[];
   suggestions: Suggestion[];
-  
-  // Loading
   isLoadingSuggestions?: boolean;
-  
-  // Callbacks
   onSelect: (query: string) => void;
   onRemoveRecent: (query: string) => void;
   onClearAllRecent: () => void;
@@ -306,161 +465,163 @@ export const SearchDropdown: React.FC<SearchDropdownProps> = ({
   onRemoveRecent,
   onClearAllRecent,
 }) => {
-  // Normalize recent searches to strings
-  const recentQueries = recentSearches.map(r => 
-    typeof r === 'string' ? r : r.query
-  );
-
   const hasQuery = query.trim().length > 0;
-  const hasRecent = recentQueries.length > 0;
+  const hasRecent = recentSearches.length > 0;
   const hasTrending = trending.length > 0;
   const hasCategories = categories.length > 0;
+  const hasSuggestions = suggestions.length > 0;
+
+  const limitedRecent = useMemo(
+    () => recentSearches.slice(0, MAX_CARDS_PER_SECTION),
+    [recentSearches]
+  );
+  const limitedTrending = useMemo(
+    () => trending.slice(0, MAX_CARDS_PER_SECTION),
+    [trending]
+  );
+  const limitedCategories = useMemo(
+    () => categories.slice(0, MAX_CARDS_PER_SECTION),
+    [categories]
+  );
 
   if (!isOpen) return null;
 
-  // Calculate total items for keyboard navigation
   let currentIndex = 0;
 
   return (
-    <Box
-      position="absolute"
-      top
-      dangerouslySetInlineStyle={{ 
-        __style: { 
-          ...dropdownStyles.container,
-          left: 0,
-          right: 0,
-          marginTop: '8px',
-        } 
-      }}
-    >
-      {/* Initial State: Recent + Trending + Categories */}
+    <div style={dropdownStyles.container}>
+      {/* ============ Initial State (no query) ============ */}
       {!hasQuery && (
-        <>
+        <Box padding={6}>
           {/* Recent Searches */}
           {hasRecent && (
-            <Box
-              padding={4}
-              dangerouslySetInlineStyle={{
-                __style: { borderBottom: '1px solid #f0f0f0' },
-              }}
-            >
-              <Box marginBottom={3}>
-                <Flex justifyContent="between" alignItems="center">
-                  <Text size="100" weight="bold" color="subtle">
-                    RECENT SEARCHES
-                  </Text>
-                  <TapArea onTap={onClearAllRecent}>
-                    <Text size="100" color="subtle">Clear all</Text>
-                  </TapArea>
-                </Flex>
+            <Box marginBottom={8}>
+              <Box marginBottom={4}>
+                <SectionHeader
+                  title="Recent"
+                  action={{
+                    label: 'Clear all',
+                    onClick: onClearAllRecent,
+                  }}
+                />
               </Box>
-              <Flex direction="column" gap={1}>
-                {recentQueries.slice(0, 5).map((q) => {
-                  const itemIndex = currentIndex++;
-                  return (
-                    <RecentItem
-                      key={q}
-                      query={q}
-                      isFocused={focusedIndex === itemIndex}
-                      onSelect={onSelect}
-                      onRemove={onRemoveRecent}
-                    />
-                  );
-                })}
-              </Flex>
-            </Box>
-          )}
 
-          {/* Trending */}
-          {hasTrending && (
-            <Box
-              padding={4}
-              dangerouslySetInlineStyle={{
-                __style: { borderBottom: hasCategories ? '1px solid #f0f0f0' : undefined },
-              }}
-            >
-              <Box marginBottom={3}>
-                <Text size="100" weight="bold" color="subtle">
-                  TRENDING
-                </Text>
-              </Box>
-              <Flex gap={2} wrap>
-                {trending.slice(0, 6).map((t) => (
-                  <TrendingTag
-                    key={t.query}
-                    query={t.query}
+              <div style={dropdownStyles.cardsGrid}>
+                {limitedRecent.map((q) => (
+                  <RecentCard
+                    key={`recent-${q}`}
+                    query={q}
+                    index={recentSearches.indexOf(q)}
                     onSelect={onSelect}
+                    onRemove={onRemoveRecent}
                   />
                 ))}
-              </Flex>
+              </div>
             </Box>
           )}
 
-          {/* Categories */}
+          {/* Ideas for you (Categories) */}
           {hasCategories && (
-            <Box padding={4}>
-              <Box marginBottom={3}>
-                <Text size="100" weight="bold" color="subtle">
-                  POPULAR CATEGORIES
-                </Text>
+            <Box marginBottom={8}>
+              <Box marginBottom={4}>
+                <SectionHeader title="Ideas for you" />
               </Box>
-              <Box
-                dangerouslySetInlineStyle={{
-                  __style: {
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(4, 1fr)',
-                    gap: '12px',
-                  },
-                }}
-              >
-                {categories.slice(0, 8).map((cat) => (
+
+              <div style={dropdownStyles.cardsGrid}>
+                {limitedCategories.map((cat) => (
                   <CategoryCard
-                    key={cat.tagId}
+                    key={`category-${cat.tagId}`}
                     category={cat}
+                    index={categories.indexOf(cat)}
                     onSelect={onSelect}
                   />
                 ))}
-              </Box>
+              </div>
             </Box>
           )}
-        </>
-      )}
 
-      {/* Suggestions State (when typing) */}
-      {hasQuery && (
-        <Box padding={4}>
-          {isLoadingSuggestions ? (
-            <Box display="flex" justifyContent="center" padding={4}>
-              <Spinner accessibilityLabel="Loading suggestions" show size="sm" />
-            </Box>
-          ) : (
-            <Flex direction="column" gap={1}>
-              {/* Suggestions */}
-              {suggestions.slice(0, 6).map((s) => {
-                const itemIndex = currentIndex++;
-                return (
-                  <SuggestionItem
-                    key={`${s.type}-${s.text}`}
-                    suggestion={s}
-                    query={query}
-                    isFocused={focusedIndex === itemIndex}
+          {/* Popular on Pictorium */}
+          {hasTrending && (
+            <Box>
+              <Box marginBottom={4}>
+                <SectionHeader title="Popular on Pictorium" />
+              </Box>
+
+              <div style={dropdownStyles.cardsGrid}>
+                {limitedTrending.map((t) => (
+                  <TrendingCard
+                    key={`trending-${t.query}`}
+                    query={t.query}
+                    index={trending.indexOf(t)}
                     onSelect={onSelect}
                   />
-                );
-              })}
+                ))}
+              </div>
+            </Box>
+          )}
 
-              {/* Search for query */}
-              <SearchForItem
-                query={query}
-                isFocused={focusedIndex === currentIndex}
-                onSelect={onSelect}
-              />
-            </Flex>
+          {/* Empty state */}
+          {!hasRecent && !hasCategories && !hasTrending && (
+            <Box padding={8} display="flex" justifyContent="center" alignItems="center">
+              <Flex direction="column" alignItems="center" gap={3}>
+                <Icon accessibilityLabel="" icon="search" size={48} color="subtle" />
+                <Text color="subtle" size="300">
+                  Start typing to search
+                </Text>
+              </Flex>
+            </Box>
           )}
         </Box>
       )}
-    </Box>
+
+      {/* ============ Suggestions State (has query) ============ */}
+      {hasQuery && (
+        <Box paddingY={3}>
+          {isLoadingSuggestions && !hasSuggestions ? (
+            <Box display="flex" justifyContent="center" padding={6}>
+              <Spinner accessibilityLabel="Loading suggestions" show size="md" />
+            </Box>
+          ) : (
+            <>
+              {hasSuggestions && (
+                <Box paddingX={2}>
+                  {suggestions.slice(0, 6).map((s) => {
+                    const itemIndex = currentIndex++;
+                    return (
+                      <SuggestionItem
+                        key={`suggestion-${s.type}-${s.text}`}
+                        suggestion={s}
+                        query={query}
+                        isFocused={focusedIndex === itemIndex}
+                        onSelect={onSelect}
+                      />
+                    );
+                  })}
+
+                  <Box
+                    marginTop={2}
+                    marginBottom={2}
+                    marginStart={4}
+                    marginEnd={4}
+                    dangerouslySetInlineStyle={{
+                      __style: dropdownStyles.divider,
+                    }}
+                  />
+                </Box>
+              )}
+
+              <Box paddingX={2}>
+                <SearchForItem
+                  query={query}
+                  isFocused={focusedIndex === currentIndex}
+                  onSelect={onSelect}
+                />
+              </Box>
+            </>
+          )}
+        </Box>
+      )}
+    </div>
   );
 };
 

@@ -10,9 +10,7 @@ import { Z_INDEX, LAYOUT } from '../../utils/constants';
 
 /**
  * Pinterest-style Header
- * - Fixed at top
- * - Logo, Nav, Search (main focus), User actions
- * - No sidebar toggle on desktop (Pinterest-style)
+ * Search takes maximum width
  */
 export const Header: React.FC = () => {
   return (
@@ -23,7 +21,7 @@ export const Header: React.FC = () => {
       left
       right
       color="default"
-      paddingX={4}
+      paddingX={3}
       paddingY={2}
       display="flex"
       alignItems="center"
@@ -35,20 +33,18 @@ export const Header: React.FC = () => {
         },
       }}
     >
-      <Flex alignItems="center" gap={2} flex="grow">
-        {/* Logo */}
+      {/* Left side: Logo + Nav - minimal width */}
+      <Flex alignItems="center" gap={1}>
         <HeaderLogo />
-        
-        {/* Navigation - Home / Explore */}
         <HeaderNav />
-        
-        {/* Search - Main Focus */}
-        <Box flex="grow" maxWidth={800} marginStart={2} marginEnd={2}>
-          <HeaderSearch />
-        </Box>
       </Flex>
-      
-      {/* User Actions */}
+
+      {/* Center: Search - Maximum width */}
+      <Box flex="grow" paddingX={3}>
+        <HeaderSearch />
+      </Box>
+
+      {/* Right side: User Actions - minimal width */}
       <HeaderUserMenu />
     </Box>
   );

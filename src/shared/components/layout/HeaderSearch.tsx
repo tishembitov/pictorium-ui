@@ -4,8 +4,8 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { Box, Icon, TapArea, Layer, FixedZIndex } from 'gestalt';
 import { SearchDropdown } from './SearchDropdown';
-import { 
-  useSuggestions, 
+import {
+  useSuggestions,
   useTrending,
   useSearchPreferencesStore,
 } from '@/modules/search';
@@ -13,50 +13,37 @@ import { useCategories } from '@/modules/tag';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { Z_INDEX } from '@/shared/utils/constants';
 
-// Animation keyframes as a style tag
-const animationStyles = `
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-`;
-
 // ============ Styles ============
-const searchStyles = {
-  wrapper: {
-    position: 'relative' as const,
+const styles = {
+  input: (isFocused: boolean) => ({
     width: '100%',
-  },
-  inputContainer: {
-    position: 'relative' as const,
-    width: '100%',
-  },
-  input: {
-    width: '100%',
-    height: '48px',
-    padding: '0 48px',
-    borderRadius: '24px',
+    height: '52px',
+    padding: '0 52px 0 56px',
+    borderRadius: '26px',
     border: 'none',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: isFocused ? '#ffffff' : '#e1e1e1',
     fontSize: '16px',
+    fontWeight: 400,
     outline: 'none',
     transition: 'all 0.2s ease',
-  },
-  inputFocused: {
-    backgroundColor: '#ffffff',
-    boxShadow: '0 0 0 3px rgba(0, 132, 255, 0.5)',
-  },
+    boxShadow: isFocused
+      ? '0 0 0 4px rgba(0, 132, 255, 0.2), 0 2px 12px rgba(0, 0, 0, 0.12)'
+      : 'none',
+    color: '#111111',
+  }),
   searchIcon: {
     position: 'absolute' as const,
-    left: '16px',
+    left: '18px',
     top: '50%',
     transform: 'translateY(-50%)',
     pointerEvents: 'none' as const,
-    color: '#767676',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   clearButton: {
     position: 'absolute' as const,
-    right: '12px',
+    right: '10px',
     top: '50%',
     transform: 'translateY(-50%)',
   },
@@ -66,53 +53,193 @@ const searchStyles = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    animation: 'fadeIn 0.15s ease-out',
-    cursor: 'pointer',
-    // Reset button styles
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    animation: 'fadeIn 0.2s ease-out',
+    cursor: 'default',
     border: 'none',
     padding: 0,
     margin: 0,
   },
 };
 
+const animationStyles = `
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes slideDown {
+    from { 
+      opacity: 0; 
+      transform: translateY(-12px);
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0);
+    }
+  }
+`;
+
+// ============ Helper Functions ============
+const getSelectedQueryFromSuggestions = (
+  focusedIndex: number,
+  suggestions: { text: string }[],
+  fallbackQuery: string
+): string => {
+  if (focusedIndex < suggestions.length) {
+    return suggestions[focusedIndex]?.text ?? fallbackQuery;
+  }
+  return fallbackQuery;
+};
+
+const getItemFromCombinedList = (
+  focusedIndex: number,
+  recentSearches: string[],
+  trending: { query: string }[]
+): string | undefined => {
+  const allItems = [...recentSearches, ...trending.map((t) => t.query)];
+  return allItems[focusedIndex];
+};
+
+// ============ Custom Hook for Keyboard Navigation ============
+interface UseKeyboardNavigationProps {
+  totalItems: number;
+  query: string;
+  debouncedQuery: string;
+  suggestions: { text: string }[];
+  recentSearches: string[];
+  trending: { query: string }[];
+  focusedIndex: number;
+  setFocusedIndex: React.Dispatch<React.SetStateAction<number>>;
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsFocused: React.Dispatch<React.SetStateAction<boolean>>;
+  executeSearch: (query: string) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}
+
+const useKeyboardNavigation = ({
+  totalItems,
+  query,
+  debouncedQuery,
+  suggestions,
+  recentSearches,
+  trending,
+  focusedIndex,
+  setFocusedIndex,
+  setIsOpen,
+  setIsFocused,
+  executeSearch,
+  inputRef,
+}: UseKeyboardNavigationProps) => {
+  const handleArrowDown = useCallback(() => {
+    setIsOpen(true);
+    setFocusedIndex((prev) => Math.min(prev + 1, totalItems - 1));
+  }, [setIsOpen, setFocusedIndex, totalItems]);
+
+  const handleArrowUp = useCallback(() => {
+    setFocusedIndex((prev) => Math.max(prev - 1, -1));
+  }, [setFocusedIndex]);
+
+  const handleEnter = useCallback(() => {
+    if (focusedIndex >= 0) {
+      if (debouncedQuery) {
+        const selectedQuery = getSelectedQueryFromSuggestions(
+          focusedIndex,
+          suggestions,
+          query
+        );
+        executeSearch(selectedQuery);
+      } else {
+        const item = getItemFromCombinedList(focusedIndex, recentSearches, trending);
+        if (item) {
+          executeSearch(item);
+        }
+      }
+    } else if (query.trim()) {
+      executeSearch(query);
+    }
+  }, [
+    focusedIndex,
+    debouncedQuery,
+    suggestions,
+    recentSearches,
+    trending,
+    query,
+    executeSearch,
+  ]);
+
+  const handleEscape = useCallback(() => {
+    setIsOpen(false);
+    setIsFocused(false);
+    setFocusedIndex(-1);
+    inputRef.current?.blur();
+  }, [setIsOpen, setIsFocused, setFocusedIndex, inputRef]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          handleArrowDown();
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          handleArrowUp();
+          break;
+        case 'Enter':
+          e.preventDefault();
+          handleEnter();
+          break;
+        case 'Escape':
+          e.preventDefault();
+          handleEscape();
+          break;
+      }
+    },
+    [handleArrowDown, handleArrowUp, handleEnter, handleEscape]
+  );
+
+  return handleKeyDown;
+};
+
+// ============ Main Component ============
 export const HeaderSearch: React.FC = () => {
   const navigate = useNavigate();
-  
+
   // Local state
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
-  
+
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   // Debounced query for API calls
   const debouncedQuery = useDebounce(query, 200);
-  
+
   // Store - recent searches
   const addRecentSearch = useSearchPreferencesStore((s) => s.addRecentSearch);
   const removeRecentSearch = useSearchPreferencesStore((s) => s.removeRecentSearch);
   const clearRecentSearches = useSearchPreferencesStore((s) => s.clearRecentSearches);
   const recentSearches = useSearchPreferencesStore((s) => s.recentSearches);
-  
+
   // API - suggestions (when typing)
   const { data: suggestionsData, isLoading: isSuggestionsLoading } = useSuggestions(
     debouncedQuery,
     { enabled: debouncedQuery.length >= 2 }
   );
-  
-  // API - trending (when not typing)
-  const { data: trendingData } = useTrending({ 
-    limit: 6,
-    enabled: isOpen && !debouncedQuery,
+
+  // API - trending
+  const { data: trendingData } = useTrending({
+    limit: 8,
+    enabled: true,
   });
-  
-  // API - categories (when not typing)
+
+  // API - categories for "Ideas for you"
   const { data: categoriesData } = useCategories({
     limit: 8,
-    enabled: isOpen && !debouncedQuery,
+    enabled: true,
   });
 
   // Memoized data
@@ -126,58 +253,56 @@ export const HeaderSearch: React.FC = () => {
   // Calculate total navigable items
   const totalItems = useMemo(() => {
     if (debouncedQuery) {
-      return suggestions.length + 1; // suggestions + "search for" option
+      return suggestions.length + 1;
     }
-    return recentSearches.length;
-  }, [debouncedQuery, suggestions.length, recentSearches.length]);
+    return recentSearches.length + trending.length;
+  }, [debouncedQuery, suggestions.length, recentSearches.length, trending.length]);
 
   // ============ Handlers ============
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(e.target.value);
-    setFocusedIndex(-1);
-    if (!isOpen) setIsOpen(true);
-  }, [isOpen]);
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setQuery(e.target.value);
+      setFocusedIndex(-1);
+      if (!isOpen) setIsOpen(true);
+    },
+    [isOpen]
+  );
 
   const handleFocus = useCallback(() => {
     setIsFocused(true);
     setIsOpen(true);
   }, []);
 
-  const handleBlur = useCallback(() => {
-    setIsFocused(false);
-    // Delay closing to allow click events on dropdown
-    setTimeout(() => {
-      if (!containerRef.current?.contains(document.activeElement)) {
-        setIsOpen(false);
-        setFocusedIndex(-1);
-      }
-    }, 150);
-  }, []);
+  const executeSearch = useCallback(
+    (searchQuery: string) => {
+      const trimmed = searchQuery.trim();
+      if (!trimmed) return;
 
-  const executeSearch = useCallback((searchQuery: string) => {
-    const trimmed = searchQuery.trim();
-    if (!trimmed) return;
-    
-    // Add to recent searches
-    addRecentSearch(trimmed);
-    
-    // Navigate to search page
-    navigate(`/search?q=${encodeURIComponent(trimmed)}`);
-    
-    // Reset state
-    setQuery('');
-    setIsOpen(false);
-    setFocusedIndex(-1);
-    inputRef.current?.blur();
-  }, [navigate, addRecentSearch]);
+      addRecentSearch(trimmed);
+      navigate(`/search?q=${encodeURIComponent(trimmed)}`);
 
-  const handleSelect = useCallback((selectedQuery: string) => {
-    executeSearch(selectedQuery);
-  }, [executeSearch]);
+      setQuery('');
+      setIsOpen(false);
+      setIsFocused(false);
+      setFocusedIndex(-1);
+      inputRef.current?.blur();
+    },
+    [navigate, addRecentSearch]
+  );
 
-  const handleRemoveRecent = useCallback((queryToRemove: string) => {
-    removeRecentSearch(queryToRemove);
-  }, [removeRecentSearch]);
+  const handleSelect = useCallback(
+    (selectedQuery: string) => {
+      executeSearch(selectedQuery);
+    },
+    [executeSearch]
+  );
+
+  const handleRemoveRecent = useCallback(
+    (queryToRemove: string) => {
+      removeRecentSearch(queryToRemove);
+    },
+    [removeRecentSearch]
+  );
 
   const handleClearAllRecent = useCallback(() => {
     clearRecentSearches();
@@ -191,49 +316,26 @@ export const HeaderSearch: React.FC = () => {
 
   const handleBackdropClick = useCallback(() => {
     setIsOpen(false);
+    setIsFocused(false);
     setFocusedIndex(-1);
     inputRef.current?.blur();
   }, []);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setIsOpen(true);
-        setFocusedIndex((prev) => Math.min(prev + 1, totalItems - 1));
-        break;
-        
-      case 'ArrowUp':
-        e.preventDefault();
-        setFocusedIndex((prev) => Math.max(prev - 1, -1));
-        break;
-        
-      case 'Enter':
-        e.preventDefault();
-        if (focusedIndex >= 0) {
-          // Select focused item
-          if (debouncedQuery) {
-            if (focusedIndex < suggestions.length) {
-              executeSearch(suggestions[focusedIndex]?.text ?? query);
-            } else {
-              executeSearch(query);
-            }
-          } else if (focusedIndex < recentSearches.length) {
-            executeSearch(recentSearches[focusedIndex] ?? '');
-          }
-        } else if (query.trim()) {
-          executeSearch(query);
-        }
-        break;
-        
-      case 'Escape':
-        e.preventDefault();
-        setIsOpen(false);
-        setFocusedIndex(-1);
-        inputRef.current?.blur();
-        break;
-    }
-  }, [focusedIndex, totalItems, query, debouncedQuery, suggestions, recentSearches, executeSearch]);
+  // Keyboard navigation hook
+  const handleKeyDown = useKeyboardNavigation({
+    totalItems,
+    query,
+    debouncedQuery,
+    suggestions,
+    recentSearches,
+    trending,
+    focusedIndex,
+    setFocusedIndex,
+    setIsOpen,
+    setIsFocused,
+    executeSearch,
+    inputRef,
+  });
 
   // Close on click outside
   useEffect(() => {
@@ -242,6 +344,7 @@ export const HeaderSearch: React.FC = () => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
+        setIsFocused(false);
         setFocusedIndex(-1);
       }
     };
@@ -261,7 +364,7 @@ export const HeaderSearch: React.FC = () => {
             type="button"
             onClick={handleBackdropClick}
             aria-label="Close search dropdown"
-            style={searchStyles.backdrop}
+            style={styles.backdrop}
           />
         </Layer>
       )}
@@ -276,63 +379,45 @@ export const HeaderSearch: React.FC = () => {
         {/* Input Container */}
         <Box position="relative">
           {/* Search Icon */}
-          <Box
-            position="absolute"
-            dangerouslySetInlineStyle={{
-              __style: {
-                left: '16px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                pointerEvents: 'none',
-              },
-            }}
-          >
-            <Icon accessibilityLabel="" icon="search" size={20} color="subtle" />
-          </Box>
+          <div style={styles.searchIcon}>
+            <Icon
+              accessibilityLabel=""
+              icon="search"
+              size={22}
+              color={isFocused ? 'default' : 'subtle'}
+            />
+          </div>
 
           {/* Input */}
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search for ideas..."
+            placeholder="Search"
             value={query}
             onChange={handleInputChange}
             onFocus={handleFocus}
-            onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             autoComplete="off"
-            style={{
-              ...searchStyles.input,
-              ...(isFocused ? searchStyles.inputFocused : {}),
-            }}
+            style={styles.input(isFocused)}
           />
 
           {/* Clear Button */}
           {showClearButton && (
-            <Box
-              position="absolute"
-              dangerouslySetInlineStyle={{
-                __style: {
-                  right: '12px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                },
-              }}
-            >
+            <div style={styles.clearButton}>
               <TapArea onTap={handleClear} rounding="circle" tapStyle="compress">
                 <Box
-                  width={28}
-                  height={28}
+                  width={36}
+                  height={36}
                   rounding="circle"
                   color="secondary"
                   display="flex"
                   alignItems="center"
                   justifyContent="center"
                 >
-                  <Icon accessibilityLabel="Clear" icon="cancel" size={14} color="dark" />
+                  <Icon accessibilityLabel="Clear" icon="cancel" size={18} color="dark" />
                 </Box>
               </TapArea>
-            </Box>
+            </div>
           )}
         </Box>
 

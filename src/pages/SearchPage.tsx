@@ -4,13 +4,11 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { 
   Box, 
-  Heading, 
   Text, 
   Tabs, 
   Divider, 
   Flex, 
-  Button, 
-  SearchField,
+  Button,
   Spinner,
 } from 'gestalt';
 import { 
@@ -37,12 +35,16 @@ import type {
   BoardSearchResult,
   Aggregations,
 } from '@/modules/search';
-import { TagChip } from '@/modules/tag';
+import { TagChip, CategoryGrid } from '@/modules/tag';
 import { EmptyState, LoadingSpinner, ErrorMessage } from '@/shared/components';
 import { useAuth } from '@/modules/auth';
 
 type SearchTab = 'all' | 'pins' | 'users' | 'boards';
 
+/**
+ * SearchPage - Full search experience with tabs and filters
+ * Navigated to from HeaderSearch or direct URL
+ */
 const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
@@ -50,8 +52,7 @@ const SearchPage: React.FC = () => {
   // Parse URL params
   const urlParams = useMemo(() => parseSearchUrl(searchParams), [searchParams]);
   
-  // Local state - initialize from URL
-  const [localQuery, setLocalQuery] = useState(urlParams.query);
+  // Local state
   const [activeTab, setActiveTab] = useState<SearchTab>(urlParams.type || 'all');
   const [selectedTags, setSelectedTags] = useState<string[]>(urlParams.tags || []);
   const [sortBy, setSortBy] = useState<SearchSortBy>(urlParams.sortBy || 'RELEVANCE');
@@ -61,7 +62,6 @@ const SearchPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   
   // Store
-  const addRecentSearch = useSearchPreferencesStore((s) => s.addRecentSearch);
   const recentSearches = useSearchPreferencesStore((s) => s.recentSearches);
   
   // Server-side history
@@ -135,25 +135,6 @@ const SearchPage: React.FC = () => {
   });
 
   // Handlers
-  const handleSearch = useCallback((query: string) => {
-    const trimmed = query.trim();
-    if (trimmed) {
-      addRecentSearch(trimmed);
-      setSearchParams({ q: trimmed }, { replace: true });
-      setLocalQuery(trimmed);
-    }
-  }, [setSearchParams, addRecentSearch]);
-
-  const handleSearchChange = useCallback(({ value }: { value: string }) => {
-    setLocalQuery(value);
-  }, []);
-
-  const handleSearchKeyDown = useCallback(({ event }: { event: React.KeyboardEvent<HTMLInputElement> }) => {
-    if (event.key === 'Enter') {
-      handleSearch(localQuery);
-    }
-  }, [localQuery, handleSearch]);
-
   const handleTabChange = useCallback(({ activeTabIndex }: { activeTabIndex: number }) => {
     const tabs: SearchTab[] = ['all', 'pins', 'users', 'boards'];
     const newTab = tabs[activeTabIndex] || 'all';
@@ -183,9 +164,8 @@ const SearchPage: React.FC = () => {
   }, []);
 
   const handleHistoryClick = useCallback((query: string) => {
-    setLocalQuery(query);
-    handleSearch(query);
-  }, [handleSearch]);
+    setSearchParams({ q: query }, { replace: true });
+  }, [setSearchParams]);
 
   const handleClearHistory = useCallback(() => {
     clearHistoryMutation.mutate();
@@ -194,7 +174,7 @@ const SearchPage: React.FC = () => {
   const handleTagFromAggregations = useCallback((tag: string) => {
     if (!selectedTags.includes(tag)) {
       setSelectedTags(prev => [...prev, tag]);
-      setActiveTab('pins'); // Switch to pins to show filtered results
+      setActiveTab('pins');
     }
   }, [selectedTags]);
 
@@ -208,19 +188,16 @@ const SearchPage: React.FC = () => {
     return recentSearches;
   }, [isAuthenticated, serverHistory, recentSearches]);
 
-  // Tab labels
-  const pinsTabLabel = pinsTotalHits ? `Pins (${pinsTotalHits})` : 'Pins';
-  const usersTabLabel = usersTotalHits ? `Users (${usersTotalHits})` : 'Users';
-  const boardsTabLabel = boardsTotalHits ? `Boards (${boardsTotalHits})` : 'Boards';
+  // Tab labels with counts
+  const pinsTabLabel = pinsTotalHits ? `Pins (${pinsTotalHits.toLocaleString()})` : 'Pins';
+  const usersTabLabel = usersTotalHits ? `Users (${usersTotalHits.toLocaleString()})` : 'Users';
+  const boardsTabLabel = boardsTotalHits ? `Boards (${boardsTotalHits.toLocaleString()})` : 'Boards';
 
   // Empty state - no query
   if (!urlParams.query) {
     return (
       <SearchEmptyState
-        localQuery={localQuery}
         history={history}
-        onSearchChange={handleSearchChange}
-        onSearchKeyDown={handleSearchKeyDown}
         onHistoryClick={handleHistoryClick}
         onClearHistory={handleClearHistory}
       />
@@ -229,28 +206,9 @@ const SearchPage: React.FC = () => {
 
   return (
     <Box paddingY={4}>
-      {/* Header */}
+      {/* Filters Toggle */}
       <Box marginBottom={4}>
-        <Heading size="400" accessibilityLevel={1}>
-          Search results for &quot;{urlParams.query}&quot;
-        </Heading>
-      </Box>
-
-      {/* Search Bar */}
-      <Box marginBottom={4}>
-        <Flex gap={3} wrap>
-          <Box flex="grow" maxWidth={600}>
-            <SearchField
-              id="search-results"
-              accessibilityLabel="Search"
-              accessibilityClearButtonLabel="Clear"
-              placeholder="Search..."
-              value={localQuery}
-              onChange={handleSearchChange}
-              onKeyDown={handleSearchKeyDown}
-            />
-          </Box>
-          
+        <Flex gap={3} alignItems="center">
           <Button
             text={showFilters ? 'Hide Filters' : 'Filters'}
             onClick={() => setShowFilters(!showFilters)}
@@ -258,10 +216,19 @@ const SearchPage: React.FC = () => {
             size="lg"
             iconEnd="filter"
           />
+          
+          {hasFilters && (
+            <Button
+              text="Clear all"
+              onClick={handleClearFilters}
+              color="gray"
+              size="sm"
+            />
+          )}
         </Flex>
       </Box>
 
-      {/* Filters */}
+      {/* Filters Panel */}
       {showFilters && (
         <Box marginBottom={4}>
           <SearchFilters
@@ -298,7 +265,6 @@ const SearchPage: React.FC = () => {
 
       {/* Tab Content */}
       <Box marginTop={4}>
-        {/* All Tab - Universal Search */}
         {activeTab === 'all' && (
           <UniversalSearchResults
             data={universalData}
@@ -307,7 +273,6 @@ const SearchPage: React.FC = () => {
           />
         )}
 
-        {/* Pins Tab */}
         {activeTab === 'pins' && (
           <PinsTabContent
             query={urlParams.query}
@@ -325,7 +290,6 @@ const SearchPage: React.FC = () => {
           />
         )}
 
-        {/* Users Tab */}
         {activeTab === 'users' && (
           <UsersTabContent
             query={urlParams.query}
@@ -341,7 +305,6 @@ const SearchPage: React.FC = () => {
           />
         )}
 
-        {/* Boards Tab */}
         {activeTab === 'boards' && (
           <BoardsTabContent
             query={urlParams.query}
@@ -361,45 +324,21 @@ const SearchPage: React.FC = () => {
   );
 };
 
-// Empty state component
+// ============ Empty State ============
 interface SearchEmptyStateProps {
-  localQuery: string;
   history: string[];
-  onSearchChange: (args: { value: string }) => void;
-  onSearchKeyDown: (args: { event: React.KeyboardEvent<HTMLInputElement> }) => void;
   onHistoryClick: (query: string) => void;
   onClearHistory: () => void;
 }
 
 const SearchEmptyState: React.FC<SearchEmptyStateProps> = ({
-  localQuery,
   history,
-  onSearchChange,
-  onSearchKeyDown,
   onHistoryClick,
   onClearHistory,
 }) => (
-  <Box paddingY={4}>
-    <Box marginBottom={6}>
-      <Heading size="400" accessibilityLevel={1}>
-        Search
-      </Heading>
-    </Box>
-
-    <Box maxWidth={600} marginBottom={6}>
-      <SearchField
-        id="search-main"
-        accessibilityLabel="Search"
-        accessibilityClearButtonLabel="Clear"
-        placeholder="Search for pins, users, or boards..."
-        value={localQuery}
-        onChange={onSearchChange}
-        onKeyDown={onSearchKeyDown}
-      />
-    </Box>
-
+  <Box paddingY={6}>
     {history.length > 0 ? (
-      <Box>
+      <Box marginBottom={6}>
         <Box marginBottom={3}>
           <Flex justifyContent="between" alignItems="center">
             <Text weight="bold" size="300">Recent Searches</Text>
@@ -423,16 +362,26 @@ const SearchEmptyState: React.FC<SearchEmptyStateProps> = ({
         </Flex>
       </Box>
     ) : (
-      <EmptyState
-        title="Search for something"
-        description="Enter a search term to find pins, users, or boards"
-        icon="search"
-      />
+      <Box marginBottom={6}>
+        <EmptyState
+          title="Search for something"
+          description="Enter a search term to find pins, users, or boards"
+          icon="search"
+        />
+      </Box>
     )}
+
+    {/* Categories for discovery */}
+    <CategoryGrid 
+      limit={8} 
+      size="md" 
+      title="Explore Categories"
+      showTitle
+    />
   </Box>
 );
 
-// Pins tab content - FIXED TYPES
+// ============ Pins Tab ============
 interface PinsTabContentProps {
   query: string;
   pins: PinSearchResult[];
@@ -499,7 +448,7 @@ const PinsTabContent: React.FC<PinsTabContentProps> = ({
   </Box>
 );
 
-// Users tab content - FIXED TYPES
+// ============ Users Tab ============
 interface UsersTabContentProps {
   query: string;
   users: UserSearchResult[];
@@ -585,7 +534,7 @@ const UsersTabContent: React.FC<UsersTabContentProps> = ({
   );
 };
 
-// Boards tab content - FIXED TYPES
+// ============ Boards Tab ============
 interface BoardsTabContentProps {
   query: string;
   boards: BoardSearchResult[];

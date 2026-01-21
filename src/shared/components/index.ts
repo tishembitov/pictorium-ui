@@ -1,4 +1,5 @@
 // src/shared/components/index.ts
+
 // Layout
 export { MainLayout } from './layout/MainLayout';
 export { Header } from './layout/Header';
@@ -6,6 +7,7 @@ export { HeaderLogo } from './layout/HeaderLogo';
 export { HeaderSearch } from './layout/HeaderSearch';
 export { HeaderNav } from './layout/HeaderNav';
 export { HeaderUserMenu } from './layout/HeaderUserMenu';
+export { SearchDropdown } from './layout/SearchDropdown';
 export { Sidebar } from './layout/Sidebar';
 export { MobileMenu } from './layout/MobileMenu';
 export { Footer } from './layout/Footer';
@@ -43,4 +45,3 @@ export { GlobalModals } from './modals/GlobalModals';
 export { AttachmentButton } from './input/AttachmentButton';
 export { AttachmentPreview } from './input/AttachmentPreview';
 export { EmojiPicker } from './input/EmojiPicker';
-

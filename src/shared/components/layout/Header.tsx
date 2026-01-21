@@ -1,24 +1,20 @@
 // src/shared/components/layout/Header.tsx
 
 import React from 'react';
-import { Box, Flex, FixedZIndex, IconButton } from 'gestalt';
+import { Box, Flex, FixedZIndex } from 'gestalt';
 import { HeaderLogo } from './HeaderLogo';
 import { HeaderSearch } from './HeaderSearch';
 import { HeaderNav } from './HeaderNav';
 import { HeaderUserMenu } from './HeaderUserMenu';
-import { useUIStore } from '../../stores/uiStore';
-import { useIsMobile } from '../../hooks/useMediaQuery';
 import { Z_INDEX, LAYOUT } from '../../utils/constants';
 
+/**
+ * Pinterest-style Header
+ * - Fixed at top
+ * - Logo, Nav, Search (main focus), User actions
+ * - No sidebar toggle on desktop (Pinterest-style)
+ */
 export const Header: React.FC = () => {
-  const isMobile = useIsMobile();
-  
-  // UI Store
-  const isSidebarOpen = useUIStore((state) => state.isSidebarOpen);
-  const toggleSidebar = useUIStore((state) => state.toggleSidebar);
-  const isMobileMenuOpen = useUIStore((state) => state.isMobileMenuOpen);
-  const toggleMobileMenu = useUIStore((state) => state.toggleMobileMenu);
-
   return (
     <Box
       as="header"
@@ -35,49 +31,25 @@ export const Header: React.FC = () => {
       dangerouslySetInlineStyle={{
         __style: {
           height: `${LAYOUT.HEADER_HEIGHT}px`,
-          borderBottom: '1px solid var(--border-light)',
+          borderBottom: '1px solid var(--border-light, #efefef)',
         },
       }}
     >
-      <Flex alignItems="center" gap={4} flex="grow">
-        {/* Sidebar Toggle - Desktop */}
-        {!isMobile && (
-          <IconButton
-            accessibilityLabel={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-            icon="menu"
-            onClick={toggleSidebar}
-            size="md"
-            bgColor="transparent"
-          />
-        )}
-        
-        {/* Mobile Menu Toggle */}
-        {isMobile && (
-          <IconButton
-            accessibilityLabel={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
-            icon="menu"
-            onClick={toggleMobileMenu}
-            size="md"
-            bgColor="transparent"
-          />
-        )}
-        
+      <Flex alignItems="center" gap={2} flex="grow">
         {/* Logo */}
         <HeaderLogo />
         
-        {/* Navigation - hidden on mobile */}
-        {!isMobile && <HeaderNav />}
+        {/* Navigation - Home / Explore */}
+        <HeaderNav />
         
-        {/* Search */}
-        <Box flex="grow" maxWidth={800}>
+        {/* Search - Main Focus */}
+        <Box flex="grow" maxWidth={800} marginStart={2} marginEnd={2}>
           <HeaderSearch />
         </Box>
       </Flex>
       
-      {/* User Menu */}
-      <Box marginStart={4}>
-        <HeaderUserMenu />
-      </Box>
+      {/* User Actions */}
+      <HeaderUserMenu />
     </Box>
   );
 };

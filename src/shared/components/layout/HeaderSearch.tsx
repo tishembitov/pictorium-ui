@@ -2,165 +2,245 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  SearchField, 
-  Box, 
-  Popover, 
-  Flex, 
-  TapArea, 
-  Text, 
-  Icon,
-  Spinner,
-} from 'gestalt';
+import { Box, Icon, TapArea, Layer, FixedZIndex } from 'gestalt';
+import { SearchDropdown } from './SearchDropdown';
 import { 
   useSuggestions, 
   useTrending,
-  SuggestionDropdown,
   useSearchPreferencesStore,
-  useSearchHistory,
 } from '@/modules/search';
-import type { SearchHistoryItem } from '@/modules/search';
-import { useAuth } from '@/modules/auth';
+import { useCategories } from '@/modules/tag';
 import { useDebounce } from '@/shared/hooks/useDebounce';
+import { Z_INDEX } from '@/shared/utils/constants';
+
+// Animation keyframes as a style tag
+const animationStyles = `
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+`;
+
+// ============ Styles ============
+const searchStyles = {
+  wrapper: {
+    position: 'relative' as const,
+    width: '100%',
+  },
+  inputContainer: {
+    position: 'relative' as const,
+    width: '100%',
+  },
+  input: {
+    width: '100%',
+    height: '48px',
+    padding: '0 48px',
+    borderRadius: '24px',
+    border: 'none',
+    backgroundColor: '#f0f0f0',
+    fontSize: '16px',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+  },
+  inputFocused: {
+    backgroundColor: '#ffffff',
+    boxShadow: '0 0 0 3px rgba(0, 132, 255, 0.5)',
+  },
+  searchIcon: {
+    position: 'absolute' as const,
+    left: '16px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    pointerEvents: 'none' as const,
+    color: '#767676',
+  },
+  clearButton: {
+    position: 'absolute' as const,
+    right: '12px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+  },
+  backdrop: {
+    position: 'fixed' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    animation: 'fadeIn 0.15s ease-out',
+    cursor: 'pointer',
+    // Reset button styles
+    border: 'none',
+    padding: 0,
+    margin: 0,
+  },
+};
 
 export const HeaderSearch: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
   
+  // Local state
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
-  const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Debounced query for API calls
   const debouncedQuery = useDebounce(query, 200);
   
-  // Search preferences store (local)
+  // Store - recent searches
   const addRecentSearch = useSearchPreferencesStore((s) => s.addRecentSearch);
-  const recentSearches = useSearchPreferencesStore((s) => s.recentSearches);
+  const removeRecentSearch = useSearchPreferencesStore((s) => s.removeRecentSearch);
   const clearRecentSearches = useSearchPreferencesStore((s) => s.clearRecentSearches);
+  const recentSearches = useSearchPreferencesStore((s) => s.recentSearches);
   
-  // API-based suggestions
+  // API - suggestions (when typing)
   const { data: suggestionsData, isLoading: isSuggestionsLoading } = useSuggestions(
     debouncedQuery,
     { enabled: debouncedQuery.length >= 2 }
   );
   
-  // Trending queries
+  // API - trending (when not typing)
   const { data: trendingData } = useTrending({ 
-    limit: 5,
-    enabled: !debouncedQuery && isOpen,
+    limit: 6,
+    enabled: isOpen && !debouncedQuery,
   });
   
-  // Server-side search history (for authenticated users)
-  const { data: serverHistory } = useSearchHistory({
-    limit: 5,
-    enabled: isAuthenticated && !debouncedQuery && isOpen,
+  // API - categories (when not typing)
+  const { data: categoriesData } = useCategories({
+    limit: 8,
+    enabled: isOpen && !debouncedQuery,
   });
 
+  // Memoized data
   const suggestions = useMemo(
     () => suggestionsData?.suggestions ?? [],
-    [suggestionsData?.suggestions]
+    [suggestionsData]
   );
-  const trending = trendingData ?? [];
-  
-  // Combine local and server history - convert to SearchHistoryItem format
-  const history: SearchHistoryItem[] = useMemo(() => {
-    if (isAuthenticated && serverHistory) {
-      return serverHistory;
-    }
-    return recentSearches.map((q) => ({
-      query: q,
-      searchType: 'ALL' as const,
-      searchCount: 1,
-      lastSearchedAt: new Date().toISOString(),
-    }));
-  }, [isAuthenticated, serverHistory, recentSearches]);
+  const trending = useMemo(() => trendingData ?? [], [trendingData]);
+  const categories = useMemo(() => categoriesData ?? [], [categoriesData]);
 
-  // Callback ref for anchor element
-  const setAnchorRef = useCallback((node: HTMLDivElement | null) => {
-    if (node !== null) {
-      setAnchorElement(node);
+  // Calculate total navigable items
+  const totalItems = useMemo(() => {
+    if (debouncedQuery) {
+      return suggestions.length + 1; // suggestions + "search for" option
     }
+    return recentSearches.length;
+  }, [debouncedQuery, suggestions.length, recentSearches.length]);
+
+  // ============ Handlers ============
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setQuery(e.target.value);
+    setFocusedIndex(-1);
+    if (!isOpen) setIsOpen(true);
+  }, [isOpen]);
+
+  const handleFocus = useCallback(() => {
+    setIsFocused(true);
+    setIsOpen(true);
   }, []);
 
-  const handleChange = useCallback(({ value }: { value: string }) => {
-    setQuery(value);
-    setFocusedIndex(-1);
-    if (value.length > 0 || history.length > 0 || trending.length > 0) {
-      setIsOpen(true);
-    }
-  }, [history.length, trending.length]);
-
-  const handleSubmit = useCallback((searchQuery?: string) => {
-    const finalQuery = (searchQuery ?? query).trim();
-    if (finalQuery) {
-      addRecentSearch(finalQuery);
-      navigate(`/search?q=${encodeURIComponent(finalQuery)}`);
-      setIsOpen(false);
-      setQuery('');
-    }
-  }, [query, navigate, addRecentSearch]);
-
-  const handleKeyDown = useCallback(
-    ({ event }: { event: React.KeyboardEvent<HTMLInputElement> }) => {
-      const totalItems = suggestions.length + (query ? 1 : 0); // +1 for "Search for" option
-      
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        if (focusedIndex >= 0 && focusedIndex < suggestions.length) {
-          handleSubmit(suggestions[focusedIndex]?.text);
-        } else {
-          handleSubmit();
-        }
-      } else if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        setIsOpen(true);
-        setFocusedIndex((prev) => Math.min(prev + 1, totalItems - 1));
-      } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        setFocusedIndex((prev) => Math.max(prev - 1, -1));
-      } else if (event.key === 'Escape') {
+  const handleBlur = useCallback(() => {
+    setIsFocused(false);
+    // Delay closing to allow click events on dropdown
+    setTimeout(() => {
+      if (!containerRef.current?.contains(document.activeElement)) {
         setIsOpen(false);
         setFocusedIndex(-1);
       }
-    },
-    [focusedIndex, suggestions, handleSubmit, query]
-  );
+    }, 150);
+  }, []);
 
-  const handleFocus = useCallback(() => {
-    if (query.length > 0 || history.length > 0 || trending.length > 0) {
-      setIsOpen(true);
-    }
-  }, [query.length, history.length, trending.length]);
+  const executeSearch = useCallback((searchQuery: string) => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return;
+    
+    // Add to recent searches
+    addRecentSearch(trimmed);
+    
+    // Navigate to search page
+    navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+    
+    // Reset state
+    setQuery('');
+    setIsOpen(false);
+    setFocusedIndex(-1);
+    inputRef.current?.blur();
+  }, [navigate, addRecentSearch]);
 
-  const handleSuggestionClick = useCallback((text: string) => {
-    handleSubmit(text);
-  }, [handleSubmit]);
+  const handleSelect = useCallback((selectedQuery: string) => {
+    executeSearch(selectedQuery);
+  }, [executeSearch]);
 
-  const handleHistoryClick = useCallback((text: string) => {
-    setQuery(text);
-    handleSubmit(text);
-  }, [handleSubmit]);
+  const handleRemoveRecent = useCallback((queryToRemove: string) => {
+    removeRecentSearch(queryToRemove);
+  }, [removeRecentSearch]);
 
-  const handleTrendingClick = useCallback((text: string) => {
-    setQuery(text);
-    handleSubmit(text);
-  }, [handleSubmit]);
-
-  const handleClearHistory = useCallback(() => {
+  const handleClearAllRecent = useCallback(() => {
     clearRecentSearches();
   }, [clearRecentSearches]);
+
+  const handleClear = useCallback(() => {
+    setQuery('');
+    setFocusedIndex(-1);
+    inputRef.current?.focus();
+  }, []);
+
+  const handleBackdropClick = useCallback(() => {
+    setIsOpen(false);
+    setFocusedIndex(-1);
+    inputRef.current?.blur();
+  }, []);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setIsOpen(true);
+        setFocusedIndex((prev) => Math.min(prev + 1, totalItems - 1));
+        break;
+        
+      case 'ArrowUp':
+        e.preventDefault();
+        setFocusedIndex((prev) => Math.max(prev - 1, -1));
+        break;
+        
+      case 'Enter':
+        e.preventDefault();
+        if (focusedIndex >= 0) {
+          // Select focused item
+          if (debouncedQuery) {
+            if (focusedIndex < suggestions.length) {
+              executeSearch(suggestions[focusedIndex]?.text ?? query);
+            } else {
+              executeSearch(query);
+            }
+          } else if (focusedIndex < recentSearches.length) {
+            executeSearch(recentSearches[focusedIndex] ?? '');
+          }
+        } else if (query.trim()) {
+          executeSearch(query);
+        }
+        break;
+        
+      case 'Escape':
+        e.preventDefault();
+        setIsOpen(false);
+        setFocusedIndex(-1);
+        inputRef.current?.blur();
+        break;
+    }
+  }, [focusedIndex, totalItems, query, debouncedQuery, suggestions, recentSearches, executeSearch]);
 
   // Close on click outside
   useEffect(() => {
     if (!isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        anchorElement && 
-        !anchorElement.contains(e.target as Node)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
         setFocusedIndex(-1);
       }
@@ -168,84 +248,113 @@ export const HeaderSearch: React.FC = () => {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, anchorElement]);
+  }, [isOpen]);
 
-  const showDropdown = isOpen && (
-    suggestions.length > 0 || 
-    (!debouncedQuery && (history.length > 0 || trending.length > 0)) ||
-    isSuggestionsLoading ||
-    debouncedQuery.length > 0
-  );
+  const showClearButton = query.length > 0;
 
   return (
-    <Box width="100%" ref={setAnchorRef}>
-      <SearchField
-        id="header-search"
-        accessibilityLabel="Search pins"
-        accessibilityClearButtonLabel="Clear search"
-        placeholder="Search for ideas..."
-        value={query}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        onFocus={handleFocus}
-        onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-        ref={inputRef}
-      />
-      
-      {showDropdown && anchorElement && (
-        <Popover
-          anchor={anchorElement}
-          onDismiss={() => setIsOpen(false)}
-          idealDirection="down"
-          positionRelativeToAnchor={false}
-          size="flexible"
-          color="white"
-        >
-          <Box padding={2} minWidth={350} maxWidth={500}>
-            {/* Loading state */}
-            {isSuggestionsLoading && debouncedQuery.length >= 2 && (
-              <Box padding={3} display="flex" justifyContent="center">
-                <Spinner accessibilityLabel="Loading suggestions" show size="sm" />
-              </Box>
-            )}
-            
-            {/* Suggestions dropdown */}
-            {!isSuggestionsLoading && (
-              <SuggestionDropdown
-                suggestions={suggestions}
-                trending={trending}
-                history={history}
-                onSuggestionClick={handleSuggestionClick}
-                onHistoryClick={handleHistoryClick}
-                onTrendingClick={handleTrendingClick}
-                onClearHistory={handleClearHistory}
-                focusedIndex={focusedIndex}
-                showTrending={!debouncedQuery}
-                showHistory={!debouncedQuery}
-              />
-            )}
-            
-            {/* Search for query option */}
-            {debouncedQuery && !isSuggestionsLoading && (
-              <TapArea onTap={() => handleSubmit()} rounding={2}>
-                <Box 
-                  padding={2} 
-                  rounding={2}
-                  color={focusedIndex === suggestions.length ? 'secondary' : 'transparent'}
+    <>
+      {/* Backdrop */}
+      {isOpen && (
+        <Layer zIndex={new FixedZIndex(Z_INDEX.DROPDOWN - 1)}>
+          <button
+            type="button"
+            onClick={handleBackdropClick}
+            aria-label="Close search dropdown"
+            style={searchStyles.backdrop}
+          />
+        </Layer>
+      )}
+
+      {/* Search Container */}
+      <Box
+        ref={containerRef}
+        position="relative"
+        width="100%"
+        zIndex={isOpen ? new FixedZIndex(Z_INDEX.DROPDOWN) : undefined}
+      >
+        {/* Input Container */}
+        <Box position="relative">
+          {/* Search Icon */}
+          <Box
+            position="absolute"
+            dangerouslySetInlineStyle={{
+              __style: {
+                left: '16px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+              },
+            }}
+          >
+            <Icon accessibilityLabel="" icon="search" size={20} color="subtle" />
+          </Box>
+
+          {/* Input */}
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Search for ideas..."
+            value={query}
+            onChange={handleInputChange}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            autoComplete="off"
+            style={{
+              ...searchStyles.input,
+              ...(isFocused ? searchStyles.inputFocused : {}),
+            }}
+          />
+
+          {/* Clear Button */}
+          {showClearButton && (
+            <Box
+              position="absolute"
+              dangerouslySetInlineStyle={{
+                __style: {
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                },
+              }}
+            >
+              <TapArea onTap={handleClear} rounding="circle" tapStyle="compress">
+                <Box
+                  width={28}
+                  height={28}
+                  rounding="circle"
+                  color="secondary"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
                 >
-                  <Flex alignItems="center" gap={2}>
-                    <Icon accessibilityLabel="" icon="search" size={16} color="default" />
-                    <Text size="200">
-                      Search for &quot;<Text weight="bold" inline>{debouncedQuery}</Text>&quot;
-                    </Text>
-                  </Flex>
+                  <Icon accessibilityLabel="Clear" icon="cancel" size={14} color="dark" />
                 </Box>
               </TapArea>
-            )}
-          </Box>
-        </Popover>
-      )}
-    </Box>
+            </Box>
+          )}
+        </Box>
+
+        {/* Dropdown */}
+        <SearchDropdown
+          isOpen={isOpen}
+          query={debouncedQuery}
+          focusedIndex={focusedIndex}
+          recentSearches={recentSearches}
+          trending={trending}
+          categories={categories}
+          suggestions={suggestions}
+          isLoadingSuggestions={isSuggestionsLoading}
+          onSelect={handleSelect}
+          onRemoveRecent={handleRemoveRecent}
+          onClearAllRecent={handleClearAllRecent}
+        />
+      </Box>
+
+      {/* Animation keyframes */}
+      <style>{animationStyles}</style>
+    </>
   );
 };
 

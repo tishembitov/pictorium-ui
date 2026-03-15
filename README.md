@@ -4,7 +4,7 @@
 
 Pinterest‑like web application UI built with React and Vite. Supports pin feed, boards, search, recommendations, notifications, chat, and Keycloak‑based authentication.
 
-> **Backend** —  — [pictorium](https://github.com/tishembitov/pictorium)
+> **Backend** — [pictorium](https://github.com/tishembitov/pictorium)
 
 </div>
 
